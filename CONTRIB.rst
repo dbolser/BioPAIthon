@@ -389,6 +389,7 @@ https://biopython.org
 - Timothy Dennis <https://github.com/timjden>
 - Tom Eulenfeld <https://github.com/trichter>
 - Tommy Carstensen <https://github.com/tommycarstensen>
+- Tony Tung <https://github.com/ttung>
 - Tyghe Vallard <https://github.com/necrolyte2>
 - Tyrone Lee <https://github.com/lee-t>
 - Uri Laserson <https://github.com/laserson>
