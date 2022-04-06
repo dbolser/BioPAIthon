@@ -69,6 +69,7 @@ https://biopython.org
 - Aziz Khan <https://github.com/asntech>
 - Barbara Mühlemann <https://github.com/bamueh>
 - Bart de Koning <bratdaking gmail>
+- Bart Grosman <https://github.com/Bartvelp>
 - Bartek Wilczynski <bartek at domain rezolwenta.eu.org>
 - Bartosz Telenczuk <bartosz.telenczuk at domain gmail.com>
 - Ben Fulton <https://github.com/benfulton>
