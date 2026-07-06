@@ -15,7 +15,7 @@ repos:
     -   id: mixed-line-ending
         exclude: \.bb$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.10
+    rev: v0.15.20
     hooks:
     # Run the Ruff linter.
     -   id: ruff-check
@@ -75,7 +75,7 @@ repos:
         '--ignore=D000,D001,D002,D004'
     ]
 -   repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.2
     hooks:
     -   id: codespell
         files: \.(rst|md)$
