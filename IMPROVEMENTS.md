@@ -87,10 +87,10 @@ objects.
 Reproduced:
 
 ```python
-r  = SeqRecord(Seq("ACGT"), annotations={"keywords": ["a", "b"]})
+r = SeqRecord(Seq("ACGT"), annotations={"keywords": ["a", "b"]})
 r2 = r + "TT"
 r2.annotations["keywords"].append("EVIL")
-r.annotations["keywords"]   # -> ['a', 'b', 'EVIL']
+r.annotations["keywords"]  # -> ['a', 'b', 'EVIL']
 ```
 
 The whole point of these methods returning a new record is that the original is
@@ -522,7 +522,7 @@ bodies in `_pairwisealigner.c:4593-5300`, `findPath`/`calcS`/`calcDM` in
 periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 **Effort M · Impact high**
 
-### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope statics
+### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope state
 
 No `Py_mod_gil`, `Py_MOD_GIL_NOT_USED` or `Py_GIL_DISABLED` anywhere; all 13
 modules use single-phase init with `m_size = -1`. A single-phase module without a
