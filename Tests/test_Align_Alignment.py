@@ -2684,6 +2684,10 @@ AT3G20900.ATGAACAAAGTAGCGAGGAAGAACAAAACATCAGGTGAACAAAAAAAAAACTCAATCCACATCAAAGTTA
 """,
         )
 
+    def test_writer_constructor_attribute_error(self):
+        with self.assertRaisesRegex(AttributeError, "has no attribute 'upper'"):
+            self.alignment.format("psl", wildcard=1)
+
     def test_sam(self):
         self.alignment.score = 100
         self.assertEqual(

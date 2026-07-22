@@ -2382,11 +2382,12 @@ class Alignment:
         if module.AlignmentIterator.mode == "b":
             raise ValueError(f"{fmt} is a binary file format")
         try:
-            writer = module.AlignmentWriter(None, *args, **kwargs)
+            writer = module.AlignmentWriter
         except AttributeError:
             raise ValueError(
                 f"Formatting alignments has not yet been implemented for the {fmt} format"
             ) from None
+        writer = writer(None, *args, **kwargs)
         return writer.format_alignment(self)
 
     def _format_pretty(self, matrix=None):
