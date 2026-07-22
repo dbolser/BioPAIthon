@@ -33,8 +33,6 @@ import unittest
 from io import StringIO
 from pkgutil import iter_modules
 
-from setuptools import find_packages
-
 try:
     import numpy as np
 except ImportError:
@@ -115,10 +113,26 @@ except ImportError:
 
 
 def find_modules(path):
+    packages = set()
+    for root, dirs, _ in os.walk(path, followlinks=True):
+        candidates = dirs[:]
+        dirs[:] = []
+        for name in candidates:
+            full_path = os.path.join(root, name)
+            if name == "__pycache__" or "." in name or not os.path.isfile(
+                os.path.join(full_path, "__init__.py")
+            ):
+                continue
+            package = os.path.relpath(full_path, path).replace(os.path.sep, ".")
+            if package == "ez_setup":
+                continue
+            packages.add(package)
+            dirs.append(name)
+
     modules = set()
-    for pkg in find_packages(path):
+    for pkg in packages:
         modules.add(pkg)
-        pkgpath = path + "/" + pkg.replace(".", "/")
+        pkgpath = os.path.join(path, *pkg.split("."))
         for info in iter_modules([pkgpath]):
             if not info.ispkg:
                 modules.add(pkg + "." + info.name)
