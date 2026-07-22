@@ -20,6 +20,7 @@ except ImportError:
 
 from Bio import Align
 from Bio import SeqIO
+from Bio.Align import _aligncore
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.Seq import translate
@@ -38,6 +39,38 @@ class TestAlignment(unittest.TestCase):
         self.assertEqual(len(alignment.sequences), 0)
         self.assertEqual(alignment.shape, (0, 0))
         self.assertEqual(alignment.coordinates.shape, (0, 0))
+
+    def test_parse_printed_alignment_ragged_lines(self):
+        lines = [b"ACGT-", b"AC"]
+        with self.assertRaisesRegex(ValueError, r"line has length 2 \(expected 5\)"):
+            Align.Alignment.parse_printed_alignment(lines)
+
+
+class TestPrintedAlignmentParser(unittest.TestCase):
+    def test_feed_offset(self):
+        parser = _aligncore.PrintedAlignmentParser()
+        self.assertEqual(parser.feed(b"prefixAC-GT", 6), (5, b"ACGT"))
+        parser = _aligncore.PrintedAlignmentParser()
+        self.assertEqual(parser.feed(b"ACGT", 4), (0, b""))
+
+    def test_feed_offset_out_of_bounds(self):
+        for offset in (-1, 5):
+            with self.subTest(offset=offset):
+                parser = _aligncore.PrintedAlignmentParser()
+                with self.assertRaisesRegex(
+                    ValueError, rf"offset {offset} is outside the line of length 4"
+                ):
+                    parser.feed(b"ACGT", offset)
+
+    def test_feed_ragged_lines(self):
+        parser = _aligncore.PrintedAlignmentParser()
+        parser.feed(b"ACGT-")
+        with self.assertRaisesRegex(ValueError, r"line has length 2 \(expected 5\)"):
+            parser.feed(b"AC")
+        with self.assertRaisesRegex(ValueError, r"line has length 6 \(expected 5\)"):
+            parser.feed(b"ACGT--")
+        self.assertEqual(parser.feed(b"A-GT-"), (5, b"AGT"))
+        self.assertEqual(parser.shape, (2, 5))
 
 
 class TestPairwiseAlignment(unittest.TestCase):
