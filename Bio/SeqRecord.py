@@ -1406,9 +1406,9 @@ class SeqRecord:
             def key_fun(f):
                 """Sort on start position."""
                 try:
-                    return int(f.location.start)
+                    return (0, int(f.location.start))
                 except TypeError:  # Expected for UnknownPosition
-                    return None
+                    return (1, 0)
 
             answer.features.sort(key=key_fun)
         if isinstance(annotations, dict):
