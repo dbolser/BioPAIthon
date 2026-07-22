@@ -907,6 +907,8 @@ def index(filename, format, alphabet=None, key_function=None):
     See Also: Bio.SeqIO.index_db() and Bio.SeqIO.to_dict()
 
     """
+    from os import fspath
+
     # Try and give helpful error messages:
     if not isinstance(format, str):
         raise TypeError("Need a string for the file format (lower case)")
@@ -934,11 +936,13 @@ def index(filename, format, alphabet=None, key_function=None):
     )
 
     try:
-        random_access_proxy = proxy_class(filename, format)
+        fspath(filename)
     except TypeError:
         raise TypeError(
             "Need a string or path-like object for the filename (not a handle)"
         ) from None
+
+    random_access_proxy = proxy_class(filename, format)
 
     return _IndexedSeqFileDict(random_access_proxy, key_function, repr, "SeqRecord")
 
