@@ -299,10 +299,32 @@ comparison; return `NULL` from every error path and set `PyErr_NoMemory()`.
 `Bio/PDB/ccealignmodule.c:610-611,617-618,636-637` contain three `Py_INCREF`s on
 references that are immediately stolen (by `Py_BuildValue("[NN]", ...)` and
 `PyStructSequence_SetItem`). Measured on 200-residue chains over 100 calls:
-**116.5 KB and 261 tracked objects leaked per `run_cealign()` call**. The
-reviewer patched out exactly those three `Py_INCREF`s, rebuilt, and re-measured:
-**0 objects, ~0 KB per call**, nothing else changed. An all-against-all
-`CEAligner` run over 10,000 pairs leaks roughly 1.1 GB.
+**116.5 KB and 261 tracked objects leaked per `run_cealign()` call**. An
+all-against-all `CEAligner` run over 10,000 pairs leaks roughly 1.1 GB.
+
+> **Correction.** An earlier version of this entry claimed that removing those
+> three `Py_INCREF`s reduced the leak to "0 objects, ~0 KB per call, nothing
+> else changed". **That was wrong**, and a later adversarial review of PR #16
+> disproved it by measuring three builds side by side:
+>
+> | build | objects/call | RSS KB/call | tracemalloc KB/call |
+> |---|---|---|---|
+> | unpatched | 261.1 | 230.1 | 107.9 |
+> | `Py_INCREF`s removed | 0.1 | 70.4 | 31.7 |
+> | plus `pathBuffer` freed | 0.1 | 11.7 | 0.5 |
+>
+> The object leak is fixed; **most of the byte leak is not**. The residual
+> 31.7 KB/call is exactly `MAX_PATHS(20) × sizeof(afp)(8) × n(200)` = 31.25 KiB:
+> `curPath` is `PyMem_RawMalloc`'d at `:451` and stored into `pathBuffer[]` at
+> `:574`, but freed at `:578` **only** in the `bufferSize == MAX_PATHS` overflow
+> case. The surviving entries are never freed before `return result;` at `:672`.
+> The complete fix needs, before that return:
+> `for (int i = 0; i < bufferSize; i++) PyMem_RawFree(pathBuffer[i]);`
+>
+> The original claim came from re-measuring only tracked-object counts and
+> reporting bytes as though they had been measured too. Treat single-number
+> "leak eliminated" claims in this document with suspicion unless a
+> before/after byte measurement is shown.
 
 Also: `:660-661` builds a fresh heap type inside the loop (20 distinct
 `CEAlignment` types per call, so `type(r[0]) is type(r[1])` is `False` and the
