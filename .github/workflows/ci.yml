@@ -111,43 +111,10 @@ jobs:
       run: |
         python -m build --sdist
 
-  build_wheels:
-    needs: [style]
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-2022]
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v7
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install Python packaging tools
-      run: |
-        python -m pip install --upgrade pip setuptools wheel build
-
-    - name: Build wheel
-      run: |
-        python -m build --wheel
-
-    # - name: Archive wheels
-    #   uses: actions/upload-artifact@v2
-    #   with:
-    #     name: biopython_wheels
-    #     path: |
-    #       dist/*whl
-    #
-    # - name: Fetch archived wheels from previous jobs
-    #   uses: actions/download-artifact@v2
-    #   with:
-    #     name: biopython_wheels
-    #     path: dist
-
+  # Note: CI deliberately does not build wheels. Compiling the C extensions on
+  # each OS is already covered by the test jobs below, which all `pip install .`
+  # from source. Real, installable, import-tested wheels are built by
+  # release.yml using cibuildwheel.
 
   # Run tests in parallel across Linux, MacOS, and Windows
   # hosts (thus the three steps and not the single matrix entry).
@@ -162,7 +129,7 @@ jobs:
   # Linux is where the thorough tests run. Install all dependencies and run all (offline) tests.
   test_linux:
     timeout-minutes: 20
-    needs: [style, build, build_wheels, linux_prep]
+    needs: [style, build, linux_prep]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -219,7 +186,7 @@ jobs:
 
   test_macos:
     timeout-minutes: 15
-    needs: [style, build, build_wheels]
+    needs: [style, build]
     runs-on: macos-latest
     strategy:
       matrix:
@@ -265,7 +232,7 @@ jobs:
 
   test_windows:
     timeout-minutes: 15
-    needs: [style, build, build_wheels]
+    needs: [style, build]
     runs-on: windows-2022
     strategy:
       matrix:
@@ -311,7 +278,7 @@ jobs:
 
   test_pypy:
     timeout-minutes: 20  # a little more time
-    needs: [style, build, build_wheels]
+    needs: [style, build]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -392,12 +359,3 @@ jobs:
       run: |
         make -C Doc html
       shell: bash
-
-  cleanup_wheels:
-    if: always()
-    needs: [build_wheels]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: geekyeggo/delete-artifact@v6
-        with:
-          name: biopython_wheels
