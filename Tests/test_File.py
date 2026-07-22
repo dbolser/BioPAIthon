@@ -67,6 +67,27 @@ class AsHandleTestCase(unittest.TestCase):
                 "Exiting as_handle given a file-like object should not close the file",
             )
 
+    def test_type_error_in_context(self):
+        """Test that a TypeError raised inside the context is preserved."""
+        p = self._path("test_file.fasta")
+        error = TypeError("parser failure")
+        with self.assertRaises(TypeError) as caught:
+            with File.as_handle(p, mode="wb") as handle:
+                raise error
+        self.assertIs(caught.exception, error)
+        self.assertTrue(handle.closed)
+
+    def test_type_error_opening_handle(self):
+        """Test that an object rejected by open is treated as a handle."""
+
+        class Handle:
+            def __fspath__(self):
+                raise TypeError("not path-like")
+
+        handleish = Handle()
+        with File.as_handle(handleish) as handle:
+            self.assertIs(handle, handleish)
+
     def test_string_path(self):
         """Test as_handle with a string path argument."""
         p = self._path("test_file.fasta")
