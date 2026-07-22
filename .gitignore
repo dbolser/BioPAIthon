@@ -42,6 +42,7 @@ MANIFEST
 
 #Ignore potential directory created during install:
 biopython.egg-info
+biopaithon.egg-info
 
 #The graphics unit tests produce output files for human inspection
 #(at the time of writing, only PDF and PNG files are created)
