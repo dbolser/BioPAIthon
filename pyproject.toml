@@ -184,6 +184,15 @@ build-frontend = "build"
 # silently shipped no C extensions would otherwise pass this check.
 test-command = 'python -c "import Bio, Bio.Align._aligncore, Bio.Align._alignmentcounts, Bio.Align._codonaligner, Bio.Align._pairwisealigner, Bio.Align.substitution_matrices._arraycore, Bio.cpairwise2, Bio.Nexus.cnexus, Bio.motifs._pwm, Bio.Cluster._cluster, Bio.PDB.ccealign, Bio.PDB.kdtrees, Bio.PDB._bcif_helper, Bio.SeqIO._twoBitIO; print(Bio.__version__)"'
 
+# GitHub retired the macos-13 (Intel) runners and deprecated macos-14, so all
+# macOS wheels are built on an arm64 runner. x86_64 is cross-compiled there.
+# cibuildwheel cannot run an x86_64 wheel on an arm64 host, so it skips the
+# test-command for those: Intel Mac wheels are build-verified but not
+# import-tested. Free runners have no Intel macOS host; the macos-15-intel
+# labels are the "large" class and are generally billable.
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
 [dependency-groups]
 dev = [
     "setuptools>=77",

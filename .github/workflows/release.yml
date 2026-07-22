@@ -50,8 +50,7 @@ jobs:
         os:
           - ubuntu-latest      # x86_64 manylinux + musllinux
           - ubuntu-24.04-arm   # aarch64; drop this entry if the repo is private
-          - macos-13           # x86_64
-          - macos-14           # arm64 (Apple silicon)
+          - macos-15           # arm64 host; also cross-builds x86_64, see pyproject
           - windows-latest     # AMD64
     steps:
       - uses: actions/checkout@v4
