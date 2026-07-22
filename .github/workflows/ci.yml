@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
     - uses: actions/checkout@v7
@@ -127,13 +127,16 @@ jobs:
   #
 
   # Linux is where the thorough tests run. Install all dependencies and run all (offline) tests.
+  # Every supported CPython is compiled and tested here. This is what replaces
+  # the old build_wheels matrix: that only proved the C extensions compiled,
+  # whereas these jobs compile them and then run the suite against them.
   test_linux:
     timeout-minutes: 20
     needs: [style, build, linux_prep]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
 
