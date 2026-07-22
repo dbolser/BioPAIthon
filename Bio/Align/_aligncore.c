@@ -132,6 +132,7 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
     Py_ssize_t i = 0;
     Py_ssize_t p = 0;
     Py_ssize_t offset = 0;
+    Py_ssize_t line_length;
     Py_ssize_t start, end, step;
     Py_uintptr_t** data;
     Py_uintptr_t* row;
@@ -140,16 +141,27 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
 
     if (!PyArg_ParseTuple(args, "S|n:feed", &line, &offset)) return NULL;
 
+    line_length = PyBytes_GET_SIZE(line);
+    if (offset < 0 || offset > line_length) {
+        PyErr_Format(PyExc_ValueError,
+                     "offset %zd is outside the line of length %zd",
+                     offset, line_length);
+        return NULL;
+    }
     buffer = PyBytes_AS_STRING(line) + offset;
 
     s = buffer;
     row = PyMem_Malloc(size*sizeof(Py_uintptr_t));
-    if (!row) return NULL;
+    if (!row) {
+        PyErr_NoMemory();
+        return NULL;
+    }
     if (*s == '-') row[i++] = 0;
 
     data = PyMem_Realloc(self->data, (n+1)*size*sizeof(Py_uintptr_t*));
     if (!data) {
         PyMem_Free(row);
+        PyErr_NoMemory();
         return NULL;
     }
     self->data = data;
@@ -172,6 +184,7 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
             row = PyMem_Realloc(row, size*sizeof(Py_uintptr_t));
             if (!row) {
                 PyMem_Free(data[n]);
+                PyErr_NoMemory();
                 return NULL;
             }
             data[n] = row;
@@ -181,12 +194,13 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
     row = PyMem_Realloc(row, i*sizeof(Py_uintptr_t));
     if (!row) {
         PyMem_Free(data[n]);
+        PyErr_NoMemory();
         return NULL;
     }
     data[n] = row;
     m = s - buffer;
     if (n == 0) self->m = m;
-    else if (buffer + m != s) {
+    else if (m != self->m) {
         PyErr_Format(PyExc_ValueError,
                      "line has length %zd (expected %zd)", m, self->m);
         PyMem_Free(row);
@@ -246,6 +260,7 @@ PyDoc_STRVAR(
 static PyObject*
 Parser_fill(Parser* self, PyObject* args)
 {
+    PyObject* result = NULL;
     Py_buffer view;
     Py_ssize_t i, j, k, n, m, p;
     Py_ssize_t start;
@@ -277,13 +292,22 @@ Parser_fill(Parser* self, PyObject* args)
     m = self->m;
 
     starts = PyMem_Calloc(n, sizeof(Py_ssize_t));
-    if (!starts) goto exit;
+    if (!starts) {
+        PyErr_NoMemory();
+        goto exit;
+    }
 
     gaps = PyMem_Malloc(n * sizeof(bool));
-    if (!gaps) goto exit;
+    if (!gaps) {
+        PyErr_NoMemory();
+        goto exit;
+    }
 
     data = PyMem_Malloc(n * sizeof(Py_ssize_t*));
-    if (!data) goto exit;
+    if (!data) {
+        PyErr_NoMemory();
+        goto exit;
+    }
 
     for (i = 0; i < n; i++) {
         data[i] = self->data[i];
@@ -318,13 +342,14 @@ Parser_fill(Parser* self, PyObject* args)
         start = end;
     }
     while (start < m);
+    result = Py_NewRef(Py_None);
 
 exit:
     PyBuffer_Release(&view);
     if (starts) PyMem_Free(starts);
     if (data) PyMem_Free(data);
     if (gaps) PyMem_Free(gaps);
-    Py_RETURN_NONE;
+    return result;
 }
 
 PyDoc_STRVAR(
@@ -346,7 +371,10 @@ Parser_get_shape(Parser* self, void* closure)
 
     if (n > 0) {
         data = PyMem_Malloc(n * sizeof(Py_uintptr_t*));
-        if (!data) return NULL;
+        if (!data) {
+            PyErr_NoMemory();
+            return NULL;
+        }
         memcpy(data, self->data, n*sizeof(Py_uintptr_t*));
         for (i = 0; i < n; i++) {
             index = *(data[i]);
