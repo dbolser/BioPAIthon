@@ -52,6 +52,15 @@ What has **not** changed:
 The distribution name on PyPI would be ``biopaithon`` rather than
 ``biopython``, and the default branch is now ``main`` rather than ``master``.
 
+``ProteinAnalysis.flexibility()`` now includes the actual center residue of
+each nine-residue window and includes the final complete window. This corrects
+a bug present since the method was introduced, but intentionally changes every
+previously calculated profile for sequences of at least nine residues: a
+sequence of length N now returns N - 8 values instead of N - 9, and the numeric
+values differ. The method remains a smoothed profile using the averaged
+normalized B-values from Vihinen et al.; it does not implement the paper's
+neighbor-specific parameter tables.
+
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
