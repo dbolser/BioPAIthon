@@ -636,6 +636,25 @@ class StringMethodTests(unittest.TestCase):
         self.assertEqual(next(matches), (5, "CG"))
         self.assertRaises(StopIteration, next, matches)
 
+    def test_search_final_position(self):
+        """Check search includes the final valid starting position."""
+        substrings = ("E", Seq("E"), MutableSeq("E"), b"E", bytearray(b"E"))
+        for sequence_type in (Seq, MutableSeq):
+            sequence = sequence_type("ABCDE")
+            for substring in substrings:
+                with self.subTest(
+                    sequence_type=sequence_type, substring_type=type(substring)
+                ):
+                    self.assertEqual(list(sequence.search([substring])), [(4, "E")])
+
+            self.assertEqual(
+                list(sequence.search(["E", "DE", "CDE", "ABCDE"])),
+                [(0, "ABCDE"), (2, "CDE"), (3, "DE"), (4, "E")],
+            )
+            self.assertEqual(list(sequence_type("A").search(["A"])), [(0, "A")])
+            self.assertEqual(list(sequence_type("").search(["A"])), [])
+            self.assertEqual(list(sequence.search([])), [])
+
     def test_MutableSeq_setitem(self):
         """Check setting sequence contents of a MutableSeq object."""
         m = MutableSeq("ABCD")
