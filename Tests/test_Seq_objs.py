@@ -852,6 +852,27 @@ class StringMethodTests(unittest.TestCase):
         self.assertEqual(Seq("tan").translate(), "X")
         self.assertEqual(Seq("nnn").translate(), "X")
 
+    def test_module_translate_gap(self):
+        """Check Bio.Seq.translate() handles gaps consistently."""
+        for gap in ("-", "+", "."):
+            nucleotide = f"ATG{gap * 3}TAA"
+            protein = f"M{gap}*"
+            with self.subTest(gap=gap):
+                self.assertEqual(translate(nucleotide, gap=gap), protein)
+                for sequence_type in (Seq, MutableSeq):
+                    result = translate(sequence_type(nucleotide), gap=gap)
+                    self.assertEqual(result, Seq(protein))
+                    self.assertIsInstance(result, Seq)
+
+        nucleotide = "ATG---TAA"
+        for sequence_type in (str, Seq, MutableSeq):
+            for kwargs in ({}, {"gap": None}):
+                with (
+                    self.subTest(sequence_type=sequence_type, kwargs=kwargs),
+                    self.assertRaises(TranslationError),
+                ):
+                    translate(sequence_type(nucleotide), **kwargs)
+
     def test_the_translation_of_invalid_codons(self):
         """Check obj.translate() method with invalid codons."""
         for codon in ["TA?", "N-N", "AC_", "Ac_"]:

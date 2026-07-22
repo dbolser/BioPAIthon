@@ -3004,10 +3004,10 @@ def translate(
     ValueError: You cannot use 'to_stop=True' with this table ...
     """
     if isinstance(sequence, Seq):
-        return sequence.translate(table, stop_symbol, to_stop, cds)
+        return sequence.translate(table, stop_symbol, to_stop, cds, gap=gap)
     elif isinstance(sequence, MutableSeq):
         # Return a Seq object
-        return Seq(sequence).translate(table, stop_symbol, to_stop, cds)
+        return Seq(sequence).translate(table, stop_symbol, to_stop, cds, gap=gap)
     else:
         # Assume it's a string, return a string
         return _translate_str(sequence, table, stop_symbol, to_stop, cds, gap=gap)
