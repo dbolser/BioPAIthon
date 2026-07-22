@@ -24,6 +24,13 @@ from Bio.PDB.Residue import Residue
 _AtomT = TypeVar("_AtomT", bound="Atom")
 
 
+def _isclose(a: float | None, b: float | None) -> bool:
+    """Return whether two optional numbers are equal within a tolerance."""
+    if a is None or b is None:
+        return a is None and b is None
+    return bool(np.isclose(a, b))
+
+
 class Atom:
     """Define Atom class.
 
@@ -288,11 +295,15 @@ class Atom:
 
         return (
             self.name == other.name
-            and np.isclose(self.bfactor, other.bfactor)
-            and np.isclose(self.occupancy, other.occupancy)
+            and _isclose(self.bfactor, other.bfactor)
+            and _isclose(self.occupancy, other.occupancy)
             and self.altloc == other.altloc
             and self.fullname == other.fullname
-            and (np.allclose(self.coord, other.coord) if compare_coordinates else True)
+            and (
+                bool(np.allclose(self.coord, other.coord))
+                if compare_coordinates
+                else True
+            )
             and getattr(self, "element", None) == getattr(self, "element", None)
             and getattr(self, "pqr_charge", None) == getattr(self, "pqr_charge", None)
             and getattr(self, "radius", None) == getattr(self, "radius", None)

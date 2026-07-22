@@ -206,6 +206,17 @@ class SortingTests(unittest.TestCase):
             structure2.strictly_equals(structure, compare_coordinates=True)
         )  # Strict equality should be symmetric
 
+    def test_strict_equality_with_missing_values(self):
+        """Strict equality handles missing B factors and occupancies."""
+
+        def atom(bfactor, occupancy):
+            return Atom.Atom("CA", np.zeros(3), bfactor, occupancy, " ", " CA ", 1, "C")
+
+        missing = atom(None, None)
+        self.assertTrue(missing.strictly_equals(atom(None, None)))
+        self.assertFalse(missing.strictly_equals(atom(0.0, None)))
+        self.assertFalse(missing.strictly_equals(atom(None, 1.0)))
+
     def test_residue_sort(self):
         """Test atoms are sorted correctly in residues."""
         parser = PDBParser()
