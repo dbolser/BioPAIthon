@@ -69,10 +69,12 @@ def as_handle(handleish, mode="r", **kwargs):
 
     """
     try:
-        with open(handleish, mode, **kwargs) as fp:
-            yield fp
+        fp = open(handleish, mode, **kwargs)
     except TypeError:
         yield handleish
+    else:
+        with fp:
+            yield fp
 
 
 def _open_for_random_access(filename):
