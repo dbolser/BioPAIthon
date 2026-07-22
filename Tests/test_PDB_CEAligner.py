@@ -6,6 +6,8 @@
 # package.
 """Unit tests for the Bio.PDB.CEAligner module."""
 
+import platform
+import sys
 import unittest
 
 try:
@@ -19,6 +21,7 @@ except ImportError:
 
 from Bio.PDB import CEAligner
 from Bio.PDB import MMCIFParser
+from Bio.PDB.ccealign import run_cealign
 
 
 class CEAlignerTests(unittest.TestCase):
@@ -104,6 +107,23 @@ class CEAlignerTests(unittest.TestCase):
         aligner.align(s2)
 
         self.assertAlmostEqual(aligner.rms, 0.0, places=3)
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython",
+        "CPython reference counts are required",
+    )
+    def test_ccealign_reference_ownership(self):
+        """Test that run_cealign does not retain stolen references."""
+        coords = [[float(i), 0.0, 0.0] for i in range(16)]
+        results = run_cealign(coords, coords, 8, 30)
+        self.assertEqual(sys.getrefcount(results), 2)
+
+        pair = results[0].path
+        self.assertEqual(sys.getrefcount(pair), 3)
+
+        path_a, path_b = pair
+        self.assertEqual(sys.getrefcount(path_a), 3)
+        self.assertEqual(sys.getrefcount(path_b), 3)
 
 
 if __name__ == "__main__":
