@@ -22,7 +22,7 @@ from Bio.Entrez import Parser
 
 # This lets us set the email address to be sent to NCBI Entrez:
 Entrez.email = "biopython@biopython.org"
-Entrez.api_key = "5cfd4026f9df285d6cfc723c662d74bcbe09"
+Entrez.api_key = "offline-test-api-key"
 
 URL_HEAD = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
