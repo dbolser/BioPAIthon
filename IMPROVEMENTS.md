@@ -729,7 +729,13 @@ list into an `env:` var and quote it, or drop `tj-actions/changed-files` and run
 `pre-commit run --all-files`. Add a `pip` ecosystem to Dependabot.
 **Effort S · Impact high**
 
-### 3.2 CI builds 15 wheels per run; none is installable, tested, or published
+### 3.2 CI builds 15 wheels per run; none is installable, tested, or published **[FIXED]**
+
+> **Status: fixed.** PR #4 (`96aba7bda`) removed `build_wheels` and the dead
+> `cleanup_wheels` job. `release.yml` now builds real wheels with cibuildwheel,
+> import-tests all 13 compiled extensions in each, and publishes on a `v*` tag
+> via Trusted Publishing. `biopaithon 1.88.dev0` shipped 35 wheels plus an
+> sdist. Job runs per push: 29 → 19.
 
 `ci.yml:114-136` runs a 3-OS × 5-Python matrix whose only step is
 `python -m build --wheel`. The upload step is commented out (`:138-149`), so
@@ -762,7 +768,12 @@ expression is empty.
 `CACHE_EPOCH` to the key; fix the docs job key.
 **Effort S · Impact high**
 
-### 3.4 Two of five supported Pythons are tested; MySQL is started but unusable
+### 3.4 Two of five supported Pythons are tested; MySQL is started but unusable **[PARTLY FIXED]**
+
+> **Status: the Python-matrix half is fixed.** PR #4 extended `test_linux` and
+> `linux_prep` to 3.10–3.14, so every advertised version is now compiled *and*
+> tested rather than compiled and discarded. macOS and Windows still run only
+> 3.10 and 3.14, and the MySQL/BioSQL half below is untouched.
 
 Wheels are built for 3.10–3.14 (`ci.yml:119`) and `pyproject.toml:23-32`
 advertises all five, but every test matrix is `["3.10","3.14"]`
