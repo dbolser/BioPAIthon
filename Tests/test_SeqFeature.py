@@ -60,6 +60,10 @@ class TestReference(unittest.TestCase):
 class TestSimpleLocation(unittest.TestCase):
     """Tests for the SeqFeature.SimpleLocation class."""
 
+    def test_bool(self):
+        self.assertTrue(SimpleLocation(5, 5))
+        self.assertTrue(SimpleLocation(5, 10))
+
     def test_offsets(self):
         """Test adding and subtracting integer offsets."""
         loc1 = SimpleLocation(23, 42, -1)
@@ -146,6 +150,17 @@ class TestSimpleLocation(unittest.TestCase):
 class TestCompoundLocation(unittest.TestCase):
     """Tests for the SeqFeature.CompoundLocation class."""
 
+    def test_bool(self):
+        location = CompoundLocation(
+            [SimpleLocation(5, 5), SimpleLocation(10, 10)]
+        )
+        self.assertEqual(len(location), 0)
+        self.assertTrue(location)
+        location = CompoundLocation(
+            [SimpleLocation(5, 10), SimpleLocation(15, 20)]
+        )
+        self.assertTrue(location)
+
     def test_eq_identical(self):
         """Test two identical locations are equal."""
         loc1 = SimpleLocation(12, 17, 1) + SimpleLocation(23, 42, 1)
@@ -183,6 +198,17 @@ class TestCompoundLocation(unittest.TestCase):
 
 class TestSeqFeature(unittest.TestCase):
     """Tests for the SeqFeature.SeqFeature class."""
+
+    def test_bool_with_zero_length_location(self):
+        simple = SimpleLocation(5, 5)
+        compound = CompoundLocation(
+            [SimpleLocation(5, 5), SimpleLocation(10, 10)]
+        )
+        for location in (simple, compound):
+            with self.subTest(location=location):
+                feature = SeqFeature(location)
+                self.assertEqual(len(feature), 0)
+                self.assertTrue(feature)
 
     def test_eq_identical(self):
         f1 = SeqFeature(
