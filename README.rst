@@ -1,3 +1,13 @@
+.. image:: https://github.com/dbolser/BioPAIthon/actions/workflows/ci.yml/badge.svg?branch=main
+   :alt: CI status
+   :target: https://github.com/dbolser/BioPAIthon/actions/workflows/ci.yml
+.. image:: https://img.shields.io/pypi/v/biopaithon.svg?logo=pypi&logoColor=white
+   :alt: BioPAIthon on the Python Package Index (PyPI)
+   :target: https://pypi.org/project/biopaithon/
+.. image:: https://img.shields.io/pypi/pyversions/biopaithon.svg?logo=python&logoColor=white
+   :alt: Supported Python versions
+   :target: https://pypi.org/project/biopaithon/
+
 BioPAIthon README file
 ======================
 
@@ -77,17 +87,21 @@ scientific work.
 For the impatient
 =================
 
-BioPAIthon is not currently published on PyPI, so install it from source::
+BioPAIthon is published on PyPI as ``biopaithon``. The current release is a
+*developmental* release, so pip needs ``--pre`` to select it::
 
-    pip install git+https://github.com/dbolser/BioPAIthon.git
+    pip install --pre biopaithon
 
 Note that BioPAIthon installs the same ``Bio`` package that Biopython does, so
 the two conflict and cannot be used side by side in one environment. Use a
 virtual environment if you need both.
 
-Upstream Biopython, by contrast, is on PyPI and has shipped pre-compiled
-binary wheels for Linux, macOS and Windows since 1.70, so installing it is
-quick and needs no compiler::
+Binary wheels are published for CPython 3.10 to 3.14 on Linux (x86-64 and
+aarch64, both manylinux and musllinux), macOS (Intel and Apple silicon) and
+Windows, so installation needs no compiler. A source distribution is published
+too.
+
+Upstream Biopython is on PyPI under its own name::
 
     pip install biopython
 
@@ -152,8 +166,8 @@ install such as standalone NCBI BLAST, EMBOSS or ClustalW.
 Installation From Source
 ========================
 
-BioPAIthon does not publish binary wheels, so installing it means compiling
-the C extensions yourself. The following are required at compile time:
+Most people should use the pre-compiled wheels described above. If you need to
+compile BioPAIthon yourself, the following are required at compile time:
 
 - Python including development header files like ``python.h``, which on Linux
   are often not installed by default (trying looking for and installing a
