@@ -159,13 +159,25 @@ class ProteinAnalysis:
         No argument to change window size because parameters are specific for
         a window=9. The parameters used are optimized for determining the
         flexibility.
+
+        This uses the averaged normalized B-values reported by Vihinen et al.
+        with their linear weights of 0.25 at the window edges and 1.0 at the
+        center. It does not use the paper's neighbor-specific parameter tables.
+
+        One value is returned for each complete nine-residue window. Thus a
+        sequence of length N returns max(N - 8, 0) values, corresponding to
+        the window-center residues at indices 4 through N - 5.
+
+        Prior to BioPAIthon 1.88, the center residue was accidentally ignored
+        and the last complete window was omitted. Correcting those bugs changes
+        both the values and length of profiles returned by older versions.
         """
         flexibilities = ProtParamData.Flex
         window_size = 9
         weights = [0.25, 0.4375, 0.625, 0.8125, 1]
         scores = []
 
-        for i in range(self.length - window_size):
+        for i in range(self.length - window_size + 1):
             subsequence = self.sequence[i : i + window_size]
             score = 0.0
 
@@ -174,7 +186,7 @@ class ProteinAnalysis:
                 back = subsequence[window_size - j - 1]
                 score += (flexibilities[front] + flexibilities[back]) * weights[j]
 
-            middle = subsequence[window_size // 2 + 1]
+            middle = subsequence[window_size // 2]
             score += flexibilities[middle]
 
             scores.append(score / 5.25)
