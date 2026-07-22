@@ -1,17 +1,24 @@
 [build-system]
-requires = ["setuptools>=74.1", "wheel"]
+# >=77 is required for the PEP 639 `license` string and `license-files` list
+# below; it also covers the >=74.1 needed for the ext-modules table.
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "biopython"
+name = "biopaithon"
 dynamic = ["version"]
-description = "Freely available tools for computational molecular biology."
+description = "Freely available tools for computational molecular biology - a fork of Biopython open to contributors of every kind."
 readme = "README.rst"
 requires-python = ">=3.10"
 license = "LicenseRef-Biopython-License-Agreement"
 license-files = ["LICENSE.rst"]
+# Authorship stays with the Biopython contributors, who wrote essentially all
+# of this code. BioPAIthon is a downstream fork, not a new work.
 authors = [
     {name = "The Biopython Contributors", email = "biopython@biopython.org"}
+]
+maintainers = [
+    {name = "The BioPAIthon Contributors"}
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -34,10 +41,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://biopython.org/"
-Documentation = "https://biopython.org/wiki/Documentation"
-Source = "https://github.com/biopython/biopython/"
-Tracker = "https://github.com/biopython/biopython/issues"
+Homepage = "https://github.com/dbolser/BioPAIthon/"
+Source = "https://github.com/dbolser/BioPAIthon/"
+Tracker = "https://github.com/dbolser/BioPAIthon/issues"
+"Upstream project" = "https://biopython.org/"
+"Upstream documentation" = "https://biopython.org/wiki/Documentation"
 
 [tool.setuptools]
 include-package-data = true
@@ -164,7 +172,19 @@ sources = ["Bio/PDB/bcifhelpermodule.c"]
 name = "Bio.SeqIO._twoBitIO"
 sources = ["Bio/SeqIO/_twoBitIO.c"]
 
+# Wheel build settings, shared by .github/workflows/release.yml and any local
+# `cibuildwheel` run, so the two cannot drift.
+[tool.cibuildwheel]
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+# 32-bit targets are unsupported. PyPy is skipped for now: it is supported via
+# the sdist, but the C extensions are not exercised on PyPy in CI yet.
+skip = ["*_i686", "*-win32", "pp*"]
+build-frontend = "build"
+# Import every compiled extension explicitly. A wheel that imports `Bio` but
+# silently shipped no C extensions would otherwise pass this check.
+test-command = 'python -c "import Bio, Bio.Align._aligncore, Bio.Align._alignmentcounts, Bio.Align._codonaligner, Bio.Align._pairwisealigner, Bio.Align.substitution_matrices._arraycore, Bio.cpairwise2, Bio.Nexus.cnexus, Bio.motifs._pwm, Bio.Cluster._cluster, Bio.PDB.ccealign, Bio.PDB.kdtrees, Bio.PDB._bcif_helper, Bio.SeqIO._twoBitIO; print(Bio.__version__)"'
+
 [dependency-groups]
 dev = [
-    "setuptools>=74.1.0",
+    "setuptools>=77",
 ]

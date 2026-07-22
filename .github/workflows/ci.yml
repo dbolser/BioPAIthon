@@ -6,14 +6,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Run on pull requests and push events to master only
+# Run on pull requests and push events to main only
 on:
   pull_request:
     branches:
-      - master
+      - main
   push:
     branches:
-      - master
+      - main
 
 permissions:
   contents: read

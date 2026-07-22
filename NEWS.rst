@@ -1,14 +1,56 @@
-News for the Biopython Project
-==============================
+News for BioPAIthon
+===================
 
 This NEWS file contains release notes covering major additions or changes.
 Separately the DEPRECATED file tracks the removal of obsolete modules or
 functions (which are generally not covered here in the NEWS file).
 
-The news entries for each release are also usually repeated as a blog post at
+BioPAIthon is a fork of Biopython. Entries below the fork announcement are the
+inherited release history of the upstream Biopython Project, preserved
+unchanged; upstream's news is also posted at
 https://www.open-bio.org/category/obf-projects/biopython/
 
 The latest news is at the top of this file.
+
+22 July 2026: BioPAIthon forks from Biopython
+=============================================
+
+BioPAIthon is a fork of `Biopython <https://biopython.org>`_, starting from
+the 1.88 development series. It is not affiliated with or endorsed by the
+Biopython Project, and problems with this fork should not be reported
+upstream.
+
+The fork exists for one reason: to drop the restriction on AI-assisted
+contributions. Upstream ``CONTRIBUTING.rst`` stated that pull requests
+tackling "good first issue" tickets with AI tools "will be rejected, and we
+will likely block repeat offenders". That clause has been removed here.
+
+Upstream adopted that restriction for a reason this fork considers entirely
+legitimate: keeping "good first issue" tickets available as mentoring
+opportunities for new human contributors, in the hope they stay. BioPAIthon
+disagrees about the means rather than the goal. Nothing here is a criticism of
+the people who built this library over the past twenty years, and nothing here
+takes credit away from them.
+
+In its place, BioPAIthon judges a contribution on the contribution: is it
+correct, is it tested, does the author understand it, and can they explain why
+it works? Those questions are asked identically of every contributor, whether
+human, computational intelligence, AI, or chimp. The new ``AGENTS.md`` sets
+out the standard in full, and ``CLAUDE.md`` points at it.
+
+What has **not** changed:
+
+- The ``Bio`` package name and the entire public API. ``import Bio`` and every
+  existing script continue to work; this is a rebrand of the project, not of
+  the importable module.
+- The licence. BioPAIthon remains under your choice of the "Biopython License
+  Agreement" or the "3-Clause BSD License", and all original copyright notices
+  are retained.
+- Attribution. Essentially all of this code was written by the Biopython
+  contributors, and the package metadata continues to credit them as authors.
+
+The distribution name on PyPI would be ``biopaithon`` rather than
+``biopython``, and the default branch is now ``main`` rather than ``master``.
 
 (In progress, not yet released): Biopython 1.88
 ===============================================

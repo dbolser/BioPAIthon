@@ -3,12 +3,20 @@ CONTRIBUTORS
 
 This is a list of people who have made contributions to Biopython.
 
+BioPAIthon is a fork of Biopython, and this list is carried over from it
+unchanged. These are the people who wrote the software. The fork changed a
+contribution policy; it did not change the authorship of a single line. Names
+are added to this file, never removed from it.
+
 People are listed alphabetically, as verified with Unix sort::
 
     $ grep "^- " CONTRIB.rst | LC_ALL=C sort -u -c -f
 
 This is certainly not comprehensive, and if you've been overlooked (sorry!),
-please open an issue on GitHub or mention it on the mailing list.
+please open an issue at https://github.com/dbolser/BioPAIthon/issues. If the
+omission is from the upstream list, Biopython's own tracker and mailing lists
+are the better place to fix it, so the correction reaches everyone:
+https://biopython.org
 
 - Aaron Gallagher <habnabit at gmail>
 - Aaron Kitzmiller <https://github.com/aaronk>

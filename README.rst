@@ -1,84 +1,98 @@
-.. image:: https://img.shields.io/pypi/v/biopython.svg?logo=pypi
-   :alt: Biopython on the Python Package Index (PyPI)
-   :target: https://pypi.python.org/pypi/biopython
-.. image:: https://img.shields.io/conda/vn/conda-forge/biopython.svg?logo=conda-forge
-   :alt: Biopython on the Conda package conda-forge channel
-   :target: https://anaconda.org/conda-forge/biopython
-.. image:: https://results.pre-commit.ci/badge/github/biopython/biopython/master.svg
-   :target: https://results.pre-commit.ci/latest/github/biopython/biopython/master
-   :alt: pre-commit.ci status
-.. image:: https://img.shields.io/circleci/build/github/biopython/biopython.svg?logo=circleci
-   :alt: Linux testing with CircleCI
-   :target: https://app.circleci.com/pipelines/github/biopython/biopython
-.. image:: https://img.shields.io/appveyor/ci/biopython/biopython/master.svg?logo=appveyor
-   :alt: Windows testing with AppVeyor
-   :target: https://ci.appveyor.com/project/biopython/biopython/history
-.. image:: https://img.shields.io/github/actions/workflow/status/biopython/biopython/ci.yml?logo=github-actions
-   :alt: GitHub workflow status
-   :target: https://github.com/biopython/biopython/actions
-.. image:: https://img.shields.io/codecov/c/github/biopython/biopython/master.svg?logo=codecov
-   :alt: Test coverage on CodeCov
-   :target: https://codecov.io/github/biopython/biopython/
-.. image:: https://depsy.org/api/package/pypi/biopython/badge.svg
-   :alt: Research software impact on Depsy
-   :target: https://depsy.org/package/python/biopython
+BioPAIthon README file
+======================
 
-.. image:: https://github.com/biopython/biopython/raw/master/Doc/images/biopython_logo_m.png
-   :alt: The Biopython Project
-   :target: https://biopython.org
+**BioPAIthon** is a fork of `Biopython <https://biopython.org>`_, the
+long-running international association of developers of freely available
+Python tools for computational molecular biology.
 
-Biopython README file
-=====================
+The fork exists to try one thing differently. BioPAIthon accepts contributions
+from any capable contributor - human, computational intelligence, AI, or chimp
+- and judges each patch on its merits rather than on the nature of its author.
+See `AGENTS.md <AGENTS.md>`__ for what that means in practice.
 
-The Biopython Project is an international association of developers of freely
-available Python tools for computational molecular biology.
+Everything else is Biopython. The ``Bio`` package, the public API, the test
+suite and the licence are all unchanged, ``import Bio`` works exactly as it
+did, and we intend to keep tracking upstream.
 
-This README file is intended primarily for people interested in working
-with the Biopython source code, either one of the releases from the
-https://biopython.org website, or from our repository on GitHub
-https://github.com/biopython/biopython
+Credit for essentially all of the code here belongs to the Biopython
+contributors; the original copyright notices and licence remain in place.
+BioPAIthon is not affiliated with or endorsed by the Biopython Project, so
+please do not report problems with this fork to upstream.
 
-Our user-centric documentation, `The Biopython Tutorial and Cookbook, and API
-documentation <https://biopython.org/docs/latest/>`_, is generated from our
-repository using Sphinx.
+This README is intended primarily for people interested in working with the
+source code, from our repository on GitHub
+https://github.com/dbolser/BioPAIthon
 
-The `NEWS <https://github.com/biopython/biopython/blob/master/NEWS.rst>`_
-file summarises the changes in each release of Biopython, alongside the
-`DEPRECATED
-<https://github.com/biopython/biopython/blob/master/DEPRECATED.rst>`_
-file which notes API breakages.
+Upstream's user-centric documentation, `The Biopython Tutorial and Cookbook,
+and API documentation <https://biopython.org/docs/latest/>`_, still describes
+this fork accurately.
 
-The Biopython package is open source software made available under generous
-terms. Please see the `LICENSE
-<https://github.com/biopython/biopython/blob/master/LICENSE.rst>`_ file for
-further details.
+The `NEWS <NEWS.rst>`_ file summarises the changes in each release, alongside
+the `DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
 
-If you use Biopython in work contributing to a scientific publication, we ask
-that you cite our application note (below) or one of the module specific
-publications (listed on our website):
+This package is open source software made available under generous terms.
+Please see the `LICENSE <LICENSE.rst>`_ file for further details.
+
+
+Acknowledgements
+================
+
+BioPAIthon exists because the Biopython Project spent more than twenty years
+building it. 373 people are named in `CONTRIB.rst <CONTRIB.rst>`_, and that
+list is preserved here unchanged, as is the full release history in
+`NEWS <NEWS.rst>`__ and every copyright notice in the source.
+
+This fork changes a contribution policy. It does not change who wrote the
+software, and it is not a criticism of the people who did. Upstream restricted
+AI-assisted contributions for a reason we think is entirely legitimate:
+protecting "good first issue" tickets as mentoring opportunities for new human
+contributors, in the hope they stay. We disagree about the means, not the goal.
+Reasonable projects can land in different places on this, and Biopython's
+maintainers are under no obligation to agree with us.
+
+Upstream Biopython is actively maintained and lives at https://biopython.org.
+We track it, and we would be glad to see this fork become unnecessary.
+
+
+Citation
+========
+
+If you use BioPAIthon in work contributing to a scientific publication, please
+cite **Biopython**. Essentially all of the code here was written by the
+Biopython contributors, and academic citation is how that work is credited:
 
 Cock, P.J.A. et al. Biopython: freely available Python tools for computational
 molecular biology and bioinformatics. Bioinformatics 2009 Jun 1; 25(11) 1422-3
 https://doi.org/10.1093/bioinformatics/btp163 pmid:19304878
 
+Several Biopython modules have their own publications, listed at
+https://biopython.org - please cite those as well where they apply.
+
+Do not cite BioPAIthon instead of Biopython. If you need to record which fork
+you used, cite the paper above and mention the fork separately, as you would
+any other software version detail. Nothing about this fork changes who did the
+scientific work.
+
 
 For the impatient
 =================
 
-Python includes the package management system "pip" which should allow you to
-install Biopython (and its dependency NumPy if needed), upgrade or uninstall
-with just one terminal command::
+BioPAIthon is not currently published on PyPI, so install it from source::
+
+    pip install git+https://github.com/dbolser/BioPAIthon.git
+
+Note that BioPAIthon installs the same ``Bio`` package that Biopython does, so
+the two conflict and cannot be used side by side in one environment. Use a
+virtual environment if you need both.
+
+Upstream Biopython, by contrast, is on PyPI and has shipped pre-compiled
+binary wheels for Linux, macOS and Windows since 1.70, so installing it is
+quick and needs no compiler::
 
     pip install biopython
-    pip install --upgrade biopython
-    pip uninstall biopython
-
-Since Biopython 1.70 we have provided pre-compiled binary wheel packages on
-PyPI for Linux, macOS and Windows. This means pip install should be quick,
-and not require a compiler.
 
 As a developer or potential contributor, you may wish to download, build and
-install Biopython yourself. This is described below.
+install BioPAIthon yourself. This is described below.
 
 
 Python Requirements
@@ -138,12 +152,8 @@ install such as standalone NCBI BLAST, EMBOSS or ClustalW.
 Installation From Source
 ========================
 
-We recommend using the pre-compiled binary wheels available on PyPI using::
-
-    pip install biopython
-
-However, if you need to compile Biopython yourself, the following are required
-at compile time:
+BioPAIthon does not publish binary wheels, so installing it means compiling
+the C extensions yourself. The following are required at compile time:
 
 - Python including development header files like ``python.h``, which on Linux
   are often not installed by default (trying looking for and installing a
@@ -234,7 +244,11 @@ bug database and our mailing lists to see if it has already been reported
 (and hopefully fixed), and if not please do report the bug. We can't fix
 problems we don't know about ;)
 
-Issue tracker: https://github.com/biopython/biopython/issues
+Issue tracker: https://github.com/dbolser/BioPAIthon/issues
+
+Please report bugs in this fork there, not to upstream. If you can reproduce
+the problem against upstream Biopython as well, then it is an upstream bug and
+belongs at https://github.com/biopython/biopython/issues instead.
 
 If you suspect the problem lies within a parser, it is likely that the data
 format has changed and broken the parsing code.  (The text BLAST and GenBank
@@ -261,15 +275,18 @@ And also ideally:
 Contributing, Bug Reports
 =========================
 
-Biopython is run by volunteers from all over the world, with many types of
-backgrounds. We are always looking for people interested in helping with code
-development, web-site management, documentation writing, technical
+BioPAIthon accepts contributions from anyone, and anything, able to write a
+good patch - human, computational intelligence, AI, or chimp. We are always
+looking for help with code development, documentation writing, technical
 administration, and whatever else comes up.
 
-If you wish to contribute, please first read `CONTRIBUTING.rst
-<https://github.com/biopython/biopython/blob/master/CONTRIBUTING.rst>`_ here,
-visit our web site https://biopython.org and join our mailing list:
-https://biopython.org/wiki/Mailing_lists
+If you wish to contribute, please first read `AGENTS.md <AGENTS.md>`__, which
+sets out the standard every contribution is held to regardless of its author,
+and then `CONTRIBUTING.rst <CONTRIBUTING.rst>`_ for the practicalities.
+
+Upstream Biopython is run by volunteers from all over the world, with many
+types of backgrounds. Their web site is https://biopython.org and their
+mailing lists are at https://biopython.org/wiki/Mailing_lists
 
 
 Distribution Structure
@@ -280,7 +297,9 @@ Distribution Structure
 - ``LICENSE.rst`` -- What you can do with the code.
 - ``CONTRIB.rst`` -- An (incomplete) list of people who helped Biopython in
   one way or another.
-- ``CONTRIBUTING.rst`` -- An overview about how to contribute to Biopython.
+- ``CONTRIBUTING.rst`` -- The practicalities of contributing.
+- ``AGENTS.md``   -- Who may contribute (everyone) and the standard every
+  contribution is held to. ``CLAUDE.md`` points here.
 - ``DEPRECATED.rst`` -- Contains information about modules in Biopython that
   were removed or no longer recommended for use, and how to update code that
   uses those modules.

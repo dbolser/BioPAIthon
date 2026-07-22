@@ -6,9 +6,15 @@
 # package.
 """Collection of modules for dealing with biological data in Python.
 
-The Biopython Project is an international association of developers
-of freely available Python tools for computational molecular biology.
+This is BioPAIthon, a fork of Biopython that accepts contributions from
+every kind of contributor. The importable package is still ``Bio``, and the
+public API is unchanged from upstream.
 
+The Biopython Project, from which this code comes, is an international
+association of developers of freely available Python tools for computational
+molecular biology.
+
+https://github.com/dbolser/BioPAIthon
 https://biopython.org
 """
 

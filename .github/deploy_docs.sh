@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [[ $(git rev-parse --abbrev-ref HEAD) != "master" ]]; then
-    echo "Not on master branch, not attempting to deploy documentation"
+if [[ $(git rev-parse --abbrev-ref HEAD) != "main" ]]; then
+    echo "Not on main branch, not attempting to deploy documentation"
     exit 0
 fi
 

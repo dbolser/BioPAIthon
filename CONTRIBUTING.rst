@@ -1,19 +1,27 @@
-Contributing to Biopython
-=========================
+Contributing to BioPAIthon
+==========================
 
-We welcome pull requests to fix bugs or add new features. Please read
-http://biopython.org/wiki/Contributing for a general overview about
-contributing - this file is primarily concerned with the practicalities.
+We welcome pull requests to fix bugs or add new features, from anyone - and
+anything - able to write a good patch. See `AGENTS.md <AGENTS.md>`__ for what
+that means in practice. This file is primarily concerned with the
+practicalities.
+
+BioPAIthon is a fork of Biopython, and most of the guidance below is inherited
+from that project. Upstream's general overview is still worth reading:
+http://biopython.org/wiki/Contributing
 
 
 Licensing
 ---------
 
-Biopython is moving towards dual licensing the code. In your git commit and/or
+BioPAIthon inherits Biopython's licensing unchanged. In your git commit and/or
 pull request, please explicitly state that you agree to your contributions
-being dual licensed under *both* our original "Biopython License Agreement"
+being dual licensed under *both* the original "Biopython License Agreement"
 and the more widely used "3-Clause BSD License" (see our LICENSE file for more
 details).
+
+Do not remove or alter existing copyright notices. Essentially all of this
+code was written by the Biopython contributors, and that attribution stays.
 
 
 Tagged issues
@@ -29,9 +37,12 @@ label specifically for beginners. These are minor issues where the team knows
 what is needed, and could easily do it themselves (albeit some are tedious),
 but we have chosen instead to use these as teachable moments to help potential
 new contributors get involved with a little mentoring as needed. This is with
-the hope they become long term open source contributors (ideally to Biopython).
-Tackling these with AI tools defeats that purpose, and such PRs will be rejected,
-and we will likely block repeat offenders.
+the hope they become long term open source contributors.
+
+Use whatever tools help you do that well, AI included. We ask only that you
+understand the change you are proposing, can explain why it is correct, and
+have run the tests. Those conditions apply identically to every contributor;
+see `AGENTS.md <AGENTS.md>`__.
 
 The `help wanted
 <https://github.com/biopython/biopython/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)>`_
@@ -49,7 +60,7 @@ Git Usage
 We have a git introduction online at http://biopython.org/wiki/GitUsage
 
 If you are planning to make a pull request, start by creating a new branch
-with a short but descriptive name (rather than using your master branch).
+with a short but descriptive name (rather than using your main branch).
 
 Failing to follow our pull result template places additional burden on the
 maintainers in reviewing your changes and if they can be accepted. We may
