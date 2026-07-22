@@ -6,7 +6,7 @@ Installing the requirements
 
 In the Biopython directory, install the required packages for building the documentation with::
 
-    pip install -r .circleci/requirements-sphinx.txt
+    pip install -r Doc/requirements-sphinx.txt
 
 ReStructered Text Markup Language
 ---------------------------------
