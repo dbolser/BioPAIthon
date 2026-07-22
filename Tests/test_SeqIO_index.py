@@ -709,6 +709,42 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
             iterator = SeqIO.parse(handle, "fasta")
             self.assertRaises(ValueError, SeqIO.to_dict, iterator)
 
+    def test_fasta_empty_identifier(self):
+        """Index a FASTA record whose title is empty."""
+        data = b">named description\nAC\n>\nGT\n>third\nTTA\n"
+        keys = ["named", "", "third"]
+        sequences = {"named": "AC", "": "GT", "third": "TTA"}
+        raw_records = {
+            "named": b">named description\nAC\n",
+            "": b">\nGT\n",
+            "third": b">third\nTTA\n",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "empty_identifier.fasta"
+            filename.write_bytes(data)
+
+            parsed = list(SeqIO.parse(filename, "fasta"))
+            self.assertEqual([record.id for record in parsed], keys)
+            self.assertEqual(
+                [str(record.seq) for record in parsed], ["AC", "GT", "TTA"]
+            )
+
+            indexes = [SeqIO.index(filename, "fasta")]
+            if sqlite3:
+                index_filename = Path(temp_dir) / "empty_identifier.idx"
+                indexes.append(
+                    SeqIO.index_db(index_filename, [filename], "fasta")
+                )
+
+            for records in indexes:
+                with self.subTest(index_type=type(records)):
+                    self.assertEqual(list(records), keys)
+                    for key in keys:
+                        self.assertEqual(str(records[key].seq), sequences[key])
+                        self.assertEqual(records.get_raw(key), raw_records[key])
+                records.close()
+
     def test_simple_checks(self):
         for filename1, fmt in self.tests:
             assert fmt in _FormatToRandomAccess
