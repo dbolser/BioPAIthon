@@ -168,6 +168,10 @@ class ProteinAnalysis:
         sequence of length N returns max(N - 8, 0) values, corresponding to
         the window-center residues at indices 4 through N - 5.
 
+        Every residue in a complete window must be present in the flexibility
+        scale. A non-standard residue therefore raises ``KeyError``, including
+        when it occurs at the end of the final complete window.
+
         Prior to BioPAIthon 1.88, the center residue was accidentally ignored
         and the last complete window was omitted. Correcting those bugs changes
         both the values and length of profiles returned by older versions.

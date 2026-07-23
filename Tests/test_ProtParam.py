@@ -112,10 +112,18 @@ class ProtParamTest(unittest.TestCase):
         ) / 5.25
 
         self.assertEqual(ProtParam.ProteinAnalysis("ACDEFGHI").flexibility(), [])
-        self.assertEqual(
-            ProtParam.ProteinAnalysis("ACDEFGHIK").flexibility(), [expected]
-        )
+        result = ProtParam.ProteinAnalysis("ACDEFGHIK").flexibility()
+        self.assertEqual(result, [expected])
+        self.assertAlmostEqual(result[0], 0.9954761904761905)
         self.assertEqual(len(ProtParam.ProteinAnalysis("ACDEFGHIKL").flexibility()), 2)
+
+    def test_flexibility_rejects_nonstandard_final_residue(self):
+        """Reject a non-standard residue newly included in the final window."""
+        for residue in ("*", "X", "U"):
+            with self.subTest(residue=residue):
+                with self.assertRaises(KeyError) as cm:
+                    ProtParam.ProteinAnalysis(f"ACDEFGHI{residue}").flexibility()
+                self.assertEqual(cm.exception.args, (residue,))
 
     def test_flexibility_weights_are_symmetric(self):
         """Give residues equidistant from the center equal influence."""
