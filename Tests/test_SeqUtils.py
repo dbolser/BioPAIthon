@@ -511,6 +511,28 @@ class NtSearchTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             nt_search("ACGT", "AZ")
 
+    def test_empty_subseq_is_rejected(self):
+        """An empty subsequence raises ValueError instead of looping forever."""
+        for seq in ("AAGATTAGCATCGGATCC", "", Seq("ACGT")):
+            for subseq in ("", Seq(""), MutableSeq("")):
+                with self.subTest(seq=str(seq), subseq=type(subseq).__name__):
+                    with self.assertRaises(ValueError) as context:
+                        nt_search(seq, subseq)
+                    self.assertEqual(str(context.exception), "subseq must not be empty")
+
+    def test_accepts_sequence_objects(self):
+        """Seq, MutableSeq and SeqRecord are searched like the equivalent string."""
+        text = "AAGATTAGCATCGGATCC"
+        # AT starts at index 3, at index 9 (A at 9, T at 10) and at index 14
+        expected = ["AT", 3, 9, 14]
+        self.assertEqual(nt_search(text, "AT"), expected)
+        for sequence in (Seq(text), MutableSeq(text), SeqRecord(Seq(text), id="x")):
+            with self.subTest(sequence=type(sequence).__name__):
+                self.assertEqual(nt_search(sequence, "AT"), expected)
+        for subseq in (Seq("AT"), MutableSeq("AT")):
+            with self.subTest(subseq=type(subseq).__name__):
+                self.assertEqual(nt_search(text, subseq), expected)
+
 
 class GC123Tests(unittest.TestCase):
     """Tests for Bio.SeqUtils.GC123."""
@@ -845,6 +867,53 @@ class SixFrameTranslationsTests(unittest.TestCase):
                     sorted([expected[-1], expected[-2], expected[-3]]),
                 )
 
+    def test_reverse_frames_are_correctly_placed(self):
+        """Each reverse frame residue sits below the codon it comes from.
+
+        A residue printed at column ``c`` of a reverse-strand row is the
+        translation of the reverse complement of ``seq[c:c + 3]``.  Frame
+        ``-(n + 1)`` is translated from offset ``n`` of the reverse
+        complement, so its leftmost residue lands at column
+        ``(len(seq) - n) % 3`` of the top strand; the layout therefore
+        depends on ``len(seq) % 3``, and all three cases are covered here.
+        """
+        for seq in (
+            "ATGGCCATTGTAATGGGCCGCTGA",  # 24 nt, 24 % 3 == 0
+            "ATGGCCATTGTAATGGGCCGCTGAA",  # 25 nt, 25 % 3 == 1
+            "ATGGCCATTGTAATGGGCCGCTGAAC",  # 26 nt, 26 % 3 == 2
+        ):
+            with self.subTest(seq=seq):
+                lines = six_frame_translations(seq).split("\n")
+                # rows 10, 11 and 12 hold the three reverse frames
+                for row in (10, 11, 12):
+                    text = lines[row]
+                    self.assertNotEqual(text.strip(), "")
+                    for column, residue in enumerate(text):
+                        if residue == " ":
+                            continue
+                        codon = seq[column : column + 3]
+                        self.assertEqual(
+                            residue,
+                            translate(reverse_complement(codon)),
+                            f"row {row}, column {column}, codon {codon}",
+                        )
+
+    def test_reverse_frame_columns_of_a_hand_worked_example(self):
+        """The three reverse rows of a worked example, derived by hand.
+
+        ``ATGAAATTTGGG`` is 12 nt, so ``len(seq) % 3 == 0`` and frame
+        ``-(n + 1)`` starts at column ``(12 - n) % 3``: frame -1 at column 0,
+        frame -2 at column 2 and frame -3 at column 1.  Reverse complementing
+        the top-strand codons at those columns gives, for frame -1,
+        ATG AAA TTT GGG -> CAT TTT AAA CCC -> H F K P; for frame -3,
+        TGA AAT TTG -> TCA ATT CAA -> S I Q; and for frame -2,
+        GAA ATT TGG -> TTC AAT CCA -> F N P.
+        """
+        lines = six_frame_translations("ATGAAATTTGGG").split("\n")
+        self.assertEqual(lines[10], "H  F  K  P")
+        self.assertEqual(lines[11], " S  I  Q")
+        self.assertEqual(lines[12], "  F  N  P")
+
     def test_rna_input(self):
         """An RNA sequence is reverse complemented as RNA."""
         rna = "AUGGCCAUUGUA"
@@ -887,7 +956,7 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
 
     def test_illegal_codon_without_gene_name(self):
         """A bad codon in a bare sequence is reported without a gene name."""
-        for sequence in ("ATGAANAAA", Seq("ATGAANAAA")):
+        for sequence in ("ATGAANAAA", Seq("ATGAANAAA"), MutableSeq("ATGAANAAA")):
             with self.subTest(sequence=type(sequence).__name__):
                 with self.assertRaises(ValueError) as context:
                     CodonAdaptationIndex([sequence])
@@ -900,6 +969,28 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
             CodonAdaptationIndex([record])
         self.assertEqual(
             str(context.exception), "illegal codon 'AAN' in gene test_gene"
+        )
+
+    def test_mutable_seq_sequences_are_accepted(self):
+        """MutableSeq input works, as the docstrings say it should.
+
+        Slicing a MutableSeq gives a MutableSeq, which is unhashable and so
+        cannot be used to look a codon up in the count dictionary.
+        """
+        reference = "ATGAAAAAGAAATAA"
+        expected = CodonAdaptationIndex([reference])
+        for sequence in (
+            MutableSeq(reference),
+            SeqRecord(MutableSeq(reference), id="test_gene"),
+        ):
+            with self.subTest(sequence=type(sequence).__name__):
+                self.assertEqual(dict(CodonAdaptationIndex([sequence])), dict(expected))
+        # and calculate() accepts one too: AAG (w = 0.5) and AAA (w = 1.0)
+        self.assertAlmostEqual(
+            expected.calculate(MutableSeq("AAGAAA")), 0.5**0.5, places=10
+        )
+        self.assertAlmostEqual(
+            expected.calculate(SeqRecord(MutableSeq("AAGAAA"))), 0.5**0.5, places=10
         )
 
     def test_lower_case_sequences_are_accepted(self):

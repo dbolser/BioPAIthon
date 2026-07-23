@@ -279,7 +279,32 @@ def nt_search(seq, subseq):
 
     Use ambiguous values (like N = A or T or C or G, R = A or G etc.),
     searches only on forward strand.
+
+    The sequence may be given as a string, a Seq or MutableSeq object, or a
+    SeqRecord object; the subsequence as a string, Seq or MutableSeq object.
+
+    >>> from Bio.SeqUtils import nt_search
+    >>> from Bio.Seq import Seq
+    >>> nt_search(Seq("AAGATTAGCATCGGATCC"), "AT")
+    ['AT', 3, 9, 14]
+
+    An empty subsequence is rejected, because it matches at every position and
+    so reports nothing about the sequence:
+
+    >>> nt_search("ACGT", "")
+    Traceback (most recent call last):
+       ...
+    ValueError: subseq must not be empty
     """
+    if len(subseq) == 0:
+        raise ValueError("subseq must not be empty")
+
+    try:
+        seq = seq.seq  # SeqRecord
+    except AttributeError:
+        pass  # str, Seq, or MutableSeq
+    seq = str(seq)
+
     pattern = ""
     for nt in subseq:
         value = IUPACData.ambiguous_dna_values[nt]
@@ -518,9 +543,9 @@ def six_frame_translations(seq, genetic_code=1):
     M  A  I  V  M  G  R  *
     auggccauuguaaugggccgcuga   54 %
     uaccgguaacauuacccggcgacu
-    A  M  T  I  P  R  Q
-     H  G  N  Y  H  A  A  S
-      P  W  Q  L  P  G  S
+    H  G  N  Y  H  A  A  S
+     P  W  Q  L  P  G  S
+      A  M  T  I  P  R  Q
     <BLANKLINE>
     <BLANKLINE>
 
@@ -569,9 +594,15 @@ def six_frame_translations(seq, genetic_code=1):
         res += subseq.lower() + "%5d %%\n" % int(gc)
         res += csubseq.lower() + "\n"
         # - frames
-        res += "  ".join(frames[-2][p : p + 20]) + "\n"
-        res += " " + "  ".join(frames[-1][p : p + 20]) + "\n"
-        res += "  " + "  ".join(frames[-3][p : p + 20]) + "\n\n"
+        # Frame -(n + 1) is translated from offset n of the reverse
+        # complement, so its first residue comes from the codon starting at
+        # (length - n) % 3 in the top strand; that offset is the column the
+        # frame must be indented to.  Print the frames in order of increasing
+        # offset, mirroring the forward frames above the sequence.
+        for offset in range(3):
+            frame = -(((length - offset) % 3) + 1)
+            res += " " * offset + "  ".join(frames[frame][p : p + 20]) + "\n"
+        res += "\n"
     return res
 
 
@@ -614,7 +645,9 @@ class CodonAdaptationIndex(dict):
                 sequence = sequence.seq
             except AttributeError:  # str, Seq, or MutableSeq
                 name = None
-            sequence = sequence.upper()
+            # str() so that the codons below can be used as dictionary keys:
+            # slicing a MutableSeq gives a MutableSeq, which is unhashable.
+            sequence = str(sequence).upper()
             for i in range(0, len(sequence), 3):
                 codon = sequence[i : i + 3]
                 try:
@@ -638,14 +671,20 @@ class CodonAdaptationIndex(dict):
                 self[codon] = counts[codon] / denominator
 
     def calculate(self, sequence):
-        """Calculate and return the CAI (float) for the provided DNA sequence."""
+        """Calculate and return the CAI (float) for the provided DNA sequence.
+
+        The sequence may be a plain string, a Seq object, a MutableSeq object,
+        or a SeqRecord object.
+        """
         cai_value, cai_length = 0, 0
 
         try:
             sequence = sequence.seq  # SeqRecord
         except AttributeError:
             pass  # str, Seq, or MutableSeq
-        sequence = sequence.upper()
+        # str() so that the codons below can be used as dictionary keys:
+        # slicing a MutableSeq gives a MutableSeq, which is unhashable.
+        sequence = str(sequence).upper()
 
         for i in range(0, len(sequence), 3):
             codon = sequence[i : i + 3]
