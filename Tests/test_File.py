@@ -20,6 +20,7 @@ from io import StringIO
 from Bio import bgzf
 from Bio import File
 from Bio import MissingPythonDependencyError
+from Bio import SearchIO
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -293,22 +294,54 @@ class SQLiteIndexTests(unittest.TestCase):
         finally:
             index.close()
 
-    def test_str_is_broken(self):
-        """__str__ raises AttributeError; see the comment below.
+    def test_str_of_populated_index(self):
+        """A populated index_db prints its first key and the object type.
 
-        This is a bug, not intended behaviour.  _IndexedSeqFileDict.__str__
-        formats using self._obj_repr, but _SQLiteManySeqFilesDict.__init__
-        never sets that attribute, so printing an index_db dictionary blows
-        up.  This test pins today's behaviour so that a fix has to update it
-        deliberately; it is not an endorsement.
+        _IndexedSeqFileDict.__str__ formats using self._obj_repr, so an
+        index_db dictionary has to print exactly like the equivalent
+        Bio.SeqIO.index one.
         """
         index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
         try:
-            with self.assertRaises(AttributeError) as cm:
-                str(index)
-            self.assertIn("_obj_repr", str(cm.exception))
+            first_key = next(iter(index))
+            self.assertEqual(str(index), "{%r : SeqRecord(...), ...}" % first_key)
         finally:
             index.close()
+
+    def test_str_matches_the_in_memory_index(self):
+        """index_db and index print the same thing for the same file."""
+        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+        in_memory = SeqIO.index("Fasta/f002", "fasta")
+        try:
+            self.assertEqual(str(index), str(in_memory))
+        finally:
+            index.close()
+            in_memory.close()
+
+    def test_str_of_empty_index(self):
+        """An index_db over a file with no records prints as an empty dict."""
+        path = os.path.join(self.temp_dir, "empty.fasta")
+        with open(path, "w"):
+            pass
+        index = SeqIO.index_db(self.index_filename, path, "fasta")
+        try:
+            self.assertEqual(len(index), 0)
+            self.assertEqual(str(index), "{}")
+        finally:
+            index.close()
+
+    def test_str_of_searchio_index(self):
+        """Bio.SearchIO.index_db names QueryResult, not SeqRecord."""
+        filename = "Blast/tab_2226_tblastn_001.txt"
+        index = SearchIO.index_db(self.index_filename, filename, "blast-tab")
+        in_memory = SearchIO.index(filename, "blast-tab")
+        try:
+            first_key = next(iter(index))
+            self.assertEqual(str(index), "{%r : QueryResult(...), ...}" % first_key)
+            self.assertEqual(str(index), str(in_memory))
+        finally:
+            index.close()
+            in_memory.close()
 
     def test_unfinished_database(self):
         """An index whose count is still -1 was never finished being built."""
@@ -425,6 +458,7 @@ class SQLiteIndexHandlePoolTests(unittest.TestCase):
             fmt,
             None,
             "repr",
+            "SeqRecord",
             max_open=max_open,
         )
 

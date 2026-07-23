@@ -83,6 +83,13 @@ alignment whose contingency table has an empty cell, such as an alignment of
 identical sequences; an empty cell now contributes nothing to the G statistic,
 and a degenerate table gives a p-value of one.
 
+Calling ``str()`` on a dictionary returned by ``Bio.SeqIO.index_db`` or
+``Bio.SearchIO.index_db`` raised ``AttributeError`` instead of printing
+anything. The SQLite backed dictionary never recorded the name of the object
+type it returns, which the shared ``__str__`` needs. It now prints like the
+in-memory ``index`` dictionaries do, for example
+``{'gi|1348912|gb|G26680|G26680' : SeqRecord(...), ...}``.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 

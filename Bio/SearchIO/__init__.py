@@ -571,7 +571,13 @@ def index_db(index_filename, filenames=None, format=None, key_function=None, **k
             return format in _INDEXER_MAP
 
     return _SQLiteManySeqFilesDict(
-        index_filename, filenames, proxy_factory, format, key_function, repr
+        index_filename,
+        filenames,
+        proxy_factory,
+        format,
+        key_function,
+        repr,
+        "QueryResult",
     )
 
 
