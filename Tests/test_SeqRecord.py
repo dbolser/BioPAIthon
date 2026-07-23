@@ -24,6 +24,7 @@ from Bio.SeqFeature import ExactPosition
 from Bio.SeqFeature import OneOfPosition
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqFeature import SimpleLocation
+from Bio.SeqFeature import UnknownPosition
 from Bio.SeqFeature import WithinPosition
 from Bio.SeqRecord import SeqRecord
 
@@ -493,6 +494,33 @@ class SeqRecordMethodsMore(unittest.TestCase):
     def test_reverse_complement_mutable_seq(self):
         s = SeqRecord(MutableSeq("ACTG"))
         self.assertEqual("CAGT", s.reverse_complement().seq)
+
+    def test_reverse_complement_feature_order_with_unknown_positions(self):
+        features = [
+            SeqFeature(SimpleLocation(1, UnknownPosition()), type="unknown-a"),
+            SeqFeature(SimpleLocation(2, 10), type="equal-a"),
+            SeqFeature(SimpleLocation(3, UnknownPosition()), type="unknown-b"),
+            SeqFeature(SimpleLocation(1, 5), type="known-late"),
+            SeqFeature(SimpleLocation(10, 15), type="known-early"),
+            SeqFeature(SimpleLocation(3, 10), type="equal-b"),
+            SeqFeature(SimpleLocation(UnknownPosition(), 12), type="known-middle"),
+        ]
+        record = SeqRecord(Seq("A" * 20), features=features)
+
+        reverse = record.reverse_complement()
+
+        self.assertEqual(
+            [
+                "known-early",
+                "known-middle",
+                "equal-a",
+                "equal-b",
+                "known-late",
+                "unknown-a",
+                "unknown-b",
+            ],
+            [feature.type for feature in reverse.features],
+        )
 
     def test_translate(self):
         s = SeqRecord(

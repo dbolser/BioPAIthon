@@ -1404,11 +1404,11 @@ class SeqRecord:
             # the exact same locations, this will still maintain gene before CDS
 
             def key_fun(f):
-                """Sort on start position."""
+                """Sort on known start position, with unknown positions last."""
                 try:
-                    return int(f.location.start)
+                    return (0, int(f.location.start))
                 except TypeError:  # Expected for UnknownPosition
-                    return None
+                    return (1, 0)
 
             answer.features.sort(key=key_fun)
         if isinstance(annotations, dict):
