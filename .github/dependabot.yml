@@ -5,9 +5,3 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-
-  # Maintain Python dependencies
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
