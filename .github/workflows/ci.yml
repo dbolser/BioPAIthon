@@ -26,6 +26,15 @@ jobs:
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
+    # Check only files changed by the PR/push. JSON keeps filenames as data,
+    # including whitespace and shell metacharacters.
+    - uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62  # v47
+      id: changed-files
+      with:
+        json: "true"
+        escape_json: "false"
+        safe_output: "false"
+
     # Cache CI packages
     - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
       id: cache-precommit
@@ -48,8 +57,10 @@ jobs:
         pre-commit install --install-hooks
 
     - name: Run style checking via pre-commit
+      env:
+        ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
-        pre-commit run --show-diff-on-failure --all-files
+        python -c 'import json, os, subprocess; files = json.loads(os.environ["ALL_CHANGED_FILES"]); subprocess.run(["pre-commit", "run", "--show-diff-on-failure", "--files", *files], check=True) if files else None'
 
   # Cache pip & python dependencies for Linux runner
   # since it is used in most actions.
@@ -180,7 +191,8 @@ jobs:
         name: Linux GitHub Actions ${{ matrix.python-version }}
         disable_search: true
         files: Tests/coverage.xml
-        token: ${{ github.event_name == 'push' && secrets.CODECOV_TOKEN || '' }}
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test_macos:
     timeout-minutes: 15
@@ -225,7 +237,8 @@ jobs:
         name: macOS GitHub Actions ${{ matrix.python-version }}
         disable_search: true
         files: Tests/coverage.xml
-        token: ${{ github.event_name == 'push' && secrets.CODECOV_TOKEN || '' }}
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test_windows:
     timeout-minutes: 15
@@ -270,7 +283,8 @@ jobs:
         name: Windows GitHub Actions ${{ matrix.python-version }}
         disable_search: true
         files: Tests/coverage.xml
-        token: ${{ github.event_name == 'push' && secrets.CODECOV_TOKEN || '' }}
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   test_pypy:
     timeout-minutes: 20  # a little more time
