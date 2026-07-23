@@ -71,6 +71,8 @@ def as_handle(handleish, mode="r", **kwargs):
     try:
         fp = open(handleish, mode, **kwargs)
     except TypeError:
+        fp = None
+    if fp is None:
         yield handleish
     else:
         with fp:

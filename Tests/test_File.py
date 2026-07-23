@@ -88,6 +88,18 @@ class AsHandleTestCase(unittest.TestCase):
         with File.as_handle(handleish) as handle:
             self.assertIs(handle, handleish)
 
+    def test_error_in_handle_context(self):
+        """Test that a handle body error has no internal open error context."""
+        handleish = StringIO()
+        error = ValueError("parser failure")
+        with self.assertRaises(ValueError) as caught:
+            with File.as_handle(handleish) as handle:
+                raise error
+        self.assertIs(caught.exception, error)
+        self.assertIsNone(error.__context__)
+        self.assertIs(handle, handleish)
+        self.assertFalse(handle.closed)
+
     def test_string_path(self):
         """Test as_handle with a string path argument."""
         p = self._path("test_file.fasta")
