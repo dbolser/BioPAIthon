@@ -90,6 +90,25 @@ type it returns, which the shared ``__str__`` needs. It now prints like the
 in-memory ``index`` dictionaries do, for example
 ``{'gi|1348912|gb|G26680|G26680' : SeqRecord(...), ...}``.
 
+``Bio.SeqUtils.nt_search`` no longer loops forever when given an empty
+subsequence; it now raises a ``ValueError``. It also accepts ``Seq``,
+``MutableSeq`` and ``SeqRecord`` objects for the sequence being searched, and
+``Seq`` or ``MutableSeq`` objects for the subsequence, matching the other
+functions in the module (previously anything but a string raised a
+``TypeError`` from ``re.search``).
+
+``Bio.SeqUtils.six_frame_translations`` now indents each reverse-strand frame
+to the column of the codon its first residue is translated from. The previous
+indentation was hard coded and only correct when the sequence length was one
+more than a multiple of three, so for the other two lengths the reverse frames
+were displayed shifted relative to the sequence above them. The translations
+themselves were, and remain, correct; only the alignment of the printed output
+changes.
+
+``Bio.SeqUtils.CodonAdaptationIndex`` accepts ``MutableSeq`` sequences, as its
+documentation already promised. Previously both the constructor and
+``calculate`` raised ``TypeError: unhashable type: 'MutableSeq'``.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
