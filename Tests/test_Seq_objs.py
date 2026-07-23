@@ -873,6 +873,9 @@ class StringMethodTests(unittest.TestCase):
                 ):
                     translate(sequence_type(nucleotide), **kwargs)
 
+        self.assertEqual(Seq(nucleotide).translate(), Seq("M-*"))
+        self.assertEqual(MutableSeq(nucleotide).translate(), MutableSeq("M-*"))
+
     def test_the_translation_of_invalid_codons(self):
         """Check obj.translate() method with invalid codons."""
         for codon in ["TA?", "N-N", "AC_", "Ac_"]:

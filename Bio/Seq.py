@@ -1546,7 +1546,8 @@ class _SeqAbstractBaseClass(ABC):
            from the protein sequence, regardless of the to_stop option).
            If these tests fail, an exception is raised.
          - gap - Single character string to denote symbol used for gaps.
-           Defaults to the minus sign.
+           Defaults to the minus sign. This differs from the module-level
+           ``translate`` function, where ``gap`` defaults to ``None``.
 
         A ``Seq`` object is returned if ``translate`` is called on a ``Seq``
         object; a ``MutableSeq`` object is returned if ``translate`` is called
@@ -2938,7 +2939,8 @@ def translate(
        from the protein sequence, regardless of the to_stop option).
        If these tests fail, an exception is raised.
      - gap - Single character string to denote symbol used for gaps.
-       Defaults to None.
+       Defaults to None. This differs from the ``Seq.translate`` method,
+       where ``gap`` defaults to the minus sign.
 
     A simple string example using the default (standard) genetic code:
 
