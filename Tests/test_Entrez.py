@@ -139,8 +139,12 @@ class TestURLConstruction(unittest.TestCase):
         Entrez.email = None
 
         try:
-            with self.assertWarnsRegex(UserWarning, "Email address is not specified"):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
                 Entrez._construct_params(params=None)
+            self.assertEqual(len(caught), 1)
+            self.assertIsInstance(caught[0].message, UserWarning)
+            self.assertIn("Email address is not specified", str(caught[0].message))
         finally:
             Entrez.email = email
 

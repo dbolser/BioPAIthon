@@ -6,6 +6,7 @@
 """Tests for Bio.Align.msf module."""
 
 import unittest
+import warnings
 from io import StringIO
 
 from Bio import BiopythonParserWarning
@@ -215,11 +216,15 @@ W*05:01          60 SKPTCREGGRSGSAKSLRMGRRGCSAQNPKDSHDPPPHL 99
         path = "msf/DOA_prot.msf"
 
         alignments = Align.parse(path, "msf")
-        with self.assertWarnsRegex(
-            BiopythonParserWarning,
-            "GCG MSF headers said alignment length 62, but found 250",
-        ):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             alignment = next(alignments)
+        self.assertEqual(len(caught), 1)
+        self.assertIsInstance(caught[0].message, BiopythonParserWarning)
+        self.assertEqual(
+            str(caught[0].message),
+            "GCG MSF headers said alignment length 62, but found 250",
+        )
         self.assertEqual(len(alignment), 12)
         self.assertEqual(alignment.shape, (12, 250))
         self.assertEqual(alignment.sequences[0].id, "DOA*01:01:01")

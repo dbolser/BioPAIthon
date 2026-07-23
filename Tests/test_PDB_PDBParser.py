@@ -623,7 +623,7 @@ class ParseRealPDB_tests(unittest.TestCase):
         )
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always", PDBConstructionWarning)
+            warnings.simplefilter("always")
             s = self.permissive.get_structure("example", StringIO(data))
             self.assertEqual(len(w), 1)
 
