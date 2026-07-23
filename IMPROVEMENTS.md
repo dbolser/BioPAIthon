@@ -325,6 +325,29 @@ all-against-all `CEAligner` run over 10,000 pairs leaks roughly 1.1 GB.
 > reporting bytes as though they had been measured too. Treat single-number
 > "leak eliminated" claims in this document with suspicion unless a
 > before/after byte measurement is shown.
+>
+> **Update: the byte leak is now fixed** on PR #16, which adds exactly the loop
+> above. Re-measured across three builds in one session — `main`, the branch
+> with the new free deleted, and the branch as submitted:
+>
+> | build | objects/call | RSS KB/call | tracemalloc KB/call |
+> |---|---|---|---|
+> | `main` | 261.00 | 211.0 | 149.28 |
+> | branch minus the new free | 0.00 | 60.5 | 31.70 |
+> | branch as submitted | 0.00 | 25.8 | **0.45** |
+>
+> Confirmed independently by LeakSanitizer, which attributes 576,000 bytes to
+> `findPath` `:451` on `main` and **0** on the branch, and by an asymptotic
+> scaling run showing 0 B/call retained at 1,280 calls. The residual RSS is
+> transient and plateaus; it is not retention.
+>
+> One methodological correction to the note above: `tracemalloc` **does** track
+> `PyMem_RawMalloc` on CPython 3.12 — it hooks `PYMEM_DOMAIN_RAW`. An earlier
+> claim here that it does not was wrong.
+>
+> The other five defects listed below remain unfixed, and two further crashes
+> were found later that are not listed at all: `run_cealign(c, c, 0, 30)` and
+> a coordinate list whose inner lists are too short both segfault.
 
 Also: `:660-661` builds a fresh heap type inside the loop (20 distinct
 `CEAlignment` types per call, so `type(r[0]) is type(r[1])` is `False` and the
