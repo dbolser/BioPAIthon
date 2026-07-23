@@ -287,6 +287,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
         fmt,
         key_function,
         repr,
+        obj_repr,
         max_open=10,
     ):
         """Initialize the class."""
@@ -312,6 +313,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
         self._key_function = key_function
         self._proxy_factory = proxy_factory
         self._repr = repr
+        self._obj_repr = obj_repr
         self._max_open = max_open
         self._proxies = {}
 

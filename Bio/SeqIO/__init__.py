@@ -1041,7 +1041,13 @@ def index_db(
             return format in _FormatToRandomAccess
 
     return _SQLiteManySeqFilesDict(
-        index_filename, filenames, proxy_factory, format, key_function, repr
+        index_filename,
+        filenames,
+        proxy_factory,
+        format,
+        key_function,
+        repr,
+        "SeqRecord",
     )
 
 
