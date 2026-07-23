@@ -1122,9 +1122,6 @@ class SimpleLocation(Location):
 
         Note that in comparison, Seq objects, strings, lists, etc, will all
         evaluate to False if they have length zero.
-
-        WARNING: The SimpleLocation may in future evaluate to False when its
-        length is zero (in order to better match normal python behavior)!
         """
         return True
 
@@ -1520,9 +1517,6 @@ class CompoundLocation(Location):
 
         Note that in comparison, Seq objects, strings, lists, etc, will all
         evaluate to False if they have length zero.
-
-        WARNING: The CompoundLocation may in future evaluate to False when its
-        length is zero (in order to better match normal python behavior)!
         """
         return True
 
