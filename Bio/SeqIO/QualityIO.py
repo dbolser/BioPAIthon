@@ -1030,7 +1030,11 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
         self.line = None
 
     def _decode_quality(self, byte_scores):
-        """Decode translated quality bytes as unsigned integers."""
+        """Decode translated quality bytes as unsigned integers.
+
+        Subclasses whose quality mapping emits negative scores must override
+        this method, as :class:`FastqSolexaIterator` does below.
+        """
         return list(byte_scores)
 
     def __next__(self) -> SeqRecord:
