@@ -330,28 +330,45 @@ class GafByProteinTests(unittest.TestCase):
                 groups = self.records(version, line_maker)
                 self.assertEqual(
                     [[record["DB_Object_ID"] for record in group] for group in groups],
-                    [["P00001", "P00001"], ["P00002"]],
+                    [["P00001", "P00001"], ["P00002"], ["P00003", "P00003"]],
                 )
                 self.assertEqual(
                     [record["GO_ID"] for record in groups[0]],
                     ["GO:0000001", "GO:0000002"],
                 )
 
-    @unittest.expectedFailure
     def test_final_group_is_yielded(self):
-        """The records of the last protein in the file should be returned.
+        """The records of the last protein in the file are returned.
 
-        This currently fails: neither _gaf10byproteiniterator nor
-        _gaf20byproteiniterator flushes the accumulated list when the input
-        is exhausted, so the annotations of the last protein in the file are
-        silently dropped.  Remove the expectedFailure decorator once that is
-        fixed.
+        Both _gaf10byproteiniterator and _gaf20byproteiniterator accumulate
+        the records of a protein and only yield them once a record for a
+        different protein turns up.  The list left over when the input is
+        exhausted has to be yielded too, otherwise the annotations of the
+        last protein in every file are silently dropped.
         """
-        groups = self.records("2.1", gaf20_line)
-        self.assertEqual(
-            [[record["DB_Object_ID"] for record in group] for group in groups],
-            [["P00001", "P00001"], ["P00002"], ["P00003", "P00003"]],
-        )
+        for version, line_maker in (("1.0", gaf10_line), ("2.1", gaf20_line)):
+            with self.subTest(version=version):
+                groups = self.records(version, line_maker)
+                self.assertEqual(
+                    [[record["DB_Object_ID"] for record in group] for group in groups],
+                    [["P00001", "P00001"], ["P00002"], ["P00003", "P00003"]],
+                )
+                self.assertEqual(
+                    [record["GO_ID"] for record in groups[-1]],
+                    ["GO:0000004", "GO:0000005"],
+                )
+
+    def test_empty_file_yields_nothing(self):
+        """A file with a header but no records yields no groups at all."""
+        stream = handle("!gaf-version: 2.1", "!comment", "")
+        self.assertEqual(list(GOA.gafbyproteiniterator(stream)), [])
+
+    def test_single_record_file(self):
+        """A file holding one record yields that one record as one group."""
+        stream = handle("!gaf-version: 2.1", gaf20_line("P00001", "GO:0000001"))
+        groups = list(GOA.gafbyproteiniterator(stream))
+        self.assertEqual(len(groups), 1)
+        self.assertEqual([record["DB_Object_ID"] for record in groups[0]], ["P00001"])
 
     def test_unknown_gaf_version(self):
         """An unrecognised GAF version is rejected."""
@@ -374,11 +391,14 @@ class GafByProteinTests(unittest.TestCase):
                 read_back = list(GOA.gafbyproteiniterator(input_handle))
         finally:
             os.remove(filename)
-        # the last group is lost on the way back in, see test_final_group
-        self.assertEqual(read_back, groups[:-1])
+        self.assertEqual(read_back, groups)
         self.assertEqual(
             [record["DB_Object_ID"] for record in read_back[0]],
             ["P00001", "P00001"],
+        )
+        self.assertEqual(
+            [record["DB_Object_ID"] for record in read_back[-1]],
+            ["P00003", "P00003"],
         )
 
 
