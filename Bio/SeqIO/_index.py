@@ -217,7 +217,7 @@ class SequentialSeqFileRandomAccess(SeqFileRandomAccess):
             # Here we can assume the record.id is the first word after the
             # marker. This is generally fine... but not for GenBank, EMBL, Swiss
             title = line[marker_offset:].strip()
-            if self._format == "fasta" and not title:
+            if self._format in ("fasta", "pir") and not title:
                 id = b""
             else:
                 id = title.split(None, 1)[0]
