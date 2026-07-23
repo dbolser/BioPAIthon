@@ -6,6 +6,11 @@
 # package.
 """Unit tests for the Bio.PDB.CEAligner module."""
 
+import gc
+import platform
+import sys
+import sysconfig
+import tracemalloc
 import unittest
 
 try:
@@ -19,6 +24,13 @@ except ImportError:
 
 from Bio.PDB import CEAligner
 from Bio.PDB import MMCIFParser
+from Bio.PDB.ccealign import run_cealign
+
+
+_stable_cpython_refcounts = (
+    platform.python_implementation() == "CPython"
+    and not sysconfig.get_config_var("Py_GIL_DISABLED")
+)
 
 
 class CEAlignerTests(unittest.TestCase):
@@ -104,6 +116,49 @@ class CEAlignerTests(unittest.TestCase):
         aligner.align(s2)
 
         self.assertAlmostEqual(aligner.rms, 0.0, places=3)
+
+    @unittest.skipUnless(
+        _stable_cpython_refcounts,
+        "GIL-enabled CPython reference counts are required",
+    )
+    def test_ccealign_reference_ownership(self):
+        """Test that run_cealign does not retain stolen references."""
+        coords = [[float(i), 0.0, 0.0] for i in range(16)]
+        results = run_cealign(coords, coords, 8, 30)
+        self.assertEqual(sys.getrefcount(results), 2)
+
+        pair = results[0].path
+        self.assertEqual(sys.getrefcount(pair), 3)
+
+        path_a, path_b = pair
+        self.assertEqual(sys.getrefcount(path_a), 3)
+        self.assertEqual(sys.getrefcount(path_b), 3)
+
+    @unittest.skipUnless(
+        _stable_cpython_refcounts,
+        "GIL-enabled CPython memory tracing is required",
+    )
+    def test_ccealign_path_memory_released(self):
+        """Test that run_cealign releases its raw path buffers."""
+        coords = [[float(i), 0.0, 0.0] for i in range(40)]
+        was_tracing = tracemalloc.is_tracing()
+        if not was_tracing:
+            tracemalloc.start()
+        try:
+            for _ in range(5):
+                run_cealign(coords, coords, 8, 30)
+            gc.collect()
+            baseline = tracemalloc.get_traced_memory()[0]
+
+            for _ in range(80):
+                run_cealign(coords, coords, 8, 30)
+            gc.collect()
+            retained = tracemalloc.get_traced_memory()[0] - baseline
+        finally:
+            if not was_tracing:
+                tracemalloc.stop()
+
+        self.assertLess(retained, 128 * 1024)
 
 
 if __name__ == "__main__":
