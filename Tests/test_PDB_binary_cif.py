@@ -26,22 +26,37 @@ class TestIntegerUnpack(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "too small"):
                     _bcif_helper.integer_unpack(packed, unpacked)
 
+    def test_output_too_large(self):
+        for input_dtype, output_dtype in [
+            (np.uint8, np.uint32),
+            (np.uint16, np.uint32),
+            (np.int8, np.int32),
+            (np.int16, np.int32),
+        ]:
+            with self.subTest(input_dtype=input_dtype):
+                packed = np.array([1, 2], dtype=input_dtype)
+                unpacked = np.empty(3, dtype=output_dtype)
+                with self.assertRaisesRegex(ValueError, "too large"):
+                    _bcif_helper.integer_unpack(packed, unpacked)
+
     def test_wrong_src_size(self):
-        column = {
-            "data": {
-                "data": np.array([1, 2], dtype=np.uint8),
-                "encoding": [
-                    {
-                        "kind": "IntegerPacking",
-                        "byteCount": 1,
-                        "srcSize": 1,
-                        "isUnsigned": True,
-                    }
-                ],
+        for src_size, message in [(1, "too small"), (3, "too large")]:
+            column = {
+                "data": {
+                    "data": np.array([1, 2], dtype=np.uint8),
+                    "encoding": [
+                        {
+                            "kind": "IntegerPacking",
+                            "byteCount": 1,
+                            "srcSize": src_size,
+                            "isUnsigned": True,
+                        }
+                    ],
+                }
             }
-        }
-        with self.assertRaisesRegex(ValueError, "too small"):
-            _integer_packing_decoder(column)
+            with self.subTest(src_size=src_size):
+                with self.assertRaisesRegex(ValueError, message):
+                    _integer_packing_decoder(column)
 
     def test_truncated_packed_integer(self):
         for input_dtype, output_dtype, sentinel in [

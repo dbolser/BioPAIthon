@@ -39,7 +39,7 @@ integer_unpack_u8(Py_buffer *in_view, Py_buffer *out_view)
         in_index += 1;
         out_index += 1;
     }
-    return 0;
+    return out_index == out_size ? 0 : -3;
 }
 
 static int
@@ -77,7 +77,7 @@ integer_unpack_u16(Py_buffer *in_view, Py_buffer *out_view)
         in_index += 1;
         out_index += 1;
     }
-    return 0;
+    return out_index == out_size ? 0 : -3;
 }
 
 static int
@@ -116,7 +116,7 @@ integer_unpack_i8(Py_buffer *in_view, Py_buffer *out_view)
         in_index += 1;
         out_index += 1;
     }
-    return 0;
+    return out_index == out_size ? 0 : -3;
 }
 
 static int
@@ -155,7 +155,7 @@ integer_unpack_i16(Py_buffer *in_view, Py_buffer *out_view)
         in_index += 1;
         out_index += 1;
     }
-    return 0;
+    return out_index == out_size ? 0 : -3;
 }
 
 static PyObject *
@@ -188,9 +188,15 @@ integer_unpack(PyObject *self, PyObject *args)
         goto exit;
     }
 
-    const char format = in_view.format[0];
-    int status;
+    char format;
+    int status = 0;
 
+    if (in_view.format == NULL || out_view.format == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Buffer format is not available.");
+        goto exit;
+    }
+
+    format = in_view.format[0];
     if (in_view.format[1] != '\0') {
         PyErr_Format(PyExc_ValueError,
             "Unexpected buffer format: %s",
@@ -199,7 +205,8 @@ integer_unpack(PyObject *self, PyObject *args)
     }
 
     if (format == 'B' && in_view.itemsize == sizeof(uint8_t)) {
-        if (strcmp(out_view.format, "I") != 0 ||
+        if ((strcmp(out_view.format, "I") != 0 &&
+             strcmp(out_view.format, "L") != 0) ||
             out_view.itemsize != sizeof(uint32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit unsigned integers.");
@@ -208,7 +215,8 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_u8(&in_view, &out_view);
     }
     else if (format == 'H' && in_view.itemsize == sizeof(uint16_t)) {
-        if (strcmp(out_view.format, "I") != 0 ||
+        if ((strcmp(out_view.format, "I") != 0 &&
+             strcmp(out_view.format, "L") != 0) ||
             out_view.itemsize != sizeof(uint32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit unsigned integers.");
@@ -217,7 +225,8 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_u16(&in_view, &out_view);
     }
     else if (format == 'b' && in_view.itemsize == sizeof(int8_t)) {
-        if (strcmp(out_view.format, "i") != 0 ||
+        if ((strcmp(out_view.format, "i") != 0 &&
+             strcmp(out_view.format, "l") != 0) ||
             out_view.itemsize != sizeof(int32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit signed integers.");
@@ -226,7 +235,8 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_i8(&in_view, &out_view);
     }
     else if (format == 'h' && in_view.itemsize == sizeof(int16_t)) {
-        if (strcmp(out_view.format, "i") != 0 ||
+        if ((strcmp(out_view.format, "i") != 0 &&
+             strcmp(out_view.format, "l") != 0) ||
             out_view.itemsize != sizeof(int32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit signed integers.");
@@ -245,8 +255,11 @@ integer_unpack(PyObject *self, PyObject *args)
         if (status == -1) {
             PyErr_SetString(PyExc_ValueError, "Output buffer is too small.");
         }
-        else {
+        else if (status == -2) {
             PyErr_SetString(PyExc_ValueError, "Packed integer is truncated.");
+        }
+        else {
+            PyErr_SetString(PyExc_ValueError, "Output buffer is too large.");
         }
     }
 
