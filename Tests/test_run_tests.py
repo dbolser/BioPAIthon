@@ -4,6 +4,8 @@
 """Tests for the Biopython test runner."""
 
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -18,9 +20,12 @@ class FindModulesTests(unittest.TestCase):
                 "example/module.py",
                 "example/subpackage/__init__.py",
                 "example/subpackage/child.py",
+                "example/ez_setup/__init__.py",
+                "example/ez_setup/helper.py",
                 "example/data/not_a_module.py",
                 "example/dotted.name/__init__.py",
                 "example/__pycache__/__init__.py",
+                "example/project__pycache__/__init__.py",
                 "not_a_package/nested/__init__.py",
                 "ez_setup/__init__.py",
             ]
@@ -34,11 +39,24 @@ class FindModulesTests(unittest.TestCase):
                 find_modules(directory),
                 {
                     "example",
+                    "example.ez_setup",
+                    "example.ez_setup.helper",
                     "example.module",
                     "example.subpackage",
                     "example.subpackage.child",
                 },
             )
+
+    def test_runner_starts_without_site_packages(self):
+        """The test runner must not require setuptools or another site package."""
+        result = subprocess.run(
+            [sys.executable, "-S", "run_tests.py", "--help"],
+            cwd=os.path.dirname(__file__),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--offline", result.stdout)
 
 
 if __name__ == "__main__":

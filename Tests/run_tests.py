@@ -30,6 +30,7 @@ import sys
 import time
 import traceback
 import unittest
+from fnmatch import fnmatchcase
 from io import StringIO
 from pkgutil import iter_modules
 
@@ -113,18 +114,20 @@ except ImportError:
 
 
 def find_modules(path):
+    # Match setuptools.PackageFinder's built-in package exclusions.
+    package_excludes = ("ez_setup", "*__pycache__")
     packages = set()
     for root, dirs, _ in os.walk(path, followlinks=True):
         candidates = dirs[:]
         dirs[:] = []
         for name in candidates:
             full_path = os.path.join(root, name)
-            if name == "__pycache__" or "." in name or not os.path.isfile(
-                os.path.join(full_path, "__init__.py")
-            ):
-                continue
             package = os.path.relpath(full_path, path).replace(os.path.sep, ".")
-            if package == "ez_setup":
+            if (
+                "." in name
+                or not os.path.isfile(os.path.join(full_path, "__init__.py"))
+                or any(fnmatchcase(package, pattern) for pattern in package_excludes)
+            ):
                 continue
             packages.add(package)
             dirs.append(name)
