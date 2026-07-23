@@ -589,7 +589,7 @@ class TestMutableSeq(unittest.TestCase):
             self.mutable_s < 1
 
     def test_less_than_comparison_with_str(self):
-        self.assertLessEqual(self.mutable_s[:-1], "TCAAAAGGATGCATCATG")
+        self.assertLess(self.mutable_s[:-1], "TCAAAAGGATGCATCATG")
 
     def test_less_than_or_equal_comparison(self):
         """Test __le__ comparison method."""

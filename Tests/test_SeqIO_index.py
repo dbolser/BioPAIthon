@@ -12,6 +12,7 @@ except ImportError:
 
 import gzip
 import os
+import shutil
 import tempfile
 import threading
 import unittest
@@ -797,6 +798,211 @@ if sqlite3:
                 ids.extend(r.id for r in SeqIO.parse(f, "fasta"))
             d = SeqIO.index_db(":memory:", files, "fasta")
             self.assertEqual(ids, list(d))
+
+
+class MalformedFileTests(unittest.TestCase):
+    """Indexing files which are truncated, corrupt or simply unusual.
+
+    The indexers in Bio.SeqIO._index scan a file for record boundaries without
+    fully parsing it, so they carry their own idea of what each format looks
+    like.  These tests cover what they do when a file does not match it.
+    """
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp(prefix="biopython-test")
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def write(self, name, text):
+        """Write text to a file in the temporary directory and return its path."""
+        path = os.path.join(self.temp_dir, name)
+        with open(path, "w") as handle:
+            handle.write(text)
+        return path
+
+    def proxy(self, path, fmt):
+        """Return a random access proxy for the file, closed on test exit."""
+        proxy = _FormatToRandomAccess[fmt](path, fmt)
+        self.addCleanup(proxy._handle.close)
+        return proxy
+
+    # EMBL ---------------------------------------------------------------
+
+    def test_embl_id_line_without_sv(self):
+        """An ID line whose second field is not SV falls back on the first."""
+        # Six semi-colons, so the modern layout, but no sequence version.
+        path = self.write(
+            "nosv.embl",
+            "ID   X56734; parent id; linear; mRNA; STD; PLN; 12 BP.\n"
+            "XX\n"
+            "SQ   Sequence 12 BP; 3 A; 3 C; 3 G; 3 T; 0 other;\n"
+            "     aaacccgggttt                                            12\n"
+            "//\n",
+        )
+        index = SeqIO.index(path, "embl")
+        self.addCleanup(index.close)
+        # The key the indexer picks must agree with the parser's record id
+        self.assertEqual(list(index), [r.id for r in SeqIO.parse(path, "embl")])
+        self.assertEqual(list(index), ["X56734"])
+
+    def test_embl_unrecognised_id_line(self):
+        """An ID line with an unexpected number of semi-colons is rejected."""
+        path = self.write("badid.embl", "ID   X56734 nonsense layout\nXX\n//\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "embl")
+        self.assertIn("Did not recognise the ID line layout", str(cm.exception))
+
+    # IntelliGenetics ----------------------------------------------------
+
+    def test_intelligenetics_only_comments(self):
+        """A file of nothing but ;; comment lines holds no records."""
+        path = self.write("comments.ig", ";;only comments\n;;and more of them\n")
+        index = SeqIO.index(path, "ig")
+        self.addCleanup(index.close)
+        self.assertEqual(len(index), 0)
+
+    def test_intelligenetics_record_without_semicolon(self):
+        """Records must open with a ; comment line giving the description."""
+        path = self.write("bad.ig", ";;comment\nACGT\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "ig")
+        self.assertIn("Records should start with ';'", str(cm.exception))
+
+    # UniProt XML --------------------------------------------------------
+
+    UNIPROT_HEADER = (
+        "<?xml version='1.0' encoding='UTF-8'?>\n"
+        '<uniprot xmlns="http://uniprot.org/uniprot">\n'
+    )
+
+    def test_uniprot_truncated_entry(self):
+        """An <entry> with no </entry> before end of file is rejected."""
+        path = self.write(
+            "trunc.xml",
+            self.UNIPROT_HEADER
+            + "<entry dataset='Swiss-Prot'>\n<accession>P12345</accession>\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "uniprot-xml")
+        self.assertIn("Didn't find end of record", str(cm.exception))
+
+    def test_uniprot_entry_without_accession(self):
+        """The accession is the key, so an entry without one cannot be indexed."""
+        path = self.write(
+            "noacc.xml",
+            self.UNIPROT_HEADER
+            + "<entry dataset='Swiss-Prot'>\n<name>X</name>\n</entry>\n</uniprot>\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "uniprot-xml")
+        self.assertIn("Did not find <accession> line", str(cm.exception))
+
+    def test_uniprot_get_raw_truncated_entry(self):
+        """get_raw also refuses to return an entry it cannot see the end of."""
+        path = self.write(
+            "trunc2.xml",
+            self.UNIPROT_HEADER
+            + "<entry dataset='Swiss-Prot'>\n<accession>P12345</accession>\n",
+        )
+        proxy = self.proxy(path, "uniprot-xml")
+        with self.assertRaises(ValueError) as cm:
+            proxy.get_raw(len(self.UNIPROT_HEADER))
+        self.assertIn("Didn't find end of record", str(cm.exception))
+
+    # FASTQ --------------------------------------------------------------
+
+    def test_fastq_empty_file(self):
+        """An empty FASTQ file indexes to an empty dictionary."""
+        index = SeqIO.index(self.write("empty.fastq", ""), "fastq")
+        self.addCleanup(index.close)
+        self.assertEqual(len(index), 0)
+
+    def test_fastq_first_line_not_at(self):
+        """A FASTQ file must open with an @ title line."""
+        path = self.write("notat.fastq", ">Alpha\nACGT\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "fastq")
+        self.assertIn("Problem with FASTQ @ line", str(cm.exception))
+
+    def test_fastq_truncated_in_sequence(self):
+        """A record cut short before its + line is rejected."""
+        path = self.write("truncseq.fastq", "@r1\nACGT\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "fastq")
+        self.assertIn("Premature end of file in seq section", str(cm.exception))
+
+    def test_fastq_zero_length_record_bad_quality_line(self):
+        """A zero length record must have an empty quality line."""
+        path = self.write("badblank.fastq", "@r1\n\n+\njunk\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "fastq")
+        self.assertIn("Expected blank quality line", str(cm.exception))
+
+    def test_fastq_junk_after_record(self):
+        """The line after a complete record must start the next one."""
+        path = self.write("badnext.fastq", "@r1\nACGT\n+\nIIII\ngarbage\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "fastq")
+        self.assertIn("Problem with line", str(cm.exception))
+
+    def test_fastq_quality_length_mismatch(self):
+        """Sequence and quality sections must be the same length."""
+        path = self.write("badqual.fastq", "@r1\nACGT\n+\nIII\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "fastq")
+        self.assertIn("Problem with quality section", str(cm.exception))
+
+    def test_fastq_get_raw_checks_the_record_too(self):
+        """get_raw re-reads the record and applies the same checks.
+
+        The offsets handed to get_raw can be stale - they may come from an
+        index_db built when the file looked different - so it does not trust
+        them.  Each case below is the same fault as the matching index test.
+        """
+        cases = [
+            (">Alpha\nACGT\n", "Problem with FASTQ @ line"),
+            ("@r1\nACGT\n", "Premature end of file in seq section"),
+            ("@r1\n\n+\njunk\n", "Expected blank quality line"),
+            ("@r1\nACGT\n+\nIIII\ngarbage\n", "Problem with line"),
+            ("@r1\nACGT\n+\nIII\n", "Problem with quality section"),
+        ]
+        for number, (text, message) in enumerate(cases):
+            with self.subTest(text=text):
+                path = self.write("raw%i.fastq" % number, text)
+                proxy = self.proxy(path, "fastq")
+                with self.assertRaises(ValueError) as cm:
+                    proxy.get_raw(0)
+                self.assertIn(message, str(cm.exception))
+
+    # Known bugs ---------------------------------------------------------
+
+    def test_genbank_empty_locus_line(self):
+        """A LOCUS line with no name raises IndexError; see comment below.
+
+        Bio.SeqIO._index.GenBankRandomAccess means to cope with this: it
+        wraps the split in try/except ValueError and falls back on a "Did not
+        find usable ACCESSION/VERSION/LOCUS lines" ValueError.  But indexing
+        an empty list raises IndexError, not ValueError, so the handler never
+        runs and the caller gets a bare IndexError instead.  This test pins
+        today's behaviour; it is not an endorsement of it.
+        """
+        path = self.write("emptylocus.gb", "LOCUS \n//\n")
+        self.assertRaises(IndexError, SeqIO.index, path, "genbank")
+
+    def test_tab_blank_lines_become_keys(self):
+        """Blank lines in a tab file become records; see comment below.
+
+        Bio.SeqIO._index.TabRandomAccess means to skip blank lines: it wraps
+        the split in try/except ValueError and continues when the line is
+        blank.  But bytes.split never raises ValueError, so the handler never
+        runs and a blank line is indexed under a key holding just the newline.
+        This test pins today's behaviour; it is not an endorsement of it.
+        """
+        path = self.write("blank.tab", "\nAlpha\tACGT\n")
+        index = SeqIO.index(path, "tab")
+        self.addCleanup(index.close)
+        self.assertEqual(list(index), ["\n", "Alpha"])
 
 
 if __name__ == "__main__":

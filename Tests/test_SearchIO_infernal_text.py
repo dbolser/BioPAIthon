@@ -226,7 +226,7 @@ class CmsearchCases(unittest.TestCase):
 
     def test_cmsearch_1q_1m_1h_notextw(self):
         """Test parsing infernal-text, cmsearch, one queries, one hit, one hsp, multiple fragments, notextw (U2_Yeast)"""
-        tab_file = get_file("cmsearch_114_U2_Yeast.txt")
+        tab_file = get_file("cmsearch_114_U2_Yeast_notextw.txt")
         qresults = parse(tab_file, FMT)
         counter = itertools.count(start=1)
 
