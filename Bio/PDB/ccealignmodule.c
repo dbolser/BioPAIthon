@@ -665,6 +665,10 @@ findPath(
         Py_DECREF(namedtupleType);
     }
 
+    for (int i = 0; i < bufferSize; i++) {
+        PyMem_RawFree(pathBuffer[i]);
+    }
+
     return result;
 }
 
