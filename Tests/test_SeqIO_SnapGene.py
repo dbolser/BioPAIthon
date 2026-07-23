@@ -11,7 +11,10 @@ import unittest
 from io import BytesIO
 
 from Bio import SeqIO
+from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation
+from Bio.SeqIO.SnapGeneIO import _parse_features_packet
+from Bio.SeqRecord import SeqRecord
 
 
 class TestSnapGene(unittest.TestCase):
@@ -298,6 +301,19 @@ class TestSnapGene(unittest.TestCase):
         self.assertEqual(record.annotations["topology"], "circular")
         self.assertEqual(len(record.features), 1)
         self.assertEqual(str(record.features[0].location), "join{[2:10](+), [0:2](+)}")
+
+    def test_zero_length_feature_location(self):
+        """Accept a present SnapGene feature whose location has length zero."""
+        data = b'<Features><Feature><Segment range="6-0"/></Feature></Features>'
+        record = SeqRecord(Seq("AAAAA"))
+
+        _parse_features_packet(len(data), data, record)
+
+        self.assertEqual(len(record.features), 1)
+        self.assertEqual(len(record.features[0]), 0)
+        self.assertEqual(
+            str(record.features[0].location), "join{[5:5](+), [0:0](+)}"
+        )
 
 
 class TestCorruptedSnapGene(unittest.TestCase):
