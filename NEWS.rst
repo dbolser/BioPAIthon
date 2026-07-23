@@ -61,6 +61,16 @@ accumulate the consecutive records of one protein and only yield them once a
 record for a different protein is seen, but they never yielded the records
 left over when the file ended.
 
+``Bio.SeqIO.index`` and ``Bio.SeqIO.index_db`` now reject the same malformed
+lines as ``Bio.SeqIO.parse`` does for two formats where two ``except
+ValueError`` clauses could never be reached, so the checks they guarded had no
+effect. For the ``tab`` format, blank lines are now ignored (as documented and
+as the parser has always done) rather than indexed as records keyed on the
+newline, and a line which is not exactly two tab separated fields is now
+rejected rather than indexed under a key which could not be used to read the
+record back. For the ``genbank`` format, a ``LOCUS`` line with no name now
+raises ``ValueError`` rather than ``IndexError``.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 

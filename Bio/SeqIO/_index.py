@@ -274,19 +274,19 @@ class GenBankRandomAccess(SequentialSeqFileRandomAccess):
             # However if both missing, GenBank parser falls back on LOCUS entry.
             try:
                 key = line[5:].split(None, 1)[0]
-            except ValueError:
-                # Warning?
-                # No content in LOCUS line
-                key = None
+            except IndexError:
+                # No content in LOCUS line. The GenBank parser rejects such a
+                # record outright, even when an ACCESSION or VERSION line
+                # follows, so do not index it under a key which could not be
+                # used to read the record back.
+                raise ValueError(
+                    f"Did not find name in LOCUS line:\n{line!r}"
+                ) from None
             length = len(line)
             while True:
                 end_offset = handle.tell()
                 line = handle.readline()
                 if marker_re.match(line) or not line:
-                    if not key:
-                        raise ValueError(
-                            "Did not find usable ACCESSION/VERSION/LOCUS lines"
-                        )
                     yield key.decode(), start_offset, length
                     start_offset = end_offset
                     break
@@ -565,13 +565,17 @@ class TabRandomAccess(SeqFileRandomAccess):
             if not line:
                 break  # End of file
             try:
-                key = line.split(tab_char)[0]
+                key, _ = line.split(tab_char)  # will fail if more than one tab!
             except ValueError:
                 if not line.strip():
                     # Ignore blank lines
                     continue
                 else:
-                    raise
+                    raise ValueError(
+                        "Each line should have one tab separating the"
+                        + " title and sequence, this line has %i tabs: %r"
+                        % (line.count(tab_char), line)
+                    ) from None
             else:
                 yield key.decode(), start_offset, len(line)
 

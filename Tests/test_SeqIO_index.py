@@ -975,34 +975,77 @@ class MalformedFileTests(unittest.TestCase):
                     proxy.get_raw(0)
                 self.assertIn(message, str(cm.exception))
 
-    # Known bugs ---------------------------------------------------------
+    # GenBank ------------------------------------------------------------
+
+    # A complete but minimal record, to be given various LOCUS lines:
+    GENBANK_BODY = "ORIGIN\n        1 aaacccgggttt\n//\n"
 
     def test_genbank_empty_locus_line(self):
-        """A LOCUS line with no name raises IndexError; see comment below.
-
-        Bio.SeqIO._index.GenBankRandomAccess means to cope with this: it
-        wraps the split in try/except ValueError and falls back on a "Did not
-        find usable ACCESSION/VERSION/LOCUS lines" ValueError.  But indexing
-        an empty list raises IndexError, not ValueError, so the handler never
-        runs and the caller gets a bare IndexError instead.  This test pins
-        today's behaviour; it is not an endorsement of it.
-        """
+        """A LOCUS line with no name is rejected."""
         path = self.write("emptylocus.gb", "LOCUS \n//\n")
-        self.assertRaises(IndexError, SeqIO.index, path, "genbank")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "genbank")
+        self.assertIn("Did not find name in LOCUS line", str(cm.exception))
 
-    def test_tab_blank_lines_become_keys(self):
-        """Blank lines in a tab file become records; see comment below.
+    def test_genbank_empty_locus_line_with_accession(self):
+        """An ACCESSION line does not rescue a LOCUS line with no name.
 
-        Bio.SeqIO._index.TabRandomAccess means to skip blank lines: it wraps
-        the split in try/except ValueError and continues when the line is
-        blank.  But bytes.split never raises ValueError, so the handler never
-        runs and a blank line is indexed under a key holding just the newline.
-        This test pins today's behaviour; it is not an endorsement of it.
+        The indexer normally prefers the VERSION or ACCESSION line and only
+        falls back on the LOCUS name.  It cannot do that here: the parser
+        gives up on the LOCUS line before it reads either of them, so a key
+        taken from the ACCESSION line would name a record which could not be
+        read back.  Both must therefore reject the file.
         """
-        path = self.write("blank.tab", "\nAlpha\tACGT\n")
+        path = self.write(
+            "emptylocus2.gb",
+            "LOCUS       \nACCESSION   X56734\nVERSION     X56734.1\n"
+            + self.GENBANK_BODY,
+        )
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "genbank")
+        self.assertIn("Did not find name in LOCUS line", str(cm.exception))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            with self.assertRaises(ValueError) as cm:
+                list(SeqIO.parse(path, "genbank"))
+        self.assertIn("Failed to parse the record's name", str(cm.exception))
+
+    def test_genbank_locus_name_used_as_key(self):
+        """A LOCUS line with a name is still indexed under it."""
+        path = self.write("locusonly.gb", "LOCUS       X56734\n" + self.GENBANK_BODY)
+        index = SeqIO.index(path, "genbank")
+        self.addCleanup(index.close)
+        self.assertEqual(list(index), ["X56734"])
+
+    # Tab ----------------------------------------------------------------
+
+    def test_tab_blank_lines_are_ignored(self):
+        """Blank lines in a tab file are skipped, as the parser skips them."""
+        path = self.write("blank.tab", "\n\nAlpha\tACGT\n \nBeta\tGGGG\n\n")
         index = SeqIO.index(path, "tab")
         self.addCleanup(index.close)
-        self.assertEqual(list(index), ["\n", "Alpha"])
+        self.assertEqual(list(index), [r.id for r in SeqIO.parse(path, "tab")])
+        self.assertEqual(list(index), ["Alpha", "Beta"])
+
+    def test_tab_line_without_exactly_one_tab(self):
+        """A line which is not two tab separated fields is rejected.
+
+        The parser refuses these lines, so the indexer does too rather than
+        offer a key which could not be used to read the record back.
+        """
+        message = "Each line should have one tab separating the title and sequence"
+        for name, text in [
+            ("notab.tab", "Alpha\n"),
+            ("twotabs.tab", "Alpha\tACGT\tspare\n"),
+        ]:
+            with self.subTest(text=text):
+                path = self.write(name, text)
+                with self.assertRaises(ValueError) as cm:
+                    SeqIO.index(path, "tab")
+                self.assertIn(message, str(cm.exception))
+                with self.assertRaises(ValueError) as cm:
+                    list(SeqIO.parse(path, "tab"))
+                self.assertIn(message, str(cm.exception))
 
 
 if __name__ == "__main__":
