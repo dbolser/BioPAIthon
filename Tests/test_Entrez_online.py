@@ -10,6 +10,9 @@ returned results. Note that we are merely testing the access and whether the
 results are parseable. Detailed tests on each Entrez service are not within the
 scope of this file as they are already covered in test_Entrez.py.
 
+Set the ``NCBI_API_KEY`` environment variable to run these tests. The key is
+read at import time and is never stored in the source tree.
+
 """
 
 import doctest
@@ -28,12 +31,20 @@ requires_internet.check()
 
 
 # This lets us set the email address to be sent to NCBI Entrez:
+_original_api_key = Entrez.api_key
+_api_key = os.environ.get("NCBI_API_KEY")
 Entrez.email = "biopython@biopython.org"
-Entrez.api_key = os.environ.get("NCBI_API_KEY")
+Entrez.api_key = _api_key
 
 URL_HEAD = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 
+def tearDownModule():
+    """Restore the process-global Entrez API key after the online tests."""
+    Entrez.api_key = _original_api_key
+
+
+@unittest.skipUnless(_api_key, "Set NCBI_API_KEY to run online Entrez tests")
 class EntrezOnlineCase(unittest.TestCase):
     def test_no_api_key(self):
         """Test Entrez.read without API key."""
