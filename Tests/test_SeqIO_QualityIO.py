@@ -81,6 +81,41 @@ class QualityIOTestBaseClass(SeqIOTestBaseClass):
             self.assertEqual(converted, q_new, msg=err_msg)
 
 
+class TestFastqQualityDecoding(unittest.TestCase):
+    """Test decoding across the complete valid range of each FASTQ variant."""
+
+    def test_valid_quality_ranges(self):
+        tests = [
+            ("fastq-sanger", "phred_quality", range(94), 33),
+            ("fastq-illumina", "phred_quality", range(63), 64),
+            ("fastq-solexa", "solexa_quality", range(-5, 63), 64),
+        ]
+        for fmt, key, expected_range, offset in tests:
+            with self.subTest(fmt=fmt):
+                expected = list(expected_range)
+                qualities = "".join(chr(score + offset) for score in expected)
+                fastq = f"@test\n{'N' * len(expected)}\n+\n{qualities}\n"
+                record = SeqIO.read(StringIO(fastq), fmt)
+                decoded = record.letter_annotations[key]
+                self.assertIs(type(decoded), list)
+                self.assertEqual(decoded, expected)
+
+    def test_invalid_quality_boundaries(self):
+        tests = [
+            ("fastq-sanger", " !", "\x7f!"),
+            ("fastq-illumina", "?@", "\x7f@"),
+            ("fastq-solexa", ":;", "\x7f;"),
+        ]
+        for fmt, below, above in tests:
+            for qualities in (below, above):
+                with self.subTest(fmt=fmt, qualities=qualities):
+                    fastq = f"@test\nNN\n+\n{qualities}\n"
+                    with self.assertRaises(QualityIO.InvalidCharError) as cm:
+                        SeqIO.read(StringIO(fastq), fmt)
+                    self.assertEqual(cm.exception.full_string, qualities)
+                    self.assertEqual(cm.exception.index, 0)
+
+
 class TestFastqErrors(unittest.TestCase):
     """Test reject invalid FASTQ files."""
 

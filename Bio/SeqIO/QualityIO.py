@@ -1029,6 +1029,14 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
         super().__init__(source, fmt="Fastq")
         self.line = None
 
+    def _decode_quality(self, byte_scores):
+        """Decode translated quality bytes as unsigned integers.
+
+        Subclasses whose quality mapping emits negative scores must override
+        this method, as :class:`FastqSolexaIterator` does below.
+        """
+        return list(byte_scores)
+
     def __next__(self) -> SeqRecord:
         """Parse the file and generate SeqRecord objects."""
 
@@ -1112,8 +1120,7 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
             details = "not in correct range (are you sure you're using the right QualityIO parser?)"
             raise InvalidCharError(quality_string, invalid_index, details)
 
-        # Pass through (standard library) array to handle negative scores from old quality formats
-        qualities = array.array("b", byte_scores).tolist()
+        qualities = self._decode_quality(byte_scores)
 
         # SeqRecord._from_validated avoids length/type checking
         # .encode isn't strictly necessary (Seq init can handle a string), but it is faster to pre-encode
@@ -1248,6 +1255,10 @@ class FastqSolexaIterator(FastqIteratorAbstractBaseClass):
     )
 
     q_key = "solexa_quality"
+
+    def _decode_quality(self, byte_scores):
+        """Decode translated quality bytes as signed integers."""
+        return array.array("b", byte_scores).tolist()
 
     def __init__(
         self,
