@@ -55,6 +55,12 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.UniProt.GOA.gafbyproteiniterator`` no longer drops the annotations of
+the last protein in a GAF file. The underlying GAF 1.0 and GAF 2.x iterators
+accumulate the consecutive records of one protein and only yield them once a
+record for a different protein is seen, but they never yielded the records
+left over when the file ended.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 

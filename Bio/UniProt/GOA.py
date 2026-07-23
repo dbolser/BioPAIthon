@@ -337,6 +337,9 @@ def _gaf10byproteiniterator(handle):
         else:
             cur_id = cur_rec["DB_Object_ID"]
             id_rec_list.append(cur_rec)
+    if id_rec_list:
+        # The last protein in the file is still waiting to be returned.
+        yield id_rec_list
 
 
 def _gaf20byproteiniterator(handle):
@@ -362,6 +365,9 @@ def _gaf20byproteiniterator(handle):
         else:
             cur_id = cur_rec["DB_Object_ID"]
             id_rec_list.append(cur_rec)
+    if id_rec_list:
+        # The last protein in the file is still waiting to be returned.
+        yield id_rec_list
 
 
 def gafbyproteiniterator(handle):
