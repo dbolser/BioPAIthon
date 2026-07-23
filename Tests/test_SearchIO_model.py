@@ -1104,8 +1104,8 @@ class HSPSingleFragmentCases(unittest.TestCase):
         aln = self.hsp.aln
         self.assertIsInstance(aln, MultipleSeqAlignment)
         self.assertEqual(2, len(aln))
-        self.assertTrue("ATCAGT", aln[0].seq)
-        self.assertTrue("AT-ACT", aln[1].seq)
+        self.assertEqual("AT-ACT", aln[0].seq)
+        self.assertEqual("ATCAGT", aln[1].seq)
 
     def test_aln_span(self):
         """Test HSP.aln_span property."""

@@ -140,8 +140,7 @@ class FileParserTest(unittest.TestCase):
 
     def test_wrong_file_parser(self):
         """Testing the ability to deal with wrongly formatted files."""
-        with open(os.path.join("PopGen", "README")) as f:
-            self.assertRaises(ValueError, GenePop.read, f)
+        self.assertRaises(ValueError, FileParser.read, os.path.join("PopGen", "README"))
 
     def test_remove_features(self):
         """Testing the ability to remove population/loci via class methods."""

@@ -6,10 +6,13 @@
 
 import copy
 import gzip
+import os
 import unittest
 import warnings
 from io import BytesIO
 from io import StringIO
+from shutil import rmtree
+from tempfile import mkdtemp
 from tempfile import NamedTemporaryFile
 from contextlib import ExitStack
 
@@ -23,6 +26,7 @@ from Bio.AlignIO import PhylipIO
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 from Bio.Seq import Seq
 from Bio.Seq import UndefinedSequenceError
+from Bio.SeqIO.Interfaces import SequenceWriter
 from Bio.SeqRecord import SeqRecord
 
 # TODO - Check that desired warnings are issued. Used to do that by capturing
@@ -5904,6 +5908,171 @@ class TestSeqIO(SeqIOTestBaseClass):
             ),
         )
         self.assertIn(" datatype=protein ", handle.getvalue())
+
+
+class BadArguments(unittest.TestCase):
+    """Check the argument checking the public Bio.SeqIO functions document.
+
+    Every one of these functions promises a "lower case string describing the
+    file format"; these tests cover what happens when it does not get one, and
+    the related checks on handles and filenames.
+    """
+
+    def setUp(self):
+        # None of these tests should get as far as writing an index, but give
+        # them somewhere harmless to do it if one ever does.
+        self.temp_dir = mkdtemp(prefix="biopython-test")
+        self.index_filename = os.path.join(self.temp_dir, "dummy.idx")
+
+    def tearDown(self):
+        rmtree(self.temp_dir)
+
+    def test_parse_bad_format(self):
+        """Bio.SeqIO.parse insists on a lower case format string."""
+        handle = StringIO(">Alpha\nACGT\n")
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.parse(handle, 42)
+        self.assertIn("Need a string for the file format", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.parse(handle, "")
+        self.assertIn("Format required", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.parse(handle, "FASTA")
+        self.assertIn("should be lower case", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.parse(handle, "nonsense")
+        self.assertIn("Unknown format 'nonsense'", str(cm.exception))
+
+    def test_parse_alphabet_removed(self):
+        """The alphabet argument was removed and is now an error."""
+        handle = StringIO(">Alpha\nACGT\n")
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.parse(handle, "fasta", alphabet="generic_dna")
+        self.assertIn("alphabet argument is no longer supported", str(cm.exception))
+
+    def test_write_bad_format(self):
+        """Bio.SeqIO.write insists on a lower case format string."""
+        records = [SeqRecord(Seq("ACGT"), id="Alpha")]
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.write(records, StringIO(), 42)
+        self.assertIn("Need a string for the file format", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.write(records, StringIO(), "")
+        self.assertIn("Format required", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.write(records, StringIO(), "FASTA")
+        self.assertIn("should be lower case", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.write(records, StringIO(), "nonsense")
+        self.assertIn("Unknown format 'nonsense'", str(cm.exception))
+
+    def test_write_read_only_format(self):
+        """Formats we can read but not write say so explicitly."""
+        records = [SeqRecord(Seq("ACGT"), id="Alpha")]
+        # "swiss" has a parser but no writer; keep this in step with
+        # Bio.SeqIO._FormatToIterator and _FormatToWriter.
+        self.assertIn("swiss", SeqIO._FormatToIterator)
+        self.assertNotIn("swiss", SeqIO._FormatToWriter)
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.write(records, StringIO(), "swiss")
+        self.assertIn(
+            "Reading format 'swiss' is supported, but not writing", str(cm.exception)
+        )
+
+    def test_index_bad_format(self):
+        """Bio.SeqIO.index insists on a lower case format string."""
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.index("Fasta/f002", 42)
+        self.assertIn("Need a string for the file format", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index("Fasta/f002", "")
+        self.assertIn("Format required", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index("Fasta/f002", "FASTA")
+        self.assertIn("should be lower case", str(cm.exception))
+
+    def test_index_unsupported_format(self):
+        """Not every readable format supports random access."""
+        # "clustal" is an alignment format Bio.SeqIO can read but not index.
+        self.assertIn("clustal", SeqIO._FormatToIterator)
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index("Clustalw/protein.aln", "clustal")
+        self.assertIn("Unsupported format 'clustal'", str(cm.exception))
+
+    def test_index_needs_a_filename(self):
+        """Bio.SeqIO.index cannot work from an already open handle."""
+        with open("Fasta/f002") as handle:
+            with self.assertRaises(TypeError) as cm:
+                SeqIO.index(handle, "fasta")
+        self.assertIn("not a handle", str(cm.exception))
+
+    def test_index_db_needs_a_filename(self):
+        """The index filename must be a path, not a handle."""
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.index_db(StringIO(), "Fasta/f002", "fasta")
+        self.assertIn("not a handle", str(cm.exception))
+
+    def test_index_db_bad_filenames(self):
+        """Files to index are given as one path or a list of paths."""
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.index_db(self.index_filename, ("Fasta/f001", "Fasta/f002"), "fasta")
+        self.assertIn("Need a list of filenames", str(cm.exception))
+
+    def test_index_db_bad_format(self):
+        """Bio.SeqIO.index_db insists on a lower case format string."""
+        with self.assertRaises(TypeError):
+            SeqIO.index_db(self.index_filename, "Fasta/f002", 42)
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index_db(self.index_filename, "Fasta/f002", "FASTA")
+        self.assertIn("should be lower case", str(cm.exception))
+
+    def test_writer_must_return_a_record_count(self):
+        """Bio.SeqIO.write checks the contract it has with each writer.
+
+        A writer's write_file must return the number of records written; if a
+        third party writer returns something else the mistake is reported
+        rather than passed on to the caller as a bogus count.
+        """
+
+        class BrokenWriter(SequenceWriter):
+            modes = "t"
+
+            def write_file(self, records):
+                return "lots"
+
+        SeqIO._FormatToWriter["broken-test-format"] = BrokenWriter
+        self.addCleanup(SeqIO._FormatToWriter.pop, "broken-test-format")
+        records = [SeqRecord(Seq("ACGT"), id="Alpha")]
+        with self.assertRaises(RuntimeError) as cm:
+            SeqIO.write(records, StringIO(), "broken-test-format")
+        self.assertIn("should have returned the record count", str(cm.exception))
+
+    def test_alignment_writer_must_write_one_alignment(self):
+        """The alignment based writers wrap a writer that writes one alignment."""
+
+        class BrokenAlignmentWriter:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def write_file(self, alignments):
+                return 2
+
+        class Writer(SeqIO.AlignmentSequenceWriter):
+            _alignment_writer_class = BrokenAlignmentWriter
+
+        records = [SeqRecord(Seq("ACGT"), id="Alpha")]
+        with self.assertRaises(RuntimeError) as cm:
+            Writer(StringIO()).write_records(records)
+        self.assertIn("should have returned 1", str(cm.exception))
+
+    def test_convert_bad_molecule_type(self):
+        """The molecule type must be a string naming DNA, RNA or protein."""
+        with self.assertRaises(TypeError) as cm:
+            SeqIO.convert("Fasta/f002", "fasta", StringIO(), "fasta", 42)
+        self.assertIn("Molecule type should be a string", str(cm.exception))
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.convert("Fasta/f002", "fasta", StringIO(), "fasta", "nonsense")
+        self.assertIn("Unexpected molecule type", str(cm.exception))
 
 
 if __name__ == "__main__":

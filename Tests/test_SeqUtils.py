@@ -6,17 +6,27 @@
 """Tests for SeqUtils module."""
 
 import os
+import re
 import unittest
 
 from Bio import SeqIO
+from Bio.Data import IUPACData
+from Bio.Seq import complement
+from Bio.Seq import complement_rna
 from Bio.Seq import MutableSeq
+from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
+from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import CodonAdaptationIndex
 from Bio.SeqUtils import gc_fraction
+from Bio.SeqUtils import GC123
 from Bio.SeqUtils import GC_skew
+from Bio.SeqUtils import molecular_weight
+from Bio.SeqUtils import nt_search
 from Bio.SeqUtils import seq1
 from Bio.SeqUtils import seq3
+from Bio.SeqUtils import six_frame_translations
 from Bio.SeqUtils.CheckSum import crc32
 from Bio.SeqUtils.CheckSum import crc64
 from Bio.SeqUtils.CheckSum import gcg
@@ -425,6 +435,524 @@ TTT	0.886
         llc_lst = lcc_mult(record, len(record))
         self.assertEqual(len(llc_lst), 1)
         self.assertAlmostEqual(llc_lst[0], 0.9528, places=4)
+
+
+class NtSearchTests(unittest.TestCase):
+    """Tests for Bio.SeqUtils.nt_search."""
+
+    @staticmethod
+    def matching_positions(seq, subseq):
+        """Return every position at which subseq matches seq.
+
+        This is deliberately an independent (naive) implementation written
+        from the IUPAC ambiguity code definitions, so that its answer can be
+        compared against the regular-expression based search in
+        ``Bio.SeqUtils.nt_search``.  Note that overlapping matches count, and
+        that an ambiguity code in ``seq`` only matches itself (the ambiguity
+        codes are expanded on the ``subseq`` side only).
+        """
+        positions = []
+        for start in range(len(seq) - len(subseq) + 1):
+            window = seq[start : start + len(subseq)]
+            if all(
+                base in IUPACData.ambiguous_dna_values[code]
+                for base, code in zip(window, subseq)
+            ):
+                positions.append(start)
+        return positions
+
+    def test_agrees_with_naive_search(self):
+        """Positions returned agree with a naive independent search."""
+        cases = [
+            ("AAGATTAGCATCGGATCC", "AT"),
+            ("AAAA", "AA"),  # overlapping matches
+            ("AAAAA", "AAA"),  # overlapping matches
+            ("ACGTACGTACGT", "ACGT"),
+            ("GGGTCAGTCAGTCA", "RGT"),  # R = A or G
+            ("CATGCATGCATG", "NNN"),  # matches everywhere it fits
+            ("ACGTACGT", "Y"),  # Y = C or T
+            ("ACGT", "TTTT"),  # subseq longer than any match
+            ("ACGT", "GGG"),  # no match at all
+            ("TTTTAAAA", "T"),  # run at the very start
+            ("AAAATTTT", "T"),  # run at the very end
+            ("ACGTNACGT", "N"),  # N in seq is not expanded
+        ]
+        for seq, subseq in cases:
+            with self.subTest(seq=seq, subseq=subseq):
+                result = nt_search(seq, subseq)
+                self.assertEqual(result[1:], self.matching_positions(seq, subseq))
+
+    def test_returned_pattern_matches_the_hits(self):
+        """The regular expression returned first matches every reported hit."""
+        for seq, subseq in [("GGGTCAGTCAGTCA", "RGT"), ("ACGTACGTAA", "MRY")]:
+            with self.subTest(seq=seq, subseq=subseq):
+                result = nt_search(seq, subseq)
+                pattern = result[0]
+                self.assertIsInstance(pattern, str)
+                hits = result[1:]
+                self.assertNotEqual(hits, [])
+                for position in hits:
+                    fragment = seq[position : position + len(subseq)]
+                    self.assertIsNotNone(re.fullmatch(pattern, fragment))
+                # and it must not match anywhere that was not reported
+                for position in range(len(seq) - len(subseq) + 1):
+                    if position in hits:
+                        continue
+                    fragment = seq[position : position + len(subseq)]
+                    self.assertIsNone(re.fullmatch(pattern, fragment))
+
+    def test_final_position_is_reported(self):
+        """A match ending at the last base is reported (off-by-one guard)."""
+        self.assertEqual(nt_search("CCCCAT", "AT")[1:], [4])
+        self.assertEqual(nt_search("AT", "AT")[1:], [0])
+
+    def test_unknown_letter_in_subseq(self):
+        """An illegal letter in the subsequence raises KeyError."""
+        with self.assertRaises(KeyError):
+            nt_search("ACGT", "AZ")
+
+
+class GC123Tests(unittest.TestCase):
+    """Tests for Bio.SeqUtils.GC123."""
+
+    def test_by_codon_position(self):
+        """G+C is reported overall and for each codon position."""
+        # ATG GCC: overall 4 of 6 are G or C; first positions A, G -> 1 of 2;
+        # second positions T, C -> 1 of 2; third positions G, C -> 2 of 2.
+        overall, first, second, third = GC123("ATGGCC")
+        self.assertAlmostEqual(overall, 400 / 6)
+        self.assertEqual((first, second, third), (50.0, 50.0, 100.0))
+
+    def test_ambiguous_nucleotides_are_not_counted(self):
+        """Only A, C, G and T count towards the totals."""
+        # A C T G T N: five countable bases of which C and G are G+C, so 40%;
+        # first positions A, G -> 50%, second C, T -> 50%, third T only -> 0%.
+        self.assertEqual(GC123("ACTGTN"), (40.0, 50.0, 50.0, 0.0))
+
+    def test_codon_position_without_any_nucleotide(self):
+        """A codon position with nothing countable scores zero, not an error."""
+        # A C N: the third position has no countable base at all.
+        self.assertEqual(GC123("ACN"), (50.0, 0.0, 100.0, 0.0))
+
+    def test_incomplete_final_codon(self):
+        """A trailing partial codon is padded rather than dropped."""
+        # ACT G: the G is a first codon position.
+        self.assertEqual(GC123("ACTG"), (50.0, 50.0, 100.0, 0.0))
+
+    def test_case_insensitive(self):
+        """Lower case sequences give the same answer."""
+        self.assertEqual(GC123("atggcc"), GC123("ATGGCC"))
+
+
+class Seq1Seq3EdgeCaseTests(unittest.TestCase):
+    """Edge cases of Bio.SeqUtils.seq1 and Bio.SeqUtils.seq3."""
+
+    def test_seq3_does_not_modify_iupac_tables(self):
+        """seq3 must not mutate IUPACData when given a custom map."""
+        before = dict(IUPACData.protein_letters_1to3_extended)
+        self.assertEqual(seq3("A*", custom_map={"*": "***"}), "Ala***")
+        self.assertEqual(IUPACData.protein_letters_1to3_extended, before)
+
+    def test_seq1_does_not_modify_iupac_tables(self):
+        """seq1 must not mutate IUPACData when given a custom map."""
+        before = dict(IUPACData.protein_letters_3to1_extended)
+        self.assertEqual(seq1("AlaTer", custom_map={"Ter": "#"}), "A#")
+        self.assertEqual(IUPACData.protein_letters_3to1_extended, before)
+
+    def test_seq1_ignores_trailing_partial_codon(self):
+        """seq1 reads whole three-letter blocks and drops any remainder."""
+        self.assertEqual(seq1("MetAla"), "MA")
+        self.assertEqual(seq1("MetAlaX"), "MA")
+        self.assertEqual(seq1("MetAlaXX"), "MA")
+        self.assertEqual(seq1("MetAlaGly"), "MAG")
+
+    def test_seq1_custom_map_replaces_default_terminator(self):
+        """A custom map overrides the default {'Ter': '*'} mapping."""
+        self.assertEqual(seq1("MetAlaTer"), "MA*")
+        self.assertEqual(seq1("MetAlaTer", custom_map={"Ter": "X"}), "MAX")
+
+    def test_seq1_custom_map_is_case_insensitive(self):
+        """Custom map keys are matched case-insensitively, like the defaults."""
+        self.assertEqual(seq1("metalater", custom_map={"ter": "+"}), "MA+")
+        self.assertEqual(seq1("METALATER", custom_map={"Ter": "+"}), "MA+")
+
+    def test_seq3_undef_code(self):
+        """Unknown one-letter codes become undef_code."""
+        self.assertEqual(seq3("A-B"), "AlaXaaAsx")
+        self.assertEqual(seq3("A-B", undef_code="???"), "Ala???Asx")
+
+    def test_seq1_undef_code(self):
+        """Unknown three-letter codes become undef_code."""
+        self.assertEqual(seq1("AlaZzzGly"), "AXG")
+        self.assertEqual(seq1("AlaZzzGly", undef_code="?"), "A?G")
+
+
+class MolecularWeightTests(unittest.TestCase):
+    """Tests for Bio.SeqUtils.molecular_weight."""
+
+    # Average and monoisotopic masses of water.  The monoisotopic value is
+    # 2 x 1.0078250319 (1H) + 15.9949146221 (16O).
+    water = 18.0153
+    monoisotopic_water = 2 * 1.0078250319 + 15.9949146221
+
+    def test_dna_from_published_nucleotide_masses(self):
+        """DNA mass equals sum of dNMP masses minus one water per bond.
+
+        The average masses of the free-acid 2'-deoxyribonucleoside
+        5'-monophosphates are dAMP 331.2218, dCMP 307.1971, dGMP 347.2212
+        and dTMP 322.2085 g/mol; each phosphodiester bond releases one
+        molecule of water (18.0153 g/mol).
+        """
+        dAMP, dCMP, dGMP, dTMP = 331.2218, 307.1971, 347.2212, 322.2085
+        expected = dAMP + dGMP + dCMP - 2 * self.water
+        self.assertAlmostEqual(molecular_weight("AGC", "DNA"), expected, places=4)
+        expected = dAMP + dCMP + dGMP + dTMP - 3 * self.water
+        self.assertAlmostEqual(molecular_weight("ACGT", "DNA"), expected, places=4)
+
+    def test_protein_from_published_amino_acid_masses(self):
+        """Peptide mass equals sum of amino acid masses minus one water per bond.
+
+        Average masses of the free amino acids: Ala 89.0932, Gly 75.0666,
+        Cys 121.1582 g/mol.
+        """
+        ala, gly, cys = 89.0932, 75.0666, 121.1582
+        expected = ala + gly + cys - 2 * self.water
+        self.assertAlmostEqual(molecular_weight("AGC", "protein"), expected, places=4)
+
+    def test_concatenation_loses_exactly_one_water(self):
+        """MW(a + b) == MW(a) + MW(b) - water, for every sequence type.
+
+        This pins the ``(len(seq) - 1) * water`` term: any other multiplier
+        makes the identity fail.
+        """
+        cases = [
+            ("DNA", "ACGTTGCA", "TTGACCAG", False),
+            ("RNA", "ACGUUGCA", "UUGACCAG", False),
+            ("protein", "MKWVTFISL", "LLFSSAYSR", False),
+            ("DNA", "ACGTTGCA", "TTGACCAG", True),
+            ("protein", "MKWVTFISL", "LLFSSAYSR", True),
+        ]
+        for seq_type, first, second, monoisotopic in cases:
+            with self.subTest(seq_type=seq_type, monoisotopic=monoisotopic):
+                water = self.monoisotopic_water if monoisotopic else self.water
+                joined = molecular_weight(
+                    first + second, seq_type, monoisotopic=monoisotopic
+                )
+                separate = molecular_weight(
+                    first, seq_type, monoisotopic=monoisotopic
+                ) + molecular_weight(second, seq_type, monoisotopic=monoisotopic)
+                self.assertAlmostEqual(joined, separate - water, places=4)
+
+    def test_single_residue_has_no_water_loss(self):
+        """A one residue sequence weighs exactly one residue."""
+        for letter in "ACGT":
+            with self.subTest(letter=letter):
+                self.assertAlmostEqual(
+                    molecular_weight(letter + letter, "DNA"),
+                    2 * molecular_weight(letter, "DNA") - self.water,
+                    places=4,
+                )
+
+    def test_monoisotopic_water_constant(self):
+        """The monoisotopic water constant matches the atomic masses."""
+        difference = 2 * molecular_weight("A", "DNA", monoisotopic=True) - (
+            molecular_weight("AA", "DNA", monoisotopic=True)
+        )
+        self.assertAlmostEqual(difference, self.monoisotopic_water, places=5)
+
+    def test_monoisotopic_is_lighter_than_average(self):
+        """Monoisotopic masses are below the average masses."""
+        for seq_type, seq in [
+            ("DNA", "ACGTTGCA"),
+            ("RNA", "ACGUUGCA"),
+            ("protein", "MKWVTFISL"),
+        ]:
+            with self.subTest(seq_type=seq_type):
+                self.assertLess(
+                    molecular_weight(seq, seq_type, monoisotopic=True),
+                    molecular_weight(seq, seq_type, monoisotopic=False),
+                )
+
+    def test_circular_loses_one_more_water(self):
+        """A circular molecule weighs one water less than the linear one."""
+        for seq_type, seq in [
+            ("DNA", "ACGTTGCA"),
+            ("RNA", "ACGUUGCA"),
+            ("protein", "MKWVTFISL"),
+        ]:
+            with self.subTest(seq_type=seq_type):
+                self.assertAlmostEqual(
+                    molecular_weight(seq, seq_type, circular=True),
+                    molecular_weight(seq, seq_type) - self.water,
+                    places=4,
+                )
+
+    def test_double_stranded_is_sum_of_both_strands(self):
+        """Double stranded mass equals the mass of both single strands."""
+        seq = "ACGTTGCAA"
+        self.assertAlmostEqual(
+            molecular_weight(seq, "DNA", double_stranded=True),
+            molecular_weight(seq, "DNA") + molecular_weight(complement(seq), "DNA"),
+            places=4,
+        )
+        rna = "ACGUUGCAA"
+        self.assertAlmostEqual(
+            molecular_weight(rna, "RNA", double_stranded=True),
+            molecular_weight(rna, "RNA") + molecular_weight(complement_rna(rna), "RNA"),
+            places=4,
+        )
+
+    def test_double_stranded_is_strand_symmetric(self):
+        """A duplex weighs the same whichever strand is given."""
+        seq = "ACGTTGCAAGGTC"
+        self.assertAlmostEqual(
+            molecular_weight(seq, "DNA", double_stranded=True),
+            molecular_weight(reverse_complement(seq), "DNA", double_stranded=True),
+            places=4,
+        )
+
+    def test_double_stranded_circular(self):
+        """A circular duplex loses one water per strand."""
+        seq = "ACGTTGCAAGGTC"
+        self.assertAlmostEqual(
+            molecular_weight(seq, "DNA", double_stranded=True, circular=True),
+            molecular_weight(seq, "DNA", double_stranded=True) - 2 * self.water,
+            places=4,
+        )
+
+    def test_accepts_seq_and_seqrecord_and_whitespace(self):
+        """Seq, SeqRecord, whitespace and lower case all give the same answer."""
+        expected = molecular_weight("ACGTTGCA", "DNA")
+        for value in (
+            Seq("ACGTTGCA"),
+            MutableSeq("ACGTTGCA"),
+            SeqRecord(Seq("ACGTTGCA")),
+            "acgttgca",
+            "ACGT TGCA",
+            "ACGT\nTGCA",
+        ):
+            with self.subTest(value=repr(value)[:40]):
+                self.assertAlmostEqual(
+                    molecular_weight(value, "DNA"), expected, places=4
+                )
+
+    def test_bad_sequence_type(self):
+        """An unknown sequence type is rejected."""
+        with self.assertRaises(ValueError) as context:
+            molecular_weight("ACGT", "peptide")
+        self.assertIn("peptide", str(context.exception))
+
+    def test_ambiguous_letter_rejected(self):
+        """Ambiguous or unknown letters are rejected."""
+        for seq_type, seq in [("DNA", "ACNT"), ("RNA", "ACNU"), ("protein", "MKZ")]:
+            with self.subTest(seq_type=seq_type):
+                with self.assertRaises(ValueError) as context:
+                    molecular_weight(seq, seq_type)
+                self.assertIn(seq_type, str(context.exception))
+
+    def test_protein_cannot_be_double_stranded(self):
+        """Proteins have no complement."""
+        with self.assertRaises(ValueError):
+            molecular_weight("MKWV", "protein", double_stranded=True)
+
+
+class SixFrameTranslationsTests(unittest.TestCase):
+    """Tests for Bio.SeqUtils.six_frame_translations."""
+
+    @staticmethod
+    def frames(seq):
+        """Return the six translations, computed independently.
+
+        Frame ``+n`` starts at offset ``n - 1`` of ``seq``; frame ``-n``
+        starts at offset ``n - 1`` of the reverse complement.  The reverse
+        frames are reported 3' to 5' with respect to ``seq``, i.e. reversed,
+        which is the convention ``six_frame_translations`` uses.
+        """
+        result = {}
+        antiparallel = reverse_complement(seq)
+        for offset in range(3):
+            forward = [seq[i : i + 3] for i in range(offset, len(seq) - 2, 3)]
+            reverse = [
+                antiparallel[i : i + 3] for i in range(offset, len(antiparallel) - 2, 3)
+            ]
+            result[offset + 1] = "".join(translate(codon) for codon in forward)
+            result[-(offset + 1)] = "".join(
+                translate(codon) for codon in reversed(reverse)
+            )
+        return result
+
+    def test_short_dna_sequence(self):
+        """Header and frames of a short (<= 20 nt) DNA sequence."""
+        seq = "ATGGCCATTGTA"
+        lines = six_frame_translations(seq).split("\n")
+        # 3 A, 4 T, 3 G and 2 C; GC content 5/12 = 41.67%
+        self.assertEqual(lines[0], "GC_Frame: a:3 t:4 g:3 c:2")
+        # Sequences of 20 nt or less are shown in full, not abbreviated
+        self.assertEqual(lines[1], "Sequence: atggccattgta, 12 nt, 41.67 %GC")
+        self.assertEqual(lines[4], "1/1")
+        self.assertEqual(lines[8].split()[0], seq.lower())
+        self.assertEqual(lines[9], complement(seq).lower())
+
+    def test_long_sequence_header_is_abbreviated(self):
+        """Sequences longer than 20 nt are abbreviated in the header."""
+        seq = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
+        lines = six_frame_translations(seq).split("\n")
+        gc = 100 * (seq.count("G") + seq.count("C")) / len(seq)
+        self.assertEqual(
+            lines[1],
+            "Sequence: %s ... %s, %d nt, %0.2f %%GC"
+            % (seq[:10].lower(), seq[-10:].lower(), len(seq), gc),
+        )
+
+    def test_forward_frames_are_correctly_placed(self):
+        """Each forward frame residue sits above the codon it comes from."""
+        seq = "ATGGCCATTGTAATGGGCCGCTGA"
+        lines = six_frame_translations(seq).split("\n")
+        # rows 5, 6 and 7 hold frames +3, +2 and +1 respectively
+        for row, frame in ((5, 3), (6, 2), (7, 1)):
+            with self.subTest(frame=frame):
+                text = lines[row]
+                for column, residue in enumerate(text):
+                    if residue == " ":
+                        continue
+                    codon = seq[column : column + 3]
+                    self.assertEqual(
+                        residue,
+                        translate(codon),
+                        f"frame {frame}, column {column}, codon {codon}",
+                    )
+
+    def test_all_six_frames_are_present(self):
+        """The output holds all six independently computed translations.
+
+        The three forward frames are printed above the sequence and the
+        three reverse ones below it.  Only the content is checked here, not
+        which reverse frame is printed on which row.
+        """
+        for seq in (
+            "ATGGCCATTGTAATGGGCCGCTGA",  # length a multiple of three
+            "ATGGCCATTGTAATGGGCCGCTGAA",  # and the two other cases
+            "ATGGCCATTGTAATGGGCCGCTGAAC",
+        ):
+            with self.subTest(seq=seq):
+                lines = six_frame_translations(seq).split("\n")
+                expected = self.frames(seq)
+                forward = [lines[row].replace(" ", "") for row in (5, 6, 7)]
+                reverse = [lines[row].replace(" ", "") for row in (10, 11, 12)]
+                self.assertEqual(forward, [expected[3], expected[2], expected[1]])
+                self.assertEqual(
+                    sorted(reverse),
+                    sorted([expected[-1], expected[-2], expected[-3]]),
+                )
+
+    def test_rna_input(self):
+        """An RNA sequence is reverse complemented as RNA."""
+        rna = "AUGGCCAUUGUA"
+        lines = six_frame_translations(rna).split("\n")
+        self.assertEqual(lines[9], complement_rna(rna).lower())
+        self.assertEqual(lines[7], "  ".join(translate(rna)))
+
+
+class CodonAdaptationIndexErrorTests(unittest.TestCase):
+    """Error handling and small hand-checked cases for CodonAdaptationIndex."""
+
+    def test_relative_adaptiveness_from_counts(self):
+        """The w values follow Sharp & Li's definition.
+
+        Sharp & Li (1987) define the relative adaptiveness of a codon as its
+        observed frequency divided by that of the most frequently used
+        synonymous codon; codons that were never seen are given a count of
+        0.5.  The reference gene here is ATG AAA AAG AAA TAA, so the counts
+        are ATG 1, AAA 2, AAG 1, TAA 1 and 0.5 everywhere else.
+        """
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        self.assertAlmostEqual(index["AAA"], 1.0)  # 2 / 2
+        self.assertAlmostEqual(index["AAG"], 0.5)  # 1 / 2
+        self.assertAlmostEqual(index["ATG"], 1.0)  # only Met codon
+        self.assertAlmostEqual(index["TAA"], 1.0)  # 1 / 1
+        self.assertAlmostEqual(index["TAG"], 0.5)  # 0.5 / 1
+        self.assertAlmostEqual(index["TGA"], 0.5)  # 0.5 / 1
+        # Phe was never seen, so both its codons get 0.5 / 0.5 == 1
+        self.assertAlmostEqual(index["TTT"], 1.0)
+        self.assertAlmostEqual(index["TTC"], 1.0)
+
+    def test_calculate_is_geometric_mean(self):
+        """CAI is the geometric mean of the w values of the counted codons."""
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        # AAG (w = 0.5) and AAA (w = 1.0): sqrt(0.5 * 1.0)
+        self.assertAlmostEqual(index.calculate("AAGAAA"), 0.5**0.5, places=10)
+        # ATG and TGG are excluded, so only AAG is counted here
+        self.assertAlmostEqual(index.calculate("ATGAAG"), 0.5, places=10)
+        self.assertAlmostEqual(index.calculate("AAGTGG"), 0.5, places=10)
+
+    def test_illegal_codon_without_gene_name(self):
+        """A bad codon in a bare sequence is reported without a gene name."""
+        for sequence in ("ATGAANAAA", Seq("ATGAANAAA")):
+            with self.subTest(sequence=type(sequence).__name__):
+                with self.assertRaises(ValueError) as context:
+                    CodonAdaptationIndex([sequence])
+                self.assertEqual(str(context.exception), "illegal codon 'AAN'")
+
+    def test_illegal_codon_with_gene_name(self):
+        """A bad codon in a SeqRecord is reported with the record id."""
+        record = SeqRecord(Seq("ATGAANAAA"), id="test_gene")
+        with self.assertRaises(ValueError) as context:
+            CodonAdaptationIndex([record])
+        self.assertEqual(
+            str(context.exception), "illegal codon 'AAN' in gene test_gene"
+        )
+
+    def test_lower_case_sequences_are_accepted(self):
+        """Sequences are upper cased before counting."""
+        upper = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        lower = CodonAdaptationIndex(["atgaaaaagaaataa"])
+        self.assertEqual(dict(upper), dict(lower))
+
+    def test_calculate_skips_missing_stop_codons(self):
+        """A stop codon missing from the index is skipped, not an error."""
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        for codon in ("TAA", "TAG", "TGA"):
+            del index[codon]
+        self.assertAlmostEqual(index.calculate("AAGTAA"), 0.5, places=10)
+        self.assertAlmostEqual(index.calculate("AAGTAG"), 0.5, places=10)
+        self.assertAlmostEqual(index.calculate("AAGTGA"), 0.5, places=10)
+
+    def test_calculate_rejects_missing_sense_codon(self):
+        """A sense codon missing from the index is an error."""
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        del index["AAA"]
+        with self.assertRaises(TypeError) as context:
+            index.calculate("AAGAAA")
+        self.assertEqual(str(context.exception), "illegal codon in sequence: AAA")
+
+    def test_optimize_rejects_ties_when_strict(self):
+        """Two equally preferred codons are an error when strict."""
+        # Without reference sequences every codon has w == 1.0, so every
+        # amino acid with more than one codon is ambiguous.
+        index = CodonAdaptationIndex([])
+        with self.assertRaises(ValueError) as context:
+            index.optimize("AAAAAG")
+        self.assertIn("equally preferred", str(context.exception))
+
+    def test_optimize_rejects_unknown_sequence_type(self):
+        """An unknown seq_type is rejected by optimize."""
+        index = CodonAdaptationIndex([])
+        with self.assertRaises(ValueError) as context:
+            index.optimize("AAAAAG", seq_type="peptide", strict=False)
+        self.assertIn("peptide", str(context.exception))
+
+    def test_optimize_preserves_the_protein(self):
+        """Optimising does not change the encoded protein."""
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"])
+        for seq_type, sequence in (
+            ("DNA", "ATGAAGAAA"),
+            ("RNA", "AUGAAGAAA"),
+            ("protein", "MKK"),
+        ):
+            with self.subTest(seq_type=seq_type):
+                optimized = index.optimize(sequence, seq_type, strict=False)
+                self.assertEqual(translate(optimized), "MKK")
+                self.assertEqual(index.calculate(optimized), 1.0)
 
 
 if __name__ == "__main__":
