@@ -2691,7 +2691,7 @@ respectively, in the Biopython distribution. The function ``mktest`` in
    ['Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila yakuba', 'Drosophila simulans', 'Drosophila simulans', 'Drosophila simulans', 'Drosophila simulans', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster', 'D.melanogaster']
    >>> pvalue = mktest(alignment, species)
    >>> print(pvalue)  # doctest: +ELLIPSIS
-   0.00206457...
+   0.00231966...
 
 In addition to the multiple codon alignment, the function ``mktest``
 takes as input the species to which each sequence in the alignment

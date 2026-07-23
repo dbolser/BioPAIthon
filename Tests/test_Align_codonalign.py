@@ -9838,7 +9838,18 @@ gi|156859       720 GGCACCCTGGAGGCCATCCAGTGGACCAAGCACTGGGACTCCGGCATC 768
                 raise Exception(f"Failed to find species for {description}")
             species.append(s)
         pvalue = mktest(alignment, species)
-        self.assertAlmostEqual(pvalue, 0.0020645725725430097)
+        # The contingency table is [syn_fix, nonsyn_fix, syn_poly,
+        # nonsyn_poly] = [18, 7, 38, 1].  Recomputed independently of
+        # Bio.Align.analysis: the minimum spanning tree over the codons at
+        # each site was found with Kruskal's algorithm, cross checked against
+        # an exhaustive enumeration of every spanning tree wherever a site had
+        # at most five distinct codons, and the p value follows from
+        # G = 2 sum(O ln(O/E)) against a chi-square distribution with one
+        # degree of freedom, whose upper tail probability is erfc(sqrt(G/2)).
+        # The value before the _prim fix was 0.0020645725725430097, from an
+        # inflated table with extra substitutions at every site with three or
+        # more distinct codons.
+        self.assertAlmostEqual(pvalue, 0.0023196627124160174)
 
 
 if __name__ == "__main__":

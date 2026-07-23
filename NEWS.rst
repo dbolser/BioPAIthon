@@ -71,6 +71,18 @@ rejected rather than indexed under a key which could not be used to read the
 record back. For the ``genbank`` format, a ``LOCUS`` line with no name now
 raises ``ValueError`` rather than ``IndexError``.
 
+Three bugs have been fixed in ``Bio.Align.analysis``. The ``F1x4`` and ``F61``
+codon frequency models of ``calculate_dn_ds(..., method="ML")`` raised a
+``TypeError`` and were therefore unusable; they now work, leaving ``F3x4`` as
+the only model that ever did. The minimum spanning tree used by ``mktest`` to
+count substitutions at a site started from a mis-built set of visited nodes
+and added an edge too many, which inflated the counts at every site with three
+or more distinct codons; p-values from ``mktest`` on such alignments change as
+a result. Finally, ``mktest`` no longer raises ``ZeroDivisionError`` on an
+alignment whose contingency table has an empty cell, such as an alignment of
+identical sequences; an empty cell now contributes nothing to the G statistic,
+and a degenerate table gives a p-value of one.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
