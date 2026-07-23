@@ -21,8 +21,9 @@ from Bio import Entrez
 from Bio.Entrez import Parser
 
 # This lets us set the email address to be sent to NCBI Entrez:
+_original_api_key = Entrez.api_key
 Entrez.email = "biopython@biopython.org"
-Entrez.api_key = "5cfd4026f9df285d6cfc723c662d74bcbe09"
+Entrez.api_key = "offline-test-api-key"
 
 URL_HEAD = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
@@ -32,6 +33,11 @@ QUERY_DEFAULTS = {
     "email": [Entrez.email],
     "api_key": [Entrez.api_key],
 }
+
+
+def tearDownModule():
+    """Restore the process-global Entrez API key after the offline tests."""
+    Entrez.api_key = _original_api_key
 
 
 def get_base_url(parsed):
