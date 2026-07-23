@@ -994,7 +994,7 @@ class _SeqAbstractBaseClass(ABC):
                 )
             length = len(sub)
             subdict[length].add(sub)
-        for start in range(len(self)):
+        for start in range(len(self) + 1):
             for length, subs in subdict.items():
                 stop = start + length
                 for sub in subs:

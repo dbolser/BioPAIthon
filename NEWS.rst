@@ -52,6 +52,9 @@ What has **not** changed:
 The distribution name on PyPI would be ``biopaithon`` rather than
 ``biopython``, and the default branch is now ``main`` rather than ``master``.
 
+``Seq.search()`` and ``MutableSeq.search()`` now include matches beginning at
+the final sequence position, including the terminal match of an empty pattern.
+
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
