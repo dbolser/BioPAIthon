@@ -209,13 +209,35 @@ class SortingTests(unittest.TestCase):
     def test_strict_equality_with_missing_values(self):
         """Strict equality handles missing B factors and occupancies."""
 
-        def atom(bfactor, occupancy):
-            return Atom.Atom("CA", np.zeros(3), bfactor, occupancy, " ", " CA ", 1, "C")
+        def atom(
+            bfactor,
+            occupancy,
+            element="C",
+            pqr_charge=None,
+            radius=None,
+        ):
+            return Atom.Atom(
+                "CA",
+                np.zeros(3),
+                bfactor,
+                occupancy,
+                " ",
+                " CA ",
+                1,
+                element,
+                pqr_charge,
+                radius,
+            )
 
         missing = atom(None, None)
         self.assertTrue(missing.strictly_equals(atom(None, None)))
         self.assertFalse(missing.strictly_equals(atom(0.0, None)))
         self.assertFalse(missing.strictly_equals(atom(None, 1.0)))
+
+        reference = atom(None, None, "C", -0.1, 1.5)
+        self.assertFalse(reference.strictly_equals(atom(None, None, "N", -0.1, 1.5)))
+        self.assertFalse(reference.strictly_equals(atom(None, None, "C", 0.1, 1.5)))
+        self.assertFalse(reference.strictly_equals(atom(None, None, "C", -0.1, 1.6)))
 
     def test_residue_sort(self):
         """Test atoms are sorted correctly in residues."""
