@@ -15,6 +15,7 @@ from Bio.Align import Alignment
 from Bio.Align.analysis import _count_diff_NG86
 from Bio.Align.analysis import _count_replacement
 from Bio.Align.analysis import _count_site_NG86
+from Bio.Align.analysis import _G_test
 from Bio.Align.analysis import _get_codon2codon_matrix
 from Bio.Align.analysis import _get_pi
 from Bio.Align.analysis import _get_Q
@@ -243,15 +244,8 @@ class GetPiTests(unittest.TestCase):
         # every sense codon and every stop codon is present
         self.assertEqual(len(pi), 64)
 
-    @unittest.expectedFailure
     def test_f1x4(self):
-        """F1x4 uses one set of base frequencies for all three positions.
-
-        This currently fails with a TypeError: _get_pi adds
-        ``codon_table.forward_table.keys()`` (a view) to
-        ``codon_table.stop_codons`` (a list), which is not allowed in
-        Python 3.  Remove the expectedFailure decorator once that is fixed.
-        """
+        """F1x4 uses one set of base frequencies for all three positions."""
         pi = _get_pi(self.codons1, self.codons2, "F1x4", CODON_TABLE)
         codons = self.codons1 + self.codons2
         bases = "".join(codons)
@@ -260,12 +254,8 @@ class GetPiTests(unittest.TestCase):
             expected = frequency[codon[0]] * frequency[codon[1]] * frequency[codon[2]]
             self.assertAlmostEqual(pi[codon], expected, places=12)
 
-    @unittest.expectedFailure
     def test_f61(self):
-        """F61 counts whole codons, with a pseudo count of 0.1.
-
-        This fails for the same reason as test_f1x4; see its docstring.
-        """
+        """F61 counts whole codons, with a pseudo count of 0.1."""
         pi = _get_pi(self.codons1, self.codons2, "F61", CODON_TABLE)
         total = 64 * 0.1 + len(self.codons1) + len(self.codons2)
         self.assertAlmostEqual(pi["ATG"], (0.1 + 2) / total, places=12)
@@ -368,17 +358,11 @@ class CountReplacementTests(unittest.TestCase):
         # TTT and TTA differ at one position and change the amino acid
         self.assertEqual(_count_replacement({"TTT", "TTA"}, self.nonsyn_G), 1)
 
-    @unittest.expectedFailure
     def test_three_codons_use_a_spanning_tree(self):
         """More than two codons should be joined by a minimum spanning tree.
 
         TTT, TTC and TTA are mutually one substitution apart, so the minimum
-        spanning tree over them costs 2.  This currently returns 3 because
-        _prim starts from ``used = set(nodes[0])``, which is the set of the
-        *characters* of the first codon rather than a set holding the codon
-        itself.  No codon is ever found in it, so already visited nodes are
-        visited again and the tree gains an extra edge.  Remove the
-        expectedFailure decorator once that is fixed.
+        spanning tree over them costs 2.
         """
         codons = {"TTT", "TTC", "TTA"}
         self.assertEqual(_count_replacement(codons, self.G), 2)
@@ -463,6 +447,72 @@ class MkTestTests(unittest.TestCase):
             mktest(alignment(*self.sequences), self.species),
             places=12,
         )
+
+    def test_identical_sequences(self):
+        """An alignment with nothing to count is not evidence of anything.
+
+        Every codon is invariant, so the contingency table is [0, 0, 0, 0]
+        and the p value is one.
+        """
+        sequences = ["TTTTTTTTTTTT"] * 4
+        self.assertEqual(mktest(alignment(*sequences), self.species), 1.0)
+
+    def test_no_polymorphism(self):
+        """A table with an empty row is degenerate and gives a p value of one.
+
+        Both differences are fixed between the species, so the table is
+        [1, 1, 0, 0]: the polymorphic row is empty, the observed counts equal
+        the expected counts exactly, and G is zero.
+        """
+        sequences = ["TTTTTT", "TTTTTT", "TTCTTA", "TTCTTA"]
+        self.assertEqual(mktest(alignment(*sequences), self.species), 1.0)
+
+
+class GTestTests(unittest.TestCase):
+    """Empty cells in the 2x2 contingency table of the G test."""
+
+    def test_published_example(self):
+        """The worked example from the docstring of _G_test."""
+        # tot = 68, row totals 24 and 44, column totals 59 and 9, so the
+        # expected counts are 24*59/68, 24*9/68, 44*59/68 and 44*9/68.
+        counts = [17, 7, 42, 2]
+        expected = [24 * 59 / 68, 24 * 9 / 68, 44 * 59 / 68, 44 * 9 / 68]
+        g = 2 * sum(
+            observed * math.log(observed / value)
+            for observed, value in zip(counts, expected)
+        )
+        self.assertAlmostEqual(_G_test(counts), math.erfc(math.sqrt(g / 2)), places=12)
+
+    def test_one_empty_cell(self):
+        """A zero observed count contributes nothing to G.
+
+        Following ``lim x->0 of x ln(x) = 0``, the empty cell drops out of
+        the sum rather than raising.
+        """
+        # tot = 6, row totals 2 and 4, column totals 3 and 3, so the expected
+        # counts are exactly [1, 1, 2, 2] and only three cells contribute.
+        counts = [2, 0, 1, 3]
+        g = 2 * (2 * math.log(2 / 1) + 1 * math.log(1 / 2) + 3 * math.log(3 / 2))
+        self.assertAlmostEqual(_G_test(counts), math.erfc(math.sqrt(g / 2)), places=12)
+
+    def test_empty_row(self):
+        """With no polymorphism the observed counts are the expected counts."""
+        # tot = 8, row totals 8 and 0, column totals 3 and 5, so the expected
+        # counts are [3, 5, 0, 0], which is the table itself, and G is zero.
+        self.assertEqual(_G_test([3, 5, 0, 0]), 1.0)
+        # the same holds for an empty row of fixed differences
+        self.assertEqual(_G_test([0, 0, 3, 5]), 1.0)
+
+    def test_empty_column(self):
+        """With no non-synonymous change the table is degenerate as well."""
+        # tot = 8, row totals 3 and 5, column totals 8 and 0, so the expected
+        # counts are [3, 0, 5, 0], which is the table itself, and G is zero.
+        self.assertEqual(_G_test([3, 0, 5, 0]), 1.0)
+        self.assertEqual(_G_test([0, 3, 0, 5]), 1.0)
+
+    def test_empty_table(self):
+        """An all-zero table has no expected counts and no information."""
+        self.assertEqual(_G_test([0, 0, 0, 0]), 1.0)
 
 
 if __name__ == "__main__":
