@@ -24,21 +24,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-    # Check for changes only on files changed by the PR/push
-    - uses: tj-actions/changed-files@v47
+    # Check only files changed by the PR/push. JSON keeps filenames as data,
+    # including whitespace and shell metacharacters.
+    - uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62  # v47
       id: changed-files
+      with:
+        json: "true"
+        escape_json: "false"
+        safe_output: "false"
 
     # Cache CI packages
-    - uses: actions/cache@v5
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
       id: cache-precommit
       with:
         path: ~/.cache/pre-commit
         key: ${{ runner.os }}-precommit-hooks-v2-${{ hashFiles('**/.pre-commit-config.yaml') }}
 
     - name: Setup Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: "3.10"
 
@@ -52,8 +57,10 @@ jobs:
         pre-commit install --install-hooks
 
     - name: Run style checking via pre-commit
+      env:
+        ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
-        pre-commit run --show-diff-on-failure --files ${{ steps.changed-files.outputs.all_changed_files }}
+        python -c 'import json, os, subprocess; files = json.loads(os.environ["ALL_CHANGED_FILES"]); subprocess.run(["pre-commit", "run", "--show-diff-on-failure", "--files", *files], check=True) if files else None'
 
   # Cache pip & python dependencies for Linux runner
   # since it is used in most actions.
@@ -66,14 +73,14 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
     - name: Setup Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
-    - uses: actions/cache@v5
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}
@@ -96,10 +103,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
     - name: Set up Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: "3.10"
 
@@ -144,15 +151,15 @@ jobs:
     - run: |
         sudo /etc/init.d/mysql start
 
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
     # Retrieve cache to speed things up
-    - uses: actions/cache@v5
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}
@@ -179,7 +186,7 @@ jobs:
       shell: bash
 
     - name: Upload coverage to codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
       with:
         name: Linux GitHub Actions ${{ matrix.python-version }}
         disable_search: true
@@ -196,9 +203,9 @@ jobs:
         python-version: ["3.10", "3.14"]
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -225,7 +232,7 @@ jobs:
         coverage xml
 
     - name: Upload coverage to codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
       with:
         name: macOS GitHub Actions ${{ matrix.python-version }}
         disable_search: true
@@ -242,9 +249,9 @@ jobs:
         python-version: ["3.10", "3.14"]
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -271,7 +278,7 @@ jobs:
         coverage xml
 
     - name: Upload coverage to codecov
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
       with:
         name: Windows GitHub Actions ${{ matrix.python-version }}
         disable_search: true
@@ -288,9 +295,9 @@ jobs:
         python-version: [pypy-3.10]
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -328,14 +335,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
     - name: Set up Python
-      uses: actions/setup-python@v7
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
       with:
         python-version: "3.10"
 
-    - uses: actions/cache@v5
+    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}

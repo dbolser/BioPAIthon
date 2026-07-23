@@ -9,8 +9,6 @@ name: Release
 #     Owner: dbolser | Repository: BioPAIthon
 #     Workflow name: release.yml | Environment name: pypi
 #
-# TODO(#improvements-3.1): pin these actions to commit SHAs rather than tags.
-
 on:
   push:
     tags:
@@ -28,9 +26,9 @@ jobs:
     name: Tag matches Bio.__version__
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
 
@@ -53,9 +51,9 @@ jobs:
           - macos-15           # arm64 host; also cross-builds x86_64, see pyproject
           - windows-latest     # AMD64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
 
@@ -69,7 +67,7 @@ jobs:
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -80,9 +78,9 @@ jobs:
     needs: check_version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.12"
 
@@ -96,7 +94,7 @@ jobs:
           python -m pip install --upgrade twine
           python -m twine check dist/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -115,7 +113,7 @@ jobs:
       id-token: write   # required for Trusted Publishing; no API token needed
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: dist
           merge-multiple: true
@@ -124,4 +122,4 @@ jobs:
         run: ls -l dist
 
       - name: Publish
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247  # v1.14.1
