@@ -184,6 +184,7 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
             row = PyMem_Realloc(row, size*sizeof(Py_uintptr_t));
             if (!row) {
                 PyMem_Free(data[n]);
+                data[n] = NULL;
                 PyErr_NoMemory();
                 return NULL;
             }
@@ -191,19 +192,23 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
         }
         row[i++] = s - buffer;
     }
-    row = PyMem_Realloc(row, i*sizeof(Py_uintptr_t));
-    if (!row) {
-        PyMem_Free(data[n]);
-        PyErr_NoMemory();
-        return NULL;
+    if (i > 0) {
+        row = PyMem_Realloc(row, i*sizeof(Py_uintptr_t));
+        if (!row) {
+            PyMem_Free(data[n]);
+            data[n] = NULL;
+            PyErr_NoMemory();
+            return NULL;
+        }
+        data[n] = row;
     }
-    data[n] = row;
     m = s - buffer;
     if (n == 0) self->m = m;
     else if (m != self->m) {
         PyErr_Format(PyExc_ValueError,
                      "line has length %zd (expected %zd)", m, self->m);
         PyMem_Free(row);
+        data[n] = NULL;
         return NULL;
     }
 
@@ -216,7 +221,7 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
     end = 0;
     s = buffer;
     p = 0;
-    if (row[p] == 0) {
+    if (i > 0 && row[p] == 0) {
         gap = true;
         p++;
     }
@@ -342,7 +347,8 @@ Parser_fill(Parser* self, PyObject* args)
         start = end;
     }
     while (start < m);
-    result = Py_NewRef(Py_None);
+    Py_INCREF(Py_None);
+    result = Py_None;
 
 exit:
     PyBuffer_Release(&view);
@@ -364,7 +370,7 @@ Parser_get_shape(Parser* self, void* closure)
     Py_ssize_t i;
     Py_ssize_t index;
     Py_ssize_t min_index;
-    Py_uintptr_t** data = self->data;
+    Py_uintptr_t** data = NULL;
     const Py_ssize_t n = self->n;
     const Py_ssize_t m = self->m;
     Py_ssize_t k = 1;
@@ -399,6 +405,7 @@ Parser_get_shape(Parser* self, void* closure)
     }
 
     self->k = k;
+    PyMem_Free(data);
     return Py_BuildValue("nn", n, k);
 }
 
