@@ -55,6 +55,12 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+The module-level ``Bio.Seq.translate`` function now honors an explicit ``gap``
+argument consistently for strings, ``Seq`` objects, and ``MutableSeq`` objects.
+Its default remains ``None``, unlike the ``Seq.translate`` method's longstanding
+default of ``"-"``; callers translating gapped sequences through the module-level
+function should pass the gap character explicitly.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
