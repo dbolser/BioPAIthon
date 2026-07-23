@@ -2,11 +2,13 @@
 #include <Python.h>
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 
-static void
+static int
 integer_unpack_u8(Py_buffer *in_view, Py_buffer *out_view)
 {
     Py_ssize_t in_size = in_view->shape[0];
+    Py_ssize_t out_size = out_view->shape[0];
     Py_ssize_t in_index = 0;
     Py_ssize_t out_index = 0;
 
@@ -25,18 +27,26 @@ integer_unpack_u8(Py_buffer *in_view, Py_buffer *out_view)
                     break;
                 }
             }
+            if (in_data[in_index] == UINT8_MAX) {
+                return -2;
+            }
         }
 
+        if (out_index >= out_size) {
+            return -1;
+        }
         out_data[out_index] = sum;
         in_index += 1;
         out_index += 1;
     }
+    return out_index == out_size ? 0 : -3;
 }
 
-static void
+static int
 integer_unpack_u16(Py_buffer *in_view, Py_buffer *out_view)
 {
     Py_ssize_t in_size = in_view->shape[0];
+    Py_ssize_t out_size = out_view->shape[0];
     Py_ssize_t in_index = 0;
     Py_ssize_t out_index = 0;
 
@@ -55,18 +65,26 @@ integer_unpack_u16(Py_buffer *in_view, Py_buffer *out_view)
                     break;
                 }
             }
+            if (in_data[in_index] == UINT16_MAX) {
+                return -2;
+            }
         }
 
+        if (out_index >= out_size) {
+            return -1;
+        }
         out_data[out_index] = sum;
         in_index += 1;
         out_index += 1;
     }
+    return out_index == out_size ? 0 : -3;
 }
 
-static void
+static int
 integer_unpack_i8(Py_buffer *in_view, Py_buffer *out_view)
 {
     Py_ssize_t in_size = in_view->shape[0];
+    Py_ssize_t out_size = out_view->shape[0];
     Py_ssize_t in_index = 0;
     Py_ssize_t out_index = 0;
 
@@ -85,18 +103,27 @@ integer_unpack_i8(Py_buffer *in_view, Py_buffer *out_view)
                     break;
                 }
             }
+            if (in_data[in_index] == INT8_MAX ||
+                in_data[in_index] == INT8_MIN) {
+                return -2;
+            }
         }
 
+        if (out_index >= out_size) {
+            return -1;
+        }
         out_data[out_index] = sum;
         in_index += 1;
         out_index += 1;
     }
+    return out_index == out_size ? 0 : -3;
 }
 
-static void
+static int
 integer_unpack_i16(Py_buffer *in_view, Py_buffer *out_view)
 {
     Py_ssize_t in_size = in_view->shape[0];
+    Py_ssize_t out_size = out_view->shape[0];
     Py_ssize_t in_index = 0;
     Py_ssize_t out_index = 0;
 
@@ -115,12 +142,20 @@ integer_unpack_i16(Py_buffer *in_view, Py_buffer *out_view)
                     break;
                 }
             }
+            if (in_data[in_index] == INT16_MAX ||
+                in_data[in_index] == INT16_MIN) {
+                return -2;
+            }
         }
 
+        if (out_index >= out_size) {
+            return -1;
+        }
         out_data[out_index] = sum;
         in_index += 1;
         out_index += 1;
     }
+    return out_index == out_size ? 0 : -3;
 }
 
 static PyObject *
@@ -153,31 +188,88 @@ integer_unpack(PyObject *self, PyObject *args)
         goto exit;
     }
 
-    const char format = in_view.format[0];
+    char format;
+    int status = 0;
 
-    if (format == 'B') {
-        integer_unpack_u8(&in_view, &out_view);
+    if (in_view.format == NULL || out_view.format == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Buffer format is not available.");
+        goto exit;
     }
-    else if (format == 'H') {
-        integer_unpack_u16(&in_view, &out_view);
+
+    format = in_view.format[0];
+    if (in_view.format[1] != '\0') {
+        PyErr_Format(PyExc_ValueError,
+            "Unexpected buffer format: %s",
+            in_view.format);
+        goto exit;
     }
-    else if (format == 'b') {
-        integer_unpack_i8(&in_view, &out_view);
+
+    if (format == 'B' && in_view.itemsize == sizeof(uint8_t)) {
+        if ((strcmp(out_view.format, "I") != 0 &&
+             strcmp(out_view.format, "L") != 0) ||
+            out_view.itemsize != sizeof(uint32_t)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Output buffer should contain 32-bit unsigned integers.");
+            goto exit;
+        }
+        status = integer_unpack_u8(&in_view, &out_view);
     }
-    else if (format == 'h') {
-        integer_unpack_i16(&in_view, &out_view);
+    else if (format == 'H' && in_view.itemsize == sizeof(uint16_t)) {
+        if ((strcmp(out_view.format, "I") != 0 &&
+             strcmp(out_view.format, "L") != 0) ||
+            out_view.itemsize != sizeof(uint32_t)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Output buffer should contain 32-bit unsigned integers.");
+            goto exit;
+        }
+        status = integer_unpack_u16(&in_view, &out_view);
+    }
+    else if (format == 'b' && in_view.itemsize == sizeof(int8_t)) {
+        if ((strcmp(out_view.format, "i") != 0 &&
+             strcmp(out_view.format, "l") != 0) ||
+            out_view.itemsize != sizeof(int32_t)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Output buffer should contain 32-bit signed integers.");
+            goto exit;
+        }
+        status = integer_unpack_i8(&in_view, &out_view);
+    }
+    else if (format == 'h' && in_view.itemsize == sizeof(int16_t)) {
+        if ((strcmp(out_view.format, "i") != 0 &&
+             strcmp(out_view.format, "l") != 0) ||
+            out_view.itemsize != sizeof(int32_t)) {
+            PyErr_SetString(PyExc_ValueError,
+                "Output buffer should contain 32-bit signed integers.");
+            goto exit;
+        }
+        status = integer_unpack_i16(&in_view, &out_view);
     }
     else {
         PyErr_Format(PyExc_ValueError,
             "Unexpected buffer format: %s",
             in_view.format);
+        goto exit;
+    }
+
+    if (status != 0) {
+        if (status == -1) {
+            PyErr_SetString(PyExc_ValueError, "Output buffer is too small.");
+        }
+        else if (status == -2) {
+            PyErr_SetString(PyExc_ValueError, "Packed integer is truncated.");
+        }
+        else {
+            PyErr_SetString(PyExc_ValueError, "Output buffer is too large.");
+        }
     }
 
 exit:
     PyBuffer_Release(&in_view);
     PyBuffer_Release(&out_view);
-    Py_INCREF(Py_None);
-    return Py_None;
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+    Py_RETURN_NONE;
 }
 
 static PyMethodDef IntegerUnpackMethods[] = {
