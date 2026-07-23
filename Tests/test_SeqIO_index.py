@@ -701,15 +701,32 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
                     SeqIO.index(handle, "fasta")
                 self.assertEqual(str(cm.exception), message)
 
+    def test_index_accepts_file_descriptor(self):
+        """Retain support for file descriptors accepted by open()."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "records.fasta"
+            filename.write_text(">record\nACGT\n")
+            descriptor = os.open(filename, os.O_RDONLY)
+            records = None
+            try:
+                records = SeqIO.index(descriptor, "fasta")
+                self.assertEqual(str(records["record"].seq), "ACGT")
+            finally:
+                if records is None:
+                    os.close(descriptor)
+                else:
+                    records.close()
+
     def test_index_preserves_proxy_type_error(self):
         """Preserve TypeError raised while constructing an index proxy."""
         error = TypeError("corrupt SFF header")
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = Path(temp_dir) / "corrupt.sff"
             filename.write_bytes(b"not an SFF file")
-            with mock.patch(
-                "Bio.SeqIO.SffIO._sff_file_header", side_effect=error
-            ), self.assertRaises(TypeError) as cm:
+            with (
+                mock.patch("Bio.SeqIO.SffIO._sff_file_header", side_effect=error),
+                self.assertRaises(TypeError) as cm,
+            ):
                 SeqIO.index(filename, "sff")
         self.assertIs(cm.exception, error)
 
