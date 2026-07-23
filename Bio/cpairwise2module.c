@@ -419,7 +419,7 @@ static PyObject *cpairwise2_rint(PyObject *self, PyObject *args,
 
     static char *kwlist[] = {"x", "precision", NULL};
 
-    if(!PyArg_ParseTupleAndKeywords(args, keywds, "d|l", kwlist,
+    if(!PyArg_ParseTupleAndKeywords(args, keywds, "d|i", kwlist,
                                     &x, &precision))
         return NULL;
     rint_x = (int)(x * precision + 0.5);

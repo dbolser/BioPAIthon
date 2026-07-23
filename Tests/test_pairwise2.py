@@ -23,6 +23,23 @@ if pairwise2.rint == pairwise2._python_rint:
     raise MissingExternalDependencyError("Missing or non-compiled file: 'cpairwise2'")
 
 
+class RintTest(unittest.TestCase):
+    def test_precision(self):
+        self.assertEqual(pairwise2.rint(1.25), 1250)
+        self.assertEqual(pairwise2.rint(1.25, 100), 125)
+        self.assertEqual(pairwise2.rint(1.25, precision=100), 125)
+
+    def test_precision_int_boundaries(self):
+        self.assertEqual(pairwise2.rint(0.0, 2**31 - 1), 0)
+        self.assertEqual(pairwise2.rint(0.0, -(2**31)), 0)
+
+    def test_precision_overflow(self):
+        for precision in (2**31, -(2**31) - 1, 2**62):
+            with self.subTest(precision=precision):
+                with self.assertRaises(OverflowError):
+                    pairwise2.rint(0.0, precision)
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)
