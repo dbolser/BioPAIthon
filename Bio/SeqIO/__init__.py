@@ -375,6 +375,7 @@ making up each alignment as SeqRecords.
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
+from os import fspath
 from typing import Union
 
 from Bio import AlignIO
@@ -401,6 +402,15 @@ from Bio.SeqIO import XdnaIO
 from Bio.SeqRecord import SeqRecord
 
 from .Interfaces import _IOSource, _TextIOSource, SequenceIterator, SequenceWriter
+
+
+def _is_pathlike(obj):
+    """Return whether an object implements the filesystem path protocol."""
+    try:
+        fspath(obj)
+        return True
+    except TypeError:
+        return False
 
 # Convention for format names is "mainname-subtype" in lower case.
 # Please use the same names as BioPerl or EMBOSS where possible.
@@ -907,8 +917,6 @@ def index(filename, format, alphabet=None, key_function=None):
     See Also: Bio.SeqIO.index_db() and Bio.SeqIO.to_dict()
 
     """
-    from os import fspath
-
     # Try and give helpful error messages:
     if not isinstance(format, str):
         raise TypeError("Need a string for the file format (lower case)")
@@ -935,9 +943,8 @@ def index(filename, format, alphabet=None, key_function=None):
         key_function,
     )
 
-    try:
-        fspath(filename)
-    except TypeError:
+    # ``open`` has historically also accepted integer file descriptors here.
+    if not isinstance(filename, int) and not _is_pathlike(filename):
         raise TypeError(
             "Need a string or path-like object for the filename (not a handle)"
         ) from None
@@ -996,20 +1003,10 @@ def index_db(
     glob which is useful for building lists of files.
 
     """
-    from os import fspath
-
-    def is_pathlike(obj):
-        """Test if the given object can be accepted as a path."""
-        try:
-            fspath(obj)
-            return True
-        except TypeError:
-            return False
-
     # Try and give helpful error messages:
-    if not is_pathlike(index_filename):
+    if not _is_pathlike(index_filename):
         raise TypeError("Need a string or path-like object for filename (not a handle)")
-    if is_pathlike(filenames):
+    if _is_pathlike(filenames):
         # Make the API a little more friendly, and more similar
         # to Bio.SeqIO.index(...) for indexing just one file.
         filenames = [filenames]
