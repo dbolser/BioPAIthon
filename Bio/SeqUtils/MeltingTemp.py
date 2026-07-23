@@ -717,7 +717,7 @@ def Tm_GC(
     69.20
 
     Arguments:
-     - valueset: A few often cited variants are included:
+     - valueset: A few often cited variants are included, numbered 1 to 8:
 
         1. Tm = 69.3 + 0.41(%GC) - 650/N
            (Marmur & Doty 1962, J Mol Biol 5: 109-118; Chester & Marshak 1993),
@@ -802,8 +802,8 @@ def Tm_GC(
         if valueset == 8:
             A, B, C, D = (77.1, 0.41, 528, 1)
             saltcorr = 4
-    if valueset > 8:
-        raise ValueError("allowed values for parameter 'valueset' are 0-8.")
+    if valueset not in range(1, 9):
+        raise ValueError("allowed values for parameter 'valueset' are 1-8.")
 
     melting_temp = A + B * percent_gc - C / len(seq)
     if saltcorr:

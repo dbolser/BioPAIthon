@@ -498,10 +498,35 @@ class TmGCTests(unittest.TestCase):
                     mt.Tm_GC("CGTTCCAAAGATGTGGGCATGAGCTTA" + base)
 
     def test_unknown_value_set_rejected(self):
-        """Value sets above 8 do not exist."""
+        """Only the eight published value sets exist."""
+        for valueset in (-1, 0, 9, 100):
+            with self.subTest(valueset=valueset):
+                with self.assertRaises(ValueError) as context:
+                    mt.Tm_GC(self.seq, valueset=valueset)
+                self.assertIn("valueset", str(context.exception))
+                self.assertIn("1-8", str(context.exception))
+
+    def test_value_set_zero_is_not_a_value_set(self):
+        """Value set 0 is refused rather than left half applied.
+
+        The docstring documents eight value sets, taken from Marmur & Doty,
+        Schildkraut & Lifson, Wetmur, Primer3Plus and von Ahsen et al.  There
+        is no published set 0, so nothing assigns A, B, C and D for it; before
+        this was fixed, valueset=0 slipped past the range check and Tm_GC died
+        with an UnboundLocalError instead of telling the caller what was wrong.
+        """
         with self.assertRaises(ValueError) as context:
-            mt.Tm_GC(self.seq, valueset=9)
-        self.assertIn("valueset", str(context.exception))
+            mt.Tm_GC(self.seq, valueset=0)
+        self.assertEqual(
+            str(context.exception),
+            "allowed values for parameter 'valueset' are 1-8.",
+        )
+
+    def test_every_allowed_value_set_is_accepted(self):
+        """Each of the value sets the error message allows really works."""
+        for valueset in range(1, 9):
+            with self.subTest(valueset=valueset):
+                self.assertIsInstance(mt.Tm_GC(self.seq, valueset=valueset), float)
 
     def test_tm_rises_with_gc_content(self):
         """More G+C means a higher predicted Tm."""
