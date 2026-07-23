@@ -131,7 +131,11 @@ jobs:
   # the old build_wheels matrix: that only proved the C extensions compiled,
   # whereas these jobs compile them and then run the suite against them.
   test_linux:
-    timeout-minutes: 20
+    # 30, not 20: this job runs the whole suite under ASan/UBSan with
+    # PYTHONMALLOC=debug, and observed times are 9-18 min per version. Under
+    # runner contention 3.12 exceeded the old 20 min cap and was cancelled,
+    # which silently skipped check_tests and docs downstream.
+    timeout-minutes: 30
     needs: [style, build, linux_prep]
     runs-on: ubuntu-latest
     strategy:
