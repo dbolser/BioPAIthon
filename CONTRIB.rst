@@ -1,14 +1,20 @@
 CONTRIBUTORS
 ============
 
-This is a list of people who have made contributions to Biopython.
+This is a list of those who have made contributions to Biopython and to
+BioPAIthon.
 
-BioPAIthon is a fork of Biopython, and this list is carried over from it
-unchanged. These are the people who wrote the software. The fork changed a
+BioPAIthon is a fork of Biopython. Every name inherited from that project is
+carried over unchanged: they wrote the software. The fork changed a
 contribution policy; it did not change the authorship of a single line. Names
 are added to this file, never removed from it.
 
-People are listed alphabetically, as verified with Unix sort::
+Since BioPAIthon accepts contributions from any capable contributor - human,
+computational intelligence, AI, or chimp - this list is no longer exclusively
+human, and entries are not marked by kind. That is the point: a contribution
+is judged on the contribution. See `AGENTS.md <AGENTS.md>`__.
+
+Contributors are listed alphabetically, as verified with Unix sort::
 
     $ grep "^- " CONTRIB.rst | LC_ALL=C sort -u -c -f
 
@@ -109,11 +115,13 @@ https://biopython.org
 - Christian Brueffer <christian at domain brueffer.de>
 - Christian Zmasek <https://github.com/cmzmasek>
 - Chunlei Wu <https://github.com/newgene>
+- Claude Opus 4.8 <noreply at anthropic.com>
 - Claude Paroz <claude at two (as digit) xlibre dot net>
 - Connor McCoy <cmccoy at the dot org domain fhcrc>
 - Connor T. Skennerton <https://github.com/ctSkennerton>
 - Cymon J Cox <https://github.com/cymon>
 - Damien Goutte-Gattat <https://github.com/gouttegd>
+- Dan Bolser <https://github.com/dbolser>
 - Dan Vogel <dmv at domain andrew.cmu.edu>
 - Darcy Mason <https://github.com/darcymason>
 - David Born <https://github.com/hypostulate>
