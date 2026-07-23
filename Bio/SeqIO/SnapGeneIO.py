@@ -177,7 +177,7 @@ def _parse_features_packet(length, data, record):
                 subparts = reversed([[n_parts - i + 1, name] for i, name in subparts])
             quals["parts"] = [";".join(f"{i}:{name}" for i, name in subparts)]
 
-        if not location:
+        if location is None:
             raise ValueError("Missing feature location")
 
         for qualifier in feature.getElementsByTagName("Q"):

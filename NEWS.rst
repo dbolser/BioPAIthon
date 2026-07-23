@@ -58,6 +58,11 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
+``SimpleLocation`` and ``CompoundLocation`` now consistently evaluate as true,
+including when their length is zero, restoring their documented historical
+behavior. Code that needs to distinguish a missing location should compare
+with ``None`` explicitly.
+
 Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 

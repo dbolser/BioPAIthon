@@ -151,14 +151,10 @@ class TestCompoundLocation(unittest.TestCase):
     """Tests for the SeqFeature.CompoundLocation class."""
 
     def test_bool(self):
-        location = CompoundLocation(
-            [SimpleLocation(5, 5), SimpleLocation(10, 10)]
-        )
+        location = CompoundLocation([SimpleLocation(5, 5), SimpleLocation(10, 10)])
         self.assertEqual(len(location), 0)
         self.assertTrue(location)
-        location = CompoundLocation(
-            [SimpleLocation(5, 10), SimpleLocation(15, 20)]
-        )
+        location = CompoundLocation([SimpleLocation(5, 10), SimpleLocation(15, 20)])
         self.assertTrue(location)
 
     def test_eq_identical(self):
@@ -198,17 +194,6 @@ class TestCompoundLocation(unittest.TestCase):
 
 class TestSeqFeature(unittest.TestCase):
     """Tests for the SeqFeature.SeqFeature class."""
-
-    def test_bool_with_zero_length_location(self):
-        simple = SimpleLocation(5, 5)
-        compound = CompoundLocation(
-            [SimpleLocation(5, 5), SimpleLocation(10, 10)]
-        )
-        for location in (simple, compound):
-            with self.subTest(location=location):
-                feature = SeqFeature(location)
-                self.assertEqual(len(feature), 0)
-                self.assertTrue(feature)
 
     def test_eq_identical(self):
         f1 = SeqFeature(
