@@ -127,6 +127,10 @@ request, e.g.::
 
 Have a look at the `related chapter <http://biopython.org/DIST/docs/tutorial/Tutorial.html#chapter%3Atesting>`_ in the documentation for more details.
 
+Online Entrez tests require an NCBI API key supplied through the
+``NCBI_API_KEY`` environment variable. They are skipped when the variable is
+unset; never commit API keys to the repository.
+
 Continuous Integration
 ----------------------
 
