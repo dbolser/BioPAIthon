@@ -59,9 +59,23 @@ Nothing above is specific to AI contributors. That is the point.
 
 ## Licensing
 
-By contributing you agree to dual licensing under *both* the "Biopython
-License Agreement" and the "3-Clause BSD License" — see `LICENSE.rst`. State
-this explicitly in your commit message or pull request.
+Contributions are offered under *both* the "Biopython License Agreement" and
+the "3-Clause BSD License" — see `LICENSE.rst`. Opening a pull request against
+this repository is taken as offering your work under both, on the usual
+inbound-equals-outbound basis. You do not need to restate it in each commit or
+pull request, and we would rather you did not: a line repeated on every commit
+stops being read.
+
+Nothing is assigned to anyone by this. You keep the copyright in what you
+write, and the project gains no rights you have not equally granted to
+everybody else. This is not a contributor licence agreement and there is
+nothing to sign.
+
+Both licences are named, rather than just the one this file is under, because
+upstream Biopython is part-way through offering the whole library under the
+pair — `LICENSE.rst` records that intention. A contribution offered under only
+one of them could not follow, which would also make it harder to send anything
+from this fork back upstream.
 
 Do not remove or alter existing copyright notices. Essentially all of this
 code was written by the Biopython contributors and the attribution stays.
@@ -158,8 +172,8 @@ pre-commit run --all-files
 2. Make the change; add tests.
 3. `cd Tests && python run_tests.py --offline`
 4. `pre-commit run --all-files`
-5. Open the PR, including the dual-licence statement, and describe what you
-   verified and what you did not.
+5. Open the PR and describe what you verified and what you did not. There is
+   no licence statement to include; see [Licensing](#licensing).
 
 ## A note to automated contributors
 

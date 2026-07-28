@@ -14,11 +14,21 @@ http://biopython.org/wiki/Contributing
 Licensing
 ---------
 
-BioPAIthon inherits Biopython's licensing unchanged. In your git commit and/or
-pull request, please explicitly state that you agree to your contributions
-being dual licensed under *both* the original "Biopython License Agreement"
-and the more widely used "3-Clause BSD License" (see our LICENSE file for more
-details).
+BioPAIthon inherits Biopython's licensing unchanged. Contributions are offered
+under *both* the original "Biopython License Agreement" and the more widely
+used "3-Clause BSD License" (see our LICENSE file for more details). Opening a
+pull request against this repository is taken as offering your work under
+both, on the usual inbound-equals-outbound basis; you do not need to restate it
+in each commit or pull request.
+
+Nothing is assigned to anyone by this. You keep the copyright in what you
+write, and the project gains no rights you have not equally granted to
+everybody else. This is not a contributor licence agreement and there is
+nothing to sign.
+
+Both licences are named because upstream Biopython is part-way through
+offering the whole library under the pair, and a contribution offered under
+only one of them could not follow.
 
 Do not remove or alter existing copyright notices. Essentially all of this
 code was written by the Biopython contributors, and that attribution stays.
