@@ -60,7 +60,18 @@ jobs:
       env:
         ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
       run: |
-        python -c 'import json, os, subprocess; files = json.loads(os.environ["ALL_CHANGED_FILES"]); subprocess.run(["pre-commit", "run", "--show-diff-on-failure", "--files", *files], check=True) if files else None'
+        python - <<'PY'
+        import json
+        import os
+        import subprocess
+
+        files = json.loads(os.environ["ALL_CHANGED_FILES"])
+        if files:
+            subprocess.run(
+                ["pre-commit", "run", "--show-diff-on-failure", "--files", *files],
+                check=True,
+            )
+        PY
 
   # Cache pip & python dependencies for Linux runner
   # since it is used in most actions.
