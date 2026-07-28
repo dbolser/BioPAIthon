@@ -134,6 +134,78 @@ Its default remains ``None``, unlike the ``Seq.translate`` method's longstanding
 default of ``"-"``; callers translating gapped sequences through the module-level
 function should pass the gap character explicitly.
 
+``Bio.Align.Alignment.parse_printed_alignment`` now rejects a printed alignment
+whose lines are not all the same length. The check intended to catch this
+compared a value against its own definition and so could never be true, and a
+ragged block was parsed into coordinates that did not describe it. Errors
+raised while filling the coordinates array are also reported rather than
+returned as success, an offset outside the line is rejected before it is used,
+and a printed alignment whose lines are empty no longer yields a coordinates
+array whose shape depends on the contents of uninitialised memory.
+
+``Bio.PDB.binary_cif`` now rejects a BinaryCIF file whose integer packing does
+not describe the data it decodes. The unpacking routines wrote one value per
+input element without regard to the length of the output array, so a file
+declaring a ``srcSize`` smaller than its data block wrote past the end of that
+array, while a larger one left the tail of the array uninitialised. Both are
+now rejected, as is a packed integer left incomplete at the end of the input.
+
+``Bio.File.as_handle`` no longer discards a ``TypeError`` raised by the body of
+its ``with`` block. The call to ``open`` sat inside the ``try``, so an error
+from the caller's own code was caught by the handler meant for a filename that
+is really a handle; the context manager then yielded a second time and the
+original error was replaced by ``RuntimeError: generator didn't stop after
+throw()``.
+
+``Bio.SeqIO.index`` and ``Bio.SeqIO.index_db`` can index ``fasta`` and ``pir``
+records whose title is empty, which ``Bio.SeqIO.parse`` has always read.
+Indexing such a file previously raised ``IndexError``.
+
+``Bio.SeqIO.index`` no longer reports every ``TypeError`` raised while building
+an index as ``Need a string or path-like object for the filename (not a
+handle)``. A genuine parse error from the underlying format reader was caught
+by the check meant to detect a handle argument, and its traceback suppressed.
+Passing a handle still raises the same message as before, and integer file
+descriptors are still accepted.
+
+``Bio.PDB.CEAligner`` no longer leaks memory on every alignment.
+``run_cealign`` incremented the reference count of the list it returns, and of
+the two path lists whose references are stolen when they are packed into that
+list, and never released its raw path buffers.
+
+``Bio.PDB.Atom.strictly_equals`` now compares the element, PQR charge and
+radius of the two atoms. Each of the three was compared against itself, so the
+answer did not depend on them at all and two atoms differing only in element
+were reported as strictly equal. It also no longer raises ``TypeError`` when a
+B factor or occupancy is missing, which is permitted and common in real
+structures.
+
+``SeqRecord.reverse_complement(features=True)`` no longer raises ``TypeError:
+'<' not supported between instances of 'int' and 'NoneType'`` when any feature
+has an unknown position. The features are re-sorted after flipping, and the key
+function returned ``None`` for a position it could not convert. Features with
+unknown positions now sort after the rest.
+
+``Bio.Align.Alignment.format`` no longer reports an error raised inside an
+alignment writer as ``Formatting alignments has not yet been implemented for
+the <fmt> format``. The ``except AttributeError`` intended to detect a format
+with no writer at all also covered the call that constructs one, so any
+``AttributeError`` from within the writer was relabelled, for formats that are
+in fact implemented.
+
+``Bio.SeqUtils.MeltingTemp.Tm_GC`` rejects ``valueset=0`` and negative value
+sets with a ``ValueError`` naming the permitted range. The check tested only
+for values above 8, so lower ones fell through to an ``UnboundLocalError``.
+
+``Bio.pairwise2.rint`` no longer accepts a ``precision`` outside the range of a
+C ``int``. The argument was parsed as a C ``long`` into an ``int`` variable,
+which on platforms where ``long`` is the wider type wrote past it; an
+out-of-range value now raises ``OverflowError``.
+
+Reading FASTQ files is faster. The quality decoder no longer round-trips every
+record through ``array.array`` to accommodate the negative scores that only the
+Solexa format produces; that conversion now happens only in the Solexa reader.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
