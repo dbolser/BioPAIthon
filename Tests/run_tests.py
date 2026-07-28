@@ -123,13 +123,15 @@ def find_modules(path):
         for name in candidates:
             full_path = os.path.join(root, name)
             package = os.path.relpath(full_path, path).replace(os.path.sep, ".")
-            if (
-                "." in name
-                or not os.path.isfile(os.path.join(full_path, "__init__.py"))
-                or any(fnmatchcase(package, pattern) for pattern in package_excludes)
+            # Skip directory trees that are not valid packages.
+            if "." in name or not os.path.isfile(
+                os.path.join(full_path, "__init__.py")
             ):
                 continue
-            packages.add(package)
+            if not any(fnmatchcase(package, pattern) for pattern in package_excludes):
+                packages.add(package)
+            # Keep searching subdirectories, as there may be more packages
+            # down there, even if the parent was excluded.
             dirs.append(name)
 
     modules = set()

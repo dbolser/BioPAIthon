@@ -28,6 +28,8 @@ class FindModulesTests(unittest.TestCase):
                 "example/project__pycache__/__init__.py",
                 "not_a_package/nested/__init__.py",
                 "ez_setup/__init__.py",
+                "ez_setup/sub/__init__.py",
+                "ez_setup/sub/mod.py",
             ]
             for filename in files:
                 path = os.path.join(directory, filename)
@@ -44,6 +46,10 @@ class FindModulesTests(unittest.TestCase):
                     "example.module",
                     "example.subpackage",
                     "example.subpackage.child",
+                    # An excluded package is not itself reported, but it is
+                    # still descended into, exactly as setuptools does.
+                    "ez_setup.sub",
+                    "ez_setup.sub.mod",
                 },
             )
 
