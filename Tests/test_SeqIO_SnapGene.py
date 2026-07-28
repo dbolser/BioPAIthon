@@ -311,9 +311,7 @@ class TestSnapGene(unittest.TestCase):
 
         self.assertEqual(len(record.features), 1)
         self.assertEqual(len(record.features[0]), 0)
-        self.assertEqual(
-            str(record.features[0].location), "join{[5:5](+), [0:0](+)}"
-        )
+        self.assertEqual(str(record.features[0].location), "join{[5:5](+), [0:0](+)}")
 
 
 class TestCorruptedSnapGene(unittest.TestCase):
