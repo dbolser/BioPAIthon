@@ -417,6 +417,7 @@ class TestAlignIO_reading(unittest.TestCase):
     def test_reading_alignments_msf2(self):
         path = "msf/W_prot.msf"
         with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             self.check_iterator_for_loop_handle(path, "msf", 1, 11)
             self.check_iterator_for_loop_filename(path, "msf", 1)
             self.check_iterator_next(path, "msf", 1)

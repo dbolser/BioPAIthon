@@ -214,8 +214,7 @@ class TestSeqStringMethods(unittest.TestCase):
         self.assertTrue(seq.isupper())
 
     def test_hash(self):
-        with warnings.catch_warnings(record=True):
-            hash(self.s)
+        hash(self.s)
 
     def test_not_equal_comparsion(self):
         """Test __ne__ comparison method."""
