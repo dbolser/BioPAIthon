@@ -20,6 +20,7 @@ import warnings
 from io import BytesIO
 from io import StringIO
 from pathlib import Path
+from unittest import mock
 
 from seq_tests_common import SeqRecordTestBaseClass
 from test_SeqIO import SeqIOTestBaseClass
@@ -691,6 +692,44 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
         self.assertRaises(
             ValueError, SeqIO.index, "Fasta/dups.fasta", "fasta", alphabet="XXX"
         )
+
+    def test_index_requires_filename(self):
+        """Reject handles passed to Bio.SeqIO.index()."""
+        message = "Need a string or path-like object for the filename (not a handle)"
+        for handle in (StringIO(">record\nACGT\n"), BytesIO(b">record\nACGT\n")):
+            with self.subTest(handle=handle):
+                with self.assertRaises(TypeError) as cm:
+                    SeqIO.index(handle, "fasta")
+                self.assertEqual(str(cm.exception), message)
+
+    def test_index_accepts_file_descriptor(self):
+        """Retain support for file descriptors accepted by open()."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "records.fasta"
+            filename.write_text(">record\nACGT\n")
+            descriptor = os.open(filename, os.O_RDONLY)
+            records = None
+            try:
+                records = SeqIO.index(descriptor, "fasta")
+                self.assertEqual(str(records["record"].seq), "ACGT")
+            finally:
+                if records is None:
+                    os.close(descriptor)
+                else:
+                    records.close()
+
+    def test_index_preserves_proxy_type_error(self):
+        """Preserve TypeError raised while constructing an index proxy."""
+        error = TypeError("corrupt SFF header")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "corrupt.sff"
+            filename.write_bytes(b"not an SFF file")
+            with (
+                mock.patch("Bio.SeqIO.SffIO._sff_file_header", side_effect=error),
+                self.assertRaises(TypeError) as cm,
+            ):
+                SeqIO.index(filename, "sff")
+        self.assertIs(cm.exception, error)
 
     if sqlite3:
 
