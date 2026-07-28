@@ -608,14 +608,11 @@ findPath(
 
     // List to store all paths
     PyObject *result = PyList_New(bufferSize);
-    Py_INCREF(result);
 
     for (int o = 0; o < bufferSize; o++) {
         // Make a new list to store this path
         PyObject *pathAList = PyList_New(0);
         PyObject *pathBList = PyList_New(0);
-        Py_INCREF(pathAList);
-        Py_INCREF(pathBList);
 
         for (int j = 0; j < lenBuffer[o]; j++) {
             const int pA = pathBuffer[o][j].pA;
@@ -634,7 +631,6 @@ findPath(
         const double zScore = zScoreBuffer[o];
         const int length = lenBuffer[o];
         PyObject *pairList = Py_BuildValue("[NN]", pathAList, pathBList);
-        Py_INCREF(pairList);
 
         PyStructSequence_Field namedtupleFields[] = {
             (PyStructSequence_Field) {
@@ -667,6 +663,10 @@ findPath(
 
         PyList_SET_ITEM(result, o, namedtuple);
         Py_DECREF(namedtupleType);
+    }
+
+    for (int i = 0; i < bufferSize; i++) {
+        PyMem_RawFree(pathBuffer[i]);
     }
 
     return result;
