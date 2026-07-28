@@ -305,8 +305,7 @@ class Atom:
                 else True
             )
             and getattr(self, "element", None) == getattr(other, "element", None)
-            and getattr(self, "pqr_charge", None)
-            == getattr(other, "pqr_charge", None)
+            and getattr(self, "pqr_charge", None) == getattr(other, "pqr_charge", None)
             and getattr(self, "radius", None) == getattr(other, "radius", None)
         )
 
