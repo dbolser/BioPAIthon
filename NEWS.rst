@@ -55,6 +55,9 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Seq.search()`` and ``MutableSeq.search()`` now include matches beginning at
+the final sequence position, including the terminal match of an empty pattern.
+
 ``Bio.UniProt.GOA.gafbyproteiniterator`` no longer drops the annotations of
 the last protein in a GAF file. The underlying GAF 1.0 and GAF 2.x iterators
 accumulate the consecutive records of one protein and only yield them once a
