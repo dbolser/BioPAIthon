@@ -88,6 +88,17 @@ repos:
         ]
 -   repo: local
     hooks:
+    -   id: merge-conflict-markers
+        name: Merge conflict markers
+        description: >-
+            Reject leftover conflict markers. The stock check-merge-conflict
+            hook only looks while a merge is in progress, so a marker committed
+            during a rebase and pushed later is missed. Only the unambiguous
+            markers are matched: a bare ======= is an underline in
+            Bio/Cluster/cluster.c and README.rst.
+        entry: '^(<<<<<<< |>>>>>>> )'
+        language: pygrep
+        types: [text]
     -   id: doi-link-style
         name: Enforce https://doi.org/ style
         description: Check DOI link style, see https://www.crossref.org/display-guidelines/
