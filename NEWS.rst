@@ -145,9 +145,10 @@ array whose shape depends on the contents of uninitialised memory.
 
 ``Bio.PDB.binary_cif`` now rejects a BinaryCIF file whose integer packing does
 not describe the data it decodes. The unpacking routines wrote one value per
-input element without regard to the length of the output array, so a file whose
-``srcSize`` disagreed with its data block wrote past the end of that array. A
-packed integer left incomplete at the end of the input is rejected as well.
+input element without regard to the length of the output array, so a file
+declaring a ``srcSize`` smaller than its data block wrote past the end of that
+array, while a larger one left the tail of the array uninitialised. Both are
+now rejected, as is a packed integer left incomplete at the end of the input.
 
 ``Bio.File.as_handle`` no longer discards a ``TypeError`` raised by the body of
 its ``with`` block. The call to ``open`` sat inside the ``try``, so an error
