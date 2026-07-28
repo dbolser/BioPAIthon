@@ -194,6 +194,15 @@ jobs:
         CC="gcc -fsanitize=address -fsanitize=undefined -g" python -m pip install .
 
     - name: Run test suite
+      # detect_leaks=0 is deliberate and should stay. LeakSanitizer reports
+      # what is unreleased at process exit, which for CPython is dominated by
+      # the interpreter's own import machinery: over a single test module it
+      # reported 1.16 MB in 1039 allocations, none of which had a Biopython
+      # frame anywhere in its stack. Suppressions cannot separate them either,
+      # because a suppression matches if any frame matches and every call into
+      # our C arrives through _PyEval_EvalFrameDefault. Leaks are covered
+      # instead by Tests/test_C_extension_memory.py, which measures growth
+      # across repeated calls; see Tests/memory_growth.py.
       run: |
         cd Tests
         PYTHONMALLOC=debug LD_PRELOAD="$(realpath "$(gcc -print-file-name=libasan.so)") $(realpath "$(gcc -print-file-name=libstdc++.so)")" ASAN_OPTIONS="detect_leaks=0" coverage run --source Bio,BioSQL run_tests.py --offline
