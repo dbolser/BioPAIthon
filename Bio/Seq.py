@@ -1546,7 +1546,8 @@ class _SeqAbstractBaseClass(ABC):
            from the protein sequence, regardless of the to_stop option).
            If these tests fail, an exception is raised.
          - gap - Single character string to denote symbol used for gaps.
-           Defaults to the minus sign.
+           Defaults to the minus sign. This differs from the module-level
+           ``translate`` function, where ``gap`` defaults to ``None``.
 
         A ``Seq`` object is returned if ``translate`` is called on a ``Seq``
         object; a ``MutableSeq`` object is returned if ``translate`` is called
@@ -2938,7 +2939,8 @@ def translate(
        from the protein sequence, regardless of the to_stop option).
        If these tests fail, an exception is raised.
      - gap - Single character string to denote symbol used for gaps.
-       Defaults to None.
+       Defaults to None. This differs from the ``Seq.translate`` method,
+       where ``gap`` defaults to the minus sign.
 
     A simple string example using the default (standard) genetic code:
 
@@ -3004,10 +3006,10 @@ def translate(
     ValueError: You cannot use 'to_stop=True' with this table ...
     """
     if isinstance(sequence, Seq):
-        return sequence.translate(table, stop_symbol, to_stop, cds)
+        return sequence.translate(table, stop_symbol, to_stop, cds, gap=gap)
     elif isinstance(sequence, MutableSeq):
         # Return a Seq object
-        return Seq(sequence).translate(table, stop_symbol, to_stop, cds)
+        return Seq(sequence).translate(table, stop_symbol, to_stop, cds, gap=gap)
     else:
         # Assume it's a string, return a string
         return _translate_str(sequence, table, stop_symbol, to_stop, cds, gap=gap)
