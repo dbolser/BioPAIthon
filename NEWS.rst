@@ -179,6 +179,32 @@ were reported as strictly equal. It also no longer raises ``TypeError`` when a
 B factor or occupancy is missing, which is permitted and common in real
 structures.
 
+``SeqRecord.reverse_complement(features=True)`` no longer raises ``TypeError:
+'<' not supported between instances of 'int' and 'NoneType'`` when any feature
+has an unknown position. The features are re-sorted after flipping, and the key
+function returned ``None`` for a position it could not convert. Features with
+unknown positions now sort after the rest.
+
+``Bio.Align.Alignment.format`` no longer reports an error raised inside an
+alignment writer as ``Formatting alignments has not yet been implemented for
+the <fmt> format``. The ``except AttributeError`` intended to detect a format
+with no writer at all also covered the call that constructs one, so any
+``AttributeError`` from within the writer was relabelled, for formats that are
+in fact implemented.
+
+``Bio.SeqUtils.MeltingTemp.Tm_GC`` rejects ``valueset=0`` and negative value
+sets with a ``ValueError`` naming the permitted range. The check tested only
+for values above 8, so lower ones fell through to an ``UnboundLocalError``.
+
+``Bio.pairwise2.rint`` no longer accepts a ``precision`` outside the range of a
+C ``int``. The argument was parsed as a C ``long`` into an ``int`` variable,
+which on platforms where ``long`` is the wider type wrote past it; an
+out-of-range value now raises ``OverflowError``.
+
+Reading FASTQ files is faster. The quality decoder no longer round-trips every
+record through ``array.array`` to accommodate the negative scores that only the
+Solexa format produces; that conversion now happens only in the Solexa reader.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
