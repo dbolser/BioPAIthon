@@ -72,6 +72,24 @@ class TestPrintedAlignmentParser(unittest.TestCase):
         self.assertEqual(parser.feed(b"A-GT-"), (5, b"AGT"))
         self.assertEqual(parser.shape, (2, 5))
 
+    def test_zero_length_lines(self):
+        """A zero-length line stores no positions, so none may be read back.
+
+        Reading shape used to dereference the unwritten first position, making
+        the reported number of columns depend on whatever the allocator handed
+        back, and fill then wrote one column past the end of the array.
+        """
+        for lines in ([b""], [b"", b""], [b"ACGT"]):
+            offset = 4 if lines == [b"ACGT"] else 0
+            with self.subTest(lines=lines, offset=offset):
+                parser = _aligncore.PrintedAlignmentParser()
+                for line in lines:
+                    self.assertEqual(parser.feed(line, offset), (0, b""))
+                self.assertEqual(parser.shape, (len(lines), 1))
+                coordinates = np.full((len(lines), 1), -1, dtype=np.intp)
+                parser.fill(coordinates)
+                self.assertTrue((coordinates == 0).all(), coordinates)
+
 
 class TestPairwiseAlignment(unittest.TestCase):
     target = "AACCGGGACCG"

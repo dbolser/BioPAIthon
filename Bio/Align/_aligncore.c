@@ -295,6 +295,16 @@ Parser_fill(Parser* self, PyObject* args)
     for (i = 0; i < n; i++) buffer[i*k] = 0;
 
     m = self->m;
+    if (m == 0) {
+        /* Every line is empty, so the column of zeros written above is the
+           whole answer.  Falling through would dereference the unwritten
+           data[i], and would write a column the array does not have, as
+           shape reports k == 1 for this case.
+         */
+        Py_INCREF(Py_None);
+        result = Py_None;
+        goto exit;
+    }
 
     starts = PyMem_Calloc(n, sizeof(Py_ssize_t));
     if (!starts) {
@@ -375,7 +385,11 @@ Parser_get_shape(Parser* self, void* closure)
     const Py_ssize_t m = self->m;
     Py_ssize_t k = 1;
 
-    if (n > 0) {
+    /* A line of zero length stores no positions at all, so data[i] must not be
+       dereferenced.  Every line has the same length m, so m == 0 means every
+       line is empty; the coordinates array is then a single column of zeros.
+     */
+    if (n > 0 && m > 0) {
         data = PyMem_Malloc(n * sizeof(Py_uintptr_t*));
         if (!data) {
             PyErr_NoMemory();
