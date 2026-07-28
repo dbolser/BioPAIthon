@@ -412,6 +412,7 @@ def _is_pathlike(obj):
     except TypeError:
         return False
 
+
 # Convention for format names is "mainname-subtype" in lower case.
 # Please use the same names as BioPerl or EMBOSS where possible.
 #
