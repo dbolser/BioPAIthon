@@ -4,7 +4,14 @@ Tests for BinaryCIF code in the PDB package.
 
 import unittest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    from Bio import MissingPythonDependencyError
+
+    raise MissingPythonDependencyError(
+        "Install numpy if you want to use Bio.PDB."
+    ) from None
 
 from Bio.PDB import MMCIFParser
 from Bio.PDB import _bcif_helper
