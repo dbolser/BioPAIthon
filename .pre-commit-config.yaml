@@ -88,6 +88,19 @@ repos:
         ]
 -   repo: local
     hooks:
+    -   id: merge-conflict-markers
+        name: Merge conflict markers
+        description: >-
+            Reject leftover conflict markers. The stock check-merge-conflict
+            hook only looks while a merge is in progress, so a marker committed
+            during a rebase and pushed later is missed. Seven or more, because
+            conflict-marker-size can widen the markers. Only the chevrons are
+            matched: ======= is an underline in Bio/Cluster/cluster.c and
+            README.rst, and ||||||| a table rule in Doc/cookbook. Neither is
+            lost, as every conflict carries chevrons too.
+        entry: '^(<{7,}|>{7,})( |$)'
+        language: pygrep
+        types: [text]
     -   id: doi-link-style
         name: Enforce https://doi.org/ style
         description: Check DOI link style, see https://www.crossref.org/display-guidelines/
