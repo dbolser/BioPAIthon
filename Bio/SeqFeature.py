@@ -1114,17 +1114,14 @@ class SimpleLocation(Location):
         else:
             return NotImplemented
 
-    def __nonzero__(self):
-        """Return True regardless of the length of the feature.
+    def __bool__(self):
+        """Return True regardless of the length of the location.
 
         This behavior is for backwards compatibility, since until the
         __len__ method was added, a SimpleLocation always evaluated as True.
 
         Note that in comparison, Seq objects, strings, lists, etc, will all
         evaluate to False if they have length zero.
-
-        WARNING: The SimpleLocation may in future evaluate to False when its
-        length is zero (in order to better match normal python behavior)!
         """
         return True
 
@@ -1512,17 +1509,14 @@ class CompoundLocation(Location):
                 return True
         return False
 
-    def __nonzero__(self):
-        """Return True regardless of the length of the feature.
+    def __bool__(self):
+        """Return True regardless of the length of the location.
 
         This behavior is for backwards compatibility, since until the
-        __len__ method was added, a SimpleLocation always evaluated as True.
+        __len__ method was added, a CompoundLocation always evaluated as True.
 
         Note that in comparison, Seq objects, strings, lists, etc, will all
         evaluate to False if they have length zero.
-
-        WARNING: The SimpleLocation may in future evaluate to False when its
-        length is zero (in order to better match normal python behavior)!
         """
         return True
 
