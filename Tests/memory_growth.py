@@ -20,6 +20,15 @@ Measuring the growth *across repeated calls* answers the question we actually
 have. Interpreter and library start-up costs are paid before the baseline is
 taken, so they cancel out, and what remains is attributable to the callable.
 It also needs no sanitizer build, so it runs everywhere the suite does.
+
+What it does not see is memory obtained from libc directly. ``tracemalloc``
+hooks the ``PyMem_*`` allocator domains, raw included, which is why a leak in
+``ccealign`` is caught despite it using ``PyMem_RawMalloc`` throughout; a bare
+``malloc`` bypasses all three and never appears in the total. Of the shipped
+extensions only ``Bio/cpairwise2module.c`` allocates that way, for its score
+matrix, trace matrix and column cache. It is not covered here and cannot be
+until those become ``PyMem_Malloc`` - which is not worth doing to a module
+already deprecated for removal.
 """
 
 import gc
