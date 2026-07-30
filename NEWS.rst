@@ -55,6 +55,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.pairwise2`` no longer corrupts the interpreter when exactly one of the
+two sequences it is given cannot be encoded as ASCII. The C helper that
+converts the sequences returned a borrowed reference for a ``bytes`` input but
+a new one otherwise, and the conversion failure path released both without
+distinguishing them, so a live object was released twice. The resulting damage
+surfaced as a segmentation fault in unrelated code one or two calls later,
+which is why it appeared to depend on where in the sequence the non-ASCII
+character sat. This is the crash reported upstream as biopython/biopython#3771
+in October 2021; it is present in every Biopython release this fork was able
+to test, and was inherited here.
+
 ``ProteinAnalysis.flexibility()`` now includes the actual center residue of
 each nine-residue window and includes the final complete window. This corrects
 a bug present since the method was introduced, but intentionally changes every
