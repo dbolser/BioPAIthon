@@ -78,10 +78,15 @@ static double _get_match_score(PyObject *py_sequenceA, PyObject *py_sequenceB,
 }
 
 #if PY_MAJOR_VERSION >= 3
+/* Always returns a new reference, or NULL if o cannot be represented as
+   ASCII bytes. Returning a borrowed reference for the bytes case and a new
+   one otherwise gave the caller no way to know which it held, which is how
+   the same object came to be released twice. */
 static PyObject* _create_bytes_object(PyObject* o)
 {
     PyObject* b;
     if (PyBytes_Check(o)) {
+        Py_INCREF(o);
         return o;
     }
     if (!PyUnicode_Check(o)) {
@@ -107,7 +112,7 @@ static PyObject *cpairwise2__make_score_matrix_fast(PyObject *self,
     int row, col;
     PyObject *py_sequenceA, *py_sequenceB, *py_match_fn;
 #if PY_MAJOR_VERSION >= 3
-    PyObject *py_bytesA, *py_bytesB;
+    PyObject *py_bytesA=NULL, *py_bytesB=NULL;
 #endif
     char *sequenceA=NULL, *sequenceB=NULL;
     int use_sequence_cstring;
@@ -163,13 +168,15 @@ static PyObject *cpairwise2__make_score_matrix_fast(PyObject *self,
     else {
         Py_XDECREF(py_bytesA);
         Py_XDECREF(py_bytesB);
+        py_bytesA = NULL;
+        py_bytesB = NULL;
         use_sequence_cstring = 0;
     }
 #endif
 
     if(!PyCallable_Check(py_match_fn)) {
         PyErr_SetString(PyExc_TypeError, "py_match_fn must be callable.");
-        return NULL;
+        goto _cleanup_make_score_matrix_fast;
     }
     /* Optimize for the common case. Check to see if py_match_fn is
        an identity_match. If so, pull out the match and mismatch
@@ -403,8 +410,8 @@ static PyObject *cpairwise2__make_score_matrix_fast(PyObject *self,
     }
 
 #if PY_MAJOR_VERSION >= 3
-    if (py_bytesA != NULL && py_bytesA != py_sequenceA) Py_DECREF(py_bytesA);
-    if (py_bytesB != NULL && py_bytesB != py_sequenceB) Py_DECREF(py_bytesB);
+    Py_XDECREF(py_bytesA);
+    Py_XDECREF(py_bytesB);
 #endif
 
     return py_retval;
