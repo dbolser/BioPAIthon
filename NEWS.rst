@@ -108,6 +108,14 @@ alignment whose contingency table has an empty cell, such as an alignment of
 identical sequences; an empty cell now contributes nothing to the G statistic,
 and a degenerate table gives a p-value of one.
 
+All three of those bugs existed twice, because the older ``Bio.codonalign``
+package carries its own copy of the same code, and the fix above reached only
+``Bio.Align.analysis``. ``Bio.codonalign.mktest`` and
+``Bio.codonalign.codonseq.cal_dn_ds`` are now fixed to match. The p-value that
+``Bio.codonalign.mktest`` reports for the Drosophila adh data changes from
+0.0021 to 0.0023196627124160174, which is the value ``Bio.Align.analysis``
+already reports for the same alignment.
+
 Calling ``str()`` on a dictionary returned by ``Bio.SeqIO.index_db`` or
 ``Bio.SearchIO.index_db`` raised ``AttributeError`` instead of printing
 anything. The SQLite backed dictionary never recorded the name of the object

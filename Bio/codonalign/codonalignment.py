@@ -451,7 +451,7 @@ def _prim(G):
         conn[n1].append((c, n1, n2))
         conn[n2].append((c, n2, n1))
     mst = []  # minimum spanning tree
-    used = set(nodes[0])
+    used = {nodes[0]}
     usable_edges = conn[nodes[0]][:]
     heapify(usable_edges)
     while usable_edges:
@@ -485,8 +485,26 @@ def _G_test(site_counts):
     Arguments:
      - site_counts - [syn_fix, nonsyn_fix, syn_poly, nonsyn_poly]
 
+    Return the upper tail probability of ``G = 2 sum(O ln(O/E))`` under a
+    chi-square distribution with one degree of freedom.
+
+    Empty cells are handled as follows. An observed count of zero contributes
+    nothing to the sum, following the usual convention that ``lim x->0 of
+    x ln(x) = 0``. That is enough to keep the sum defined, because an expected
+    count can only be zero when its row or column total is zero, and then the
+    observed count in that cell must be zero as well. A table with an empty
+    row or column is degenerate: every remaining observed count then equals
+    its expected count exactly, so ``G`` is zero and the returned p-value is
+    one. The same value is returned for an all-zero table, for which the
+    expected counts are not defined at all; this is the table produced by an
+    alignment with no substitutions to count.
+
     >>> print("%0.6f" % _G_test([17, 7, 42, 2]))
     0.004924
+    >>> print("%0.6f" % _G_test([0, 0, 0, 0]))
+    1.000000
+    >>> print("%0.6f" % _G_test([3, 5, 0, 0]))
+    1.000000
     """
     # TODO:
     #   Apply continuity correction for Chi-square test.
@@ -494,6 +512,10 @@ def _G_test(site_counts):
 
     G = 0
     tot = sum(site_counts)
+    if tot == 0:
+        # No counts at all; the expected counts are undefined, and there is
+        # nothing for the test to detect.
+        return 1.0
     tot_syn = site_counts[0] + site_counts[2]
     tot_non = site_counts[1] + site_counts[3]
     tot_fix = sum(site_counts[:2])
@@ -505,7 +527,10 @@ def _G_test(site_counts):
         tot_poly * tot_non / tot,
     ]
     for obs, ex in zip(site_counts, exp):
-        G += obs * log(obs / ex)
+        if obs:
+            # ex is strictly positive whenever obs is, as obs contributes to
+            # both the row total and the column total that define ex.
+            G += obs * log(obs / ex)
     # with only 1 degree of freedom for a 2x2 table,
     # the cumulative chi-square distribution reduces to a simple form:
     return erfc(sqrt(G))

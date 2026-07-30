@@ -1190,7 +1190,7 @@ def _get_pi(seq1, seq2, cmethod, codon_table):
                     fcodon[c] += 1
         tot = sum(fcodon.values())
         fcodon = {j: k / tot for j, k in fcodon.items()}
-        for i in codon_table.forward_table.keys() + codon_table.stop_codons:
+        for i in list(codon_table.forward_table.keys()) + codon_table.stop_codons:
             if "U" not in i:
                 pi[i] = fcodon[i[0]] * fcodon[i[1]] * fcodon[i[2]]
     elif cmethod == "F3x4":
@@ -1212,7 +1212,7 @@ def _get_pi(seq1, seq2, cmethod, codon_table):
             if "U" not in i:
                 pi[i] = fcodon[0][i[0]] * fcodon[1][i[1]] * fcodon[2][i[2]]
     elif cmethod == "F61":
-        for i in codon_table.forward_table.keys() + codon_table.stop_codons:
+        for i in list(codon_table.forward_table.keys()) + codon_table.stop_codons:
             if "U" not in i:
                 pi[i] = 0.1
         for i in seq1 + seq2:
