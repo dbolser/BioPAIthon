@@ -330,6 +330,26 @@ class Test_dn_ds(unittest.TestCase):
             # TODO - Show a warning?
             pass
 
+    def test_get_pi_codon_frequency_models(self):
+        """Test that every documented codon frequency model builds a pi dict."""
+        from Bio.Data.CodonTable import unambiguous_dna_by_id
+        from Bio.codonalign.codonseq import _get_pi
+
+        # F1x4 and F61 added a dict view to a list, which raises TypeError, so
+        # both were unusable; only F3x4 worked, because it already wrapped the
+        # view in list(). This needs no scipy, unlike cal_dn_ds(method="ML")
+        # which is the only caller.
+        codon_table = unambiguous_dna_by_id[1]
+        seq1 = ["ATG", "AAA", "TTT", "GGG", "TAA"]
+        seq2 = ["ATG", "AAG", "TTC", "GGA", "TAA"]
+        for cmethod in ("F1x4", "F3x4", "F61"):
+            with self.subTest(cfreq=cmethod):
+                pi = _get_pi(seq1, seq2, cmethod, codon_table)
+                self.assertGreater(len(pi), 0)
+                for codon, value in pi.items():
+                    self.assertEqual(len(codon), 3)
+                    self.assertGreaterEqual(value, 0.0)
+
     def test_dn_ds_matrix(self):
         # NG86 method with default codon table
         dn_correct = [
@@ -464,11 +484,33 @@ if np:
             pro_aln = AlignIO.read(TEST_ALIGN_FILE7[0][1], "clustal")
             codon_aln = codonalign.build(pro_aln, p)
             p.close()  # Close indexed FASTA file
+            # Same Drosophila adh data, and the same value, as
+            # test_Align_codonalign.py asserts for Bio.Align.analysis.mktest.
+            # The two implementations agreeing to every digit is the point:
+            # they were fixed separately from the same reading of the data.
+            # The value before the _prim fix was 0.0020645725725430097, from a
+            # contingency table inflated by an extra substitution at every
+            # site with three or more distinct codons.
             self.assertAlmostEqual(
                 codonalign.mktest([codon_aln[1:12], codon_aln[12:16], codon_aln[16:]]),
-                0.0021,
-                places=4,
+                0.0023196627124160174,
             )
+
+        def test_G_test_empty_cells(self):
+            """Test that the G test accepts a table with empty cells."""
+            from Bio.codonalign.codonalignment import _G_test
+
+            # A table with an empty row or column is degenerate: every
+            # remaining observed count equals its expected count, so G is zero.
+            # An all-zero table has no expected counts at all. Both used to
+            # raise from inside the logarithm rather than return a p-value.
+            self.assertAlmostEqual(_G_test([0, 0, 0, 0]), 1.0)
+            self.assertAlmostEqual(_G_test([3, 5, 0, 0]), 1.0)
+            self.assertAlmostEqual(_G_test([0, 0, 5, 5]), 1.0)
+            # A single empty cell is not degenerate and still carries signal.
+            self.assertAlmostEqual(_G_test([2, 0, 1, 3]), 0.0506719023469902)
+            # The documented example is unchanged by the empty-cell handling.
+            self.assertAlmostEqual(_G_test([17, 7, 42, 2]), 0.004923983994975936)
 
 
 if __name__ == "__main__":
