@@ -82,6 +82,19 @@ all-zero column now yields the undefined character, as it does for a column
 that simply fails the identity threshold. Adopted from biopython/biopython#5181
 by Ernest Provo; see ``ADOPTED.md``.
 
+A non-English month abbreviation in a PDB ``HEADER`` or ``REVDAT`` line no
+longer aborts the whole parse. ``Bio.PDB.parse_pdb_header._format_date`` looked
+the month up with a bare ``list.index``, so a date such as ``08-OKT-08`` raised
+``ValueError: 'Okt' is not in list`` out of ``PDBParser.get_structure()``,
+naming neither the file nor the field, and the entire structure was lost over
+one header value. ``parse_pdb_header`` and ``_parse_pdb_header_list`` now take
+a ``permissive`` argument: when permissive they set the month to ``00`` and
+issue a ``BiopythonParserWarning`` naming the offending abbreviation, and when
+not permissive they raise a ``ValueError`` that names it. ``PDBParser`` passes
+its own ``PERMISSIVE`` flag through, so the default ``PDBParser()`` now warns
+and parses instead of failing. The default for ``parse_pdb_header`` itself
+remains strict, so the only behaviour change there is the clearer message.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
