@@ -165,6 +165,7 @@ https://biopython.org
 - Fynn Freyer <https://github.com/FynnFreyer>
 - Fábio Madeira <https://github.com/biomadeira>
 - Gaetan Lehman <gaetan.lehmann at domain jouy.inra.fr>
+- Gail Bartlett <https://github.com/exs-gbartlett>
 - Gavin E Crooks <https://github.com/gecrooks>
 - Gert Hulselmans <https://github.com/ghuls>
 - Gian Carlo D Dumpit <https://github.com/GeneratedScript-RL>
