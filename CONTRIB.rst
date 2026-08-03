@@ -27,6 +27,7 @@ https://biopython.org
 - Aaron Gallagher <habnabit at gmail>
 - Aaron Kitzmiller <https://github.com/aaronk>
 - Aaron Rosenfeld <https://github.com/arosenfeld>
+- Abdel ATIA <https://github.com/Abdeltoto>
 - Adam Kurkiewicz <adam@kurkiewicz.pl>
 - Adam Novak <https://github.com/AdamNovak>
 - Adam Vandergriff <https://github.com/acvander>
