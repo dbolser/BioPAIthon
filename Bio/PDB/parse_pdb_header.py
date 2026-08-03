@@ -18,7 +18,8 @@ import re
 import warnings
 from collections import defaultdict
 
-from Bio import File, BiopythonParserWarning
+from Bio import BiopythonParserWarning
+from Bio import File
 
 
 def _get_biomoltrans(inl):
@@ -131,7 +132,7 @@ def _format_date(pdb_date, permissive: bool = False):
     month_name = pdb_date[3:6]
 
     try:
-        month = "%02d" % all_months.index(month_name)
+        month = f"{all_months.index(month_name):02d}"
     except ValueError:
         if not permissive:
             raise ValueError(
@@ -142,10 +143,8 @@ def _format_date(pdb_date, permissive: bool = False):
             f"Non-standard month in PDB header: {month_name}. Setting month to '00'.",
             BiopythonParserWarning,
         )
-        month = "0"
+        month = "00"
 
-    if len(month) == 1:
-        month = "0" + month
     date = date + month + "-" + pdb_date[:2]
     return date
 
