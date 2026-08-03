@@ -17,6 +17,7 @@ import numpy as np
 
 from Bio.PDB import PDBIO
 from Bio.PDB import PDBParser
+from Bio.PDB.Atom import Atom
 from Bio.PDB.Atom import DisorderedAtom
 
 
@@ -63,6 +64,58 @@ class TestDisordered(unittest.TestCase):
             atom_possibilities, key=lambda pos_atom: pos_atom.occupancy
         )
         self.assertEqual(best_atom_of_copy, disordered_copy_nh1.selected_child)
+
+    def test_copy_selected_child_is_not_shared_with_original(self):
+        """Copy of a DisorderedAtom selects one of its own children, not the original's."""
+        original = self.structure[0]["A"][27].child_dict["NH1"]
+        self.assertTrue(original.is_disordered())
+
+        clone = original.copy()
+
+        # The bug: the shallow copy kept the original's selected_child, so the
+        # clone forwarded every attribute access to an atom of the original.
+        self.assertIsNot(clone.selected_child, original.selected_child)
+        self.assertTrue(
+            any(child is clone.selected_child for child in clone.disordered_get_list())
+        )
+        self.assertEqual(
+            clone.selected_child.get_altloc(), original.selected_child.get_altloc()
+        )
+
+        # The visible consequence: transforming the clone appeared to do
+        # nothing, because clone.coord read the original's coordinates.
+        before = original.coord.copy()
+        clone.transform(np.eye(3), np.array([10.0, 0.0, 0.0]))
+        self.assertTrue(np.allclose(clone.coord, before + [10.0, 0.0, 0.0]))
+        self.assertTrue(np.allclose(original.coord, before))
+
+    def test_copy_zero_occupancy(self):
+        """Copy of an all-zero-occupancy DisorderedAtom still selects a child."""
+        # disordered_add only selects a child whose occupancy is strictly
+        # greater than last_occupancy, so copy() must reset last_occupancy to
+        # the same sentinel __init__ uses. Resetting it to 0 would leave
+        # selected_child as None here, which a fresh parse never produces.
+        original = DisorderedAtom("CZ")
+        for altloc, x in (("A", 1.0), ("B", 2.0)):
+            original.disordered_add(
+                Atom(
+                    "CZ",
+                    np.array([x, 0.0, 0.0], dtype="f"),
+                    26.0,
+                    0.00,  # occupancy
+                    altloc,
+                    " CZ ",
+                    1,
+                    element="C",
+                )
+            )
+        self.assertEqual(original.selected_child.get_altloc(), "A")
+
+        clone = original.copy()
+
+        self.assertIsNotNone(clone.selected_child)
+        self.assertEqual(clone.selected_child.get_altloc(), "A")
+        self.assertTrue(np.allclose(clone.coord, [1.0, 0.0, 0.0]))
 
     def test_copy_entire_chain(self):
         """Copy propagates throughout SMCRA object."""
