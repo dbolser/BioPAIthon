@@ -16,8 +16,10 @@ import unittest
 import warnings
 
 from Bio import BiopythonWarning
+from Bio.Seq import MutableSeq
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import MeltingTemp as mt
 
 # Universal gas constant in cal/(K mol), as used by the nearest neighbour
@@ -773,6 +775,96 @@ class TmNNTests(unittest.TestCase):
         ):
             with self.subTest(value=str(value)):
                 self.assertAlmostEqual(mt.Tm_NN(value, saltcorr=0), expected, places=8)
+
+
+class SequenceInputTests(unittest.TestCase):
+    """Tests for what the Tm methods accept as a sequence.
+
+    Before the argument checking was added, every Tm method began with
+    ``str(seq)``.  For a SeqRecord that is the multi-line human readable
+    summary, not the sequence, and the letters scraped out of "ID:", "Name:",
+    "Description:" and "Seq(...)" were quietly folded into the calculation.
+    """
+
+    dna = "CGTTCCAAAGATGTGGGCATGAGCTTAC"
+
+    def record(self):
+        """Return a SeqRecord whose free text contributes stray bases."""
+        return SeqRecord(Seq(self.dna), id="test", name="test", description="test desc")
+
+    def test_seqrecord_uses_its_sequence(self):
+        """A SeqRecord melts at the temperature of the sequence it holds."""
+        record = self.record()
+        for method in (mt.Tm_Wallace, mt.Tm_GC, mt.Tm_NN):
+            with self.subTest(method=method.__name__):
+                self.assertAlmostEqual(
+                    method(record, strict=False), method(self.dna, strict=False)
+                )
+
+    def test_seqrecord_summary_is_not_the_sequence(self):
+        """The old str(record) reading gave a different, wrong answer."""
+        summary = str(self.record())
+        self.assertIn("Description: test desc", summary)
+        # What the old code fed to Tm_NN: every A, C, G, T or I in the
+        # summary, the free text included.
+        scraped = "".join(base for base in summary.upper() if base in "ACGTI")
+        self.assertNotEqual(scraped, self.dna)
+        self.assertNotAlmostEqual(
+            mt.Tm_NN(scraped, strict=False), mt.Tm_NN(self.dna, strict=False)
+        )
+
+    def test_mutable_seq_accepted(self):
+        """MutableSeq is a sequence type and is accepted."""
+        for method in (mt.Tm_Wallace, mt.Tm_GC, mt.Tm_NN):
+            with self.subTest(method=method.__name__):
+                self.assertAlmostEqual(method(MutableSeq(self.dna)), method(self.dna))
+
+    def test_non_sequence_input_rejected(self):
+        """Anything that is not a str, Seq, MutableSeq or SeqRecord is refused."""
+        for value in (42, 3.5, None, ["A", "C"], {"seq": "ACGT"}, Seq):
+            for method in (mt.Tm_Wallace, mt.Tm_GC, mt.Tm_NN):
+                with self.subTest(value=repr(value), method=method.__name__):
+                    with self.assertRaises(ValueError) as context:
+                        method(value)
+                    self.assertIn("str, Seq or SeqRecord", str(context.exception))
+
+
+class WallaceLetterTests(unittest.TestCase):
+    """Tests for the letters Tm_Wallace accepts.
+
+    Tm_Wallace used to skip the base set check entirely, so any letter that
+    was not one of the ones it counts contributed nothing and was silently
+    ignored.  It now refuses them, which is a deliberate behaviour change --
+    see NEWS.rst.
+    """
+
+    def test_non_dna_letters_now_rejected(self):
+        """E, F and J are no longer ignored."""
+        with self.assertRaises(ValueError) as context:
+            mt.Tm_Wallace("ACGTTGCAATGCCGTAEFJ")
+        message = str(context.exception)
+        self.assertIn("E, F, J", message)
+        self.assertIn("Tm_Wallace", message)
+
+    def test_protein_sequence_no_longer_returns_a_temperature(self):
+        """A protein sequence used to melt at 34.3 degrees."""
+        protein = "MKWVTFISLLFLFSSAYS"
+        with self.assertRaises(ValueError):
+            mt.Tm_Wallace(protein, strict=False)
+        # The old answer is still reachable, deliberately, with check=False.
+        self.assertAlmostEqual(
+            mt.Tm_Wallace(protein, check=False, strict=False), 34.333333333333336
+        )
+
+    def test_non_alphabetic_characters_still_ignored(self):
+        """Digits, spaces and punctuation are still stripped, not refused."""
+        self.assertAlmostEqual(mt.Tm_Wallace("1ACGT2TGCA3ATGC4CGTA"), 48.0)
+        self.assertAlmostEqual(mt.Tm_Wallace("ACGT-TGCA_ATGC.CGTA"), 48.0)
+        self.assertAlmostEqual(mt.Tm_Wallace("ACGT TGCA ATGC CGTA"), 48.0)
+
+    def test_check_false_keeps_the_old_behaviour(self):
+        """With check=False nothing is validated and nothing is stripped."""
+        self.assertAlmostEqual(mt.Tm_Wallace("ACGTTGCAATGCCGTAEFJ", check=False), 48.0)
 
 
 class MakeTableTests(unittest.TestCase):
