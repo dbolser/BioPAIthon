@@ -17,12 +17,12 @@ from Bio.Seq import MutableSeq
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.Seq import translate
-from Bio.Seq import _SeqAbstractBaseClass
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import CodonAdaptationIndex
 from Bio.SeqUtils import gc_fraction
 from Bio.SeqUtils import GC123
 from Bio.SeqUtils import GC_skew
+from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import molecular_weight
 from Bio.SeqUtils import nt_search
 from Bio.SeqUtils import seq1
@@ -34,7 +34,6 @@ from Bio.SeqUtils.CheckSum import gcg
 from Bio.SeqUtils.CheckSum import seguid
 from Bio.SeqUtils.lcc import lcc_mult
 from Bio.SeqUtils.lcc import lcc_simp
-from Bio.SeqUtils import MeltingTemp as mt
 
 
 class SeqUtilsTests(unittest.TestCase):
@@ -439,7 +438,7 @@ TTT	0.886
         self.assertAlmostEqual(llc_lst[0], 0.9528, places=4)
 
     def test_melting_temp_inputs(self):
-
+        """Tm methods accept str, Seq, MutableSeq and SeqRecord, and nothing else."""
         invalid_seq = "Hello, World!"
         self.assertRaises(ValueError, mt.Tm_NN, invalid_seq)
         self.assertRaises(ValueError, mt.Tm_Wallace, invalid_seq)
@@ -453,17 +452,19 @@ TTT	0.886
         valid_seq = "ACGTACGTACGT"
         valid_seq_with_symbols = "1 ACGT! ACGT-ACGT"
 
-        # Check that the function can handle different inputs
-        for cls in [str, Seq, SeqRecord, MutableSeq]:
-            for i in range(2):
-                value = (
-                    valid_seq_with_symbols.upper()
-                    if i == 0
-                    else valid_seq_with_symbols.lower()
-                )
-                self.assertEqual(mt.Tm_NN(valid_seq), mt.Tm_NN(cls(value)))
-                self.assertEqual(mt.Tm_Wallace(valid_seq), mt.Tm_Wallace(cls(value)))
-                self.assertEqual(mt.Tm_GC(valid_seq), mt.Tm_GC(cls(value)))
+        # Check that the functions can handle every accepted input type, in
+        # either case.  SeqRecord takes a Seq, not a string, since #4917.
+        for make in (str, Seq, MutableSeq, lambda text: SeqRecord(Seq(text))):
+            for value in (
+                valid_seq_with_symbols.upper(),
+                valid_seq_with_symbols.lower(),
+            ):
+                with self.subTest(make=make, value=value):
+                    self.assertEqual(mt.Tm_NN(valid_seq), mt.Tm_NN(make(value)))
+                    self.assertEqual(
+                        mt.Tm_Wallace(valid_seq), mt.Tm_Wallace(make(value))
+                    )
+                    self.assertEqual(mt.Tm_GC(valid_seq), mt.Tm_GC(make(value)))
 
 
 class NtSearchTests(unittest.TestCase):

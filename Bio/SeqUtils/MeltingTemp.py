@@ -154,13 +154,13 @@ by '1':
 """
 
 import math
+import re
 import warnings
 
 from Bio import BiopythonWarning
 from Bio import Seq
 from Bio import SeqUtils
 from Bio.SeqRecord import SeqRecord
-import re
 
 # Thermodynamic lookup tables (dictionaries):
 # Enthalpy (dH) and entropy (dS) values for nearest neighbors and initiation
@@ -437,7 +437,7 @@ def _check(seq, method):
     not contain whitespaces and other non-base characters. RNA sequences are
     backtranscribed to DNA. This method is PRIVATE. It raises a ValueError if
     the sequence is not valid for the given method (Tm_NN only allows
-    bases A,C,G,T,I; while Tm_GC and TM_Wallace allow A,B,C,D,G,H,I,K,M,N,R,S,T,V,W,X,Y).
+    bases A,C,G,T,I; while Tm_GC and Tm_Wallace allow A,B,C,D,G,H,I,K,M,N,R,S,T,V,W,X,Y).
 
     Arguments:
      - seq: The sequence as given by the user (passed as string).
@@ -451,7 +451,7 @@ def _check(seq, method):
     # Remove all non-alphabetic characters
     seq = re.sub(r"[^A-Z]", "", seq.upper())
     seq = str(Seq.Seq(seq).back_transcribe())
-    if method == "Tm_GC" or method == "Tm_Wallace":
+    if method in ("Tm_GC", "Tm_Wallace"):
         baseset = (
             "A",
             "B",
@@ -474,8 +474,12 @@ def _check(seq, method):
     if method == "Tm_NN":
         baseset = ("A", "C", "G", "T", "I")
 
-    if not all(base in baseset for base in seq):
-        raise ValueError("The input sequence is not valid for " + method)
+    bad = sorted({base for base in seq if base not in baseset})
+    if bad:
+        raise ValueError(
+            f"characters {', '.join(bad)} in the sequence are not valid for {method}; "
+            f"allowed characters are {', '.join(baseset)}"
+        )
     return seq
 
 
