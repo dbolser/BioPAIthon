@@ -32,6 +32,9 @@ known as because they get filed.
 |---|---|---|---|
 | [#3771](https://github.com/biopython/biopython/issues/3771) | 2026-07-30 | Use-after-free in the `cpairwise2` sequence conversion; root cause for a crash open since 2021 | [#33](https://github.com/dbolser/BioPAIthon/pull/33) |
 | [#5269](https://github.com/biopython/biopython/issues/5269) | 2026-07-30 | `run_cealign` segfaults on a zero fragment size, short coordinate entries, or tuples | no |
+| [#5272](https://github.com/biopython/biopython/issues/5272) | 2026-08-03 | `PrintedAlignmentParser.feed()` does not bound `offset`, and its length check cannot fire | [#2](https://github.com/dbolser/BioPAIthon/pull/2) |
+| email | 2026-08-03 | Out-of-bounds write in `bcifhelpermodule.c` — to the `Bio/PDB` owners under their `SECURITY.md` | [#3](https://github.com/dbolser/BioPAIthon/pull/3) |
+| [#5252 review](https://github.com/biopython/biopython/pull/5252#issuecomment-5171465860) | 2026-08-03 | Review of their in-flight endian fix: the output array is still allocated little-endian | [#36](https://github.com/dbolser/BioPAIthon/pull/36) |
 
 ## Queued
 
@@ -70,20 +73,22 @@ Verified unreported in the GitHub tracker and still present on upstream
 - **`cpairwise2.rint` parses `int` with `"l"`.** A genuine LP64 stack
   overwrite, but reachable only from the deprecated `Bio.pairwise2`.
 
-## Held pending a disclosure decision
+## Disclosed, in progress
 
-Two findings are driven by untrusted input rather than programmer error, and
-upstream's `.github/SECURITY.md` asks for those to go to the module maintainer
-rather than the public tracker. Nothing is filed for either.
+Both of the memory-safety findings have now been passed on. Neither is closed.
 
-- **`Bio/PDB/bcifhelpermodule.c` writes past the output buffer.** The unpack
-  helpers bound their loop by the input only; the destination is sized from
-  the file's own `srcSize`. A `.bcif` file whose two fields disagree overflows
-  the array.
-- **`Bio/Align/_aligncore.c` returns heap contents.** `feed()` adds an
-  unvalidated `offset` to the buffer, and the length-mismatch guard is a
-  tautology, so `Alignment.parse_printed_alignment()` on a ragged block
-  returns process memory in the coordinates array instead of raising.
+- **`Bio/PDB/bcifhelpermodule.c` writes past the output buffer.** Sent by email
+  to the `Bio/PDB` owners on 2026-08-03 under their `.github/SECURITY.md`,
+  rather than to the public tracker, because it is driven by file content. The
+  patch is AI-written, so upstream is reimplementing it clean-room from the
+  report; Will Tyler has been asked to take it. A MITRE CVE request is agreed
+  in principle and not yet submitted — it should wait until the fix has a
+  public reference. Peter Cock confirmed their only precedent is
+  CVE-2025-68463, assigned by MITRE at the reporter's request.
+- **`Bio/Align/_aligncore.c` returns heap contents.** Filed publicly as #5272,
+  since it needs a caller to pass malformed input rather than arriving in a
+  downloaded file. Different module and different owner (@mdehoon) from the
+  BinaryCIF one.
 
 ## Checked and not reported
 
