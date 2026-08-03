@@ -95,6 +95,20 @@ its own ``PERMISSIVE`` flag through, so the default ``PDBParser()`` now warns
 and parses instead of failing. The default for ``parse_pdb_header`` itself
 remains strict, so the only behaviour change there is the clearer message.
 
+``DisorderedAtom.copy()`` no longer returns a copy that reads and writes the
+original's atoms. ``DisorderedEntityWrapper.copy()`` re-adds the copied
+children but leaves ``last_occupancy`` at the value the shallow copy inherited,
+so ``disordered_add`` never found a higher occupancy and never reselected: the
+copy's ``selected_child`` still pointed into the original. Every forwarded
+attribute — ``coord`` above all — therefore came from the original, and
+``transform()`` on the copy moved the copy's children while ``copy.coord``
+went on reporting the original's position. ``DisorderedAtom`` now overrides
+``copy()`` and resets the selection state first. Adopted from
+biopython/biopython#3897 by Bart Grosman, with one correction: that pull
+request resets ``last_occupancy`` to ``0``, which would leave an atom whose
+altlocs all have occupancy ``0.00`` with no selected child at all, so this
+fork uses the ``-sys.maxsize`` sentinel ``__init__`` uses.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the

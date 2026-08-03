@@ -615,15 +615,21 @@ class DisorderedAtom(DisorderedEntityWrapper):
     def copy(self):
         """Copy disorderd atom recursively.
 
-        Loses parent relationship, and sets selected_child to own of it's own
+        Loses parent relationship, and sets selected_child to one of its own
         children.
         """
         shallow = copy.copy(self)
         shallow.child_dict = {}
         shallow.detach_parent()
 
+        # Reset to the same "nothing selected yet" state as __init__, so that
+        # re-adding the children reselects exactly as a fresh parse would.
+        # Zero would be wrong here: disordered_add only selects a child whose
+        # occupancy is strictly greater than last_occupancy, so an atom whose
+        # altlocs all have occupancy 0.00 would end up with no selected child
+        # at all, and every forwarded attribute access would fail.
         shallow.selected_child = None
-        shallow.last_occupancy = 0
+        shallow.last_occupancy = -sys.maxsize
 
         for child in self.disordered_get_list():
             shallow.disordered_add(child.copy())
