@@ -19,8 +19,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+from Bio import BiopythonParserWarning
 from Bio.PDB import PDBParser
-from Bio.PDB.PDBExceptions import BiopythonWarning
 from Bio.PDB.parse_pdb_header import _parse_remark_465
 from Bio.PDB.parse_pdb_header import parse_pdb_header
 
@@ -151,14 +151,13 @@ class ParseReal(unittest.TestCase):
 
     def test_parse_header_line_non_english_date(self):
         """Unit test for parsing and converting fields where date is not an english abbreviation."""
-        with self.assertWarns(BiopythonWarning) as bad_date_warning:
+        with self.assertWarns(BiopythonParserWarning) as bad_date_warning:
             header = parse_pdb_header(
                 "PDB/unrecognized_month_header.pdb", permissive=True
             )
-            self.assertEqual(header["head"], "structural genomics, unknown function")
-            self.assertEqual(header["idcode"], "3EFG")
-            self.assertEqual(header["deposition_date"], "2008-00-08")
-
+        self.assertEqual(header["head"], "structural genomics, unknown function")
+        self.assertEqual(header["idcode"], "3EFG")
+        self.assertEqual(header["deposition_date"], "2008-00-08")
         self.assertEqual(
             str(bad_date_warning.warning),
             "Non-standard month in PDB header: Okt. Setting month to '00'.",
@@ -167,8 +166,24 @@ class ParseReal(unittest.TestCase):
     def test_parse_header_line_non_english_date_strict_mode(self):
         """Unit test for parsing and converting fields where date is not an english abbreviation."""
         with self.assertRaises(ValueError) as err:
-            header = parse_pdb_header(
-                "PDB/unrecognized_month_header.pdb", permissive=False
+            parse_pdb_header("PDB/unrecognized_month_header.pdb", permissive=False)
+        self.assertEqual(str(err.exception), "Non-standard month in PDB header: Okt.")
+
+    def test_get_structure_non_english_date(self):
+        """A non-english month in HEADER must not abort the whole structure parse."""
+        with self.assertWarns(BiopythonParserWarning):
+            structure = PDBParser().get_structure(
+                "3EFG", "PDB/unrecognized_month_header.pdb"
+            )
+        self.assertEqual(structure.header["idcode"], "3EFG")
+        self.assertEqual(structure.header["deposition_date"], "2008-00-08")
+        self.assertEqual(len(list(structure.get_atoms())), 1)
+
+    def test_get_structure_non_english_date_strict_mode(self):
+        """With PERMISSIVE=False the error must name the offending month."""
+        with self.assertRaises(ValueError) as err:
+            PDBParser(PERMISSIVE=False).get_structure(
+                "3EFG", "PDB/unrecognized_month_header.pdb"
             )
         self.assertEqual(str(err.exception), "Non-standard month in PDB header: Okt.")
 
