@@ -282,6 +282,27 @@ in fact implemented.
 sets with a ``ValueError`` naming the permitted range. The check tested only
 for values above 8, so lower ones fell through to an ``UnboundLocalError``.
 
+``Bio.SeqUtils.MeltingTemp`` now checks what it is given. ``Tm_Wallace``,
+``Tm_GC`` and ``Tm_NN`` accept ``str``, ``Seq``, ``MutableSeq`` and
+``SeqRecord``, and raise ``ValueError`` for anything else. Each method used to
+begin with ``str(seq)``; for a ``SeqRecord`` that is the multi-line human
+readable summary, not the sequence, so the letters of "ID:", "Name:",
+"Description:" and "Seq(...)" were scraped into the calculation and a plausible
+but wrong temperature came back with no error and no warning. A sequence
+containing letters that the chosen method cannot evaluate is now rejected too,
+with a message naming the offending characters. Non-alphabetic characters
+(digits, whitespace and punctuation) are still stripped, as before.
+
+That last part is a deliberate change to the documented behaviour of
+``Tm_Wallace``, which said that "non-DNA characters (e.g., E, F, J, !, 1, etc)
+are ignored by this method". Only the non-alphabetic ones are ignored now. A
+sequence containing letters outside A, B, C, D, G, H, I, K, M, N, R, S, T, V,
+W, X and Y raises ``ValueError`` where it previously returned a temperature
+computed from whichever letters it did recognise -- a protein sequence, for
+instance, used to melt. Pass ``check=False`` to get the old arithmetic back
+unchanged. ``Tm_GC`` and ``Tm_NN`` already discarded such letters silently, and
+now reject them as well.
+
 ``Bio.pairwise2.rint`` no longer accepts a ``precision`` outside the range of a
 C ``int``. The argument was parsed as a C ``long`` into an ``int`` variable,
 which on platforms where ``long`` is the wider type wrote past it; an
@@ -300,6 +321,7 @@ possible, especially the following contributors:
 - Peter Cock
 - Al Fattah Suyadi (first contribution)
 - Laura Piñero Roig (first contribution)
+- Manuel Lera-Ramirez
 
 30 March 2026: Biopython 1.87
 =============================
