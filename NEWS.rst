@@ -74,6 +74,14 @@ malformed input matters most: writing a tab delimited record whose id contained
 a tab produced a corrupt file rather than an error. Adopted from
 biopython/biopython#5175 by Abdel ATIA; see ``ADOPTED.md``.
 
+``Motif.calculate_consensus`` no longer raises ``UnboundLocalError`` on a
+position where every count is zero. The consensus letter was only assigned
+inside a ``count > maximum`` comparison that such a column never satisfies, and
+the degenerate-column test then divided the maximum by a zero total. An
+all-zero column now yields the undefined character, as it does for a column
+that simply fails the identity threshold. Adopted from biopython/biopython#5181
+by Ernest Provo; see ``ADOPTED.md``.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
