@@ -111,14 +111,22 @@ def _integer_packing_decoder(column):
     src_size = encoding["srcSize"]
     is_unsigned = encoding["isUnsigned"]
 
+    # Native rather than little-endian, unlike the dtypes elsewhere in this
+    # module: integer_unpack reads and writes through native-width pointers
+    # and rejects a buffer in the other order. On a little-endian machine
+    # these are the same dtype. The byte order of the result is not otherwise
+    # significant, since every consumer reads it through NumPy.
     if is_unsigned:
-        dtype = np.dtype("<u4")
+        dtype = np.dtype(np.uint32)
     else:
-        dtype = np.dtype("<i4")
+        dtype = np.dtype(np.int32)
 
     data = column["data"]["data"]
     assert byte_count == data.dtype.itemsize
     assert np.issubdtype(data.dtype, np.unsignedinteger) == is_unsigned
+    # The packed data is little-endian on disk, so on a big-endian machine it
+    # arrives here byte-swapped. Copies only where the orders differ.
+    data = data.astype(data.dtype.newbyteorder("="), copy=False)
     decoded_data = np.empty((src_size,), dtype)
     _bcif_helper.integer_unpack(data, decoded_data)
 

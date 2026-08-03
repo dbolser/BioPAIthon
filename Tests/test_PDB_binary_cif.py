@@ -2,6 +2,7 @@
 Tests for BinaryCIF code in the PDB package.
 """
 
+import sys
 import unittest
 
 try:
@@ -93,6 +94,66 @@ class TestIntegerUnpack(unittest.TestCase):
         unpacked = np.empty(1, dtype=np.uint32)
         with self.assertRaisesRegex(ValueError, "one-dimensional"):
             _bcif_helper.integer_unpack(packed, unpacked)
+
+    def test_byte_swapped_buffers_rejected(self):
+        """Test that a buffer in the wrong byte order is refused.
+
+        integer_unpack reads and writes through native-width pointers and
+        pays no attention to the declared byte order, so a byte swapped
+        buffer would decode to the wrong values. Refusing it means a
+        big-endian machine gets an error rather than wrong coordinates.
+        """
+        swapped = ">" if sys.byteorder == "little" else "<"
+        with self.subTest("input"):
+            packed = np.array([1, 2], dtype=f"{swapped}u2")
+            unpacked = np.empty(2, dtype=np.uint32)
+            with self.assertRaisesRegex(ValueError, "native byte order"):
+                _bcif_helper.integer_unpack(packed, unpacked)
+        with self.subTest("output"):
+            packed = np.array([1, 2], dtype=np.uint8)
+            unpacked = np.empty(2, dtype=f"{swapped}u4")
+            with self.assertRaisesRegex(ValueError, "native byte order"):
+                _bcif_helper.integer_unpack(packed, unpacked)
+
+    def test_explicit_native_byte_order_accepted(self):
+        """Test that an explicitly native-tagged buffer is not refused.
+
+        NumPy reports "=u2" as a format string carrying a byte order
+        character, so parsing only the first character would reject it.
+        """
+        packed = np.array([1, 2], dtype="=u2")
+        unpacked = np.empty(2, dtype=np.uint32)
+        _bcif_helper.integer_unpack(packed, unpacked)
+        self.assertEqual(unpacked.tolist(), [1, 2])
+
+    def test_decoder_converts_byte_order(self):
+        """Test that the decoder hands the helper a native buffer.
+
+        The packed data is little-endian on disk, so on a big-endian machine
+        it reaches the decoder byte swapped. On a little-endian machine this
+        exercises the no-op path and only checks the conversion is harmless.
+        """
+        swapped = ">" if sys.byteorder == "little" else "<"
+        column = {
+            "data": {
+                "data": np.array([1, 2], dtype=f"{swapped}u1"),
+                "encoding": [
+                    {
+                        "kind": "IntegerPacking",
+                        "byteCount": 1,
+                        "srcSize": 2,
+                        "isUnsigned": True,
+                    }
+                ],
+            }
+        }
+        _integer_packing_decoder(column)
+        self.assertEqual(column["data"]["data"].tolist(), [1, 2])
+        self.assertEqual(
+            column["data"]["data"].dtype.byteorder in ("=", "|"),
+            True,
+            "decoded output should be in native byte order",
+        )
 
 
 class TestBinaryCIFParser(unittest.TestCase):

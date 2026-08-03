@@ -158,6 +158,43 @@ integer_unpack_i16(Py_buffer *in_view, Py_buffer *out_view)
     return out_index == out_size ? 0 : -3;
 }
 
+/* Return the type code of a PEP 3118 format string, or '\0' if it is not a
+   single type code in native byte order.
+
+   The unpack loops above read and write through native-width pointers and
+   ignore the declared byte order entirely, so a buffer in the opposite order
+   would be decoded to the wrong values rather than rejected. A format string
+   may carry a leading byte-order character, and NumPy supplies one whenever
+   the array's order is not the platform's: on a big-endian machine the
+   little-endian dtypes in Bio/PDB/binary_cif.py arrive here as ">H" and the
+   like. Accept the orders that mean native and refuse the rest, so that the
+   caller gets an error instead of silently wrong coordinates. */
+static char
+native_type_code(const char *format)
+{
+    if (format == NULL) {
+        return '\0';
+    }
+    switch (format[0]) {
+        case '@':
+        case '=':
+#if PY_LITTLE_ENDIAN
+        case '<':
+#else
+        case '>':
+        case '!':
+#endif
+            format++;
+            break;
+        default:
+            break;
+    }
+    if (format[0] == '\0' || format[1] != '\0') {
+        return '\0';
+    }
+    return format[0];
+}
+
 static PyObject *
 integer_unpack(PyObject *self, PyObject *args)
 {
@@ -189,6 +226,7 @@ integer_unpack(PyObject *self, PyObject *args)
     }
 
     char format;
+    char out_format;
     int status = 0;
 
     if (in_view.format == NULL || out_view.format == NULL) {
@@ -196,17 +234,25 @@ integer_unpack(PyObject *self, PyObject *args)
         goto exit;
     }
 
-    format = in_view.format[0];
-    if (in_view.format[1] != '\0') {
+    format = native_type_code(in_view.format);
+    if (format == '\0') {
         PyErr_Format(PyExc_ValueError,
-            "Unexpected buffer format: %s",
+            "Unexpected buffer format: %s (expected one type code in native "
+            "byte order)",
             in_view.format);
+        goto exit;
+    }
+    out_format = native_type_code(out_view.format);
+    if (out_format == '\0') {
+        PyErr_Format(PyExc_ValueError,
+            "Unexpected output buffer format: %s (expected one type code in "
+            "native byte order)",
+            out_view.format);
         goto exit;
     }
 
     if (format == 'B' && in_view.itemsize == sizeof(uint8_t)) {
-        if ((strcmp(out_view.format, "I") != 0 &&
-             strcmp(out_view.format, "L") != 0) ||
+        if ((out_format != 'I' && out_format != 'L') ||
             out_view.itemsize != sizeof(uint32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit unsigned integers.");
@@ -215,8 +261,7 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_u8(&in_view, &out_view);
     }
     else if (format == 'H' && in_view.itemsize == sizeof(uint16_t)) {
-        if ((strcmp(out_view.format, "I") != 0 &&
-             strcmp(out_view.format, "L") != 0) ||
+        if ((out_format != 'I' && out_format != 'L') ||
             out_view.itemsize != sizeof(uint32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit unsigned integers.");
@@ -225,8 +270,7 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_u16(&in_view, &out_view);
     }
     else if (format == 'b' && in_view.itemsize == sizeof(int8_t)) {
-        if ((strcmp(out_view.format, "i") != 0 &&
-             strcmp(out_view.format, "l") != 0) ||
+        if ((out_format != 'i' && out_format != 'l') ||
             out_view.itemsize != sizeof(int32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit signed integers.");
@@ -235,8 +279,7 @@ integer_unpack(PyObject *self, PyObject *args)
         status = integer_unpack_i8(&in_view, &out_view);
     }
     else if (format == 'h' && in_view.itemsize == sizeof(int16_t)) {
-        if ((strcmp(out_view.format, "i") != 0 &&
-             strcmp(out_view.format, "l") != 0) ||
+        if ((out_format != 'i' && out_format != 'l') ||
             out_view.itemsize != sizeof(int32_t)) {
             PyErr_SetString(PyExc_ValueError,
                 "Output buffer should contain 32-bit signed integers.");

@@ -55,6 +55,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
+``integer_unpack`` helper reads and writes through native-width pointers and
+ignores the byte order a buffer declares, so on a big-endian machine the
+little-endian data of a BinaryCIF file was decoded to the wrong values. The
+decoder now converts the packed data to native order before unpacking, and
+allocates its output in native order; the helper refuses a buffer in any other
+order rather than misreading it, and says so. It also no longer rejects a
+buffer whose format string carries an explicit native byte order character,
+such as NumPy's ``"=u2"``, which it previously reported as an unexpected
+format. This is the same underlying problem as biopython/biopython#5235,
+reached from the other side.
+
 ``Bio.pairwise2`` no longer corrupts the interpreter when exactly one of the
 two sequences it is given cannot be encoded as ASCII. The C helper that
 converts the sequences returned a borrowed reference for a ``bytes`` input but
