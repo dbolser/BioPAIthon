@@ -66,6 +66,14 @@ parse and of the length check were both discarded. Coordinates may now be
 given as tuples as well as lists, which previously raised ``SystemError`` from
 inside the extension.
 
+Nine ``assert`` statements that validate parsed input have been replaced with
+explicit ``if``/``raise`` in ``Bio.ExPASy.Enzyme``, ``Bio.ExPASy.ScanProsite``,
+``Bio.SeqIO.TabIO`` and ``Bio.motifs.alignace``. Under ``python -O`` an
+``assert`` is removed entirely, so those checks were absent exactly where
+malformed input matters most: writing a tab delimited record whose id contained
+a tab produced a corrupt file rather than an error. Adopted from
+biopython/biopython#5175 by Abdel ATIA; see ``ADOPTED.md``.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
