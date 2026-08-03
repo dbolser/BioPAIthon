@@ -146,6 +146,7 @@ https://biopython.org
 - Erik Cederstrand <https://github.com/ecederstrand>
 - Erik Weßels <https://github.com/BioNij>
 - Erik Whiting <https://github.com/erik-whiting>
+- Ernest Provo <https://github.com/ernestprovo23>
 - Ernesto Rodriguez <https://github.com/netogallo>
 - Fabian Egli <https://github.com/fabianegli>
 - Fabio Zanini <https://github.com/iosonofabio>
