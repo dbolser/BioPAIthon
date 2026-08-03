@@ -84,6 +84,7 @@
 //
 
 #include "Python.h"
+#include <limits.h>
 
 #define MAX_PATHS 20
 
@@ -372,34 +373,54 @@ getCoords(PyObject *L, int length)
     // Make space for the current coords
     pcePoint coords = (pcePoint)PyMem_RawMalloc(sizeof(cePoint) * length);
 
-    if (!coords)
+    if (!coords) {
+        PyErr_NoMemory();
         return NULL;
+    }
 
-    // loop through the arguments, pulling out the
-    // XYZ coordinates.
+    // Loop through the arguments, pulling out the XYZ coordinates. Every
+    // lookup here can fail - the caller may have passed something that is not
+    // a sequence, an entry with fewer than three values, or a value that is
+    // not a number - so each one is checked. Reading on regardless is how a
+    // short coordinate entry used to reach PyFloat_AsDouble(NULL).
     for (int i = 0; i < length; i++) {
-        PyObject *curCoord = PyList_GetItem(L, i);
-        Py_INCREF(curCoord);
+        double xyz[3];
+        PyObject *curCoord = PySequence_GetItem(L, i);
 
-        PyObject *curVal = PyList_GetItem(curCoord, 0);
-        Py_INCREF(curVal);
-        coords[i].x = PyFloat_AsDouble(curVal);
-        Py_DECREF(curVal);
+        if (!curCoord) {
+            goto error;
+        }
+        for (int j = 0; j < 3; j++) {
+            PyObject *curVal = PySequence_GetItem(curCoord, j);
 
-        curVal = PyList_GetItem(curCoord, 1);
-        Py_INCREF(curVal);
-        coords[i].y = PyFloat_AsDouble(curVal);
-        Py_DECREF(curVal);
+            if (!curVal) {
+                PyErr_Format(PyExc_ValueError,
+                    "coordinate %d does not have three values", i);
+                Py_DECREF(curCoord);
+                goto error;
+            }
+            xyz[j] = PyFloat_AsDouble(curVal);
+            Py_DECREF(curVal);
 
-        curVal = PyList_GetItem(curCoord, 2);
-        Py_INCREF(curVal);
-        coords[i].z = PyFloat_AsDouble(curVal);
-
-        Py_DECREF(curVal);
+            if (xyz[j] == -1.0 && PyErr_Occurred()) {
+                PyErr_Format(PyExc_ValueError,
+                    "coordinate %d value %d is not a number", i, j);
+                Py_DECREF(curCoord);
+                goto error;
+            }
+        }
         Py_DECREF(curCoord);
+
+        coords[i].x = xyz[0];
+        coords[i].y = xyz[1];
+        coords[i].z = xyz[2];
     }
 
     return coords;
+
+error:
+    PyMem_RawFree(coords);
+    return NULL;
 }
 
 // Find the best N alignment paths
@@ -682,15 +703,60 @@ PyCealign(PyObject *Py_UNUSED(self), PyObject *args)
     PyObject *listA, *listB, *result;
 
     /* Unpack the arguments from Python */
-    PyArg_ParseTuple(args, "OO|ii", &listA, &listB, &fragmentSize, &gapMax);
+    if (!PyArg_ParseTuple(args, "OO|ii", &listA, &listB, &fragmentSize,
+                          &gapMax)) {
+        return NULL;
+    }
 
-    /* Get the list lengths */
-    const int lenA = (int)PyList_Size(listA);
-    const int lenB = (int)PyList_Size(listB);
+    /* Get the sequence lengths. PySequence_Size returns -1 and sets a
+       TypeError for anything that is not a sequence; the old PyList_Size did
+       the same but its result was used regardless, so a tuple reached
+       PyList_GetItem and raised SystemError from inside the loop. */
+    const Py_ssize_t sizeA = PySequence_Size(listA);
+    const Py_ssize_t sizeB = PySequence_Size(listB);
+
+    if (sizeA < 0 || sizeB < 0) {
+        return NULL;
+    }
+
+    /* fragmentSize is used unvalidated as a loop bound and as a divisor of
+       the fragment count, so a non-positive value walks off the coordinate
+       array, and one larger than the input has nothing to align. gapMax is
+       doubled at findPath, so it also needs an upper bound to stay defined. */
+    if (fragmentSize <= 0) {
+        PyErr_Format(PyExc_ValueError,
+            "fragment size must be positive (got %d)", fragmentSize);
+        return NULL;
+    }
+    if (sizeA < fragmentSize || sizeB < fragmentSize) {
+        PyErr_Format(PyExc_ValueError,
+            "each structure needs at least %d coordinates "
+            "(got %zd and %zd)", fragmentSize, sizeA, sizeB);
+        return NULL;
+    }
+    if (gapMax < 0 || gapMax > (INT_MAX - 1) / 2) {
+        PyErr_Format(PyExc_ValueError,
+            "maximum gap must be between 0 and %d (got %d)",
+            (INT_MAX - 1) / 2, gapMax);
+        return NULL;
+    }
+
+    const int lenA = (int)sizeA;
+    const int lenB = (int)sizeB;
 
     /* get the coodinates from the Python objects */
     pcePoint coordsA = (pcePoint)getCoords(listA, lenA);
+
+    if (!coordsA) {
+        return NULL;
+    }
+
     pcePoint coordsB = (pcePoint)getCoords(listB, lenB);
+
+    if (!coordsB) {
+        PyMem_RawFree(coordsA);
+        return NULL;
+    }
 
     /* calculate the distance matrix for each protein */
     double **dA = (double **)calcDM(coordsA, lenA);

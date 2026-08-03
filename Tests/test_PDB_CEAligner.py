@@ -175,6 +175,78 @@ class CEAlignerTests(unittest.TestCase):
         self.assertLess(retained, 128 * 1024)
 
 
+class RunCEAlignArgumentTests(unittest.TestCase):
+    """Argument validation in run_cealign.
+
+    Every case here used to reach the C loops unchecked. The first three
+    segfaulted or raised SystemError from inside the extension rather than
+    rejecting the input.
+    """
+
+    @staticmethod
+    def coords(n=40):
+        return [[float(i), 0.0, 0.0] for i in range(n)]
+
+    def test_valid_arguments(self):
+        """Test that a well formed call still works."""
+        coords = self.coords()
+        self.assertGreater(len(run_cealign(coords, coords, 8, 30)), 0)
+
+    def test_fragment_size_not_positive(self):
+        """Test that a fragment size of zero or less is rejected."""
+        coords = self.coords()
+        for fragment_size in (0, -1):
+            with self.subTest(fragment_size=fragment_size):
+                with self.assertRaisesRegex(ValueError, "must be positive"):
+                    run_cealign(coords, coords, fragment_size, 30)
+
+    def test_fragment_size_longer_than_input(self):
+        """Test that a fragment longer than the structure is rejected."""
+        coords = self.coords()
+        with self.assertRaisesRegex(ValueError, "at least 100 coordinates"):
+            run_cealign(coords, coords, 100, 30)
+
+    def test_coordinate_entry_too_short(self):
+        """Test that an entry without three values is rejected."""
+        short = [[0.0, 0.0] for _ in range(40)]
+        with self.assertRaisesRegex(ValueError, "three values"):
+            run_cealign(short, short, 8, 30)
+
+    def test_coordinate_value_not_a_number(self):
+        """Test that a non-numeric coordinate is rejected."""
+        bad = [["x", 0.0, 0.0] for _ in range(40)]
+        with self.assertRaisesRegex(ValueError, "not a number"):
+            run_cealign(bad, self.coords(), 8, 30)
+
+    def test_gap_max_out_of_range(self):
+        """Test that a gap maximum that cannot be doubled is rejected."""
+        coords = self.coords()
+        for gap_max in (-1, 2**31 - 1):
+            with self.subTest(gap_max=gap_max):
+                with self.assertRaisesRegex(ValueError, "maximum gap"):
+                    run_cealign(coords, coords, 8, gap_max)
+
+    def test_not_a_sequence(self):
+        """Test that a non-sequence argument raises TypeError."""
+        coords = self.coords()
+        with self.assertRaises(TypeError):
+            run_cealign(42, coords, 8, 30)
+
+    def test_tuples_are_accepted(self):
+        """Test that tuples work as well as lists.
+
+        These used to raise SystemError from PyList_GetItem, because the
+        coordinates were read with list-only accessors after a length check
+        whose failure was ignored.
+        """
+        coords = self.coords()
+        as_tuples = tuple(tuple(xyz) for xyz in coords)
+        self.assertEqual(
+            len(run_cealign(as_tuples, as_tuples, 8, 30)),
+            len(run_cealign(coords, coords, 8, 30)),
+        )
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)

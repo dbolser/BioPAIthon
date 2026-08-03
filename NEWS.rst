@@ -55,6 +55,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.PDB.ccealign.run_cealign`` now checks its arguments instead of trusting
+them. A fragment size of zero walked off the end of the coordinate array and a
+coordinate entry with fewer than three values dereferenced ``NULL``, both
+segfaulting the interpreter; a fragment size larger than the input, a
+non-numeric coordinate, and a maximum gap that cannot be doubled without
+overflowing are also rejected now. Passing something that is not a sequence
+raises ``TypeError`` rather than being ignored: the result of the argument
+parse and of the length check were both discarded. Coordinates may now be
+given as tuples as well as lists, which previously raised ``SystemError`` from
+inside the extension.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
