@@ -1114,6 +1114,70 @@ Recorded so nobody spends time re-investigating:
 
 ---
 
+## Harvested from upstream's stalled pull requests
+
+142 pull requests are open upstream, some since 2021. Surveying them found a
+seam: several are technically finished and maintainer-approved, blocked only on
+provenance or on a reviewer who never came back. Contributors dual-licence
+under BSD 3-Clause when they open a PR upstream, so these can be adopted here
+with attribution — **check the box was actually ticked on each one before
+taking it**.
+
+Ranked with the same bias as the rest of this document: a silent wrong answer
+outranks a crash, a crash outranks a missing feature, and anything reproduced
+outranks anything inferred. Every item below was checked against this fork's
+tree, not just read about.
+
+| | upstream | defect | effort |
+|---|---|---|---|
+| 1 | [#3897](https://github.com/biopython/biopython/pull/3897) | `DisorderedAtom.copy()` leaves `selected_child` pointing into the original, so the copy reads and transforms the original's coordinates | S |
+| 2 | [#4866](https://github.com/biopython/biopython/pull/4866) | `MeltingTemp.Tm_*` given a `SeqRecord` strips its repr down to ACGT and returns a plausible Tm for the garbage | S |
+| 3 | [#4450](https://github.com/biopython/biopython/pull/4450) | one non-standard month in a PDB `HEADER` aborts the whole parse with `ValueError: list.index(x)`, naming no file or field | S |
+| 4 | [#3812](https://github.com/biopython/biopython/pull/3812) | one residue with missing atoms destroys an entire HSExposure calculation, because `_get_cb` returns `(None, 0.0)` where the caller checks for `None` | S |
+| 5 | [#5127](https://github.com/biopython/biopython/pull/5127) | `polar_angle` is read from uninitialised memory wherever the radius is zero | S |
+| 6 | [#4390](https://github.com/biopython/biopython/pull/4390) | `auth_residues=False` staples auth insertion codes onto label numbering, giving residue ids that exist in neither scheme | S |
+| 7 | [#5181](https://github.com/biopython/biopython/pull/5181) | `calculate_consensus` raises `UnboundLocalError` on an all-zero column — take the `matrix.py` half only, see below | S |
+| 8 | [#3911](https://github.com/biopython/biopython/pull/3911) | the GenBank writer emits multi-line qualifiers that its own parser then rejects | M |
+| 9 | [#4938](https://github.com/biopython/biopython/pull/4938) | `PDBList` still fetches MMTF from a host RCSB decommissioned; BinaryCIF, which this fork already parses, cannot be fetched at all | S |
+| 10 | [#5175](https://github.com/biopython/biopython/pull/5175) | nine `assert`s validating input in production code, which vanish under `python -O` — the same defect as §0.8 | S |
+| 11 | [#5121](https://github.com/biopython/biopython/pull/5121) | mmCIF parsing is ~50% slower than it needs to be for want of a six-line fast path | S |
+| 12 | [#5244](https://github.com/biopython/biopython/pull/5244) | every SAM file written has `TLEN` 0 on every record | M |
+| 13 | [#4918](https://github.com/biopython/biopython/pull/4918) | GenBank `LOCUS` lines with molecule type `NA` are rejected outright | S |
+| 14 | [#5157](https://github.com/biopython/biopython/pull/5157) | `PDBList` hardcodes wwPDB paths, so EBI and other mirrors cannot be used | S |
+| 15 | [#4634](https://github.com/biopython/biopython/pull/4634) | no way to resolve polytomies in `Bio.Phylo`, which many downstream tools require | S |
+
+Two defects were found while surveying and belong to no pull request:
+
+- `Bio/motifs/matrix.py:209` indexes `counts[3]` unconditionally, so any motif
+  over an alphabet of fewer than four letters raises `IndexError`.
+- `Bio/SeqIO/PdbIO.py:444-449` keys `cif-seqres` off label chain ids while
+  `cif-atom` goes through `MMCIFParser(auth_chains=True)`, so the two parsers
+  report different chain ids for the same file.
+
+### Do not adopt
+
+- **[#5016](https://github.com/biopython/biopython/pull/5016)** — 99,000 lines,
+  almost all of it an accidental repo-wide `black` run; the author has said he
+  is abandoning the branch. The algorithms are real; the pull request is not.
+- **[#5085](https://github.com/biopython/biopython/pull/5085)** — 1,795 lines of
+  C for melting temperature. The thread establishes that most of the speedup is
+  reachable in ~40 lines of Python and numpy. Take the idea, leave the C.
+- **[#4994](https://github.com/biopython/biopython/pull/4994)** — changes the
+  module-level `translate()` gap default. §0.2 deliberately took the narrower
+  fix; reversing that is a policy decision, not a bug fix, and applied alone it
+  would not even work.
+- **[#4170](https://github.com/biopython/biopython/pull/4170)** — supersedes the
+  §0.1 fix with the paper's neighbour-correlated tables. More correct, but it
+  would change every flexibility value a second time in one release, and no
+  upstream reviewer could validate the science. If ever, then in the same
+  release as §0.1 or not at all.
+- **[#5181](https://github.com/biopython/biopython/pull/5181)'s second half** —
+  the alphabet check it grew under review rejects `Motif("ACGT", ...)` on any
+  ambiguity code. Routine input. Take the two-line `matrix.py` fix only.
+- **[#4073](https://github.com/biopython/biopython/pull/4073)** — the GenBank
+  writer fix is wanted, but it is bundled with a `Scanner.py` rewrite that
+  changes line-joining for every GenBank file read. Take #3911's shape instead.
+
 ## Suggested sequencing
 
 1. **§0.11–0.14 before anything else.** These are memory-safety defects in C
