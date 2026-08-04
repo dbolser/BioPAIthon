@@ -31,6 +31,32 @@ recorded below with the reason.
 
 ## Adopted
 
+### [#5127](https://github.com/biopython/biopython/pull/5127) — Michiel de Hoon
+
+`multi_coord_space` computes the polar angle as `arccos(np.divide(p[:, 2], r,
+where=r != 0))`. Without an `out=` argument, `np.divide` allocates its result
+with `np.empty`, so every entry the `where` mask skips — every hedron whose
+second atom sits on its first — keeps whatever was in that memory. The polar
+angle, and the transform built from it, are then read from uninitialised heap.
+Passing `out=np.ones_like(r)` makes the quotient 1 there, so the angle is zero,
+which is what the scalar sibling `get_spherical_coordinates` already returns for
+`r == 0`.
+
+**One of the two commits taken.** The second, `2e4221b44` ("update"), changes
+four call sites in `coord_space` from `a1[0]` to `a1[0][0]` and `sc[2]` to
+`sc[2][0]`, following a stale comment that records the indexing from before the
+callers switched to flat arrays. Applied here it fails immediately:
+
+```
+IndexError: invalid index to scalar variable.
+```
+
+`Tests/test_PDB_vectors.py` passes `np.array([2.0, 0.0, 2.0, 1.0])`, so `a1[0]`
+is already a scalar. This is not a difference between the fork and upstream —
+upstream `master` at `e136be720` has the same flat-array test and the same
+`a1[0]` call sites, so that commit would break upstream's own suite as well.
+Worth telling them; see `UPSTREAM.md`.
+
 ### [#5175](https://github.com/biopython/biopython/pull/5175) — Abdel ATIA
 
 Replaces nine `assert` statements that validate input in production code with

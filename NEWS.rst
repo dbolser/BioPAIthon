@@ -55,6 +55,16 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.PDB.vectors.multi_coord_space`` no longer reads the polar angle from
+uninitialised memory. It divided by the radius under ``where=r != 0`` without
+giving ``np.divide`` an ``out=`` array, so ``np.empty`` supplied the result and
+every hedron whose second atom coincides with its first kept whatever the heap
+held there. The transform for such a hedron was therefore arbitrary rather than
+merely degenerate. The quotient is now 1 in those positions, giving a polar
+angle of zero — the value the scalar ``get_spherical_coordinates`` already
+returns when the radius is zero. Adopted from biopython/biopython#5127 by
+Michiel de Hoon; see ``ADOPTED.md``.
+
 ``Bio.PDB.ccealign.run_cealign`` now checks its arguments instead of trusting
 them. A fragment size of zero walked off the end of the coordinate array and a
 coordinate entry with fewer than three values dereferenced ``NULL``, both

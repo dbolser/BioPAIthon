@@ -88,6 +88,7 @@ Verified unreported in the GitHub tracker and still present on upstream
 | 13 | Two `except ValueError` clauses in `SeqIO/_index.py` cannot fire | File the `tab` and `genbank` halves separately; cite [#1344](https://github.com/biopython/biopython/issues/1344). |
 | 14 | `reverse_complement()` cannot sort features with an `UnknownPosition` | Cite [#1772](https://github.com/biopython/biopython/issues/1772), same cause, different path. |
 | 15 | `ProteinAnalysis.flexibility()` reads the wrong window centre | Comment on [#4170](https://github.com/biopython/biopython/pull/4170), which fixes the adjacent window-count bug only. |
+| 16 | The second commit of open PR [#5127](https://github.com/biopython/biopython/pull/5127) breaks `coord_space` | Not a defect in `master` — a defect in an in-flight branch, so it is a comment on the PR, not an issue. `2e4221b44` reindexes `a1[0]` to `a1[0][0]`, following a comment that predates the callers switching to flat arrays; `test_PDB_vectors.py` then fails with `IndexError: invalid index to scalar variable`. Reproduced against upstream `master` `e136be720`, whose test still passes `np.array([2.0, 0.0, 2.0, 1.0])`. The first commit is good and is adopted here. |
 
 ## Needs work before it can be filed
 
