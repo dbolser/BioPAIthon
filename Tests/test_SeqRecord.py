@@ -721,6 +721,24 @@ class DerivedRecordIsolation(unittest.TestCase):
     def test_radd_string_isolates_annotations(self):
         self._assert_isolated("TT" + self.parent)
 
+    def test_add_two_records_isolates_shared_annotations(self):
+        """Merging two records must not share the common annotation values.
+
+        The merge keeps an annotation only when both records agree on it, and
+        used to store the left record's value object directly, so the merged
+        record shared it with both parents.
+        """
+        other = SeqRecord(
+            Seq("TTTT"),
+            id="other",
+            annotations={"keywords": ["a", "b"], "molecule_type": "DNA"},
+        )
+        combined = self.parent + other
+        self.assertEqual(combined.annotations["keywords"], ["a", "b"])
+        combined.annotations["keywords"].append("EVIL")
+        self.assertEqual(self.parent.annotations["keywords"], ["a", "b"])
+        self.assertEqual(other.annotations["keywords"], ["a", "b"])
+
     def test_upper_isolates_annotations(self):
         self._assert_isolated(self.parent.upper())
 
@@ -739,6 +757,19 @@ class DerivedRecordIsolation(unittest.TestCase):
         derived = coding.translate(annotations=True)
         derived.annotations["keywords"].append("EVIL")
         self.assertEqual(coding.annotations["keywords"], ["a", "b"])
+
+    def test_uncopyable_annotation_value_does_not_break_derivation(self):
+        """A value that cannot be deep-copied must not stop a record deriving.
+
+        ``SeqRecord`` only requires annotations to be a dict, so a value such
+        as an open file handle is legal. Deep-copying it raises; the helper
+        falls back to sharing it, exactly as the old shallow copy did, rather
+        than turning a previously working ``upper()`` into an error.
+        """
+        with open(__file__) as handle:
+            rec = SeqRecord(Seq("ACGT"), annotations={"source": handle})
+            derived = rec.upper()
+            self.assertIs(derived.annotations["source"], handle)
 
     def test_concatenate_letter_annotation_typeerror_names_the_key(self):
         """A failed per-letter concatenation reports the key and types."""
