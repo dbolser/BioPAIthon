@@ -24,7 +24,9 @@ known as because they get filed.
 - **Calibrated.** Each report states what was run and what was only read, and
   names what was not checked. Where a fix is a behaviour choice rather than a
   correction, the report says so and leaves the choice upstream.
-- **Attributed.** Reports produced with AI assistance say so.
+- **Human-written.** The report is written by a person in their own words, not
+  generated text relayed under a name; the findings behind it may come from AI
+  work. See [How this fork engages upstream](#how-this-fork-engages-upstream).
 
 ## Reported
 
@@ -35,6 +37,34 @@ known as because they get filed.
 | [#5272](https://github.com/biopython/biopython/issues/5272) | 2026-08-03 | `PrintedAlignmentParser.feed()` does not bound `offset`, and its length check cannot fire | [#2](https://github.com/dbolser/BioPAIthon/pull/2) |
 | email | 2026-08-03 | Out-of-bounds write in `bcifhelpermodule.c` — to the `Bio/PDB` owners under their `SECURITY.md` | [#3](https://github.com/dbolser/BioPAIthon/pull/3) |
 | [#5252 review](https://github.com/biopython/biopython/pull/5252#issuecomment-5171465860) | 2026-08-03 | Review of their in-flight endian fix: the output array is still allocated little-endian | [#36](https://github.com/dbolser/BioPAIthon/pull/36) |
+
+## How this fork engages upstream
+
+This fork's own tree welcomes AI-written contributions — that is the reason it
+exists, and `ADOPTED.md` is full of them. Reaching *into* Biopython is a
+separate act, and the fork chooses to make it on Biopython's terms rather than
+its own, because the recipient's comfort is the whole value of the contact.
+These are the fork's standing choices for that outbound contact, not rules
+imposed on its own work.
+
+- **Outbound writing is a person's own words.** An issue, a comment or an email
+  sent to Biopython is written by Dan himself and not signed as AI-authored.
+  Biopython has said it prefers discussion text to be human-written (peterjc on
+  [#5252](https://github.com/biopython/biopython/pull/5252#issuecomment-5171465860):
+  "all written text on the discussions ... should be human"), and meeting that
+  preference is a courtesy the contact depends on. The *findings* behind the
+  writing may still come from AI work — upstream said in the same breath that it
+  expects bug reports found with AI tools — but rewriting rather than
+  transcribing is the line: generated prose under a human name would keep the
+  letter and lose the point.
+- **Code goes to upstream as a description, not a patch.** A report says what a
+  fix must guarantee and leaves upstream to write it; where a patch already
+  exists here it is offered for a clean-room reimplementation rather than
+  submitted. This is the deliberate inverse of how the fork treats the same
+  work internally, where the patch is adopted directly with its author's name
+  on it (`ADOPTED.md`). Upstream's own policy on AI-written code is still a
+  draft at [#5241](https://github.com/biopython/biopython/pull/5241) and not
+  agreed, so it is not described here as settled.
 
 ## Queued
 
