@@ -104,6 +104,27 @@ class Exposure(unittest.TestCase):
         self.assertEqual(23, residues[-1].xtra["EXP_HSE_B_D"])
         self.assertEqual(15, residues[-1].xtra["EXP_HSE_B_U"])
 
+    def test_HSExposureCB_glycine_missing_backbone_atom(self):
+        """One unusable glycine must cost one residue, not the whole model."""
+        # Record what an intact model gives, then start over.
+        HSExposureCB(self.model, self.radius)
+        expected = [dict(residue.xtra) for residue in self.a_residues]
+        for residue in self.a_residues:
+            residue.xtra.clear()
+
+        # A glycine has no CB, so its pseudo-CB is built from N, C and CA.
+        # Take the N away and it cannot be built at all.
+        glycine = self.a_residues[3]
+        self.assertEqual(glycine.get_resname(), "GLY")
+        glycine.detach_child("N")
+
+        HSExposureCB(self.model, self.radius)
+
+        self.assertEqual(glycine.xtra, {})
+        for i, residue in enumerate(self.a_residues):
+            if residue is not glycine:
+                self.assertEqual(residue.xtra, expected[i])
+
     def test_ExposureCN(self):
         """HSExposureCN."""
         _ = ExposureCN(self.model, self.radius)

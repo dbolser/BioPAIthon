@@ -55,6 +55,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Bio.PDB.HSExposureCB`` no longer abandons a whole model because one glycine
+is unusable. ``_get_cb`` returned ``self._get_gly_cb_vector(r2), 0.0``, and
+that helper returns ``None`` for a glycine missing N, C or CA — so the caller
+received ``(None, 0.0)``, which is not ``None``, and its "missing atoms, skip
+this residue" guard did not fire. The ``None`` was then used as a vector. On
+``Tests/PDB/a_structure.pdb`` with the N removed from a single glycine, half
+sphere exposure was computed for 2 of 86 residues before the calculation died
+with ``AttributeError: 'NoneType' object has no attribute 'norm'``; it now
+completes for 84, skipping only the residue it cannot use. Adopted from
+biopython/biopython#3812 by Dominique Sydow; see ``ADOPTED.md``.
+
 ``Bio.PDB.vectors.multi_coord_space`` no longer reads the polar angle from
 uninitialised memory. It divided by the radius under ``where=r != 0`` without
 giving ``np.divide`` an ``out=`` array, so ``np.empty`` supplied the result and
