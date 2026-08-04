@@ -117,6 +117,36 @@ class TestDisordered(unittest.TestCase):
         self.assertEqual(clone.selected_child.get_altloc(), "A")
         self.assertTrue(np.allclose(clone.coord, [1.0, 0.0, 0.0]))
 
+    def test_copy_preserves_explicit_selection(self):
+        """Copy keeps a non-default altloc chosen with disordered_select().
+
+        Re-adding the children selects by occupancy, so a lower-occupancy
+        altloc the caller had selected would silently be swapped for the
+        highest-occupancy one, changing the copy's coordinates.
+        """
+        original = DisorderedAtom("CZ")
+        for altloc, x, occ in (("A", 1.0, 0.7), ("B", 2.0, 0.3)):
+            original.disordered_add(
+                Atom(
+                    "CZ",
+                    np.array([x, 0.0, 0.0], dtype="f"),
+                    26.0,
+                    occ,
+                    altloc,
+                    " CZ ",
+                    1,
+                    element="C",
+                )
+            )
+        # Occupancy would pick A; the caller overrides to B.
+        original.disordered_select("B")
+        self.assertTrue(np.allclose(original.coord, [2.0, 0.0, 0.0]))
+
+        clone = original.copy()
+
+        self.assertEqual(clone.selected_child.get_altloc(), "B")
+        self.assertTrue(np.allclose(clone.coord, [2.0, 0.0, 0.0]))
+
     def test_copy_entire_chain(self):
         """Copy propagates throughout SMCRA object."""
         s = self.structure
