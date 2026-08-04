@@ -55,6 +55,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``import Bio.Seq`` is roughly 30 ms faster, and every entry point that reaches
+it benefits. ``Bio.Data.CodonTable`` builds 34 genetic codes at import, and
+each ambiguous one expanded its start and stop codon lists over the IUPAC
+ambiguity codes eagerly. That expansion was 79% of the module's import time
+(37 ms of 47 ms, in 167 calls to ``list_ambiguous_codons``), it happened for
+every table whether or not anything read it, and ``Bio.Seq`` imports the module
+unconditionally. ``AmbiguousCodonTable.start_codons`` and ``.stop_codons`` are
+now computed on first access and cached. Measured as the median of five runs of
+``python -X importtime``: ``Bio.Seq`` 52.1 ms to 21.2 ms, ``Bio.SeqIO`` 248.9 ms
+to 215.7 ms. The codon lists themselves are unchanged — all six table
+dictionaries compare byte-for-byte identical before and after.
+
 ``SimpleLocation``, ``CompoundLocation``, ``SeqFeature`` and ``Reference`` are
 hashable again, so they can be put in a set or used as a dictionary key.
 Defining ``__eq__`` without ``__hash__`` makes Python set ``__hash__`` to
