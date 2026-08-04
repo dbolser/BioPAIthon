@@ -55,6 +55,15 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``Motif.degenerate_consensus`` now works on alphabets of fewer than four
+letters. The Cavener rules it applies rank the letters of a column by count and
+then inspect the second- and fourth-ranked counts, which do not exist for a
+shorter alphabet, so ``Motif(counts=..., alphabet="ACG").degenerate_consensus``
+raised a bare ``IndexError``. A letter outside the alphabet is absent at every
+position, so the ranked counts are now padded with zeros and the rules apply
+unchanged; a three-letter column with equal counts gives ``V`` as it should.
+Four-letter alphabets are unaffected.
+
 ``Bio.PDB.HSExposureCB`` no longer abandons a whole model because one glycine
 is unusable. ``_get_cb`` returned ``self._get_gly_cb_vector(r2), 0.0``, and
 that helper returns ``None`` for a glycine missing N, C or CA — so the caller

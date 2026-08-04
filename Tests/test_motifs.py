@@ -236,6 +236,32 @@ U:   0.50   0.17   0.50   0.17   0.50
         self.assertEqual(str(m_rna.reverse_complement().pwm), expected_reverse_rna_pwm)
 
 
+class TestDegenerateConsensus(unittest.TestCase):
+    """Tests for degenerate_consensus on alphabets of fewer than four letters."""
+
+    def test_three_letter_alphabet(self):
+        """A three-letter alphabet has no fourth-ranked letter to inspect."""
+        motif = motifs.create([Seq("A"), Seq("C"), Seq("G")], alphabet="ACG")
+        # All three are equally common, so no rule before the fourth-ranked
+        # count applies, and that count is the one an "ACG" motif does not
+        # have.  Absent means zero, so the three-letter code V is correct.
+        self.assertEqual(motif.degenerate_consensus, "V")
+
+    def test_two_letter_alphabet(self):
+        motif = motifs.create([Seq("AC"), Seq("AA")], alphabet="AC")
+        self.assertEqual(motif.degenerate_consensus, "AM")
+
+    def test_one_letter_alphabet(self):
+        """A one-letter alphabet has no second-ranked letter either."""
+        motif = motifs.create([Seq("AA"), Seq("AA")], alphabet="A")
+        self.assertEqual(motif.degenerate_consensus, "AA")
+
+    def test_four_letter_alphabet_is_unchanged(self):
+        """Padding must not disturb the usual four-letter behaviour."""
+        motif = motifs.create([Seq("AC"), Seq("CG"), Seq("GT"), Seq("TA")])
+        self.assertEqual(motif.degenerate_consensus, "NN")
+
+
 class TestCalculateConsensus(unittest.TestCase):
     """Tests for calculate_consensus edge cases."""
 

@@ -202,6 +202,11 @@ class GenericPositionMatrix(dict):
 
             nucleotides = sorted(self, key=get, reverse=True)
             counts = [self[c][i] for c in nucleotides]
+            # The Cavener rules index up to the fourth-ranked letter. An
+            # alphabet of fewer than four letters has no fourth letter, and a
+            # letter outside the alphabet is absent at every position, so pad
+            # the ranked counts with zeros rather than special-case each rule.
+            counts += [0] * (4 - len(counts))
             # Follow the Cavener rules:
             if counts[0] > sum(counts[1:]) and counts[0] > 2 * counts[1]:
                 key = nucleotides[0]
