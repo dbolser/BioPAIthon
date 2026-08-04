@@ -109,6 +109,18 @@ request resets ``last_occupancy`` to ``0``, which would leave an atom whose
 altlocs all have occupancy ``0.00`` with no selected child at all, so this
 fork uses the ``-sys.maxsize`` sentinel ``__init__`` uses.
 
+``SeqRecord`` methods that derive a new record - ``__add__``, ``__radd__``,
+``upper``, ``lower``, ``reverse_complement`` and ``translate`` - no longer share
+mutable annotation values with the original. They copied the annotations
+dictionary shallowly, so list values such as ``keywords``, ``accessions``,
+``taxonomy`` and ``references`` were shared: appending to the derived record's
+``keywords`` also changed the parent's, far from where the mutation was written.
+The annotations are now deep-copied. The sequence and the features are
+unaffected, so records that share features remain to be addressed separately.
+Relatedly, a failed concatenation of per-letter annotations in ``__add__`` now
+raises a ``TypeError`` naming the offending key and the two incompatible types,
+instead of printing to stdout and re-raising a message with no detail.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the

@@ -693,6 +693,61 @@ class TestTranslation(unittest.TestCase):
         self.assertEqual(t.letter_annotations, {"aa": ["Met", "Val"]})
 
 
+class DerivedRecordIsolation(unittest.TestCase):
+    """A record derived from another must not share its mutable annotations.
+
+    Each method returns a new record; mutating that record's annotations, or a
+    mutable value inside them, must leave the original untouched.
+    """
+
+    def setUp(self):
+        self.parent = SeqRecord(
+            Seq("ACGTACGT"),
+            id="parent",
+            annotations={"keywords": ["a", "b"], "molecule_type": "DNA"},
+        )
+
+    def _assert_isolated(self, derived):
+        derived.annotations["keywords"].append("EVIL")
+        self.assertEqual(
+            self.parent.annotations["keywords"],
+            ["a", "b"],
+            "mutating the derived record's keywords changed the parent's",
+        )
+
+    def test_add_string_isolates_annotations(self):
+        self._assert_isolated(self.parent + "TT")
+
+    def test_radd_string_isolates_annotations(self):
+        self._assert_isolated("TT" + self.parent)
+
+    def test_upper_isolates_annotations(self):
+        self._assert_isolated(self.parent.upper())
+
+    def test_lower_isolates_annotations(self):
+        self._assert_isolated(self.parent.lower())
+
+    def test_reverse_complement_isolates_annotations(self):
+        self._assert_isolated(self.parent.reverse_complement(annotations=True))
+
+    def test_translate_isolates_annotations(self):
+        coding = SeqRecord(
+            Seq("ATGGTGTAA"),
+            id="coding",
+            annotations={"keywords": ["a", "b"], "molecule_type": "DNA"},
+        )
+        derived = coding.translate(annotations=True)
+        derived.annotations["keywords"].append("EVIL")
+        self.assertEqual(coding.annotations["keywords"], ["a", "b"])
+
+    def test_concatenate_letter_annotation_typeerror_names_the_key(self):
+        """A failed per-letter concatenation reports the key and types."""
+        left = SeqRecord(Seq("AC"), letter_annotations={"q": [1, 2]})
+        right = SeqRecord(Seq("GT"), letter_annotations={"q": "xy"})
+        with self.assertRaisesRegex(TypeError, "per-letter annotation 'q'"):
+            left + right
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)
