@@ -112,8 +112,25 @@ class _RestrictedDict(dict[str, Sequence[Any]]):
             self[key] = value
 
 
+def _copy_annotation_value(value: Any) -> Any:
+    """Return an independent copy of one annotation value (PRIVATE).
+
+    Deep-copied so that mutating the copy cannot reach the original, which is
+    the whole point of ``_copy_annotations``. A value that cannot be deep-copied
+    - an open file handle, a lock, some user object that refuses ``pickle`` -
+    is returned unchanged rather than raised over: sharing such a value is
+    exactly what the shallow copy did before, so this narrows nothing, while
+    the lists that actually cause trouble (``keywords`` and the like) copy
+    cleanly.
+    """
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        return value
+
+
 def _copy_annotations(annotations: dict[str, Any]) -> dict[str, Any]:
-    """Return a deep copy of an annotations dictionary (PRIVATE).
+    """Return a copy of an annotations dictionary with independent values (PRIVATE).
 
     The methods that derive a new record from an existing one - ``__add__``,
     ``upper``, ``lower``, ``reverse_complement``, ``translate`` - promise not to
@@ -123,12 +140,12 @@ def _copy_annotations(annotations: dict[str, Any]) -> dict[str, Any]:
     shallow copy. Appending to the derived record's ``keywords`` would then
     mutate the parent's, with nothing at the mutation site to hint at the cause.
 
-    Deep-copying the values is inexpensive here - annotations are metadata, a
-    handful of short lists and a few ``Reference`` objects - so the correctness
-    is worth the cost. The sequence and the features are much larger and are
-    not touched by this helper.
+    Copying the values is inexpensive here - annotations are metadata, a handful
+    of short lists and a few ``Reference`` objects - so the correctness is worth
+    the cost. The sequence and the features are much larger and are not touched
+    by this helper.
     """
-    return copy.deepcopy(annotations)
+    return {key: _copy_annotation_value(value) for key, value in annotations.items()}
 
 
 class SeqRecord:
@@ -1046,7 +1063,8 @@ class SeqRecord:
             answer.description = self.description
         for k, v in self.annotations.items():
             if k in other.annotations and other.annotations[k] == v:
-                answer.annotations[k] = v
+                # Copy, or the merged record shares this value with both parents.
+                answer.annotations[k] = _copy_annotation_value(v)
         # Can append matching per-letter-annotation
         try:
             # To make this type safe, we would need to make sure the types are compatible, eg: no adding tuples and str
