@@ -215,6 +215,67 @@ class TestSeqFeature(unittest.TestCase):
             f.translate(seq)
 
 
+class TestHashing(unittest.TestCase):
+    """Tests that the value objects defining __eq__ are usable in sets."""
+
+    def test_simple_location(self):
+        loc1 = SimpleLocation(23, 42, 1)
+        loc2 = SimpleLocation(23, 42, 1)
+        self.assertEqual(hash(loc1), hash(loc2))
+        self.assertEqual(len({loc1, loc2}), 1)
+        self.assertEqual(len({loc1, SimpleLocation(23, 42, -1)}), 2)
+        self.assertEqual({loc1: "x"}[loc2], "x")
+
+    def test_simple_location_fuzzy_positions(self):
+        """A fuzzy position equals the plain integer, so it must hash alike."""
+        loc1 = SimpleLocation(BeforePosition(5), AfterPosition(10))
+        loc2 = SimpleLocation(ExactPosition(5), ExactPosition(10))
+        self.assertEqual(loc1, loc2)
+        self.assertEqual(hash(loc1), hash(loc2))
+
+    def test_compound_location(self):
+        loc1 = CompoundLocation([SimpleLocation(0, 5, 1), SimpleLocation(9, 12, 1)])
+        loc2 = CompoundLocation([SimpleLocation(0, 5, 1), SimpleLocation(9, 12, 1)])
+        self.assertEqual(hash(loc1), hash(loc2))
+        self.assertEqual(len({loc1, loc2}), 1)
+        reordered = CompoundLocation(list(reversed(loc1.parts)))
+        self.assertNotEqual(loc1, reordered)
+        self.assertEqual(len({loc1, reordered}), 2)
+
+    def test_seq_feature(self):
+        f1 = SeqFeature(SimpleLocation(0, 182, 1), type="CDS", id="a")
+        f2 = deepcopy(f1)
+        self.assertEqual(hash(f1), hash(f2))
+        self.assertEqual(len({f1, f2}), 1)
+        self.assertEqual(
+            len({f1, SeqFeature(SimpleLocation(0, 182, 1), type="gene")}), 2
+        )
+
+    def test_seq_feature_ignores_qualifiers(self):
+        """Qualifiers are mutable, so they are excluded from the hash.
+
+        Two features differing only there are unequal, and so must still be
+        two distinct members of a set -- they merely collide.
+        """
+        f1 = SeqFeature(SimpleLocation(0, 10, 1), type="CDS")
+        f2 = SeqFeature(SimpleLocation(0, 10, 1), type="CDS", qualifiers={"a": ["b"]})
+        self.assertNotEqual(f1, f2)
+        self.assertEqual(hash(f1), hash(f2))
+        self.assertEqual(len({f1, f2}), 2)
+
+    def test_features_of_a_parsed_record(self):
+        """The motivating case: deduplicating features across sources."""
+        record = SeqIO.read(path.join("GenBank", "origin_line.gb"), "genbank")
+        self.assertEqual(len(set(record.features)), len(set(map(id, record.features))))
+
+    def test_reference(self):
+        record = SeqIO.read(path.join("GenBank", "origin_line.gb"), "genbank")
+        ref1, ref2 = record.annotations["references"][:2]
+        self.assertNotEqual(ref1, ref2)
+        self.assertEqual(len({ref1, ref2}), 2)
+        self.assertEqual(hash(ref1), hash(deepcopy(ref1)))
+
+
 class TestLocations(unittest.TestCase):
     def test_fuzzy(self):
         """Test fuzzy representations."""
