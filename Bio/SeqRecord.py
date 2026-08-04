@@ -12,6 +12,7 @@
 # NEEDS TO BE SYNCH WITH THE REST OF BIOPYTHON AND BIOPERL
 # In particular, the SeqRecord and BioSQL.BioSeq.DBSeqRecord classes
 # need to be in sync (this is the BioSQL "Database SeqRecord").
+import copy
 import numbers
 from typing import Any
 from typing import cast
@@ -109,6 +110,25 @@ class _RestrictedDict(dict[str, Sequence[Any]]):
         # Force this to go via our strict __setitem__ method
         for key, value in new_dict.items():
             self[key] = value
+
+
+def _copy_annotations(annotations: dict[str, Any]) -> dict[str, Any]:
+    """Return a deep copy of an annotations dictionary (PRIVATE).
+
+    The methods that derive a new record from an existing one - ``__add__``,
+    ``upper``, ``lower``, ``reverse_complement``, ``translate`` - promise not to
+    disturb the original. A plain ``dict.copy`` breaks that promise, because
+    annotation values are routinely mutable containers: ``keywords``,
+    ``accessions``, ``taxonomy`` and ``references`` are all lists, shared by a
+    shallow copy. Appending to the derived record's ``keywords`` would then
+    mutate the parent's, with nothing at the mutation site to hint at the cause.
+
+    Deep-copying the values is inexpensive here - annotations are metadata, a
+    handful of short lists and a few ``Reference`` objects - so the correctness
+    is worth the cost. The sequence and the features are much larger and are
+    not touched by this helper.
+    """
+    return copy.deepcopy(annotations)
 
 
 class SeqRecord:
@@ -997,7 +1017,7 @@ class SeqRecord:
                 name=self.name,
                 description=self.description,
                 features=self.features[:],
-                annotations=self.annotations.copy(),
+                annotations=_copy_annotations(self.annotations),
                 dbxrefs=self.dbxrefs[:],
             )
 
@@ -1038,9 +1058,12 @@ class SeqRecord:
                         k,
                         v + other.letter_annotations[k],  # type: ignore
                     )
-        except TypeError:
-            print("Failed while try to concatenate letter annotations")
-            raise
+        except TypeError as exc:
+            raise TypeError(
+                f"Failed to concatenate per-letter annotation {k!r}: the two "
+                f"records hold incompatible types for it ({type(v).__name__} "
+                f"and {type(other.letter_annotations[k]).__name__})"
+            ) from exc
 
         return answer
 
@@ -1080,7 +1103,7 @@ class SeqRecord:
             name=self.name,
             description=self.description,
             features=[f._shift(offset) for f in self.features],
-            annotations=self.annotations.copy(),
+            annotations=_copy_annotations(self.annotations),
             dbxrefs=self.dbxrefs[:],
         )
 
@@ -1133,7 +1156,7 @@ class SeqRecord:
             description=self.description,
             dbxrefs=self.dbxrefs[:],
             features=self.features[:],
-            annotations=self.annotations.copy(),
+            annotations=_copy_annotations(self.annotations),
             letter_annotations=(
                 None
                 if self._per_letter_annotations is None
@@ -1184,7 +1207,7 @@ class SeqRecord:
             description=self.description,
             dbxrefs=self.dbxrefs[:],
             features=self.features[:],
-            annotations=self.annotations.copy(),
+            annotations=_copy_annotations(self.annotations),
             letter_annotations=(
                 None
                 if self._per_letter_annotations is None
@@ -1415,7 +1438,7 @@ class SeqRecord:
             answer.annotations = annotations
         elif annotations:
             # Copy the old annotations,
-            answer.annotations = self.annotations.copy()
+            answer.annotations = _copy_annotations(self.annotations)
         if self._per_letter_annotations is not None:
             if isinstance(letter_annotations, dict):
                 answer.letter_annotations = letter_annotations
@@ -1524,7 +1547,7 @@ class SeqRecord:
             answer.annotations = annotations
         elif annotations:
             # Copy the old annotations
-            answer.annotations = self.annotations.copy()
+            answer.annotations = _copy_annotations(self.annotations)
         # Set/update to protein:
         answer.annotations["molecule_type"] = "protein"
         if self._per_letter_annotations is not None:

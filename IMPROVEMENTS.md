@@ -74,7 +74,21 @@ Add a regression test asserting `translate(s, gap=g) == translate(Seq(s),
 gap=g)` across a matrix of gap characters.
 **Effort S · Impact high**
 
-### 0.3 Derived `SeqRecord`s share mutable annotations with their parent **[reproduced]**
+### 0.3 Derived `SeqRecord`s share mutable annotations with their parent **[reproduced — annotations FIXED]**
+
+> **Status: the annotations half is fixed.** A `_copy_annotations` helper now
+> deep-copies the annotations dictionary at all six derive sites, and the
+> `print`-then-reraise in `__add__`'s per-letter concatenation handler is now a
+> `TypeError` naming the key and the two types. `DerivedRecordIsolation` in
+> `Tests/test_SeqRecord.py` covers all six methods and fails against the old
+> shallow copy. **The features half is deliberately not done here:** `_flip`
+> and `_shift` already return new features, so `reverse_complement` and the
+> shifted half of `__add__` do not share, but `features[:]` in `upper`, `lower`
+> and the other `__add__` paths does. Deep-copying features is far more
+> expensive than annotations (measured ~675 µs for 41 features versus ~34 µs
+> for a whole annotations dict, and it scales with feature count on a genome
+> record), so it belongs in its own change with its own benchmark rather than
+> bundled into a metadata-correctness fix.
 
 `Bio/SeqRecord.py:994-1002` (`__add__`), and identically at `:1083`
 (`__radd__`), `:1136` (`upper`), `:1187` (`lower`), `:1418`
