@@ -34,12 +34,6 @@ from fnmatch import fnmatchcase
 from io import StringIO
 from pkgutil import iter_modules
 
-try:
-    import numpy as np
-except ImportError:
-    np = None
-
-
 # The default verbosity (not verbose)
 VERBOSITY = 0
 
@@ -56,51 +50,6 @@ ONLINE_DOCTEST_MODULES = [
     "Bio.TogoWS",
     "Bio.UniProt",
 ]
-
-# Silently ignore any doctests for modules requiring numpy!
-if np is None:
-    EXCLUDE_DOCTEST_MODULES.extend(
-        [
-            "Bio.Affy.CelFile",
-            "Bio.Align",
-            "Bio.Align.substitution_matrices",
-            "Bio.Cluster",
-            "Bio.kNN",
-            "Bio.LogisticRegression",
-            "Bio.MarkovModel",
-            "Bio.MaxEntropy",
-            "Bio.NaiveBayes",
-            "Bio.PDB.Chain",
-            "Bio.PDB.Dice",
-            "Bio.PDB.HSExposure",
-            "Bio.PDB.MMCIF2Dict",
-            "Bio.PDB.MMCIFParser",
-            "Bio.PDB.mmtf.DefaultParser",
-            "Bio.PDB.mmtf",
-            "Bio.PDB.Model",
-            "Bio.PDB.NACCESS",
-            "Bio.PDB.NeighborSearch",
-            "Bio.PDB.parse_pdb_header",
-            "Bio.PDB.PDBExceptions",
-            "Bio.PDB.PDBList",
-            "Bio.PDB.PDBParser",
-            "Bio.PDB.Polypeptide",
-            "Bio.PDB.PSEA",
-            "Bio.PDB.Residue",
-            "Bio.PDB.Selection",
-            "Bio.PDB.StructureAlignment",
-            "Bio.PDB.StructureBuilder",
-            "Bio.PDB.Structure",
-            "Bio.PDB.Superimposer",
-            "Bio.PDB.Vector",
-            "Bio.phenotype",
-            "Bio.phenotype.parse",
-            "Bio.phenotype.phen_micro",
-            "Bio.phenotype.pm_fitting",
-            "Bio.SeqIO.PdbIO",
-            "Bio.SVDSuperimposer",
-        ]
-    )
 
 
 try:
