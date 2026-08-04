@@ -137,6 +137,7 @@ https://biopython.org
 - Diana Jaunzeikare
 - Diego Brouard <diego at domain conysis.com>
 - Dimitris Kalafatis <https://github.com/dimi1729>
+- Dominique Sydow <https://github.com/dominiquesydow>
 - Edward Haigh <lambda at edwardhaigh dot com>
 - Edward Liaw <https://github.com/edliaw>
 - Ee Shan Shirley Liau <https://github.com/shirleyliau>

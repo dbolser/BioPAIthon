@@ -31,6 +31,33 @@ recorded below with the reason.
 
 ## Adopted
 
+### [#3812](https://github.com/biopython/biopython/pull/3812) — Dominique Sydow
+
+`HSExposureCB._get_cb` returned `self._get_gly_cb_vector(r2), 0.0` for a
+glycine. `_get_gly_cb_vector` returns `None` when the residue is missing N, C
+or CA, so the tuple became `(None, 0.0)` — which is not `None`, so the caller's
+`if result is None: continue` does not fire, and `pcb` goes on to be used as a
+vector. Returning `None` outright lets the existing guard do its job.
+
+The cost of not doing so is the whole calculation, not one residue. On
+`Tests/PDB/a_structure.pdb` with the N removed from a single glycine,
+`HSExposureCB` populates **2 of 86 residues** before dying with
+`AttributeError: 'NoneType' object has no attribute 'norm'`. With the fix, 84.
+
+**One of the six commits taken.** The other five add a `skip_residues=False`
+keyword to `_AbstractHSExposure`, `HSExposureCA` and `HSExposureCB`, and make
+the default behaviour `raise KeyError` where the code currently skips the
+residue and carries on. That is a design decision rather than a bug fix: every
+existing caller that today gets a slightly short result set would start getting
+an exception instead, and the argument for that is about API taste, not
+correctness. The narrow fix already delivers what
+`IMPROVEMENTS.md`'s harvest table asked for. If the fork later wants the
+opt-in strictness, those commits are still there to take.
+
+The `except Exception` in `_get_gly_cb_vector` is also left as it is; the
+pull request narrows it to `KeyError` and adds a warning, which is a separate
+improvement worth its own change.
+
 ### [#5127](https://github.com/biopython/biopython/pull/5127) — Michiel de Hoon
 
 `multi_coord_space` computes the polar angle as `arccos(np.divide(p[:, 2], r,
