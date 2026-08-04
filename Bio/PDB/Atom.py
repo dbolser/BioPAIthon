@@ -634,4 +634,11 @@ class DisorderedAtom(DisorderedEntityWrapper):
         for child in self.disordered_get_list():
             shallow.disordered_add(child.copy())
 
+        # Re-adding the children selects by occupancy, but the caller may have
+        # chosen a different altloc with disordered_select(). Preserving the
+        # highest-occupancy default would silently switch the copy to another
+        # conformer, changing its coordinates. Restore the original choice.
+        if self.selected_child is not None:
+            shallow.disordered_select(self.selected_child.get_altloc())
+
         return shallow
