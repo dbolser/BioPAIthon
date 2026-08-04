@@ -751,3 +751,15 @@ Release 1.85.  Please use the ``taxlabels`` attribute instead.
 Scripts/Restriction/ranacompiler.py
 -----------------------------------
 The ``is_palindrom`` function was removed in Release 1.79.
+
+Bio.SeqUtils.MeltingTemp
+------------------------
+As of Release 1.88, the ``Tm_NN``, ``Tm_GC`` and ``Tm_Wallace`` functions
+reject a sequence containing characters that are not valid for the chosen
+method, raising ``ValueError`` instead of silently discarding them. Previously
+``Tm_Wallace`` ignored non-DNA characters entirely, and ``Tm_NN`` and ``Tm_GC``
+dropped any character outside their base set, so a sequence of the wrong type -
+or a ``SeqRecord`` passed by mistake, whose ``str()`` is a block of descriptive
+text - returned a plausible melting temperature for whatever survived the
+filter rather than an error. Pass ``check=False`` to skip validation and
+restore the previous permissive behaviour.
