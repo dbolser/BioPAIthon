@@ -29,7 +29,16 @@ Adopting is not endorsing. Where a pull request grew a change under review that
 this fork does not want, only the wanted commits are taken, and the omission is
 recorded below with the reason.
 
+**An adoption pull request adds its own entry here.** This file went four
+adoptions out of date before anyone noticed, which is easy to do and bad in a
+specific way: `CONTRIB.rst` and `git log` kept the authorship, but the record of
+*what was taken and what was left behind* is only in this file, and a partial
+adoption that nobody wrote down looks like an endorsement of the whole pull
+request.
+
 ## Adopted
+
+Newest first.
 
 ### [#3812](https://github.com/biopython/biopython/pull/3812) — Dominique Sydow
 
@@ -83,6 +92,61 @@ is already a scalar. This is not a difference between the fork and upstream —
 upstream `master` at `e136be720` has the same flat-array test and the same
 `a1[0]` call sites, so that commit would break upstream's own suite as well.
 Worth telling them; see `UPSTREAM.md`.
+
+### [#4866](https://github.com/biopython/biopython/pull/4866) — Manuel Lera-Ramirez
+
+Fixes upstream issue
+[#4865](https://github.com/biopython/biopython/issues/4865). Every
+`Bio.SeqUtils.MeltingTemp.Tm_*` method began with `seq = str(seq)`. For a
+`SeqRecord`, `str()` is the multi-line human-readable summary rather than the
+sequence, and `_check` then stripped that summary down to the characters in the
+method's base set and melted the result — no error, no warning, a plausible
+wrong number. Five commits, all taken; three corrections for this tree sit on
+top as separate commits. Taken in fork PR
+[#45](https://github.com/dbolser/BioPAIthon/pull/45).
+
+### [#4450](https://github.com/biopython/biopython/pull/4450) — Gail Bartlett
+
+Closes upstream issue
+[#4449](https://github.com/biopython/biopython/issues/4449).
+`Bio/PDB/parse_pdb_header.py::_format_date` looked the month up with a bare
+`all_months.index(pdb_date[3:6])`, so any PDB file whose `HEADER` or `REVDAT`
+line carries a non-English month abbreviation killed the entire parse, with an
+exception naming no file, no line and no field. Six commits, all taken, plus
+three corrections on top.
+
+peterjc approved it on 2023-09-25 and asked for a rebase on 2025-01-03; the
+author never returned. Taken in fork PR
+[#44](https://github.com/dbolser/BioPAIthon/pull/44).
+
+### [#3897](https://github.com/biopython/biopython/pull/3897) — Bart Grosman
+
+Closes upstream issue
+[#3896](https://github.com/biopython/biopython/issues/3896), open since April
+2022. `DisorderedEntityWrapper.copy()` takes a shallow copy, empties
+`child_dict` and re-adds copies of the children through `disordered_add` —
+which only calls `disordered_select` when a child's occupancy is *strictly
+greater* than `self.last_occupancy`. The shallow copy inherited
+`last_occupancy` already at the maximum, so no child was ever selected and the
+copy's `selected_child` still pointed into the original: reading or
+transforming the copy read and transformed the original's coordinates. Five
+commits taken, plus corrections on top. Taken in fork PR
+[#43](https://github.com/dbolser/BioPAIthon/pull/43).
+
+### [#5181](https://github.com/biopython/biopython/pull/5181) — Ernest Provo
+
+`Motif.calculate_consensus` raised `UnboundLocalError` on a column where every
+count is zero: `consensus_letter` is only assigned inside a `count > maximum`
+comparison that such a column never satisfies, and the degenerate-column test
+then divided by a zero total.
+
+**One of the four commits taken.** Under review the pull request grew alphabet
+validation in `Motif.__init__` that rejects any letter outside the declared
+alphabet, and the author noted the consequence himself on 2026-06-05:
+`Motif("ACGT", Alignment([Seq("ACGN"), Seq("ACGT")]))` starts raising.
+Ambiguity codes in a DNA alignment are routine input, so that half would break
+working code to fix an unrelated problem. Taken in fork PR
+[#42](https://github.com/dbolser/BioPAIthon/pull/42).
 
 ### [#5175](https://github.com/biopython/biopython/pull/5175) — Abdel ATIA
 
