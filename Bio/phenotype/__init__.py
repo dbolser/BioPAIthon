@@ -83,6 +83,13 @@ Note that while Bio.phenotype can read the above file formats, it can only
 write in JSON format.
 """
 
+__all__ = [
+    "as_handle",
+    "parse",
+    "read",
+    "write",
+]
+
 try:
     # Both phen_micro.py and pm_fitting require NumPy, so require NumPy here
     import numpy as np

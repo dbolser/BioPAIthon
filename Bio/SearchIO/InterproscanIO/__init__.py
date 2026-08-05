@@ -87,6 +87,10 @@ Therefore, Hit.type will store the string excluding '-match' or '-location'
 ('phobious', in this example).
 """
 
+__all__ = [
+    "InterproscanXmlParser",
+]
+
 from .interproscan_xml import InterproscanXmlParser
 
 # if not used as a module, run the doctest

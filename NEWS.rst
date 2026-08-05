@@ -109,6 +109,19 @@ angle of zero — the value the scalar ``get_spherical_coordinates`` already
 returns when the radius is zero. Adopted from biopython/biopython#5127 by
 Michiel de Hoon; see ``ADOPTED.md``.
 
+Thirty packages that re-export their API from their submodules now declare
+``__all__``. ``from Bio.PDB import PDBParser`` — the import the Tutorial
+teaches — is an *implicit* re-export without it, which a downstream
+``mypy --strict`` run rejects with ``Module "Bio.PDB" does not explicitly
+export attribute "PDBParser"``. Across the thirty packages that removes 175
+such errors. Nothing changes at runtime: the public namespace of every one is
+identical before and after, and ``__all__`` lists exactly the non-module public
+names each package already had, so ``import *`` is unaffected. ``Bio.PDB`` no
+longer exports its private ``numpy`` alias ``np`` through ``import *``.
+``Bio.Restriction`` is deliberately excluded — its enzyme classes are
+synthesised at import and a type checker cannot see them either way, so it
+needs generated stubs rather than a list of names.
+
 ``Bio.PDB.ccealign.run_cealign`` now checks its arguments instead of trusting
 them. A fragment size of zero walked off the end of the coordinate array and a
 coordinate entry with fewer than three values dereferenced ``NULL``, both

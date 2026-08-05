@@ -22,6 +22,36 @@ Variables:
 
 """
 
+__all__ = [
+    "Alignment",
+    "Alignments",
+    "BLOCK",
+    "BiopythonWarning",
+    "CorruptedXMLError",
+    "HSP",
+    "HTTPBasicAuthHandler",
+    "HTTPPasswordMgrWithDefaultRealm",
+    "Hit",
+    "NCBI_BLAST_URL",
+    "NotXMLError",
+    "Record",
+    "Records",
+    "Request",
+    "StreamModeError",
+    "UserList",
+    "build_opener",
+    "email",
+    "function_with_previous",
+    "install_opener",
+    "parse",
+    "qblast",
+    "read",
+    "tool",
+    "urlencode",
+    "urlopen",
+    "write",
+]
+
 import io
 import textwrap
 import time

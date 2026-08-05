@@ -33,6 +33,15 @@ Note: This module should be regarded as a prototype only. API changes are likely
 
 """
 
+__all__ = [
+    "Interaction",
+    "MultiGraph",
+    "Network",
+    "Reaction",
+    "System",
+    "reduce",
+]
+
 from functools import reduce
 
 from Bio.Pathway.Rep.MultiGraph import MultiGraph

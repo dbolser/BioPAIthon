@@ -14,4 +14,8 @@ More information about HHSUITE are available through these links:
 
 """
 
+__all__ = [
+    "Hhsuite2TextParser",
+]
+
 from .hhsuite2_text import Hhsuite2TextParser

@@ -324,6 +324,15 @@ well:
 
 """
 
+__all__ = [
+    "BlastTabIndexer",
+    "BlastTabParser",
+    "BlastTabWriter",
+    "BlastXmlIndexer",
+    "BlastXmlParser",
+    "BlastXmlWriter",
+]
+
 from .blast_tab import BlastTabIndexer
 from .blast_tab import BlastTabParser
 from .blast_tab import BlastTabWriter

@@ -6,6 +6,18 @@
 # package.
 """Code for dealing with Codon Alignments."""
 
+__all__ = [
+    "BiopythonExperimentalWarning",
+    "BiopythonWarning",
+    "CodonAlignment",
+    "CodonSeq",
+    "Iterable",
+    "Mapping",
+    "SeqRecord",
+    "build",
+    "mktest",
+]
+
 import warnings
 from collections.abc import Iterable
 from collections.abc import Mapping

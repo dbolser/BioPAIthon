@@ -127,6 +127,31 @@ Functions:
 
 """
 
+__all__ = [
+    "HTTPError",
+    "Request",
+    "URLError",
+    "api_key",
+    "ecitmatch",
+    "efetch",
+    "einfo",
+    "elink",
+    "email",
+    "epost",
+    "esearch",
+    "espell",
+    "esummary",
+    "function_with_previous",
+    "local_cache",
+    "max_tries",
+    "parse",
+    "read",
+    "sleep_between_tries",
+    "tool",
+    "urlencode",
+    "urlopen",
+]
+
 import io
 import time
 import warnings

@@ -121,6 +121,15 @@ You can also use any file format supported by Bio.SeqIO, such as "fasta" or
 same length.
 """
 
+__all__ = [
+    "MultipleSeqAlignment",
+    "as_handle",
+    "convert",
+    "parse",
+    "read",
+    "write",
+]
+
 # TODO
 # - define policy on reading aligned sequences with gaps in
 #   (e.g. - and . characters)

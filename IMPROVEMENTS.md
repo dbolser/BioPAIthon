@@ -535,6 +535,27 @@ CI budget check on `python -X importtime -c "import Bio.SeqIO"`.
 
 ### 1.8 No `__all__` on re-exporting packages, and no stubs for 13 C extensions
 
+> **Status: the `__all__` half is done; the stubs half is not.** Measured
+> rather than estimated: a file importing every public re-exported name of
+> every package, checked with `mypy --strict --follow-imports=silent`, gave
+> **175** "does not explicitly export" errors across **30** packages — more
+> than the 13 guessed at below. All 30 now declare `__all__` and the count is
+> 0. `Tests/test_public_exports.py` asserts each `__all__` resolves and still
+> covers its package's public namespace, so a new re-export cannot quietly
+> reintroduce the problem.
+>
+> Two corrections to the text below. **`Bio.SeqIO` was only partly affected** —
+> `parse`, `read` and `write` are defined in `Bio/SeqIO/__init__.py` rather
+> than re-exported, so they never had the problem; 9 of its names did.
+> **`Bio.Restriction` is not fixable this way and is excluded**: its ~1,000
+> enzyme classes are synthesised at import, so mypy cannot see them at all and
+> reports *zero* re-export errors for it. It needs the generated stubs, which
+> is the other half of this item.
+>
+> Note what this does *not* buy. `from Bio.PDB import PDBParser` now resolves,
+> but `PDBParser()` still fails `--strict` with `Call to untyped function
+> "PDBParser" in typed context`. That is §1.3, and it is the larger job.
+
 Only 21 of 298 files define `__all__`, 13 of them inside `Bio/SearchIO`.
 `Bio/PDB/__init__.py` re-exports 36 names with none. Since `.mypy.ini:8` sets
 `no_implicit_reexport = True`, the project has accepted these semantics

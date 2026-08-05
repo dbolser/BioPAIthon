@@ -13,6 +13,14 @@ be found in the paper `Konieczny and Ausubel (1993)`_ (PMID 8106085).
 
 """
 
+__all__ = [
+    "AlignmentHasDifferentLengthsError",
+    "CAPSMap",
+    "DifferentialCutsite",
+    "MultipleSeqAlignment",
+    "Seq",
+]
+
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 

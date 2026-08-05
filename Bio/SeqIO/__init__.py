@@ -330,6 +330,32 @@ You can also use any file format supported by Bio.AlignIO, such as "nexus",
 "phylip" and "stockholm", which gives you access to the individual sequences
 making up each alignment as SeqRecords.
 """
+
+__all__ = [
+    "ABC",
+    "AlignmentSequenceIterator",
+    "AlignmentSequenceWriter",
+    "Callable",
+    "Iterable",
+    "SeqRecord",
+    "SequenceIterator",
+    "SequenceWriter",
+    "Union",
+    "abstractmethod",
+    "alignment_iterator_class",
+    "alignment_writer_class",
+    "cls",
+    "convert",
+    "fmt",
+    "fspath",
+    "index",
+    "index_db",
+    "name",
+    "parse",
+    "read",
+    "to_dict",
+    "write",
+]
 # TODO
 # - define policy on reading aligned sequences with more than
 #   one gap character (see also AlignIO)

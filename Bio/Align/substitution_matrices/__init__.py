@@ -7,6 +7,13 @@
 
 """Substitution matrices."""
 
+__all__ = [
+    "Array",
+    "as_handle",
+    "load",
+    "read",
+]
+
 import os
 import string
 

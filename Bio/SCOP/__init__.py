@@ -40,6 +40,24 @@ identifier (sid).
 
 """
 
+__all__ = [
+    "Astral",
+    "Domain",
+    "Node",
+    "Scop",
+    "Seq",
+    "astralBibIds",
+    "astralEv_to_file",
+    "astralEv_to_sql",
+    "astralEvs",
+    "cmp_sccs",
+    "nodeCodeDict",
+    "nodeCodeOrder",
+    "parse_domain",
+    "urlencode",
+    "urlopen",
+]
+
 import os
 import re
 import warnings

@@ -15,6 +15,18 @@ It also includes functionality for parsing output from the AlignACE, MEME,
 and MAST programs, as well as files in the TRANSFAC format.
 """
 
+__all__ = [
+    "Alignment",
+    "Motif",
+    "Request",
+    "create",
+    "parse",
+    "read",
+    "urlencode",
+    "urlopen",
+    "write",
+]
+
 from urllib.parse import urlencode
 from urllib.request import Request
 from urllib.request import urlopen

@@ -16,6 +16,13 @@ See also Bio.SeqIO.SwissIO for the "uniprot-xml" support in
 Bio.SeqIO.
 """
 
+__all__ = [
+    "HTTPResponse",
+    "Optional",
+    "search",
+    "urlopen",
+]
+
 import json
 import re
 import urllib.parse

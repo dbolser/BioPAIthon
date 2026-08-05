@@ -13,6 +13,31 @@ class, used in the Bio.AlignIO module.
 
 """
 
+__all__ = [
+    "ABC",
+    "Alignment",
+    "Alignments",
+    "AlignmentsAbstractBaseClass",
+    "BiopythonDeprecationWarning",
+    "CodonAligner",
+    "MultipleSeqAlignment",
+    "MutableSeq",
+    "PairwiseAligner",
+    "PairwiseAlignments",
+    "Seq",
+    "SeqRecord",
+    "SequenceDataAbstractBaseClass",
+    "UndefinedSequenceError",
+    "abstractmethod",
+    "formats",
+    "parse",
+    "read",
+    "reverse_complement",
+    "translate",
+    "write",
+    "zip_longest",
+]
+
 import copy
 import importlib
 import numbers

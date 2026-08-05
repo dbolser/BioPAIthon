@@ -235,6 +235,15 @@ and fragments compared to 'exonerate-vulgar' or 'exonerate-text'.
 
 """
 
+__all__ = [
+    "ExonerateCigarIndexer",
+    "ExonerateCigarParser",
+    "ExonerateTextIndexer",
+    "ExonerateTextParser",
+    "ExonerateVulgarIndexer",
+    "ExonerateVulgarParser",
+]
+
 # Known issues & gotchas:
 # - The cigar parser does not use the extended cigar string; only supports MID
 # - Cigar and vulgar parsing results will most likely be different, due to the

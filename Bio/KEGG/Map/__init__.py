@@ -18,6 +18,11 @@ where RXXXXX is a five-digit reaction id, and X.X.X.X is the optional
 EC number of the enzyme that catalyze the reaction.
 """
 
+__all__ = [
+    "Reaction",
+    "parse",
+]
+
 from Bio.Pathway import Reaction
 
 

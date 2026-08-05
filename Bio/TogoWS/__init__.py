@@ -31,6 +31,17 @@ http://togows.dbcls.jp/site/en/soap.html
 http://soapy.sourceforge.net/
 """
 
+__all__ = [
+    "convert",
+    "entry",
+    "function_with_previous",
+    "quote",
+    "search",
+    "search_count",
+    "search_iter",
+    "urlopen",
+]
+
 import io
 import time
 from urllib.parse import quote

@@ -10,6 +10,29 @@
 # package.
 """Miscellaneous functions for dealing with sequences."""
 
+__all__ = [
+    "CodonAdaptationIndex",
+    "GC123",
+    "GC_skew",
+    "Seq",
+    "complement",
+    "complement_rna",
+    "cos",
+    "exp",
+    "gc_fraction",
+    "log",
+    "molecular_weight",
+    "nt_search",
+    "pi",
+    "seq1",
+    "seq3",
+    "sin",
+    "six_frame_translations",
+    "standard_dna_table",
+    "translate",
+    "xGC_skew",
+]
+
 import re
 from math import cos
 from math import exp

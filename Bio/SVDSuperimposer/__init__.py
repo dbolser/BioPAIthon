@@ -12,6 +12,15 @@ eg. useful to superimpose crystal structures. SVD stands for singular
 value decomposition, which is used in the algorithm.
 """
 
+__all__ = [
+    "SVDSuperimposer",
+    "det",
+    "dot",
+    "sqrt",
+    "svd",
+    "transpose",
+]
+
 try:
     from numpy import dot
     from numpy import sqrt
