@@ -120,6 +120,14 @@ autodoc_default_options = {
     "show-inheritance": None,
     "member-order": "bysource",
     "exclude-members": "__dict__,__weakref__,__module__",
+    # Packages such as Bio.PDB declare __all__ so that a type checker accepts
+    # `from Bio.PDB import PDBParser` as an explicit re-export.  autodoc
+    # otherwise takes __all__ as the list of members to document, which pulls
+    # each re-exported name into its parent package's page as well as its own
+    # module's -- giving "duplicate object description of Bio.PDB.PDBParser"
+    # and ambiguous cross-references.  Documenting each name where it is
+    # defined is what we want, so ignore __all__ here.
+    "ignore-module-all": True,
 }
 
 # Experimental feature to preserve the default argument values of
