@@ -91,7 +91,9 @@ IndexError: invalid index to scalar variable.
 is already a scalar. This is not a difference between the fork and upstream —
 upstream `master` at `e136be720` has the same flat-array test and the same
 `a1[0]` call sites, so that commit would break upstream's own suite as well.
-Worth telling them; see `UPSTREAM.md`.
+They already know: peterjc posted mypy's output on the pull request on
+2025-12-27, naming the same lines, and the thread has not moved since. See
+`UPSTREAM.md` for the two details it does not have.
 
 ### [#4866](https://github.com/biopython/biopython/pull/4866) — Manuel Lera-Ramirez
 

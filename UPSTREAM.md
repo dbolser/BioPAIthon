@@ -88,7 +88,6 @@ Verified unreported in the GitHub tracker and still present on upstream
 | 13 | Two `except ValueError` clauses in `SeqIO/_index.py` cannot fire | File the `tab` and `genbank` halves separately; cite [#1344](https://github.com/biopython/biopython/issues/1344). |
 | 14 | `reverse_complement()` cannot sort features with an `UnknownPosition` | Cite [#1772](https://github.com/biopython/biopython/issues/1772), same cause, different path. |
 | 15 | `ProteinAnalysis.flexibility()` reads the wrong window centre | Comment on [#4170](https://github.com/biopython/biopython/pull/4170), which fixes the adjacent window-count bug only. |
-| 16 | The second commit of open PR [#5127](https://github.com/biopython/biopython/pull/5127) breaks `coord_space` | Not a defect in `master` — a defect in an in-flight branch, so it is a comment on the PR, not an issue. `2e4221b44` reindexes `a1[0]` to `a1[0][0]`, following a comment that predates the callers switching to flat arrays; `test_PDB_vectors.py` then fails with `IndexError: invalid index to scalar variable`. Reproduced against upstream `master` `e136be720`, whose test still passes `np.array([2.0, 0.0, 2.0, 1.0])`. The first commit is good and is adopted here. |
 
 ## Needs work before it can be filed
 
@@ -135,6 +134,26 @@ Both of the memory-safety findings have now been passed on. Neither is closed.
 - **The zero-width-space crash** ([#3387](https://github.com/biopython/biopython/issues/3387),
   closed). Plausibly the same defect as #3771 but not reproducible on any
   version tried, so no claim was made.
+- **The second commit of [#5127](https://github.com/biopython/biopython/pull/5127)
+  breaks `coord_space`.** Already raised. peterjc posted mypy's output on
+  2025-12-27, the day after the pull request opened, naming
+  `sc[2][0]` at lines 572 and 619 — "Value of type `float` is not indexable" —
+  and asking the author to avoid the double indexing. The thread has not moved
+  since; the pull request was approved by JoaoRodrigues and last saw activity in
+  February 2026.
+
+  This fork adopted the first commit only, and confirmed the second fails at
+  runtime with `IndexError: invalid index to scalar variable` against upstream
+  `master` `e136be720`, whose `test_PDB_vectors` still passes flat arrays.
+
+  Two things neither the linter nor the thread has, kept here in case it
+  revives. First, the root cause: each changed line sits under a commented-out
+  reference line using `[0][0]`, written when the callers passed column arrays;
+  the callers switched to flat ones and the comments were never updated, so the
+  commit is faithfully following stale documentation. Second, **the suggested
+  fix does not work either** — `get_spherical_coordinates` returns a *tuple*,
+  so `sc[2, 0]` raises `TypeError: tuple indices must be integers or slices,
+  not tuple`. The correct expression is the original `sc[2]`.
 
 ## Limits of the survey
 
