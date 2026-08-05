@@ -22,6 +22,46 @@ Contributions by:
 - and many others.
 """
 
+__all__ = [
+    "CEAligner",
+    "CaPPBuilder",
+    "DSSP",
+    "ExposureCN",
+    "FastMMCIFParser",
+    "FragmentMapper",
+    "HSExposureCA",
+    "HSExposureCB",
+    "MMCIFIO",
+    "MMCIFParser",
+    "NeighborSearch",
+    "PDBIO",
+    "PDBList",
+    "PDBMLParser",
+    "PDBParser",
+    "PPBuilder",
+    "ResidueDepth",
+    "Select",
+    "ShrakeRupley",
+    "StructureAlignment",
+    "Superimposer",
+    "Vector",
+    "calc_angle",
+    "calc_dihedral",
+    "extract",
+    "get_surface",
+    "is_aa",
+    "is_nucleic",
+    "m2rotaxis",
+    "make_dssp_dict",
+    "parse_pdb_header",
+    "refmat",
+    "rotaxis",
+    "rotaxis2m",
+    "rotmat",
+    "standard_aa_names",
+    "vector_to_axis",
+]
+
 try:
     import numpy as np
 except ImportError:

@@ -220,6 +220,13 @@ Rows marked with '*' denotes attributes not available in the default format.
 +-----------------+-------------------------+----------------------------------+
 """
 
+__all__ = [
+    "InfernalTabIndexer",
+    "InfernalTabParser",
+    "InfernalTextIndexer",
+    "InfernalTextParser",
+]
+
 from .infernal_tab import InfernalTabParser
 from .infernal_tab import InfernalTabIndexer
 from .infernal_text import InfernalTextParser

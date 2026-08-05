@@ -6,6 +6,16 @@
 # package.
 """JASPAR2014 module."""
 
+__all__ = [
+    "Motif",
+    "Record",
+    "Seq",
+    "calculate_pseudocounts",
+    "read",
+    "split_jaspar_id",
+    "write",
+]
+
 import math
 import re
 

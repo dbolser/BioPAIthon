@@ -37,6 +37,30 @@ Exceptions:
 
 """
 
+__all__ = [
+    "BiopythonParserWarning",
+    "FEATURE_KEY_INDENT",
+    "FEATURE_KEY_SPACER",
+    "FEATURE_QUALIFIER_INDENT",
+    "FEATURE_QUALIFIER_SPACER",
+    "FeatureParser",
+    "FeatureValueCleaner",
+    "GENBANK_INDENT",
+    "GENBANK_SPACER",
+    "GenBankScanner",
+    "Iterator",
+    "Location",
+    "LocationParserError",
+    "ParserFailureError",
+    "RecordParser",
+    "Reference",
+    "Seq",
+    "SeqFeature",
+    "SimpleLocation",
+    "parse",
+    "read",
+]
+
 import re
 import warnings
 

@@ -16,6 +16,15 @@ Functions:
 
 """
 
+__all__ = [
+    "HTTPError",
+    "get_prodoc_entry",
+    "get_prosite_entry",
+    "get_prosite_raw",
+    "get_sprot_raw",
+    "urlopen",
+]
+
 import io
 from urllib.error import HTTPError
 from urllib.request import urlopen

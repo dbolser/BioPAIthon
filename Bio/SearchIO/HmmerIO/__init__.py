@@ -285,6 +285,23 @@ The following SearchIO objects attributes are provided:
 
 """
 
+__all__ = [
+    "Hmmer2TextIndexer",
+    "Hmmer2TextParser",
+    "Hmmer3DomtabHmmhitIndexer",
+    "Hmmer3DomtabHmmhitParser",
+    "Hmmer3DomtabHmmhitWriter",
+    "Hmmer3DomtabHmmqueryIndexer",
+    "Hmmer3DomtabHmmqueryParser",
+    "Hmmer3DomtabHmmqueryWriter",
+    "Hmmer3DomtabParser",
+    "Hmmer3TabIndexer",
+    "Hmmer3TabParser",
+    "Hmmer3TabWriter",
+    "Hmmer3TextIndexer",
+    "Hmmer3TextParser",
+]
+
 from .hmmer2_text import Hmmer2TextIndexer
 from .hmmer2_text import Hmmer2TextParser
 from .hmmer3_domtab import Hmmer3DomtabHmmhitIndexer
