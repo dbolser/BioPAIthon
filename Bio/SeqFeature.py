@@ -234,6 +234,17 @@ class SeqFeature:
             and self.qualifiers == other.qualifiers
         )
 
+    def __hash__(self):
+        """Return the hash value of the SeqFeature object.
+
+        The qualifiers dictionary is deliberately left out: it is mutable, so
+        it cannot contribute to a hash.  Equal features necessarily agree on
+        the three attributes below, which is what a hash has to guarantee;
+        features that differ only in their qualifiers collide and are then
+        separated by ``__eq__``.
+        """
+        return hash((self.id, self.type, self.location))
+
     def __repr__(self):
         """Represent the feature as a string for debugging."""
         answer = f"{self.__class__.__name__}({self.location!r}"
@@ -611,6 +622,25 @@ class Reference:
             and self.pubmed_id == other.pubmed_id
             and self.comment == other.comment
             and self.location == other.location
+        )
+
+    def __hash__(self):
+        """Return the hash value of the Reference object.
+
+        Only the scalar fields are hashed.  ``location`` is a list, and
+        ``authors`` is documented as being either a string or a list of
+        authors, so neither is reliably hashable; equal references
+        necessarily agree on the fields below, which is all a hash requires.
+        """
+        return hash(
+            (
+                self.consrtm,
+                self.title,
+                self.journal,
+                self.medline_id,
+                self.pubmed_id,
+                self.comment,
+            )
         )
 
 
@@ -1203,6 +1233,10 @@ class SimpleLocation(Location):
             and self.ref_db == other.ref_db
         )
 
+    def __hash__(self):
+        """Return the hash value of the SimpleLocation object."""
+        return hash((self._start, self._end, self._strand, self.ref, self.ref_db))
+
     def _shift(self, offset):
         """Return a copy of the SimpleLocation shifted by an offset (PRIVATE).
 
@@ -1541,6 +1575,10 @@ class CompoundLocation(Location):
             if self_part != other_part:
                 return False
         return True
+
+    def __hash__(self):
+        """Return the hash value of the CompoundLocation object."""
+        return hash((tuple(self.parts), self.operator))
 
     def _shift(self, offset):
         """Return a copy of the CompoundLocation shifted by an offset (PRIVATE)."""

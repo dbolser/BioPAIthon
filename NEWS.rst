@@ -55,6 +55,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 (In progress, not yet released): Biopython 1.88
 ===============================================
 
+``SimpleLocation``, ``CompoundLocation``, ``SeqFeature`` and ``Reference`` are
+hashable again, so they can be put in a set or used as a dictionary key.
+Defining ``__eq__`` without ``__hash__`` makes Python set ``__hash__`` to
+``None``, so ``set(record.features)`` — deduplicating features across
+annotation sources, or using a location as a key — failed with ``TypeError:
+unhashable type``. ``Bio.Seq`` already restores ``Seq.__hash__`` for this
+reason and ``UnknownPosition`` defines one, so this was drift rather than
+policy. ``SeqFeature``'s hash excludes its mutable ``qualifiers`` dictionary,
+and ``Reference``'s excludes its ``location`` list and its ``authors``, which
+is documented as either a string or a list; features or references differing
+only in an excluded field collide rather than compare equal.
+
 ``Motif.degenerate_consensus`` now works on alphabets of fewer than four
 letters. The Cavener rules it applies rank the letters of a column by count and
 then inspect the second- and fourth-ranked counts, which do not exist for a
