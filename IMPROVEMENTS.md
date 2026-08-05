@@ -669,17 +669,35 @@ silent deletion.
 ### 2.1 Already-broken or already-empty — no user impact
 
 - `Scripts/xbbtools/xbb_blastbg.py:20-24` and `xbb_blast.py:23,200` import
-  `Bio.Blast.Applications`, **which no longer exists**. The xbbtools GUI raises
-  `ImportError` on first use, and `MANIFEST.in:14` ships it in every sdist.
+  `Bio.Blast.Applications`, **which no longer exists**, and `MANIFEST.in:14`
+  ships it in every sdist. The reach is worse than "on first use" as written
+  here originally: `xbb_widget.py:21` does `from xbb_blast import BlastIt` at
+  module scope, and `xbbtools.py:17` imports `xbb_widget`, so `import xbbtools`
+  raises `ModuleNotFoundError` before a window is ever drawn. The whole GUI is
+  unreachable, not just its BLAST feature.
 - `Bio/HMM/__init__.py` is a 5-line docstring-only file — all four submodules
   were removed in 1.86 — yet `pyproject.toml` still ships `Bio.HMM` as a package.
+  Note `import Bio.HMM` currently *succeeds* and yields nothing, so removing it
+  is a public-API change needing a `DEPRECATED.rst` entry, not a free deletion.
+  `Bio/Alphabet/__init__.py` is the precedent for the alternative: keep the
+  package and raise `ImportError` with a pointer.
 - `Tests/run_tests.py:69-73` still excludes doctests for five modules removed in
   1.86, and `:96` for `Bio.PDB.Vector`, removed in **1.74**. The whole 45-entry
   list is guarded by `if np is None:` (`:61`) — unreachable, since numpy is a
-  hard dependency.
+  hard dependency. **[FIXED]** — the block and the `try: import numpy` that fed
+  it are gone. A full offline run reports the same 520 modules before and after,
+  which is what "unreachable" predicts.
 - `Bio/Align/__init__.py:4449,4507`: `# FIXME remove this after 1.87 is out`.
   1.87 is out.
-- `pyproject.toml:58` still ships `Bio.Alphabet` six years after removal.
+
+> **Correction.** This section originally also listed "`pyproject.toml:58`
+> still ships `Bio.Alphabet` six years after removal". That is wrong, and it is
+> the kind of wrong this document is meant to prevent. `Bio/Alphabet/__init__.py`
+> is a deliberate stub whose body is `raise ImportError(...)` pointing at
+> https://biopython.org/wiki/Alphabet. It has to be *packaged* for that error to
+> reach anyone; dropping it from `pyproject.toml` would replace a helpful
+> message with a bare `ModuleNotFoundError`. `Tests/run_tests.py` excludes it
+> from doctests for the same reason. Leave it alone.
 
 **Effort S · Impact medium** (nothing breaks — it is already broken)
 
@@ -1075,6 +1093,7 @@ a 40,000-line source diff.
 
 - `run_tests.py:62-104` — a 43-line `if np is None:` block excluding 40 modules
   from doctests. numpy is a hard dependency, so this is unreachable (also §2.1).
+  **[FIXED]**
 - `run_tests.py:167-172` — `--offline` monkeypatches only
   `urllib.request.urlopen`. `http.client`, `socket` and `requests` are untouched,
   so the guarantee is not actually enforced.
