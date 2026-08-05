@@ -13,6 +13,7 @@ using Scripts/update_ncbi_codon_table.py
 Last updated at Version 4.4 (May 2019)
 """
 
+from functools import cached_property
 from typing import Optional
 
 from Bio.Data import IUPACData
@@ -218,21 +219,47 @@ class AmbiguousCodonTable(CodonTable):
                 ambiguous_protein_values,
             ),
             codon_table.back_table,
-            # These two are WRONG!  I need to get the
-            # list of ambiguous codons which code for
-            # the stop codons  XXX
-            list_ambiguous_codons(
-                codon_table.start_codons, ambiguous_nucleotide_values
-            ),
-            list_ambiguous_codons(codon_table.stop_codons, ambiguous_nucleotide_values),
+            # start_codons and stop_codons are not passed here.  Expanding
+            # them is 80% of this module's import time, every entry point
+            # pays it through Bio.Seq, and most callers never read them, so
+            # the cached properties below do it on first access instead.
         )
         self._codon_table = codon_table
+        self._ambiguous_nucleotide_values = ambiguous_nucleotide_values
+        # CodonTable.__init__ has just assigned its class-level defaults to
+        # these two names.  Drop them from the instance so an attribute
+        # lookup reaches the cached properties rather than an empty list.
+        del self.start_codons
+        del self.stop_codons
+
+    # These two are WRONG!  I need to get the
+    # list of ambiguous codons which code for
+    # the stop codons  XXX
+    @cached_property
+    def start_codons(self):
+        """Ambiguous codons that can encode a start codon."""
+        return list_ambiguous_codons(
+            self._codon_table.start_codons, self._ambiguous_nucleotide_values
+        )
+
+    @cached_property
+    def stop_codons(self):
+        """Ambiguous codons that can encode a stop codon."""
+        return list_ambiguous_codons(
+            self._codon_table.stop_codons, self._ambiguous_nucleotide_values
+        )
 
     # Be sneaky and forward attribute lookups to the original table.
     # This lets us get the names, if the original table is an NCBI
     # table.
     def __getattr__(self, name):
         """Forward attribute lookups to the original table."""
+        # __getattr__ runs whenever normal lookup fails, which includes every
+        # attribute touched before _codon_table exists.  Going through
+        # getattr(self._codon_table, ...) then re-enters here forever, so
+        # fail honestly instead.
+        if name in ("_codon_table", "_ambiguous_nucleotide_values"):
+            raise AttributeError(name)
         return getattr(self._codon_table, name)
 
 

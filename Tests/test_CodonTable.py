@@ -11,6 +11,7 @@ import unittest
 
 from Bio.Data import IUPACData
 from Bio.Data.CodonTable import ambiguous_dna_by_id
+from Bio.Data.CodonTable import AmbiguousCodonTable
 from Bio.Data.CodonTable import ambiguous_dna_by_name
 from Bio.Data.CodonTable import ambiguous_generic_by_id
 from Bio.Data.CodonTable import ambiguous_generic_by_name
@@ -106,6 +107,57 @@ class BasicSanityTests(unittest.TestCase):
             self.assertIn(key, ambiguous_generic_by_name[key].names)
         for key, val in generic_by_id.items():
             self.assertEqual(ambiguous_generic_by_id[key].id, key)
+
+
+class LazyAmbiguousCodonsTests(unittest.TestCase):
+    """The ambiguous start and stop codon lists are built on first access.
+
+    Expanding them for all 34 tables is most of this module's import time, and
+    Bio.Seq imports it, so every entry point used to pay for lists that most
+    callers never read.
+    """
+
+    def _fresh_table(self):
+        """Return an ambiguous table that nothing has touched yet."""
+        return AmbiguousCodonTable(
+            unambiguous_dna_by_id[1],
+            IUPACData.ambiguous_dna_letters,
+            IUPACData.ambiguous_dna_values,
+            IUPACData.extended_protein_letters,
+            IUPACData.extended_protein_values,
+        )
+
+    def test_not_computed_until_read(self):
+        table = self._fresh_table()
+        self.assertNotIn("start_codons", table.__dict__)
+        self.assertNotIn("stop_codons", table.__dict__)
+
+    def test_computed_once_and_cached(self):
+        table = self._fresh_table()
+        first = table.stop_codons
+        self.assertIn("stop_codons", table.__dict__)
+        self.assertIs(first, table.stop_codons)
+
+    def test_values_match_eager_expansion(self):
+        """The lazy value is exactly what list_ambiguous_codons gives."""
+        unambiguous = unambiguous_dna_by_id[1]
+        table = self._fresh_table()
+        for attribute in ("start_codons", "stop_codons"):
+            with self.subTest(attribute=attribute):
+                self.assertEqual(
+                    sorted(getattr(table, attribute)),
+                    sorted(
+                        list_ambiguous_codons(
+                            getattr(unambiguous, attribute),
+                            IUPACData.ambiguous_dna_values,
+                        )
+                    ),
+                )
+
+    def test_unknown_attributes_still_forward(self):
+        """Deleting the eager attributes must not break the __getattr__ proxy."""
+        self.assertIn("Standard", ambiguous_dna_by_id[1].names)
+        self.assertEqual(ambiguous_dna_by_id[1].id, 1)
 
 
 class AmbiguousCodonsTests(unittest.TestCase):
