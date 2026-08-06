@@ -231,6 +231,18 @@ Declared obsolete in release 1.79, deprecated in release 1.82, and removed
 in release 1.86. Please use the standard library subprocess module directly
 instead.
 
+**BioPAIthon differs from Biopython here.** ``Bio.Application``,
+``Bio.Align.Applications``, ``Bio.Blast.Applications``,
+``Bio.Emboss.Applications``, ``Bio.Phylo.Applications`` and
+``Bio.Sequencing.Applications`` are still shipped, as stubs whose import
+raises ``ImportError`` naming what the module provided and what to use
+instead. Upstream ships nothing under these names, so the same import raises
+``ModuleNotFoundError`` there, which says only that a module is absent. A
+GitHub code search finds roughly 5,000 public Python files still importing
+them; see the usage survey in ``IMPROVEMENTS.md``. This follows the pattern
+already used for ``Bio.Alphabet``. Nothing that was unavailable becomes
+available: the stubs cannot be used, only read.
+
 Bio.Index
 ---------
 Deprecated in release 1.75, removed in release 1.77. Was not used anywhere in

@@ -37,9 +37,17 @@ from pkgutil import iter_modules
 # The default verbosity (not verbose)
 VERBOSITY = 0
 
-# Bio.Alphabet has been removed from Biopython. Importing it will raise an
-# informative ImportError.
-EXCLUDE_DOCTEST_MODULES = ["Bio.Alphabet"]
+# These have been removed from Biopython and survive only as stubs whose
+# import raises an informative ImportError pointing at the replacement.
+EXCLUDE_DOCTEST_MODULES = [
+    "Bio.Align.Applications",
+    "Bio.Alphabet",
+    "Bio.Application",
+    "Bio.Blast.Applications",
+    "Bio.Emboss.Applications",
+    "Bio.Phylo.Applications",
+    "Bio.Sequencing.Applications",
+]
 
 # Exclude modules with online activity
 # They are not excluded by default, use --offline to exclude them
