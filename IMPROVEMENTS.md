@@ -1187,31 +1187,38 @@ vendored copies. Only search for something a *user* would write.
 
 ### Modules with a pending decision
 
-| module | files | item | what the number says |
-|---|---|---|---|
-| `Bio.pairwise2` | **4,176** | §2.3 delete | Deprecated eight releases ago and still on the scale of `Bio.Phylo`. §2.3's "leave an `ImportError` stub" is not a courtesy, it is the whole change. |
-| `Bio.Blast.NCBIXML` | 1,792 | §1.5 deprecate | Real users on the superseded stack. Rewriting the tutorial first, as §1.5 sequences it, is right. |
-| `Bio.Blast.NCBIWWW` | 1,040 | §1.5 deprecate | As above. |
-| `Bio.SearchIO` | 1,064 | §1.5 | Smaller than either old BLAST module, which bears on whether `blast-xml` is worth adapting. |
-| `Bio.PDB.mmtf` | 154 | §2.2 remove | Low, and the format's server no longer resolves. Removal is defensible; a stub still costs nothing. |
-| `Bio.Restriction` | 141 | §1.7 lazy imports | **Much lower than assumed.** Its 77 ms import cost is paid by few people, and no module in `Bio/` imports it, which is why the lazy-loading half of §1.7 was not done with the `CodonTable` half. |
-| `Bio.HMM` | 35 | §2.1 | Imports of a package whose contents were removed in 1.86 — already broken for all 35. |
-| `Bio.codonalign` | 27 | §2.5 decide | Twelve years of an import-time warning, and this is the audience. Whatever is decided, it is not urgent. |
-| `Scripts/xbbtools` | — | §2.1 | Not measurable this way; see the trap above. Decide on the code, not a count. |
+**"State" is this fork and upstream `master` on the same day.** Every row below
+is currently *identical* in both — this fork has not removed or deprecated
+anything upstream still ships. Where a proposal says "remove", it is a proposal
+here and there.
 
-### The already-removed command line wrappers
+| module | files | state (here = upstream) | item | what the number says |
+|---|---|---|---|---|
+| `Bio.pairwise2` | **4,176** | deprecated in both | §2.3 delete | Deprecated eight releases ago and still on the scale of `Bio.Phylo`. §2.3's "leave an `ImportError` stub" is not a courtesy, it is the whole change. |
+| `Bio.Blast.NCBIXML` | 1,792 | shipped, no warning, in both | §1.5 deprecate | Real users on the superseded stack. Rewriting the tutorial first, as §1.5 sequences it, is right. |
+| `Bio.Blast.NCBIWWW` | 1,040 | shipped, no warning, in both | §1.5 deprecate | As above. |
+| `Bio.SearchIO` | 1,064 | shipped in both | §1.5 | Smaller than either old BLAST module, which bears on whether `blast-xml` is worth adapting. |
+| `Bio.PDB.mmtf` | 154 | shipped in both | §2.2 remove | Low, and the format's server no longer resolves. Removal is defensible; a stub still costs nothing. |
+| `Bio.Restriction` | 141 | shipped in both | §1.7 lazy imports | **Much lower than assumed.** Its 77 ms import cost is paid by few people, and no module in `Bio/` imports it, which is why the lazy-loading half of §1.7 was not done with the `CodonTable` half. |
+| `Bio.HMM` | 35 | empty package in both | §2.1 | Imports of a package whose contents were removed in 1.86 — already broken for all 35. |
+| `Bio.codonalign` | 27 | experimental warning in both | §2.5 decide | Twelve years of an import-time warning, and this is the audience. Whatever is decided, it is not urgent. |
+| `Scripts/xbbtools` | — | shipped and broken in both | §2.1 | Not measurable this way; see the trap above. Decide on the code, not a count. |
+
+### The command line wrappers removed upstream in 1.86
 
 The sharpest result, because these are not a prediction — the removal already
-happened, in release 1.86.
+happened. **Upstream removed them in release 1.86 and this fork inherited that**;
+neither tree ships them today. The fork's only difference is what an import
+*says*, and only once PR #56 lands.
 
-| module | files still importing it |
-|---|---|
-| `Bio.Align.Applications` | **1,784** |
-| `Bio.Application` | **1,506** |
-| `Bio.Blast.Applications` | **1,136** |
-| `Bio.Emboss.Applications` | 284 |
-| `Bio.Sequencing.Applications` | 214 |
-| `Bio.Phylo.Applications` | 147 |
+| module | files still importing it | here | upstream |
+|---|---|---|---|
+| `Bio.Align.Applications` | **1,784** | stub (PR #56) | absent |
+| `Bio.Application` | **1,506** | stub (PR #56) | absent |
+| `Bio.Blast.Applications` | **1,136** | stub (PR #56) | absent |
+| `Bio.Emboss.Applications` | 284 | stub (PR #56) | absent |
+| `Bio.Sequencing.Applications` | 214 | stub (PR #56) | absent |
+| `Bio.Phylo.Applications` | 147 | stub (PR #56) | absent |
 
 Roughly 5,000 files, against 27 for `Bio.codonalign`, which was never removed.
 `Bio.Align.Applications` alone outweighs several modules still shipped. Every
@@ -1223,8 +1230,18 @@ deletion is the expensive part, not the deletion.
 
 ## Where this fork differs from upstream
 
+**Nothing has been removed here that upstream still ships, and nothing is
+deprecated here that upstream has not deprecated.** `git diff --diff-filter=D
+upstream/master main -- Bio/ BioSQL/` lists no files: this fork has deleted
+none. Every module in the survey above is in the same state in both trees.
+
+Nor did adopting upstream pull requests move anything: all seven adoptions in
+`ADOPTED.md` are bug fixes, none is a removal, so there is no case where this
+fork took a change ahead of upstream deciding it.
+
 Measured against `upstream/master`, this fork is **96 commits ahead and 6
-behind**, and **64 files under `Bio/` and `BioSQL/` differ**. Almost all of
+behind**, and **64 files under `Bio/` and `BioSQL/` differ** — all by
+modification, none by deletion. Almost all of
 that is bug fixes that upstream would presumably also want, and which
 `UPSTREAM.md` tracks reporting back.
 
