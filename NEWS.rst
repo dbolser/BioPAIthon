@@ -52,8 +52,11 @@ What has **not** changed:
 The distribution name on PyPI would be ``biopaithon`` rather than
 ``biopython``, and the default branch is now ``main`` rather than ``master``.
 
-(In progress, not yet released): Biopython 1.88
-===============================================
+(In progress, not yet released): BioPAIthon 1.88
+================================================
+
+These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
+recorded below. They are not part of any upstream Biopython release.
 
 ``import Bio.Seq`` is roughly 30 ms faster, and every entry point that reaches
 it benefits. ``Bio.Data.CodonTable`` builds 34 genetic codes at import, and
@@ -380,7 +383,8 @@ W, X and Y raises ``ValueError`` where it previously returned a temperature
 computed from whichever letters it did recognise -- a protein sequence, for
 instance, used to melt. Pass ``check=False`` to get the old arithmetic back
 unchanged. ``Tm_GC`` and ``Tm_NN`` already discarded such letters silently, and
-now reject them as well.
+now reject them as well. Adopted from biopython/biopython#4866 by Manuel
+Lera-Ramirez; see ``ADOPTED.md``.
 
 ``Bio.pairwise2.rint`` no longer accepts a ``precision`` outside the range of a
 C ``int``. The argument was parsed as a C ``long`` into an ``int`` variable,
@@ -394,16 +398,32 @@ Solexa format produces; that conversion now happens only in the Solexa reader.
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
+6 August 2026: Biopython 1.88
+=============================
+
+This release of Biopython supports Python 3.10, 3.11, 3.12, 3.13, 3.14 and the
+Python 3.15 release candidate. It has also been tested on PyPy3.10 v7.3.19.
+Python 3.10 is approaching end of life, our support for it is now deprecated.
+
+The primary driver for this release is a security fix to remove the use of
+Python's built-in function `eval` following a report by email from independent
+security researcher Anand Patil. This demonstrated arbitrary code execution
+via the `Bio.Nexus` NEXUS parser.
+
 Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 
-- Peter Cock
 - Al Fattah Suyadi (first contribution)
 - Laura Piñero Roig (first contribution)
-- Manuel Lera-Ramirez
+- Marcus Campbell (first contribution)
+- Michiel de Hoon
+- Peter Cock
 
 30 March 2026: Biopython 1.87
 =============================
+
+This release of Biopython supports Python 3.10, 3.11, 3.12, 3.13 and 3.14.
+It has also been tested on PyPy3.10 v7.3.19.
 
 Migrated from ``setup.py`` to ``pyproject.toml`` for packaging configuration.
 
@@ -416,12 +436,12 @@ to the test suite and type annotations.
 Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 
+- Manuel Lera-Ramirez
 - Michiel de Hoon
 - Peter Cock
+- Sebastian Pipping
 - Timothy Dennis (first contribution)
 - Ziyan Rao (first contribution)
-- Manuel Lera-Ramirez
-- Sebastian Pipping
 
 28 October 2025: Biopython 1.86
 ===============================
@@ -474,11 +494,11 @@ Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 
 - Cassie Bastress (first contribution)
-- Rachel Stern (first contribution)
 - Fabio Zanini
 - Michiel de Hoon
 - Oliver Wissett (first contribution)
 - Peter Cock
+- Rachel Stern (first contribution)
 - Samuel Prince (first contribution)
 
 15 January 2025: Biopython 1.85
