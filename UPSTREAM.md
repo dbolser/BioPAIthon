@@ -73,21 +73,23 @@ Verified unreported in the GitHub tracker and still present on upstream
 
 | # | subject | note |
 |---|---|---|
-| 1 | `Bio.File.as_handle` re-catches a `TypeError` from the caller's own block | Fixed upstream in 2018 for [#1544](https://github.com/biopython/biopython/issues/1544), reverted by `f09b169a4` in 2020, no regression test. Comment on #1544 rather than a new issue. |
-| 2 | `_get_pi` builds `forward_table.keys() + stop_codons` | `TypeError`; the `F1x4` and `F61` codon frequency models are unusable. |
-| 3 | `Alignment.format()` reports any `AttributeError` as "not yet implemented" | Upstream's own `Bio.Align.write()` already does this correctly. |
-| 4 | `CodonAdaptationIndex` rejects `MutableSeq` | The docstring promises it is accepted. |
-| 5 | GAF by-protein iterators never yield the last protein | Silent data loss. Fixing it changes output for every caller. |
-| 6 | `Seq.search()` never matches at the final position | Off by one since the method shipped. |
-| 7 | `six_frame_translations` misaligns the reverse frames | Correct only when `len(seq) % 3 == 1`. Display only. |
-| 8 | `_G_test` divides by zero on any empty cell | `mktest` crashes on identical sequences. |
-| 9 | `nt_search(seq, "")` never terminates | The fix is an API choice; report, do not prescribe. |
-| 10 | `Tm_GC(valueset=0)` raises `UnboundLocalError` | The guard admits a value no branch handles. |
-| 11 | `str()` on an `index_db` dictionary raises `AttributeError` | Upstream carries a `TODO` about this exact question; lead with it. |
-| 12 | `SeqIO.index()` raises `IndexError` on a bare `>` FASTA header | `parse()` reads the same record as `id=""`. |
-| 13 | Two `except ValueError` clauses in `SeqIO/_index.py` cannot fire | File the `tab` and `genbank` halves separately; cite [#1344](https://github.com/biopython/biopython/issues/1344). |
-| 14 | `reverse_complement()` cannot sort features with an `UnknownPosition` | Cite [#1772](https://github.com/biopython/biopython/issues/1772), same cause, different path. |
-| 15 | `ProteinAnalysis.flexibility()` reads the wrong window centre | Comment on [#4170](https://github.com/biopython/biopython/pull/4170), which fixes the adjacent window-count bug only. |
+| 1 | `Record.__str__` corrupts a string-valued `wgs` into `A-B-C-D-...` | New in 1.88, and the incomplete half of [#5274](https://github.com/biopython/biopython/issues/5274). [#5275](https://github.com/biopython/biopython/pull/5275) fixed the parsed-list path but left `__init__` at `self.wgs = ""`, so a string assignment now serialises one character at a time. `wgs_scafld` was corrected to `[]` in the same commit. Comment on #5275. |
+| 2 | `RestrictionBatch.format` docstring still promises expression evaluation | Documentation only. The 1.88 `eval` removal changed the behaviour and left the docstring saying "If y can be evaluated to a RestrictionType". |
+| 3 | `Bio.File.as_handle` re-catches a `TypeError` from the caller's own block | Fixed upstream in 2018 for [#1544](https://github.com/biopython/biopython/issues/1544), reverted by `f09b169a4` in 2020, no regression test. Comment on #1544 rather than a new issue. |
+| 4 | `_get_pi` builds `forward_table.keys() + stop_codons` | `TypeError`; the `F1x4` and `F61` codon frequency models are unusable. |
+| 5 | `Alignment.format()` reports any `AttributeError` as "not yet implemented" | Upstream's own `Bio.Align.write()` already does this correctly. |
+| 6 | `CodonAdaptationIndex` rejects `MutableSeq` | The docstring promises it is accepted. |
+| 7 | GAF by-protein iterators never yield the last protein | Silent data loss. Fixing it changes output for every caller. |
+| 8 | `Seq.search()` never matches at the final position | Off by one since the method shipped. |
+| 9 | `six_frame_translations` misaligns the reverse frames | Correct only when `len(seq) % 3 == 1`. Display only. |
+| 10 | `_G_test` divides by zero on any empty cell | `mktest` crashes on identical sequences. |
+| 11 | `nt_search(seq, "")` never terminates | The fix is an API choice; report, do not prescribe. |
+| 12 | `Tm_GC(valueset=0)` raises `UnboundLocalError` | The guard admits a value no branch handles. |
+| 13 | `str()` on an `index_db` dictionary raises `AttributeError` | Upstream carries a `TODO` about this exact question; lead with it. |
+| 14 | `SeqIO.index()` raises `IndexError` on a bare `>` FASTA header | `parse()` reads the same record as `id=""`. |
+| 15 | Two `except ValueError` clauses in `SeqIO/_index.py` cannot fire | File the `tab` and `genbank` halves separately; cite [#1344](https://github.com/biopython/biopython/issues/1344). |
+| 16 | `reverse_complement()` cannot sort features with an `UnknownPosition` | Cite [#1772](https://github.com/biopython/biopython/issues/1772), same cause, different path. |
+| 17 | `ProteinAnalysis.flexibility()` reads the wrong window centre | Comment on [#4170](https://github.com/biopython/biopython/pull/4170), which fixes the adjacent window-count bug only. |
 
 ## Needs work before it can be filed
 
