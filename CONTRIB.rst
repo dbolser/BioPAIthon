@@ -263,6 +263,7 @@ https://biopython.org
 - Marc Colosimo <mcolosimo at domain mitre.org>
 - Marcin Magnus <https://github.com/mmagnus>
 - Marco Galardini <https://github.com/mgalardini>
+- Marcus Campbell <https://github.com/marcus-campbell>
 - Marie Crane <https://github.com/mariecrane>
 - Mark Amery <https://github.com/ExplodingCabbage>
 - Markus Piotrowski <https://github.com/MarkusPiotrowski>
