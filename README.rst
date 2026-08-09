@@ -48,7 +48,7 @@ Acknowledgements
 ================
 
 BioPAIthon exists because the Biopython Project spent more than twenty years
-building it. 373 people are named in `CONTRIB.rst <CONTRIB.rst>`_, and that
+building it. 381 people are named in `CONTRIB.rst <CONTRIB.rst>`_, and that
 list is preserved here unchanged, as is the full release history in
 `NEWS <NEWS.rst>`__ and every copyright notice in the source.
 
