@@ -23,6 +23,7 @@ from Bio import BiopythonWarning
 # GenBank stuff to test:
 from Bio import GenBank
 from Bio import SeqIO
+from Bio.GenBank import Record
 from Bio.Seq import Seq
 from Bio.Seq import UndefinedSequenceError
 from Bio.SeqRecord import SeqRecord
@@ -257,6 +258,19 @@ class TestRecordParser(unittest.TestCase):
         self.assertIn("WGS         ABCD01000001-ABCD01000002\n", output)
         self.assertIn("WGS_SCAFLD  ABCD01000003-ABCD01000004\n", output)
         self.assertIn("WGS_SCAFLD  ABCD01000005-ABCD01000006\n", output)
+
+    def test_wgs_string_serialization(self):
+        """Test serializing WGS ranges assigned as strings rather than lists."""
+        record = Record.Record()
+        self.assertEqual(record.wgs, [])
+        self.assertEqual(record.wgs_scafld, [])
+
+        record.wgs = "ABCD01000001-ABCD01000002"
+        record.wgs_scafld = ["ABCD01000003-ABCD01000004"]
+
+        output = str(record)
+        self.assertIn("WGS         ABCD01000001-ABCD01000002\n", output)
+        self.assertIn("WGS_SCAFLD  ABCD01000003-ABCD01000004\n", output)
 
     def test_record_parser_02(self):
         path = "GenBank/cor6_6.gb"
