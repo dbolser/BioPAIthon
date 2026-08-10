@@ -1239,9 +1239,13 @@ Nor did adopting upstream pull requests move anything: all seven adoptions in
 `ADOPTED.md` are bug fixes, none is a removal, so there is no case where this
 fork took a change ahead of upstream deciding it.
 
-Measured against `upstream/master`, this fork is **96 commits ahead and 6
-behind**, and **64 files under `Bio/` and `BioSQL/` differ** — all by
-modification, none by deletion. Almost all of
+Measured against `upstream/master` on 2026-08-10, after Biopython 1.88 was
+merged in, this fork is **102 commits ahead and 1 behind**, and **61 files
+under `Bio/` and `BioSQL/` differ** — all by modification, none by deletion.
+The single commit behind is upstream's post-release version bump, which this
+fork deliberately does not take: it keeps `1.88.dev0`, because its 1.88 line
+tracks the release's content plus its own changes rather than being that
+release. Almost all of
 that is bug fixes that upstream would presumably also want, and which
 `UPSTREAM.md` tracks reporting back.
 
