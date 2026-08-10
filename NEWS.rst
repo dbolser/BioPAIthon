@@ -58,6 +58,27 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.GenBank.Record.Record`` no longer corrupts a WGS range that was assigned
+as a string. Biopython 1.88 taught ``Record.__str__`` to join the list of range
+endpoints the parser produces, fixing a ``TypeError``, and corrected
+``wgs_scafld``'s initial value to ``[]`` — but left ``wgs`` initialised to
+``""``. Code that assigned the string the attribute had always held, such as
+``record.wgs = "ABCD01000001-ABCD01000002"``, was then joined character by
+character into ``A-B-C-D-0-1-...``. The release's own regression test exercises
+only the parser's output, so the corruption ships silently. ``wgs`` now starts
+as ``[]``, matching ``wgs_scafld`` and what the parser assigns, and both WGS
+writers pass their value through one helper that returns an already formatted
+string unchanged and joins endpoints otherwise. Both forms round-trip, and the
+attributes are now described in the class docstring, which had never documented
+either.
+
+``Bio.Restriction.RestrictionBatch.format``'s docstring no longer promises to
+evaluate its argument. Removing ``eval`` in 1.88 — the release's security fix —
+narrowed the method to a ``RestrictionType`` or the name of one defined in the
+module, but the wording still said "If y can be evaluated to a RestrictionType",
+which describes the behaviour that was deliberately taken away. Documentation
+only; no behaviour changes.
+
 ``import Bio.Seq`` is roughly 30 ms faster, and every entry point that reaches
 it benefits. ``Bio.Data.CodonTable`` builds 34 genetic codes at import, and
 each ambiguous one expanded its start and stop codon lists over the IUPAC

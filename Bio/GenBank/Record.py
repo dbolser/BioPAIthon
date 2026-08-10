@@ -95,6 +95,19 @@ def _indent_genbank(information, indent):
     return output_info
 
 
+def _wgs_range(endpoints):
+    """Format a WGS or WGS_SCAFLD range for output (PRIVATE).
+
+    The parser stores a range as the list of its endpoints, which are joined
+    with a hyphen. A range assigned as an already formatted string is written
+    out unchanged, rather than being joined character by character.
+    """
+    if isinstance(endpoints, str):
+        return endpoints
+
+    return "-".join(endpoints)
+
+
 class Record:
     """Hold GenBank information in a format similar to the original record.
 
@@ -131,6 +144,9 @@ class Record:
      - origin - A string specifying info about the origin of the sequence.
      - sequence - A string with the sequence itself.
      - contig - A string of location information for a CONTIG in a RefSeq file
+     - wgs - A WGS range, as the list of endpoints the parser produces, or as
+       an already formatted string such as 'ABCD01000001-ABCD01000002'.
+     - wgs_scafld - A list of WGS_SCAFLD ranges, each in either of those forms.
      - project - The genome sequencing project numbers
        (will be replaced by the dblink cross-references in 2009).
      - dblinks - The genome sequencing project number(s) and other links.
@@ -198,7 +214,7 @@ class Record:
         self.taxonomy = []
         self.topology = ""
         self.version = ""
-        self.wgs = ""
+        self.wgs = []
         self.wgs_scafld = []
 
     def __str__(self):
@@ -474,14 +490,14 @@ class Record:
         output = ""
         if self.wgs:
             output += Record.BASE_FORMAT % "WGS"
-            output += "-".join(self.wgs) + "\n"
+            output += _wgs_range(self.wgs) + "\n"
         return output
 
     def _wgs_scafld_line(self):
         output = ""
         for scaffold in self.wgs_scafld:
             output += Record.BASE_FORMAT % "WGS_SCAFLD"
-            output += "-".join(scaffold) + "\n"
+            output += _wgs_range(scaffold) + "\n"
         return output
 
     def _contig_line(self):

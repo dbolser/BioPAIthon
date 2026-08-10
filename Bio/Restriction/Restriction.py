@@ -2133,10 +2133,11 @@ class RestrictionBatch(set):
         return set.add(self, other)
 
     def format(self, y):
-        """Evaluate enzyme (name) and return it (as RestrictionType).
+        """Look up enzyme (name) and return it (as RestrictionType).
 
         If y is a RestrictionType return y.
-        If y can be evaluated to a RestrictionType return the class.
+        If y is the name of a RestrictionType defined in this module, return
+        that class.
         Raise a ValueError in all other case.
         """
         try:
