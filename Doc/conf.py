@@ -373,6 +373,17 @@ def run_apidoc(_):
             # These are patterns to exclude:
             "../Bio/Alphabet/",
             "../Bio/Restriction/Restriction.py",
+            # The stubs for modules removed upstream. Importing one raises
+            # ImportError naming its replacement, which is the whole point of
+            # them, so autodoc cannot document them and warns once per stub.
+            # Doc/Makefile builds with -W, so those warnings fail the build.
+            # Bio/Alphabet above is excluded for exactly this reason.
+            "../Bio/Application/",
+            "../Bio/Align/Applications/",
+            "../Bio/Phylo/Applications/",
+            "../Bio/Sequencing/Applications/",
+            "../Bio/Blast/Applications.py",
+            "../Bio/Emboss/Applications.py",
         ]
     )
     os.remove(os.path.join(tmp_path, "index.rst"))  # Using our own
