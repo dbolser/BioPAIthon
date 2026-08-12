@@ -146,6 +146,20 @@ longer exports its private ``numpy`` alias ``np`` through ``import *``.
 synthesised at import and a type checker cannot see them either way, so it
 needs generated stubs rather than a list of names.
 
+The command line wrappers removed in 1.86 now explain themselves instead of
+vanishing. ``Bio.Application``, ``Bio.Align.Applications``,
+``Bio.Blast.Applications``, ``Bio.Emboss.Applications``,
+``Bio.Phylo.Applications`` and ``Bio.Sequencing.Applications`` are shipped as
+stubs whose import raises ``ImportError`` naming what the module provided and
+what to use instead, the treatment ``Bio.Alphabet`` has had since 1.78.
+Previously each raised ``ModuleNotFoundError``, which says a module is absent
+and nothing more. A GitHub code search finds roughly 5,000 public Python files
+still importing them — more, for ``Bio.Align.Applications``, than import some
+modules that were never removed. **This is a deliberate difference from
+upstream Biopython, which ships no stub for any of them.** Code guarded with
+``except ImportError`` is unaffected, since ``ModuleNotFoundError`` is a
+subclass of ``ImportError``.
+
 ``Bio.PDB.ccealign.run_cealign`` now checks its arguments instead of trusting
 them. A fragment size of zero walked off the end of the coordinate array and a
 coordinate entry with fewer than three values dereferenced ``NULL``, both
