@@ -557,8 +557,10 @@ class MixinTests(unittest.TestCase):
         """TreeMixin: resolve_polytomies() method."""
         poly_tree_str = "(A:2,(B:1,C:2,D:4,(E:3,(F:2,G:3,H:1):2):1):5);\n"
         #                         ^   ^             ^   polytomies
+        # Each polytomy resolves to a balanced hierarchy of zero-length
+        # bifurcations, preserving the child order left to right.
         resolved_tree_str = (
-            "(A:2,(B:1,(C:2,(D:4,(E:3,(F:2,(G:3,H:1):0):2):1):0):0):5);\n"
+            "(A:2,((B:1,C:2):0,(D:4,(E:3,(F:2,(G:3,H:1):0):2):1):0):5);\n"
         )
         poly_tree = Phylo.read(StringIO(poly_tree_str), "newick")
         resolved_tree = Phylo.read(StringIO(resolved_tree_str), "newick")
@@ -570,21 +572,25 @@ class MixinTests(unittest.TestCase):
     def test_resolve_polytomies_wide(self):
         """TreeMixin: resolve_polytomies() on a star wider than the recursion limit."""
         # A star tree, as produced by e.g. FastTree on unresolvable data.
-        # 1500 children exceeds Python's default recursion limit of 1000,
-        # which the original recursive implementation ran into.
+        # 1500 children exceeds Python's default recursion limit of 1000;
+        # a chain-per-child resolution either dies while building (the
+        # original recursive implementation) or leaves a tree too deep for
+        # the library's recursive traversals to validate or serialise.
+        # The balanced resolution keeps the tree ~log2(n) deep, so the
+        # ordinary machinery must work on the result.
         size = 1500
         star = "(" + ",".join("t%d:1" % i for i in range(size)) + ");"
         tree = Phylo.read(StringIO(star), "newick")
         tree.resolve_polytomies()
-        # The resolved tree is deeper than the recursion limit too, so
-        # check it with the iterative level-order traversal rather than
-        # is_bifurcating() or the default preorder find_clades().
-        terminals = 0
-        for clade in tree.find_clades(order="level"):
+        self.assertTrue(tree.is_bifurcating())
+        for clade in tree.find_clades():
             self.assertLessEqual(len(clade.clades), 2)
-            if clade.is_terminal():
-                terminals += 1
-        self.assertEqual(terminals, size)
+        # Serialisation round trip, preserving leaf count and order
+        reread = Phylo.read(StringIO(tree.format("newick")), "newick")
+        self.assertEqual(
+            [leaf.name for leaf in reread.get_terminals()],
+            ["t%d" % i for i in range(size)],
+        )
 
 
 # ---------------------------------------------------------
