@@ -179,6 +179,19 @@ malformed input matters most: writing a tab delimited record whose id contained
 a tab produced a corrupt file rather than an error. Adopted from
 biopython/biopython#5175 by Abdel ATIA; see ``ADOPTED.md``.
 
+Malformed content met while indexing a SwissProt, UniProt XML or SFF file with
+``Bio.SeqIO.index`` now raises ``ValueError``. Three ``assert`` statements in
+``Bio.SeqIO._index`` were validating file content: a SwissProt record whose
+second line is not an ``AC`` line, an ``<accession>`` element split across two
+lines, and a Roche SFF index that fails part way through after record offsets
+were already taken from it. Each raised a bare ``AssertionError`` — and under
+``python -O``, where asserts are removed, the first two silently indexed the
+record under a wrong key and the third silently re-scanned the reads,
+duplicating every record the index had already supplied. The new errors name
+the offending line, and the record's offset where the code has it. The file's
+other nine asserts are internal invariants that no file content can reach, and
+stay as asserts.
+
 ``Motif.calculate_consensus`` no longer raises ``UnboundLocalError`` on a
 position where every count is zero. The consensus letter was only assigned
 inside a ``count > maximum`` comparison that such a column never satisfies, and
