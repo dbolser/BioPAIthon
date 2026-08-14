@@ -58,6 +58,19 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+The ``Scripts/xbbtools`` directory has been removed. The xbbtools graphical
+sequence viewer, contributed by Thomas Sicheritz-Pontén in 2000, stopped being
+launchable when ``Bio.Blast.Applications`` was removed in Biopython 1.86:
+``xbbtools.py`` imports ``xbb_widget``, which imports ``xbb_blast``, which
+imports ``xbb_blastbg``, which imports ``Bio.Blast.Applications`` — all at
+module scope — so ``python xbbtools.py`` has raised ``ImportError`` before
+drawing a window in every release since, while still being shipped in every
+source distribution. ``nextorf.py``, a standalone ORF-finding example script
+that shared the directory but not the broken import chain, still works and has
+moved to ``Scripts/nextorf.py`` alongside the other standalone scripts.
+Scripts were never part of the importable ``Bio`` API, so nothing changes for
+``import Bio``.
+
 ``Bio.PDB``'s ``MMCIFParser`` and ``FastMMCIFParser`` no longer staple
 author-scheme insertion codes onto label-scheme residue numbers when called
 with ``auth_residues=False``. Label numbering (``_atom_site.label_seq_id``)
