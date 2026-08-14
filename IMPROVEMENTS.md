@@ -7,7 +7,9 @@ comprehensive review of the tree at the point BioPAIthon forked from Biopython
 This is a living document. Each item cites the file and line it was found at so
 it can be checked rather than believed. Where a claim was reproduced by running
 code, it is marked **[reproduced]**; where it rests on reading the source, it is
-marked **[from source]**. Nothing here has been fixed yet.
+marked **[from source]**. Nothing had been fixed when this was first written;
+items fixed since carry an inline **Status** note citing the fork pull request,
+with the original text kept below for the record.
 
 **Effort** is S (hours), M (days), L (weeks). **Impact** is this fork's judgement
 of user-visible value.
@@ -20,7 +22,12 @@ These produce wrong answers or destroy diagnostic information. They are cheap to
 fix and should go first. Several are silent, which is what makes them serious:
 users get a plausible number rather than an error.
 
-### 0.1 `ProteinAnalysis.flexibility()` ignores the residue at the centre of its window **[reproduced]**
+### 0.1 `ProteinAnalysis.flexibility()` ignores the residue at the centre of its window **[reproduced — FIXED]**
+
+> **Status: fixed** in PR #19. `Bio/SeqUtils/ProtParam.py` now uses
+> `middle = subsequence[window_size // 2]` and
+> `range(self.length - window_size + 1)`, the docstring documents the
+> behaviour change, and the fixture was regenerated.
 
 `Bio/SeqUtils/ProtParam.py:168-180`. The sliding window is nine residues wide,
 but the "middle" index is computed as `window_size // 2 + 1`, which is offset 5,
@@ -51,7 +58,13 @@ ProtScale), not from the code. Add a symmetry test asserting that substituting
 at offset *k* and at *window_size−1−k* moves the score identically.
 **Effort S · Impact high**
 
-### 0.2 `Bio.Seq.translate()` silently discards `gap=` for `Seq` inputs **[reproduced]**
+### 0.2 `Bio.Seq.translate()` silently discards `gap=` for `Seq` inputs **[reproduced — FIXED]**
+
+> **Status: fixed** in PR #1. All three branches of the module-level
+> `translate()` (`Bio/Seq.py:3009-3015`) now forward `gap=gap`. The two
+> defaults still differ (`None` at module level, `"-"` on the method), which
+> that PR deliberately left alone — see the note on upstream #4994 under
+> "Do not adopt".
 
 `Bio/Seq.py:3006-3013` forwards to `sequence.translate(table, stop_symbol,
 to_stop, cds)` without passing `gap`. The module-level function defaults to
@@ -121,7 +134,13 @@ helper that deep-copies containers and shares immutables); copy features
 explicitly. Delete the `print` and re-raise with the offending key and types.
 **Effort M · Impact high**
 
-### 0.4 `Seq.search()` never matches at the final position **[reproduced]**
+### 0.4 `Seq.search()` never matches at the final position **[reproduced — bug FIXED]**
+
+> **Status: the off-by-one is fixed** in PR #7 — the loop at `Bio/Seq.py:997`
+> is now `range(len(self) + 1)`. The separate rewrite suggested below
+> (`bytes.find` cursors, deterministic ordering) has not been done: the loop
+> still allocates a slice per (position, length) pair and yield order across
+> differing lengths still depends on dict insertion order.
 
 `Bio/Seq.py:997` iterates `range(len(self) - 1)`, one short.
 
@@ -142,7 +161,11 @@ merged by position so results are ordered deterministically, and document the
 ordering. Test a match at index `len-1` for each substring length.
 **Effort S (bug) / M (rewrite) · Impact high**
 
-### 0.5 `as_handle()` swallows `TypeError` raised by its caller's block **[from source, with repro]**
+### 0.5 `as_handle()` swallows `TypeError` raised by its caller's block **[from source, with repro — FIXED]**
+
+> **Status: fixed** in PR #6. The `try` in `Bio/File.py` now wraps only the
+> `open()` call; the `yield` sits outside it, so a `TypeError` from the
+> caller's block propagates unchanged.
 
 `Bio/File.py:71-75`. The `try` is meant to catch `TypeError` from `open()`
 (meaning "this is already a handle"), but it also wraps the `yield`, so *any*
@@ -166,7 +189,11 @@ except TypeError: yield handleish else: with fp: yield fp`. Add a regression
 test that a `TypeError` from inside the block propagates unchanged.
 **Effort S · Impact high**
 
-### 0.6 `SeqRecord.reverse_complement()` crashes on features with `UnknownPosition` **[from source]**
+### 0.6 `SeqRecord.reverse_complement()` crashes on features with `UnknownPosition` **[from source — FIXED]**
+
+> **Status: fixed** in PR #5, with exactly the sentinel proposed below: the
+> sort key in `Bio/SeqRecord.py` (now ~:1446) returns `(0, int(start))` for
+> known positions and `(1, 0)` for unknown ones.
 
 `Bio/SeqRecord.py:1406-1413`. The sort key catches `TypeError` "expected for
 UnknownPosition" and returns `None` — but a key list containing `None` cannot be
@@ -180,7 +207,13 @@ this fires on real files with no obvious connection to the user's action.
 for unknown — so unknown positions sort stably to the end.
 **Effort S · Impact medium**
 
-### 0.7 `SeqIO.index()` and `SeqIO.parse()` disagree on the same file **[from source]**
+### 0.7 `SeqIO.index()` and `SeqIO.parse()` disagree on the same file **[from source — this case FIXED]**
+
+> **Status: this case is fixed** in PR #8. `Bio/SeqIO/_index.py` (~:220) now
+> yields an empty ID for a bare title line in the fasta and pir formats,
+> matching the parsers. The structural duplication that caused it — the index
+> layer re-deriving IDs independently of each parser — remains, and is still
+> §1.4.
 
 `Bio/SeqIO/_index.py:219` re-derives the record ID independently of the parser
 (`line[marker_offset:].strip().split(None, 1)[0]`), while
@@ -228,7 +261,14 @@ no `strict=` option anywhere.
 include record ID and stream position in every message.
 **Effort M · Impact high**
 
-### 0.10 Two more error handlers report the wrong cause **[from source]**
+### 0.10 Two more error handlers report the wrong cause **[from source — FIXED]**
+
+> **Status: both halves are fixed.** PR #13 made `Bio/SeqIO/__init__.py`
+> (~:974) validate the filename type up front and construct the proxy outside
+> any `try`, so construction errors propagate. PR #11 hoisted the writer
+> *construction* in `Bio/Align/__init__.py` (~:2409) out of the guard, so the
+> `except AttributeError` now covers only the bare `module.AlignmentWriter`
+> lookup.
 
 `Bio/SeqIO/__init__.py:936-941` wraps proxy *construction* and reports any
 `TypeError` as "Need a string or path-like object for the filename (not a
@@ -243,7 +283,12 @@ bare attribute lookup at `Bio/Align/__init__.py:4871-4876`.
 propagate; hoist the writer lookup out of the `try`.
 **Effort S · Impact medium**
 
-### 0.11 Heap buffer overflow in `_bcif_helper` driven by untrusted file metadata **[reproduced by review]**
+### 0.11 Heap buffer overflow in `_bcif_helper` driven by untrusted file metadata **[reproduced by review — FIXED]**
+
+> **Status: fixed** in PR #3. Every unpack function in
+> `Bio/PDB/bcifhelpermodule.c` now reads `out_view->shape[0]` and bounds
+> `out_index` against it, failing cleanly when the two file fields disagree
+> in either direction.
 
 **This is the most serious item in this document and should be fixed first.**
 
@@ -280,7 +325,13 @@ truncation. Change `exit:` to return `NULL` when `PyErr_Occurred()`. Add a
 regression test with a deliberately wrong `srcSize`.
 **Effort S · Impact high (memory safety)**
 
-### 0.12 Out-of-bounds read and a dead validation check in `_aligncore` **[reproduced by review]**
+### 0.12 Out-of-bounds read and a dead validation check in `_aligncore` **[reproduced by review — FIXED]**
+
+> **Status: all three defects are fixed** in PR #2. `offset` is validated
+> against `PyBytes_GET_SIZE(line)` and raises `ValueError` when outside it;
+> the tautological length check is now `else if (m != self->m)` and raises;
+> and the error paths return `NULL` with `PyErr_NoMemory()` set on allocation
+> failure.
 
 `Bio/Align/_aligncore.c:141-143` uses a caller-supplied `offset` unvalidated:
 `buffer = PyBytes_AS_STRING(line) + offset`. Confirmed:
@@ -308,7 +359,22 @@ allocation failure and its `ValueError` path.
 comparison; return `NULL` from every error path and set `PyErr_NoMemory()`.
 **Effort S · Impact high (memory safety)**
 
-### 0.13 `ccealign` leaks ~116 KB per call and segfaults on tuple coordinates **[reproduced by review]**
+### 0.13 `ccealign` leaks ~116 KB per call and segfaults on tuple coordinates **[reproduced by review — leak and crashes FIXED, hardening open]**
+
+> **Status: partly fixed, in two PRs.** PR #16 removed the three `Py_INCREF`s
+> and frees every surviving `pathBuffer[]` entry before returning (~:690), so
+> both the object and byte leaks are gone — the measurements are in the
+> update blocks below. PR #39 added argument validation: coordinates go
+> through `PySequence_Size`/`PySequence_GetItem` with every lookup checked
+> (so tuple coordinates and short inner lists raise instead of segfaulting —
+> the two later-found crashes below), `fragmentSize` and `gapMax` are
+> range-checked (so `run_cealign(c, c, 0, 30)` raises), and the
+> `PyArg_ParseTuple` return is checked. **Still open:** the fresh
+> `PyStructSequence_NewType` built per path inside the result loop (~:677,
+> so `type(r[0]) is type(r[1])` is still `False`), the unchecked
+> `PyMem_RawMalloc`s in `calcDM`, `calcS` and `findPath` (:108, :111, :194,
+> :197, :472), and the missing `PyMODINIT_FUNC` on `PyInit_ccealign`
+> (~:727).
 
 `Bio/PDB/ccealignmodule.c:610-611,617-618,636-637` contain three `Py_INCREF`s on
 references that are immediately stolen (by `Py_BuildValue("[NN]", ...)` and
@@ -374,7 +440,10 @@ unchecked; `:751` is missing `PyMODINIT_FUNC`.
 module-level singleton created in `PyInit_ccealign`; NULL-check everything.
 **Effort S (leak) / M (hardening) · Impact high**
 
-### 0.14 `cpairwise2.rint` writes 8 bytes into a 4-byte stack slot **[reproduced by review]**
+### 0.14 `cpairwise2.rint` writes 8 bytes into a 4-byte stack slot **[reproduced by review — FIXED]**
+
+> **Status: fixed** in PR #9. `Bio/cpairwise2module.c:429` now parses with
+> `"d|i"`, and no `"l"` format remains anywhere in the file.
 
 `Bio/cpairwise2module.c:415-425` declares `int precision` but parses it with
 format `"l"`, which requires `long *`. On LP64 that is a 4-byte out-of-bounds
@@ -510,6 +579,13 @@ touched code is checked from day one and the list only shrinks. Triage
 
 ### 1.7 Import cost: ~190 ms warm for `import Bio.SeqIO`, and 77 ms of it is one module body
 
+> **Status: the `CodonTable` piece is partly done.** PR #53 made the
+> ambiguous codon list expansion lazy — expanded on first use instead of at
+> import. The `Restriction` PEP 562 `__getattr__` and the lazy per-format
+> `SeqIO` imports below remain open (and the usage survey later in this
+> document found `Bio.Restriction` far less imported than assumed, which
+> lowers that half's priority).
+
 Measured cumulative `-X importtime`: `Bio.Seq` 45.3 ms, `Bio.Align` 155.9 ms,
 `Bio.Restriction` 239.6 ms, `Bio.SeqIO` 547.8 ms cold / 188.7 ms warm.
 
@@ -628,6 +704,14 @@ process-wide `rand()` stream); then add the `Py_mod_gil` slot and a `3.14t` CI j
 **Effort L · Impact high**
 
 ### 1.11 FASTQ parsing costs 4.9× the time and 3.9× the memory of the raw iterator
+
+> **Status: part (a) is done.** PR #17 moved quality decoding into an
+> overridable `_decode_quality` method: the base class returns
+> `list(byte_scores)` and only `FastqSolexaIterator` keeps the signed
+> `array.array("b", ...).tolist()` round-trip.
+> `Tests/test_SeqIO_QualityIO.py` covers the full valid byte range for all
+> three variants. Part (b) — opt-in `array('b')`/`bytes` backing for
+> `letter_annotations` — remains open.
 
 Measured on 200,000 × 150 bp reads (a 65 MB file):
 
@@ -795,7 +879,11 @@ are falsy. The current state is wrong either way, so the decision must be
 explicit. Add warnings to the `colour` aliases before removing them.
 **Effort S · Impact low-medium**
 
-### 2.7 Unhashable value objects
+### 2.7 Unhashable value objects **[FIXED]**
+
+> **Status: fixed** in PR #48. All four classes now define `__hash__` in
+> `Bio/SeqFeature.py`, with `SeqFeature`'s excluding the mutable
+> `qualifiers` dict.
 
 `SimpleLocation`, `CompoundLocation`, `SeqFeature` and `Reference` define
 `__eq__` without `__hash__` (`Bio/SeqFeature.py:1197,1538,227,599`), so Python
@@ -812,7 +900,15 @@ error. This is drift, not policy: `Bio/Seq.py:2163` deliberately restores
 
 ## Tier 3 — Build, packaging and CI
 
-### 3.1 Supply-chain exposure and a shell-injection sink
+### 3.1 Supply-chain exposure and a shell-injection sink **[mostly FIXED]**
+
+> **Status: the pinning and the injection sink are fixed** in PR #18. Every
+> action in `ci.yml` — including `tj-actions/changed-files` — is SHA-pinned
+> with a version comment, and the changed-files output now reaches
+> pre-commit through an `env:` variable consumed as JSON by a Python step,
+> not shell interpolation. **Still open:** `.github/dependabot.yml` covers
+> only `github-actions`, with no `pip` ecosystem, and the `test_*` jobs
+> still carry `secrets.CODECOV_TOKEN`.
 
 `.github/workflows/ci.yml:30` uses `tj-actions/changed-files@v47` — a floating
 tag on the action compromised in CVE-2025-30066 — and `:56` interpolates its
@@ -885,7 +981,12 @@ wheel matrix so build and test agree. Either restore the MySQL driver and add a
 `biosql.ini` step, or delete the pointless server start.
 **Effort S · Impact high**
 
-### 3.5 Three CI systems that have already drifted
+### 3.5 Three CI systems that have already drifted **[FIXED]**
+
+> **Status: fixed** (commit `b793f8145`). `.appveyor.yml` and `.circleci/`
+> are gone entirely — CircleCI was removed rather than kept for the docs
+> deploy — and `requirements-sphinx.txt` now lives in `Doc/`, consumed by
+> the GitHub Actions docs job.
 
 GitHub Actions, CircleCI and AppVeyor all run the same offline suite with three
 different dependency sets. `.appveyor.yml:4` pins the long-deprecated
@@ -899,7 +1000,17 @@ only for the docs deploy, move `requirements-sphinx.txt` to `Doc/`, fix the
 duplicated `--source`.
 **Effort M · Impact medium**
 
-### 3.6 Tooling configuration is split and already inconsistent
+### 3.6 Tooling configuration is split and already inconsistent **[mypy half FIXED]**
+
+> **Status: the mypy-cannot-see-numpy half is fixed** in PR #20. The hook in
+> `.pre-commit-config.yaml` now has `additional_dependencies: [numpy]`, the
+> `[mypy-numpy.*]` override is gone from `.mypy.ini`, and the five
+> `Bio/PDB/Atom.py` errors are resolved (a `_isclose` helper handling
+> `float | None`). **Still open:** `ci-dependencies.txt:10` still pins
+> `black==22.12.0` against pre-commit's `24.10.0`, ruff configuration still
+> lives only in pre-commit CLI args with no `[tool.ruff]` section,
+> `ci-dependencies.txt` has not been replaced by `[dependency-groups]`, and
+> there is no scheduled full-tree `pre-commit run --all-files`.
 
 `ci-dependencies.txt:10` pins `black==22.12.0`; `.pre-commit-config.yaml:33` uses
 `24.10.0`. All ruff configuration lives in pre-commit CLI args, with no
@@ -981,7 +1092,12 @@ The `unittest.TestCase` tests themselves are fine and should stay — rewriting
 them would be pure churn. The problems are in the bespoke *runner* and in how
 the suite depends on ambient process state.
 
-### 4.1 Five test modules fail if `PYTHONWARNINGS` is set **[reproduced by review]**
+### 4.1 Five test modules fail if `PYTHONWARNINGS` is set **[reproduced by review — FIXED]**
+
+> **Status: fixed** in PR #10. Every recorded-warning block now establishes
+> its own filter — `assertWarnsRegex` where one warning is the contract, an
+> explicit `simplefilter("always")` where a recorded list is inspected — and
+> the five modules above pass under `PYTHONWARNINGS=ignore`.
 
 39 sites use `warnings.catch_warnings(record=True)`; seven never call
 `simplefilter("always")` inside the block, so they inherit whatever global filter
@@ -1048,6 +1164,13 @@ phase to `--doctest-modules` so failures print inline.
 
 ### 4.4 The previously documented test command did not work
 
+> **Status: the runner half is fixed; the extras half is not.** PR #14
+> removed the module-scope `from setuptools import find_packages` from
+> `Tests/run_tests.py`, so the runner works in a clean venv. There is still
+> no `test` extra: `pyproject.toml` has only a `[dependency-groups]` `dev`
+> group (holding `setuptools>=77`), and `ci-dependencies.txt` remains the
+> unreferenced list it was.
+
 `python setup.py test` does not work, yet the old `CLAUDE.md` documented it as
 the primary way to run tests. `setup.py` is now a 19-line deprecation shim with
 no `test` command. The exact failure depends on the setuptools version: with a
@@ -1070,6 +1193,11 @@ drift. See also §3.7.
 **Effort S · Impact high**
 
 ### 4.5 Skips are silent and unbounded, and a live API key is committed
+
+> **Status: the API-key half is fixed** in PR #15. `Tests/test_Entrez.py`
+> uses the literal `"offline-test-api-key"`, and `Tests/test_Entrez_online.py`
+> reads `NCBI_API_KEY` from the environment and skips when it is unset — the
+> exact fix proposed below. The skip-accounting half is untouched.
 
 A fully-populated local run skips **61 of 501 modules (12%) and still exits 0**,
 with no skip count in the summary. The macOS and Windows CI jobs install only
@@ -1302,18 +1430,23 @@ outranks a crash, a crash outranks a missing feature, and anything reproduced
 outranks anything inferred. Every item below was checked against this fork's
 tree, not just read about.
 
+> **Status: seven of the fifteen have been adopted** — #3897, #4866, #4450,
+> #3812, #5127 (first commit only), #5181 (the `matrix.py` half only, as
+> planned) and #5175. Rows are marked **adopted** below; `ADOPTED.md` records
+> what was taken and what was left behind on each.
+
 | | upstream | defect | effort |
 |---|---|---|---|
-| 1 | [#3897](https://github.com/biopython/biopython/pull/3897) | `DisorderedAtom.copy()` leaves `selected_child` pointing into the original, so the copy reads and transforms the original's coordinates | S |
-| 2 | [#4866](https://github.com/biopython/biopython/pull/4866) | `MeltingTemp.Tm_*` given a `SeqRecord` strips its repr down to ACGT and returns a plausible Tm for the garbage | S |
-| 3 | [#4450](https://github.com/biopython/biopython/pull/4450) | one non-standard month in a PDB `HEADER` aborts the whole parse with `ValueError: list.index(x)`, naming no file or field | S |
-| 4 | [#3812](https://github.com/biopython/biopython/pull/3812) | one residue with missing atoms destroys an entire HSExposure calculation, because `_get_cb` returns `(None, 0.0)` where the caller checks for `None` | S |
-| 5 | [#5127](https://github.com/biopython/biopython/pull/5127) | `polar_angle` is read from uninitialised memory wherever the radius is zero | S |
+| 1 | [#3897](https://github.com/biopython/biopython/pull/3897) **adopted** | `DisorderedAtom.copy()` leaves `selected_child` pointing into the original, so the copy reads and transforms the original's coordinates | S |
+| 2 | [#4866](https://github.com/biopython/biopython/pull/4866) **adopted** | `MeltingTemp.Tm_*` given a `SeqRecord` strips its repr down to ACGT and returns a plausible Tm for the garbage | S |
+| 3 | [#4450](https://github.com/biopython/biopython/pull/4450) **adopted** | one non-standard month in a PDB `HEADER` aborts the whole parse with `ValueError: list.index(x)`, naming no file or field | S |
+| 4 | [#3812](https://github.com/biopython/biopython/pull/3812) **adopted** | one residue with missing atoms destroys an entire HSExposure calculation, because `_get_cb` returns `(None, 0.0)` where the caller checks for `None` | S |
+| 5 | [#5127](https://github.com/biopython/biopython/pull/5127) **adopted** | `polar_angle` is read from uninitialised memory wherever the radius is zero | S |
 | 6 | [#4390](https://github.com/biopython/biopython/pull/4390) | `auth_residues=False` staples auth insertion codes onto label numbering, giving residue ids that exist in neither scheme | S |
-| 7 | [#5181](https://github.com/biopython/biopython/pull/5181) | `calculate_consensus` raises `UnboundLocalError` on an all-zero column — take the `matrix.py` half only, see below | S |
+| 7 | [#5181](https://github.com/biopython/biopython/pull/5181) **adopted** | `calculate_consensus` raises `UnboundLocalError` on an all-zero column — take the `matrix.py` half only, see below | S |
 | 8 | [#3911](https://github.com/biopython/biopython/pull/3911) | the GenBank writer emits multi-line qualifiers that its own parser then rejects | M |
 | 9 | [#4938](https://github.com/biopython/biopython/pull/4938) | `PDBList` still fetches MMTF from a host RCSB decommissioned; BinaryCIF, which this fork already parses, cannot be fetched at all | S |
-| 10 | [#5175](https://github.com/biopython/biopython/pull/5175) | nine `assert`s validating input in production code, which vanish under `python -O` — the same defect as §0.8 | S |
+| 10 | [#5175](https://github.com/biopython/biopython/pull/5175) **adopted** | nine `assert`s validating input in production code, which vanish under `python -O` — the same defect as §0.8 | S |
 | 11 | [#5121](https://github.com/biopython/biopython/pull/5121) | mmCIF parsing is ~50% slower than it needs to be for want of a six-line fast path | S |
 | 12 | [#5244](https://github.com/biopython/biopython/pull/5244) | every SAM file written has `TLEN` 0 on every record | M |
 | 13 | [#4918](https://github.com/biopython/biopython/pull/4918) | GenBank `LOCUS` lines with molecule type `NA` are rejected outright | S |
@@ -1324,6 +1457,7 @@ Two defects were found while surveying and belong to no pull request:
 
 - `Bio/motifs/matrix.py:209` indexes `counts[3]` unconditionally, so any motif
   over an alphabet of fewer than four letters raises `IndexError`.
+  **Fixed** in fork PR #47, which pads the ranked counts with zeros.
 - `Bio/SeqIO/PdbIO.py:444-449` keys `cif-seqres` off label chain ids while
   `cif-atom` goes through `MMCIFParser(auth_chains=True)`, so the two parsers
   report different chain ids for the same file.
@@ -1357,7 +1491,8 @@ Two defects were found while surveying and belong to no pull request:
 1. **§0.11–0.14 before anything else.** These are memory-safety defects in C
    code, three of them reproduced as segfaults, and §0.11 is reachable from a
    malformed input file. All four are S-effort. §0.11 in particular should be
-   treated as a security fix, not a bug fix.
+   treated as a security fix, not a bug fix. *(Done — all four are fixed;
+   only §0.13's remaining hardening is open.)*
 2. **The rest of Tier 0.** Mostly S-effort, and it is where users are actively
    getting wrong answers. §0.1–0.4 are reproduced and unambiguous. Fix the
    `Tests/test_ProtParam.py` fixture that currently pins §0.1 in place.
@@ -1365,8 +1500,11 @@ Two defects were found while surveying and belong to no pull request:
    under `PYTHONWARNINGS`), §4.4 (the runner breaks in a clean venv) and the
    committed NCBI API key in §4.5. All S-effort, and everything below is
    verified by running the tests, so this comes first among the non-urgent work.
+   *(Done — all three of those specifics are fixed; §4.4's missing `test`
+   extra and §4.5's skip accounting remain.)*
 4. **§3.1 and §3.6** — supply-chain pinning and making mypy actually see numpy
-   are both S-effort and make every later change safer to land.
+   are both S-effort and make every later change safer to land. *(Done in the
+   parts that motivated this step; each entry lists its remainder.)*
 5. **§1.6 then §1.3** — turn on `check_untyped_defs` with a ratchet baseline
    before annotating, so the annotation work is checked as it lands.
 6. **§1.7 (import cost)** and **§1.11 (FASTQ hot path)** are the highest
