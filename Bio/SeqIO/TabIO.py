@@ -34,14 +34,11 @@ example above.
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio import BiopythonDeprecationWarning
 
 from .Interfaces import _clean
 from .Interfaces import _get_seq_string
 from .Interfaces import SequenceIterator
 from .Interfaces import SequenceWriter
-
-import warnings
 
 
 class TabIterator(SequenceIterator):
@@ -133,25 +130,6 @@ class TabWriter(SequenceWriter):
     def write_record(self, record):
         """Write a single tab line to the file."""
         self.handle.write(self.to_string(record))
-
-
-def as_tab(record):
-    """Return record as tab separated (id(tab)seq) string."""
-    warnings.warn(
-        """\
-TabIO.as_tab is deprecated.
-
-Instead of
-
-TabIO.as_tab(record)
-
-please use
-
-format(record, "tab")
-""",
-        DeprecationWarning,
-    )
-    return TabWriter.to_string(record)
 
 
 if __name__ == "__main__":

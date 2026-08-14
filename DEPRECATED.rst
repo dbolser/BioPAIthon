@@ -108,20 +108,24 @@ format accepted by BLAST, treating any lines starting with '#', ';', or '!' as
 comment lines and ignoring them.
 
 The functions ``as_fasta`` and ``as_fasta_2line`` in ``Bio.SeqIO.FastaIO`` were
-deprecated in release 1.86. Please use ``format(record, "fasta")`` or
+deprecated in release 1.86, and removed in BioPAIthon 1.88 (upstream Biopython
+1.88 still ships them, deprecated). Please use ``format(record, "fasta")`` or
 ``format(record, "fasta-2line")`` instead.
 
 Bio.SeqIO.qualityIO
 -------------------
 The functions ``as_fastq``, ``as_fastq_solexa``, ``as_fastq_illumina``, and
-``as_qual`` in ``Bio.SeqIO.QualityIO`` were deprecated in release 1.86.
-Please use ``format(record, "fastq")``, ``format(record, "fastq-solexa")``, 
-``format(record, "fastq-illumina")``, or ``format(record, "qual")`` instead.
+``as_qual`` in ``Bio.SeqIO.QualityIO`` were deprecated in release 1.86, and
+removed in BioPAIthon 1.88 (upstream Biopython 1.88 still ships them,
+deprecated). Please use ``format(record, "fastq")``,
+``format(record, "fastq-solexa")``, ``format(record, "fastq-illumina")``, or
+``format(record, "qual")`` instead.
 
 Bio.SeqIO.TabIO
 -------------------
-The function ``as_tab`` in ``Bio.SeqIO.TabIO`` was deprecated in release 1.86.
-Please use ``format(record, "tab")`` instead.
+The function ``as_tab`` in ``Bio.SeqIO.TabIO`` was deprecated in release 1.86,
+and removed in BioPAIthon 1.88 (upstream Biopython 1.88 still ships it,
+deprecated). Please use ``format(record, "tab")`` instead.
 
 Bio.SeqIO.UniprotIO
 -------------------
@@ -148,7 +152,10 @@ Bio.AlignInfo
 -------------
 The ``pos_specific_score_matrix`` method of the ``SummaryInfo`` class and the
 ``PSSM`` class were deprecated in release 1.82, and removed in release 1.85.
-The ``SummaryInfo`` class itself was deprecated in release 1.86.  As an
+The ``SummaryInfo`` class itself was deprecated in release 1.86, and removed
+in BioPAIthon 1.88, together with the ``Bio.Align.AlignInfo`` module, which it
+was the last remaining content of (upstream Biopython 1.88 still ships both,
+with the class deprecated).  As an
 alternative, please use the ``alignment`` property of a ``MultipleSeqAlignment``
 object to obtains a new-style ``Alignment`` object, and use it to create a
 ``Bio.motifs.Motif`` object. For example,
