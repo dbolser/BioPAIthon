@@ -50,6 +50,7 @@ EXCLUDE_DOCTEST_MODULES = [
     "Bio.Application",
     "Bio.Blast.Applications",
     "Bio.Emboss.Applications",
+    "Bio.HMM",
     "Bio.pairwise2",
     "Bio.Phylo.Applications",
     "Bio.Sequencing.Applications",

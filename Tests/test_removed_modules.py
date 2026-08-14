@@ -26,6 +26,7 @@ REMOVED_MODULES = [
     ("Bio.Align.Applications", "MuscleCommandline"),
     ("Bio.Blast.Applications", "NcbiblastnCommandline"),
     ("Bio.Emboss.Applications", "WaterCommandline"),
+    ("Bio.HMM", "hmmlearn"),
     ("Bio.Phylo.Applications", "PhymlCommandline"),
     ("Bio.Sequencing.Applications", "Novoalign"),
     ("Bio.pairwise2", "PairwiseAligner"),

@@ -245,6 +245,15 @@ The `Bio.HMM.DynamicProgramming`, `Bio.HMM.Trainer`, `Bio.HMM.MarkovModel`, and
 release 1.86. Consider using hmmlearn (https://pypi.org/project/hmmlearn/)
 instead.
 
+**BioPAIthon differs from Biopython here.** The 1.86 removal left the
+``Bio.HMM`` package itself in place as a docstring-only file, so
+``import Bio.HMM`` succeeded while providing nothing, and any use of its
+contents failed one step later with an error that never mentioned the removal.
+The package is now a stub whose import raises ``ImportError`` naming the four
+removed modules and the replacement, following the pattern used for
+``Bio.Alphabet`` and the command line wrappers above. Code guarded with
+``except ImportError`` keeps working.
+
 Bio.PDB.Polypeptide
 -------------------
 Functions ``three_to_one`` and ``one_to_three`` were deprecated in Release 1.80

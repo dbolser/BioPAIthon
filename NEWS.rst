@@ -58,6 +58,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``import Bio.HMM`` now raises an informative ``ImportError`` instead of
+silently succeeding. All four of the package's modules were removed in
+Biopython 1.86, but the package itself survived as an importable docstring:
+``import Bio.HMM`` "worked" while providing nothing, and any actual use failed
+one step later without ever mentioning the removal. A GitHub code search finds
+35 public files still importing it, every one already broken in effect. The
+package is now a stub raising ``ImportError`` that names the removed modules
+and points at hmmlearn, the treatment ``Bio.Alphabet`` and the command line
+wrappers already have. Code guarded with ``except ImportError`` is unaffected.
+The package deliberately stays in ``pyproject.toml``: the stub has to ship for
+its message to reach anyone.
+
 ``Bio.Cluster``'s ``kcluster``, ``kmedoids`` and ``somcluster`` (and the
 corresponding ``Record`` methods) accept a new optional ``rng_seed`` keyword,
 an integer between 0 and 2**64-1. Passing a seed makes the clustering
