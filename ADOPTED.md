@@ -46,17 +46,24 @@ Newest first.
 require — they insist on strictly bifurcating trees, while others (FastTree,
 for one) happily produce multifurcations. The pull request adds
 `TreeMixin.resolve_polytomies(shuffle=False, recursive=True)`, which converts
-each polytomy into a caterpillar of zero-length bifurcations, optionally
-shuffling the child order first.
+each polytomy into zero-length bifurcations, optionally shuffling the child
+order first.
 
 **All three commits taken**, including the author adding himself to
 `CONTRIB.rst` — the only review comment (peterjc asking the test to compare
 the resolved tree's string representation) was addressed by the author in the
-third commit, and nothing was left behind. Two corrections sit on top in a
-separate commit: the caterpillar is now built with a loop rather than the
-original one-child-per-call recursion, which hit Python's recursion limit on a
-polytomy with ~1000 children — a star tree being precisely the input the
-feature targets — and the public method gained the doctest the house style
+third commit, and nothing was left behind. Corrections sit on top in separate
+commits, and one changes behaviour for wide polytomies: the adopted code
+resolved a polytomy into a caterpillar, one child per level, built by a
+recursion that hit Python's recursion limit at ~1000 children — a star tree
+being precisely the input the feature targets — and even built another way, a
+chain that deep defeats the library's own recursive machinery
+(`is_bifurcating`, the Newick writer, preorder `find_clades`). Polytomies now
+resolve into a *balanced* hierarchy, ~log2(n) deep, preserving child order
+left to right when `shuffle=False`. A three-child polytomy resolves exactly as
+upstream's code resolved it; wider ones differ in shape (both are valid
+zero-length resolutions), and the expected string in the adopted unit test is
+updated to match. The public method also gained the doctest the house style
 asks of new API.
 
 ### [#4918](https://github.com/biopython/biopython/pull/4918) — Erik Whiting
