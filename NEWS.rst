@@ -58,6 +58,16 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.PDB``'s ``MMCIFParser`` and ``FastMMCIFParser`` no longer staple
+author-scheme insertion codes onto label-scheme residue numbers when called
+with ``auth_residues=False``. Label numbering (``_atom_site.label_seq_id``)
+has no insertion codes, but the parsers still read
+``_atom_site.pdbx_PDB_ins_code``, producing ids such as ``(' ', 23, 'A')`` in
+chain U of ``Tests/PDB/4ZHL.cif`` — an id that exists in neither numbering
+scheme. Insertion codes are now ignored under label numbering; the default
+author numbering is unchanged. Adopted from biopython/biopython#4390 by
+Thomas Holder; see ``ADOPTED.md``.
+
 ``PairwiseAligner.warn_defaults_changed()`` has been removed. It was
 transitional plumbing added in Biopython 1.86 with the change of the default
 gap score from 0 to -1 — a one-time ``UserWarning`` describing the new

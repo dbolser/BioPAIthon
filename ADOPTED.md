@@ -40,6 +40,23 @@ request.
 
 Newest first.
 
+### [#4390](https://github.com/biopython/biopython/pull/4390) — Thomas Holder
+
+With `auth_residues=False`, `MMCIFParser` and `FastMMCIFParser` number
+residues from `_atom_site.label_seq_id` but still attach the insertion code
+from `_atom_site.pdbx_PDB_ins_code`, which is an author-scheme field — label
+numbering has no insertion codes. The resulting ids mix the two schemes: in
+`Tests/PDB/4ZHL.cif` chain U, the residue that is `(' ', 37, 'A')` in author
+numbering came out as `(' ', 23, 'A')`, an id that exists in neither scheme
+(the label scheme has a plain 23; the author scheme has 37 with icode A). The
+fix blanks the insertion-code list when label numbering is in use, so that
+residue is `(' ', 23, ' ')`.
+
+**The single commit taken in full.** The pull request carried no review
+discussion and grew no extras. Its test exercises only `MMCIFParser`, although
+the commit patches both parsers; this fork adds a matching `FastMMCIFParser`
+regression test in a follow-up commit.
+
 ### [#4634](https://github.com/biopython/biopython/pull/4634) — Brandon Seah
 
 `Bio.Phylo` had no way to resolve polytomies, which many downstream tools
