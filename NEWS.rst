@@ -58,6 +58,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+The optional-dependency stacks are now installable through declared extras:
+``pip install biopaithon[graphics]``, ``[biosql]``, ``[structure]``,
+``[phylo]``, ``[all]``, or ``[test]``. Previously the package metadata declared
+only ``numpy`` and the ten or so optional packages had to be discovered and
+installed by hand. The ``test`` extra covers what the offline test suite
+exercises, and ``ci-dependencies.txt`` now just installs it, so the two cannot
+drift. The ``numpy`` requirement is also bounded to ``>=1.24,<3`` instead of
+accepting any version. Note ``[structure]`` deliberately omits ``mmtf-python``:
+RCSB shut the MMTF service down in July 2024 and ``Bio.PDB.mmtf`` is headed for
+removal.
+
 ``Bio.GenBank.Record.Record`` no longer corrupts a WGS range that was assigned
 as a string. Biopython 1.88 taught ``Record.__str__`` to join the list of range
 endpoints the parser produces, fixing a ``TypeError``, and corrected
