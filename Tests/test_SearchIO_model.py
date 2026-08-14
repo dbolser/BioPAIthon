@@ -18,6 +18,7 @@ from io import BytesIO
 
 from search_tests_common import SearchTestBaseClass
 
+from Bio import BiopythonDeprecationWarning
 from Bio.Align import MultipleSeqAlignment
 from Bio.SearchIO._model import Hit
 from Bio.SearchIO._model import HSP
@@ -124,6 +125,12 @@ class QueryResultCases(SearchTestBaseClass):
         """Test QueryResult.items."""
         # items should return tuples of hit key, hit object pair
         items = list(self.qresult.items)
+        self.assertEqual([("hit1", hit11), ("hit2", hit21), ("hit3", hit31)], items)
+
+    def test_iteritems(self):
+        """Test QueryResult.iteritems, deprecated but still working."""
+        with self.assertWarns(BiopythonDeprecationWarning):
+            items = list(self.qresult.iteritems())
         self.assertEqual([("hit1", hit11), ("hit2", hit21), ("hit3", hit31)], items)
 
     def test_hsps(self):

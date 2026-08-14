@@ -5,9 +5,11 @@
 # package.
 """Bio.SearchIO object to model search results from a single query."""
 
+import warnings
 from copy import deepcopy
 from itertools import chain
 
+from Bio import BiopythonDeprecationWarning
 from Bio.SearchIO._utils import optionalcascade
 
 from ._base import _BaseSearchObject
@@ -231,8 +233,20 @@ class QueryResult(_BaseSearchObject):
         yield from self._items
 
     def iteritems(self):
-        """Return an iterator yielding tuples of Hit ID and Hit objects."""
-        yield from self._items.items()
+        """Return an iterator yielding tuples of Hit ID and Hit objects (DEPRECATED).
+
+        This method is named after the Python 2 ``dict.iteritems``, which no
+        longer exists. Use ``zip(qresult.iterhit_keys(), qresult.iterhits())``
+        or the ``items`` property instead.
+        """
+        warnings.warn(
+            "QueryResult.iteritems is deprecated and will be removed in a"
+            " future release. Use zip(qresult.iterhit_keys(),"
+            " qresult.iterhits()) or the items property instead.",
+            BiopythonDeprecationWarning,
+            stacklevel=2,
+        )
+        return iter(self._items.items())
 
     def __contains__(self, hit_key):
         """Return True if hit key in items or alternative hit identifiers."""
