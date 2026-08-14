@@ -25,7 +25,9 @@ By default, all tests are run.
 import doctest
 import gc
 import getopt
+import ipaddress
 import os
+import socket
 import sys
 import time
 import traceback
@@ -103,6 +105,49 @@ def find_modules(path):
 
 SYSTEM_LANG = os.environ.get("LANG", "C")  # Cache this
 
+# Name of the test currently being run, used by the --offline socket guard
+# to report which test attempted a network connection.
+CURRENT_TEST = None
+
+
+def _is_local_address(sock, address):
+    """Check if a socket connection stays on this machine (PRIVATE).
+
+    Allows AF_UNIX sockets and TCP/UDP connections to loopback addresses,
+    e.g. for BioSQL tests run against a database server on this machine.
+    """
+    if sock.family == getattr(socket, "AF_UNIX", None):
+        return True
+    if isinstance(address, tuple) and address:
+        host = address[0]
+        if host == "localhost":
+            return True
+        try:
+            return ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            return False
+    return False
+
+
+def block_network_connections():
+    """Patch socket.socket.connect to fail on non-local connections (PRIVATE).
+
+    Monkeypatching urllib.request.urlopen is not enough: http.client,
+    requests and raw sockets would still go online. Patching at the
+    socket layer catches them all, whatever library made the attempt.
+    """
+    real_connect = socket.socket.connect
+
+    def guarded_connect(sock, address):
+        if _is_local_address(sock, address):
+            return real_connect(sock, address)
+        raise RuntimeError(
+            f"{CURRENT_TEST or 'The test suite'} attempted a network "
+            f"connection to {address!r} despite the --offline setting"
+        )
+
+    socket.socket.connect = guarded_connect
+
 
 def main(argv):
     """Run tests, return number of failures (integer)."""
@@ -137,15 +182,9 @@ def main(argv):
             import requires_internet
 
             requires_internet.check.available = False
-            # Monkey patch for urlopen()
-            import urllib.request
-
-            def dummy_urlopen(url):
-                raise RuntimeError(
-                    "Internal test suite error, attempting to use internet despite --offline setting"
-                )
-
-            urllib.request.urlopen = dummy_urlopen
+            # Block non-local socket connections so any test that tries
+            # to use the internet fails loudly rather than going online.
+            block_network_connections()
 
         if opt == "-v" or opt == "--verbose":
             verbosity = 2
@@ -203,6 +242,8 @@ class TestRunner(unittest.TextTestRunner):
         from Bio import MissingExternalDependencyError
         from Bio import MissingPythonDependencyError
 
+        global CURRENT_TEST
+        CURRENT_TEST = name
         result = self._makeResult()
         output = StringIO()
         # Restore the language and thus default encoding (in case a prior
