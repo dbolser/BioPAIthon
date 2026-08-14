@@ -430,6 +430,15 @@ Reading FASTQ files is faster. The quality decoder no longer round-trips every
 record through ``array.array`` to accommodate the negative scores that only the
 Solexa format produces; that conversion now happens only in the Solexa reader.
 
+``Bio.PDB.mmtf`` is deprecated and now emits a ``BiopythonDeprecationWarning``
+on import; we intend to remove it in a later release. RCSB PDB decommissioned
+the MMTF file format in July 2024 and its download server, ``mmtf.rcsb.org``,
+no longer exists in DNS, so ``MMTFParser.get_structure_from_url`` cannot fetch
+anything, and the ``mmtf-python`` package the module depends on last saw a
+release in 2022. BinaryCIF is RCSB's designated successor, and BioPAIthon
+reads it with ``Bio.PDB.binary_cif``; mmCIF files can be read with
+``Bio.PDB.MMCIFParser``. See ``DEPRECATED.rst``.
+
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 

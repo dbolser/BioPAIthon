@@ -83,6 +83,15 @@ From now on one should use the following commands:
 Biopython modules, methods, functions
 =====================================
 
+Bio.PDB.mmtf
+------------
+**This deprecation is BioPAIthon's own; Biopython has not deprecated this
+module.** Deprecated in BioPAIthon 1.88. RCSB PDB decommissioned the MMTF
+file format in July 2024 and switched off its download server, so MMTF files
+can no longer be downloaded, and the ``mmtf-python`` package this module
+depends on last saw a release in 2022. Please use BinaryCIF files with
+``Bio.PDB.binary_cif``, or mmCIF files with ``Bio.PDB.MMCIFParser``, instead.
+
 Bio.SeqIO.FastaIO
 -----------------
 Parsing a FASTA file using Bio.SeqIO.parse with ``format='fasta'`` interprets
