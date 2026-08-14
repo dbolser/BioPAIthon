@@ -12,41 +12,39 @@ documentation.
 """
 
 # standard library
-from io import StringIO
+from io import BytesIO
 
 # biopython
+from Bio import Blast
 from Bio import SeqIO
-from Bio.Blast import NCBIWWW
-from Bio.Blast import NCBIXML
 
 # first get the sequence we want to parse from a FASTA file
 f_record = next(SeqIO.parse("m_cold.fasta", "fasta"))
 
 print("Doing the BLAST and retrieving the results...")
-result_handle = NCBIWWW.qblast("blastn", "nr", f_record.format("fasta"))
+result_stream = Blast.qblast("blastn", "nr", format(f_record, "fasta"))
 
 # save the results for later, in case we want to look at it
-with open("m_cold_blast.out", "w") as save_file:
-    blast_results = result_handle.read()
+blast_results = result_stream.read()
+with open("m_cold_blast.out", "wb") as save_file:
     save_file.write(blast_results)
 
 print("Parsing the results and extracting info...")
 
 # option 1 -- open the saved file to parse it
-# option 2 -- create a handle from the string and parse it
-string_result_handle = StringIO(blast_results)
-b_record = NCBIXML.read(string_result_handle)
+# option 2 -- create a stream from the bytes and parse it
+blast_record = Blast.read(BytesIO(blast_results))
 
 # now get the alignment info for all e values greater than some threshold
 E_VALUE_THRESH = 0.1
 
-for alignment in b_record.alignments:
-    for hsp in alignment.hsps:
-        if hsp.expect < E_VALUE_THRESH:
+for hit in blast_record:
+    for hsp in hit:
+        if hsp.annotations["evalue"] < E_VALUE_THRESH:
             print("****Alignment****")
-            print("sequence: %s" % alignment.title)
-            print("length: %i" % alignment.length)
-            print("e value: %f" % hsp.expect)
-            print(hsp.query[0:75] + "...")
-            print(hsp.match[0:75] + "...")
-            print(hsp.sbjct[0:75] + "...")
+            print("sequence: %s %s" % (hit.target.id, hit.target.description))
+            print("length: %i" % len(hit.target))
+            print("e value: %f" % hsp.annotations["evalue"])
+            print(hsp[1][0:75] + "...")  # aligned query
+            print(hsp.annotations["midline"][0:75] + "...")
+            print(hsp[0][0:75] + "...")  # aligned target

@@ -254,7 +254,7 @@ Frequently Asked Questions (FAQ)
      1.59 onwards turns a list into a comma separated string
      automatically.
 
-#. | *Why doesn’t* ``Bio.Blast.NCBIWWW.qblast()`` *give the same results
+#. | *Why doesn’t* ``Bio.Blast.qblast()`` *give the same results
      as the NCBI BLAST website?*
    | You need to specify the same options – the NCBI often adjust the
      default settings on the website, and they do not match the QBLAST
