@@ -85,6 +85,7 @@
 
 #include "Python.h"
 #include <limits.h>
+#include <stdint.h>
 
 #define MAX_PATHS 20
 
@@ -807,6 +808,24 @@ PyCealign(PyObject *Py_UNUSED(self), PyObject *args)
     const Py_ssize_t sizeB = PySequence_Size(listB);
 
     if (sizeA < 0 || sizeB < 0) {
+        return NULL;
+    }
+
+    /* A sequence can report any Py_ssize_t as its length without holding
+       that many items. A length above INT_MAX would wrap in the int casts
+       below, reaching the C loops with a lenA inconsistent with the checks
+       made here, and on 32-bit platforms even a smaller length overflows
+       the size_t multiplications in the allocators (whose element sizes
+       are all constants no larger than sizeof(cePoint)). Both are rejected
+       once here, at the boundary, instead of in every allocator. */
+    const size_t maxAllocable = SIZE_MAX / sizeof(cePoint);
+    const Py_ssize_t maxLength =
+        maxAllocable < INT_MAX ? (Py_ssize_t)maxAllocable : INT_MAX;
+
+    if (sizeA > maxLength || sizeB > maxLength) {
+        PyErr_Format(PyExc_ValueError,
+            "each structure is limited to %zd coordinates "
+            "(got %zd and %zd)", maxLength, sizeA, sizeB);
         return NULL;
     }
 

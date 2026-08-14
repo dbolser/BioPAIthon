@@ -58,6 +58,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.PDB.ccealign.run_cealign`` results now share one type and can be
+pickled. Every call built a fresh ``CEAlignment`` struct-sequence type for
+each result, so two results of the same call had distinct types —
+``type(results[0]) is type(results[1])`` was ``False`` — and no result could
+be pickled, because the throwaway type could not be found again. The type is
+now created once, when the module is loaded, and is exposed as
+``Bio.PDB.ccealign.CEAlignment``; every result is an instance of it. The
+module also now rejects coordinate sequences whose reported length does not
+fit the extension's arithmetic, and raises ``MemoryError`` on allocation
+failures that were previously unchecked.
+
 The optional-dependency stacks are now installable through declared extras:
 ``pip install biopaithon[graphics]``, ``[biosql]``, ``[structure]``,
 ``[phylo]``, ``[all]``, or ``[test]``. Previously the package metadata declared

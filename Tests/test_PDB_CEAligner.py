@@ -228,6 +228,26 @@ class RunCEAlignArgumentTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "maximum gap"):
                     run_cealign(coords, coords, 8, gap_max)
 
+    def test_length_beyond_int_range(self):
+        """Test that a reported length that cannot fit an int is rejected.
+
+        The reported length used to be cast straight to a C int, so a
+        sequence claiming 2**32 + 40 items reached the C loops as one of
+        length 40, bypassing the length checks. On 32-bit builds
+        PySequence_Size itself raises OverflowError before the extension's
+        own check can, so both exceptions are accepted.
+        """
+
+        class LyingLength:
+            def __len__(self):
+                return 2**32 + 40
+
+            def __getitem__(self, index):
+                return (0.0, 0.0, 0.0)
+
+        with self.assertRaises((ValueError, OverflowError)):
+            run_cealign(LyingLength(), self.coords(), 8, 30)
+
     def test_not_a_sequence(self):
         """Test that a non-sequence argument raises TypeError."""
         coords = self.coords()
