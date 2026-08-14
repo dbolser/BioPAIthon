@@ -55,7 +55,7 @@ class ChromosomeCounts:
         """
         self._names = segment_names
         self._count_info = {}
-        self._label_info = {}
+        self._label_info: dict = {}
         self._scale_info = {}
         for name in self._names:
             self._count_info[name] = 0
