@@ -60,11 +60,13 @@ recorded below. They are not part of any upstream Biopython release.
 
 ``Bio.Phylo`` trees can now resolve polytomies: the new
 ``resolve_polytomies`` method on trees and clades converts each
-multifurcation into a series of bifurcations with branch length zero, as
-many downstream tools require. Adopted from upstream pull request
+multifurcation into bifurcations with branch length zero, as many downstream
+tools require. Adopted from upstream pull request
 `#4634 <https://github.com/biopython/biopython/pull/4634>`_ by Brandon Seah
-(see ``ADOPTED.md``), with the internal recursion replaced by a loop so that
-polytomies wider than Python's recursion limit also resolve.
+(see ``ADOPTED.md``), with the resolution built as a balanced hierarchy
+rather than a one-child-per-level chain, so that even polytomies wider than
+Python's recursion limit resolve — and the resolved tree stays shallow enough
+to validate, traverse and write back out.
 
 GenBank files whose LOCUS line declares molecule type ``NA`` — a nucleic acid
 of unspecified type, part of the GenBank specification and written by e.g.
