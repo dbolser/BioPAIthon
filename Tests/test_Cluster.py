@@ -3109,6 +3109,132 @@ class TestCluster(unittest.TestCase):
         self.assertAlmostEqual(eigenvalues[3], 0.0)
 
 
+class TestClusterRNGSeed(unittest.TestCase):
+    """Tests for the rng_seed argument of kcluster, kmedoids and somcluster.
+
+    The rng_seed argument is specific to Bio.Cluster (it does not exist in
+    Pycluster), so these tests are skipped when the tests are run against
+    Pycluster.
+    """
+
+    def setUp(self):
+        if TestCluster.module != "Bio.Cluster":
+            self.skipTest("rng_seed is only available in Bio.Cluster")
+
+    @staticmethod
+    def _data(nrows=30, ncols=5):
+        """Return a small deterministic data matrix with cluster structure."""
+        rng = np.random.default_rng(20260813)
+        data = rng.normal(size=(nrows, ncols))
+        data[: nrows // 2] += 4.0
+        return data
+
+    def test_kcluster_reproducible(self):
+        from Bio.Cluster import kcluster
+
+        data = self._data()
+        first = kcluster(data, nclusters=3, npass=5, rng_seed=123)
+        second = kcluster(data, nclusters=3, npass=5, rng_seed=123)
+        np.testing.assert_array_equal(first[0], second[0])
+        self.assertEqual(first[1], second[1])
+        self.assertEqual(first[2], second[2])
+        # Unseeded calls draw a fresh seed per call and must still work.
+        clusterid, error, nfound = kcluster(data, nclusters=3, npass=5)
+        self.assertEqual(len(clusterid), len(data))
+        self.assertGreaterEqual(nfound, 1)
+
+    def test_kmedoids_reproducible(self):
+        from Bio.Cluster import distancematrix
+        from Bio.Cluster import kmedoids
+
+        distances = distancematrix(self._data())
+        first = kmedoids(distances, nclusters=3, npass=5, rng_seed=99)
+        second = kmedoids(distances, nclusters=3, npass=5, rng_seed=99)
+        np.testing.assert_array_equal(first[0], second[0])
+        self.assertEqual(first[1], second[1])
+        self.assertEqual(first[2], second[2])
+        clusterid, error, nfound = kmedoids(distances, nclusters=3, npass=5)
+        self.assertGreaterEqual(nfound, 1)
+
+    def test_somcluster_seed_determines_output(self):
+        from Bio.Cluster import somcluster
+
+        data = self._data()
+        clusterid1, celldata1 = somcluster(data, niter=3, rng_seed=1)
+        clusterid2, celldata2 = somcluster(data, niter=3, rng_seed=1)
+        np.testing.assert_array_equal(clusterid1, clusterid2)
+        np.testing.assert_array_equal(celldata1, celldata2)
+        # The SOM nodes are initialized with continuous random values, so a
+        # different seed gives different celldata (almost surely; the values
+        # are drawn from a grid of 2**53 doubles).
+        clusterid3, celldata3 = somcluster(data, niter=3, rng_seed=2)
+        self.assertFalse((celldata1 == celldata3).all())
+
+    def test_rng_seed_validation(self):
+        from Bio.Cluster import kcluster
+
+        data = self._data()
+        self.assertRaises(ValueError, kcluster, data, 3, rng_seed=-1)
+        self.assertRaises(ValueError, kcluster, data, 3, rng_seed=2**64)
+        self.assertRaises(TypeError, kcluster, data, 3, rng_seed="spam")
+        # The extreme valid seeds are accepted.
+        kcluster(data, nclusters=3, npass=1, rng_seed=0)
+        kcluster(data, nclusters=3, npass=1, rng_seed=2**64 - 1)
+
+    def test_global_rand_stream_untouched(self):
+        # Bio.Cluster used to seed the C library's global random number
+        # generator with srand(time(0)) on the first random draw, silently
+        # perturbing the rand() stream of the whole process. It now uses a
+        # self-contained generator, so a clustering call must not change
+        # the sequence that rand() returns.
+        import ctypes
+
+        try:
+            libc = ctypes.CDLL(None)
+            libc.srand(42)
+            expected = [libc.rand() for _ in range(5)]
+        except (OSError, AttributeError):
+            self.skipTest("cannot call the C library's rand() on this platform")
+
+        from Bio.Cluster import kcluster
+
+        libc.srand(42)
+        kcluster(self._data(), nclusters=3, npass=5)
+        observed = [libc.rand() for _ in range(5)]
+        self.assertEqual(expected, observed)
+
+    def test_threaded_clustering_matches_serial(self):
+        # Two threads clustering different matrices concurrently must give
+        # the same results as serial runs with the same seeds. Today the
+        # GIL still serializes the C kernels, so this mostly guards the
+        # seeded RNG's per-call state against future GIL-released or
+        # free-threaded builds.
+        import threading
+
+        from Bio.Cluster import kcluster
+
+        matrices = [self._data(), self._data(40, 4) * -1.0]
+        seeds = [11, 22]
+        serial = [
+            kcluster(data, nclusters=3, npass=5, rng_seed=seed)
+            for data, seed in zip(matrices, seeds)
+        ]
+        results = [None, None]
+
+        def worker(i):
+            results[i] = kcluster(matrices[i], nclusters=3, npass=5, rng_seed=seeds[i])
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        for expected, observed in zip(serial, results):
+            np.testing.assert_array_equal(expected[0], observed[0])
+            self.assertEqual(expected[1], observed[1])
+            self.assertEqual(expected[2], observed[2])
+
+
 if __name__ == "__main__":
     TestCluster.module = "Bio.Cluster"
     runner = unittest.TextTestRunner(verbosity=2)

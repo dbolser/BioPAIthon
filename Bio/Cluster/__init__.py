@@ -110,6 +110,7 @@ def kcluster(
     method="a",
     dist="e",
     initialid=None,
+    rng_seed=None,
 ):
     """Perform k-means clustering.
 
@@ -152,6 +153,11 @@ def kcluster(
        order in which items are assigned to clusters (i.e., using
        the same order as in the data matrix). In that case, the
        k-means algorithm is fully deterministic.
+     - rng_seed: seed for the random number generator used to choose the
+       random initial clusterings (an integer between 0 and 2**64-1), or
+       None to seed from a fresh entropy source on each call. A given
+       seed yields identical results on every run, making the clustering
+       reproducible. Only used if initialid is None and npass > 0.
 
     Return values:
      - clusterid: array containing the index of the cluster to which each
@@ -171,12 +177,21 @@ def kcluster(
     weight = __check_weight(weight, ndata)
     clusterid, npass = __check_initialid(initialid, npass, nitems)
     error, nfound = _cluster.kcluster(
-        data, nclusters, mask, weight, transpose, npass, method, dist, clusterid
+        data,
+        nclusters,
+        mask,
+        weight,
+        transpose,
+        npass,
+        method,
+        dist,
+        clusterid,
+        rng_seed,
     )
     return clusterid, error, nfound
 
 
-def kmedoids(distance, nclusters=2, npass=1, initialid=None):
+def kmedoids(distance, nclusters=2, npass=1, initialid=None, rng_seed=None):
     """Perform k-medoids clustering.
 
     This function performs k-medoids clustering, and returns the cluster
@@ -222,6 +237,11 @@ def kmedoids(distance, nclusters=2, npass=1, initialid=None):
        without randomizing the order in which items are assigned to
        clusters (i.e., using the same order as in the data matrix).
        In that case, the k-medoids algorithm is fully deterministic.
+     - rng_seed: seed for the random number generator used to choose the
+       random initial clusterings (an integer between 0 and 2**64-1), or
+       None to seed from a fresh entropy source on each call. A given
+       seed yields identical results on every run, making the clustering
+       reproducible. Only used if initialid is None and npass > 0.
 
     Return values:
      - clusterid: array containing the index of the cluster to which each
@@ -235,7 +255,7 @@ def kmedoids(distance, nclusters=2, npass=1, initialid=None):
     distance = __check_distancematrix(distance)
     nitems = len(distance)
     clusterid, npass = __check_initialid(initialid, npass, nitems)
-    error, nfound = _cluster.kmedoids(distance, nclusters, npass, clusterid)
+    error, nfound = _cluster.kmedoids(distance, nclusters, npass, clusterid, rng_seed)
     return clusterid, error, nfound
 
 
@@ -350,6 +370,7 @@ def somcluster(
     inittau=0.02,
     niter=1,
     dist="e",
+    rng_seed=None,
 ):
     """Calculate a Self-Organizing Map.
 
@@ -376,6 +397,11 @@ def somcluster(
        - dist == 'x': absolute uncentered correlation
        - dist == 's': Spearman's rank correlation
        - dist == 'k': Kendall's tau
+     - rng_seed: seed for the random number generator used to initialize
+       the nodes and to randomize the order in which the items are
+       presented (an integer between 0 and 2**64-1), or None to seed from
+       a fresh entropy source on each call. A given seed yields identical
+       results on every run, making the map reproducible.
 
     Return values:
 
@@ -405,7 +431,16 @@ def somcluster(
     clusterids = np.ones((nitems, 2), dtype="intc")
     celldata = np.empty((nxgrid, nygrid, ndata), dtype="d")
     _cluster.somcluster(
-        clusterids, celldata, data, mask, weight, transpose, inittau, niter, dist
+        clusterids,
+        celldata,
+        data,
+        mask,
+        weight,
+        transpose,
+        inittau,
+        niter,
+        dist,
+        rng_seed,
     )
     return clusterids, celldata
 
@@ -777,6 +812,7 @@ class Record:
         method="a",
         dist="e",
         initialid=None,
+        rng_seed=None,
     ):
         """Apply k-means or k-median clustering.
 
@@ -808,6 +844,11 @@ class Record:
            initial clustering and without randomizing the order in which items
            are assigned to clusters (i.e., using the same order as in the data
            matrix). In that case, the k-means algorithm is fully deterministic.
+         - rng_seed: seed for the random number generator used to choose the
+           random initial clusterings (an integer between 0 and 2**64-1), or
+           None to seed from a fresh entropy source on each call. A given
+           seed yields identical results on every run, making the clustering
+           reproducible. Only used if initialid is None and npass > 0.
 
         Return values:
          - clusterid: array containing the number of the cluster to which each
@@ -831,10 +872,18 @@ class Record:
             method,
             dist,
             initialid,
+            rng_seed,
         )
 
     def somcluster(
-        self, transpose=False, nxgrid=2, nygrid=1, inittau=0.02, niter=1, dist="e"
+        self,
+        transpose=False,
+        nxgrid=2,
+        nygrid=1,
+        inittau=0.02,
+        niter=1,
+        dist="e",
+        rng_seed=None,
     ):
         """Calculate a self-organizing map on a rectangular grid.
 
@@ -856,6 +905,11 @@ class Record:
            - dist == 'x': absolute uncentered correlation
            - dist == 's': Spearman's rank correlation
            - dist == 'k': Kendall's tau
+         - rng_seed: seed for the random number generator used to initialize
+           the nodes and to randomize the order in which the items are
+           presented (an integer between 0 and 2**64-1), or None to seed
+           from a fresh entropy source on each call. A given seed yields
+           identical results on every run, making the map reproducible.
 
         Return values:
          - clusterid: array with two columns, while the number of rows is equal
@@ -884,6 +938,7 @@ class Record:
             inittau,
             niter,
             dist,
+            rng_seed,
         )
 
     def clustercentroids(self, clusterid=None, method="a", transpose=False):

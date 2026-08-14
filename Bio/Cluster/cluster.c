@@ -26,8 +26,8 @@
  *
  */
 
-#include <time.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <math.h>
 #include <float.h>
 #include <limits.h>
@@ -62,18 +62,20 @@
 
 static const int INF = INT_MAX; // 2^31 - 1
 
-static int TEMP_SWAP_INT;
-#define swap_int(x,y) {TEMP_SWAP_INT = (x); (x) = (y); (y) = TEMP_SWAP_INT;}
+/* The temporary lives inside the macro's own block, so the swap needs no
+ * file-scope state and is safe to run on several threads at once. */
+#define swap_int(x,y) do {const int swap_int_temp = (x); (x) = (y); (y) = swap_int_temp;} while (0)
 
-/* For quicksort, we need to choose a random pivot. Any random function should work. Even bad ones. */
+/* For quicksort, we need to choose a random pivot. Any random function should
+ * work. Even bad ones. The caller owns the state (seeded locally per sort),
+ * so sorting is reentrant and its tie-breaking is deterministic per call. */
 static int
-cheap_random()
+cheap_random(int* seed)
 {
     const int base = 2 * 100 * 1000 * 1000 + 33;
-    static int seed = 0;
-    seed = seed * 7 + 13;
-    if (seed > base) seed %= base;
-    return seed;
+    *seed = *seed * 7 + 13;
+    if (*seed > base) *seed %= base;
+    return *seed;
 }
 
 static inline int
@@ -128,14 +130,14 @@ insertion_sort_index(const double a[], int index[], int l, int r)
 
 //***************
 static void
-fastsort_partition_index(const double a[], int index[], const int left, const int right, int* first_end_ptr, int* second_start_ptr) {
+fastsort_partition_index(const double a[], int index[], const int left, const int right, int* first_end_ptr, int* second_start_ptr, int* seed) {
     int low, high, i, pivot, mid;
     double value;
     int increasing = 1, decreasing = 1;
 
     /*******/
     /* choose a random way to choose pivot, to prevent all possible worst-cases*/
-    if ((right - left) & 1) pivot = left + cheap_random() % (right - left);
+    if ((right - left) & 1) pivot = left + cheap_random(seed) % (right - left);
     else pivot = median_index_of3_index(a, index, left, (left + right) >> 1, right);
     value = a[index[pivot]];
 
@@ -217,7 +219,7 @@ fastsort_partition_index(const double a[], int index[], const int left, const in
 
 //***************
 static void
-fastsort_recursive_index(const double a[], int index[], int l, int r)
+fastsort_recursive_index(const double a[], int index[], int l, int r, int* seed)
 {
     int first_end, second_start;
     while (l < r) {
@@ -226,16 +228,16 @@ fastsort_recursive_index(const double a[], int index[], int l, int r)
             return;
         }
 
-        fastsort_partition_index(a, index, l, r, &first_end, &second_start);
+        fastsort_partition_index(a, index, l, r, &first_end, &second_start, seed);
         if (first_end == INF) return; /* sorted */
 
         /* Recurse into smaller branch to avoid stack overflow */
         if (first_end - l < r - second_start) {
-            fastsort_recursive_index(a, index, l, first_end);
+            fastsort_recursive_index(a, index, l, first_end, seed);
             l = second_start;
         }
         else {
-            fastsort_recursive_index(a, index, second_start, r);
+            fastsort_recursive_index(a, index, second_start, r, seed);
             r = first_end;
         }
     }
@@ -379,8 +381,10 @@ sort_index(int n, const double data[], int index[])
  */
 {
     int i;
+    int seed = 0;  /* pivot-selection state, local so that sorting is
+                    * reentrant; any fixed starting value works */
     for (i = 0; i < n; i++) index[i] = i;
-    fastsort_recursive_index(data, index, 0, n - 1);
+    fastsort_recursive_index(data, index, 0, n - 1, &seed);
 }
 
 /* ********************************************************************** */
@@ -1988,31 +1992,88 @@ static double(*setmetric(char dist))
 }
 
 /* *********************************************************************    */
+/* Pseudo-random number generation.
+ *
+ * The generator is xoshiro256++ 1.0, written in 2019 by David Blackman and
+ * Sebastiano Vigna, and the seed is expanded into the initial state with
+ * splitmix64, written in 2015 by Sebastiano Vigna. Both are dedicated to
+ * the public domain (CC0); reference implementations are at
+ * https://prng.di.unimi.it/xoshiro256plusplus.c and
+ * https://prng.di.unimi.it/splitmix64.c
+ *
+ * The state is owned by the caller and threaded through every routine that
+ * draws random numbers, replacing the previous file-scope generator state
+ * that was seeded via srand(time(0)). As a result the library keeps no
+ * mutable file-scope state, no longer perturbs the C library's global
+ * rand() stream, and produces bit-identical results for a given seed.
+ */
+
+typedef struct {
+    uint64_t s[4];
+} ClusterRNG;
+
+static uint64_t
+splitmix64(uint64_t* state)
+{
+    uint64_t z = (*state += 0x9e3779b97f4a7c15u);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9u;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebu;
+    return z ^ (z >> 31);
+}
+
+static void
+clusterrng_init(ClusterRNG* rng, uint64_t seed)
+/* Expands a 64-bit seed into the 256-bit xoshiro256++ state. Following
+ * Vigna's recommendation, splitmix64 is used so that similar seeds (0, 1,
+ * 2, ...) still give well-separated states; it also guarantees the state
+ * is not all zeros.
+ */
+{
+    int i;
+    for (i = 0; i < 4; i++) rng->s[i] = splitmix64(&seed);
+}
+
+static uint64_t
+rotl64(const uint64_t x, int k)
+{
+    return (x << k) | (x >> (64 - k));
+}
+
+static uint64_t
+clusterrng_next(ClusterRNG* rng)
+{
+    uint64_t* s = rng->s;
+    const uint64_t result = rotl64(s[0] + s[3], 23) + s[0];
+    const uint64_t t = s[1] << 17;
+
+    s[2] ^= s[0];
+    s[3] ^= s[1];
+    s[1] ^= s[2];
+    s[0] ^= s[3];
+    s[2] ^= t;
+    s[3] = rotl64(s[3], 45);
+    return result;
+}
 
 static double
-uniform(void)
+uniform(ClusterRNG* rng)
 /*
 Purpose
 =======
 
 This routine returns a uniform random number between 0.0 and 1.0. Both 0.0
-and 1.0 are excluded. This random number generator is described in:
-
-Pierre l'Ecuyer
-Efficient and Portable Combined Random Number Generators
-Communications of the ACM, Volume 31, Number 6, June 1988, pages 742-749, 774.
-
-The first time this routine is called, it initializes the random number
-generator using the current time. First, the current epoch time in seconds is
-used as a seed for the random number generator in the C library. The first two
-random numbers generated by this generator are used to initialize the random
-number generator implemented in this routine.
+and 1.0 are excluded, as in the l'Ecuyer generator this routine replaces.
+The upper 53 bits of one xoshiro256++ output give a double on a grid of
+2^53 equidistant points in [0.0, 1.0); an exact 0.0 (probability 2^-53) is
+rejected and redrawn.
 
 
 Arguments
 =========
 
-None.
+rng    (input/output) ClusterRNG*
+The generator state, initialized with clusterrng_init and owned by the
+caller.
 
 
 Return value
@@ -2022,40 +2083,17 @@ A double-precison number between 0.0 and 1.0.
 ============================================================================
 */
 {
-    int z;
-    static const int m1 = 2147483563;
-    static const int m2 = 2147483399;
-    const double scale = 1.0/m1;
-
-    static int s1 = 0;
-    static int s2 = 0;
-
-    if (s1 == 0 || s2 == 0) {
-        /* initialize */
-        unsigned int initseed = (unsigned int) time(0);
-        srand(initseed);
-        s1 = rand();
-        s2 = rand();
-    }
-
+    double value;
     do {
-        int k = s1/53668;
-        s1 = 40014*(s1-k*53668)-k*12211;
-        if (s1 < 0) s1+=m1;
-        k = s2/52774;
-        s2 = 40692*(s2-k*52774)-k*3791;
-        if (s2 < 0) s2 += m2;
-        z = s1-s2;
-        if (z < 1) z += (m1-1);
-    } while (z == m1); /* To avoid returning 1.0 */
-
-    return z*scale;
+        value = (clusterrng_next(rng) >> 11) * (1.0/9007199254740992.0);
+    } while (value == 0.0);
+    return value;
 }
 
 /* ************************************************************************ */
 
 static int
-binomial(int n, double p)
+binomial(ClusterRNG* rng, int n, double p)
 /*
 Purpose
 =======
@@ -2071,6 +2109,9 @@ Communications of the ACM, Volume 31, Number 2, February 1988, pages 216-222.
 
 Arguments
 =========
+
+rng  (input/output) ClusterRNG*
+The random number generator state, owned by the caller.
 
 p    (input) double
 The probability of a single event. This probability should be less than or
@@ -2095,7 +2136,7 @@ An integer drawn from a binomial distribution with parameters (p, n).
         const double a = (n+1)*s;
         double r = exp(n*log(q)); /* pow() causes a crash on AIX */
         int x = 0;
-        double u = uniform();
+        double u = uniform(rng);
         while (1) {
             if (u < r) return x;
             u -= r;
@@ -2123,8 +2164,8 @@ An integer drawn from a binomial distribution with parameters (p, n).
             /* Step 1 */
             int y;
             int k;
-            double u = uniform();
-            double v = uniform();
+            double u = uniform(rng);
+            double v = uniform(rng);
             u *= p4;
             if (u <= p1) return (int)(xm-p1*v+u);
             /* Step 2 */
@@ -2201,7 +2242,7 @@ An integer drawn from a binomial distribution with parameters (p, n).
 /* ************************************************************************ */
 
 static void
-randomassign(int nclusters, int nelements, int clusterid[])
+randomassign(ClusterRNG* rng, int nclusters, int nelements, int clusterid[])
 /*
 Purpose
 =======
@@ -2214,6 +2255,9 @@ randomly, making sure that each cluster will receive at least one element.
 
 Arguments
 =========
+
+rng          (input/output) ClusterRNG*
+The random number generator state, owned by the caller.
 
 nclusters    (input) int
 The number of clusters.
@@ -2239,7 +2283,7 @@ The cluster number to which an element was assigned.
      */
     for (i = 0; i < nclusters-1; i++) {
         p = 1.0/(nclusters-i);
-        j = binomial(n, p);
+        j = binomial(rng, n, p);
         n -= j;
         j += k+1; /* Assign at least one element to cluster i */
         for ( ; k < j; k++) clusterid[k] = i;
@@ -2249,7 +2293,7 @@ The cluster number to which an element was assigned.
 
     /* Create a random permutation of the cluster assignments */
     for (i = 0; i < nelements; i++) {
-        j = (int) (i + (nelements-i)*uniform());
+        j = (int) (i + (nelements-i)*uniform(rng));
         k = clusterid[j];
         clusterid[j] = clusterid[i];
         clusterid[i] = k;
@@ -2633,7 +2677,7 @@ static int
 kmeans(int nclusters, int nrows, int ncolumns, double** data, int** mask,
     double weight[], int transpose, int npass, char dist,
     double** cdata, int** cmask, int clusterid[], double* error,
-    int tclusterid[], int counts[], int mapping[])
+    int tclusterid[], int counts[], int mapping[], ClusterRNG* rng)
 {
     int i, j, k;
     const int nelements = (transpose == 0) ? nrows : ncolumns;
@@ -2657,7 +2701,7 @@ kmeans(int nclusters, int nrows, int ncolumns, double** data, int** mask,
 
         /* Perform the EM algorithm.
          * First, randomly assign elements to clusters. */
-        if (npass != 0) randomassign(nclusters, nelements, tclusterid);
+        if (npass != 0) randomassign(rng, nclusters, nelements, tclusterid);
 
         for (i = 0; i < nclusters; i++) counts[i] = 0;
         for (i = 0; i < nelements; i++) counts[tclusterid[i]]++;
@@ -2743,7 +2787,8 @@ static int
 kmedians(int nclusters, int nrows, int ncolumns, double** data, int** mask,
     double weight[], int transpose, int npass, char dist,
     double** cdata, int** cmask, int clusterid[], double* error,
-    int tclusterid[], int counts[], int mapping[], double cache[])
+    int tclusterid[], int counts[], int mapping[], double cache[],
+    ClusterRNG* rng)
 {
     int i, j, k;
     const int nelements = (transpose == 0) ? nrows : ncolumns;
@@ -2768,7 +2813,7 @@ kmedians(int nclusters, int nrows, int ncolumns, double** data, int** mask,
 
         /* Perform the EM algorithm.
          * First, randomly assign elements to clusters. */
-        if (npass != 0) randomassign(nclusters, nelements, tclusterid);
+        if (npass != 0) randomassign(rng, nclusters, nelements, tclusterid);
 
         for (i = 0; i < nclusters; i++) counts[i] = 0;
         for (i = 0; i < nelements; i++) counts[tclusterid[i]]++;
@@ -2853,7 +2898,7 @@ kmedians(int nclusters, int nrows, int ncolumns, double** data, int** mask,
 void
 kcluster(int nclusters, int nrows, int ncolumns, double** data, int** mask,
     double weight[], int transpose, int npass, char method, char dist,
-    int clusterid[], double* error, int* ifound)
+    int clusterid[], double* error, int* ifound, uint64_t rng_seed)
 /*
 Purpose
 =======
@@ -2936,11 +2981,18 @@ number of clusters is larger than the number of elements being clustered,
 *ifound is set to 0 as an error code. If a memory allocation error occurs,
 *ifound is set to -1.
 
+rng_seed   (input) uint64_t
+The seed for the random number generator used to choose the random initial
+clusterings. A given seed yields bit-identical results on every run. The
+seed is used only if npass > 0; with npass == 0 the algorithm is fully
+deterministic and starts from the clusterid array.
+
 ========================================================================
 */
 {
     const int nelements = (transpose == 0) ? nrows : ncolumns;
     const int ndata = (transpose == 0) ? ncolumns : nrows;
+    ClusterRNG rng;
 
     int i;
     int ok;
@@ -2992,19 +3044,22 @@ number of clusters is larger than the number of elements being clustered,
         return;
     }
 
+    clusterrng_init(&rng, rng_seed);
+
     if (method == 'm') {
         double* cache = MALLOC(nelements*sizeof(double));
         if (cache) {
             *ifound = kmedians(nclusters, nrows, ncolumns, data, mask, weight,
                                transpose, npass, dist, cdata, cmask, clusterid,
-                               error, tclusterid, counts, mapping, cache);
+                               error, tclusterid, counts, mapping, cache,
+                               &rng);
             FREE(cache);
         }
     }
     else
         *ifound = kmeans(nclusters, nrows, ncolumns, data, mask, weight,
                          transpose, npass, dist, cdata, cmask, clusterid,
-                         error, tclusterid, counts, mapping);
+                         error, tclusterid, counts, mapping, &rng);
 
     /* Deallocate temporarily used space */
     if (npass > 1) {
@@ -3022,7 +3077,7 @@ number of clusters is larger than the number of elements being clustered,
 
 void
 kmedoids(int nclusters, int nelements, double** distmatrix, int npass,
-    int clusterid[], double* error, int* ifound)
+    int clusterid[], double* error, int* ifound, uint64_t rng_seed)
 /*
 Purpose
 =======
@@ -3076,6 +3131,12 @@ was found. The value of ifound is at least 1; its maximum value is npass.
 If the user requested more clusters than elements available, ifound is set
 to 0. If kmedoids fails due to a memory allocation error, ifound is set to -1.
 
+rng_seed   (input) uint64_t
+The seed for the random number generator used to choose the random initial
+clusterings. A given seed yields bit-identical results on every run. The
+seed is used only if npass > 0; with npass == 0 the algorithm is fully
+deterministic and starts from the clusterid array.
+
 ========================================================================
 */
 {
@@ -3085,6 +3146,9 @@ to 0. If kmedoids fails due to a memory allocation error, ifound is set to -1.
     int* centroids;
     double* errors;
     int ipass = 0;
+    ClusterRNG rng;
+
+    clusterrng_init(&rng, rng_seed);
 
     if (nelements < nclusters) {
         *ifound = 0;
@@ -3129,7 +3193,7 @@ to 0. If kmedoids fails due to a memory allocation error, ifound is set to -1.
         int counter = 0;
         int period = 10;
 
-        if (npass != 0) randomassign(nclusters, nelements, tclusterid);
+        if (npass != 0) randomassign(&rng, nclusters, nelements, tclusterid);
         while (1) {
             double previous = total;
             total = 0.0;
@@ -4292,7 +4356,7 @@ If a memory error occurs, sorttree returns 0.
 /* ******************************************************************* */
 
 static void
-somworker(int nrows, int ncolumns, double** data, int** mask,
+somworker(ClusterRNG* rng, int nrows, int ncolumns, double** data, int** mask,
     const double weights[], int transpose, int nxgrid, int nygrid,
     double inittau, double*** celldata, int niter, char dist)
 
@@ -4364,7 +4428,7 @@ somworker(int nrows, int ncolumns, double** data, int** mask,
         for (iy = 0; iy < nygrid; iy++) {
             double sum = 0.;
             for (i = 0; i < ndata; i++) {
-                double term = -1.0 + 2.0*uniform();
+                double term = -1.0 + 2.0*uniform(rng);
                 celldata[ix][iy][i] = term;
                 sum += term * term;
             }
@@ -4377,7 +4441,7 @@ somworker(int nrows, int ncolumns, double** data, int** mask,
     index = MALLOC(nelements*sizeof(int));
     for (i = 0; i < nelements; i++) index[i] = i;
     for (i = 0; i < nelements; i++) {
-        j = (int) (i + (nelements-i)*uniform());
+        j = (int) (i + (nelements-i)*uniform(rng));
         ix = index[j];
         index[j] = index[i];
         index[i] = ix;
@@ -4584,7 +4648,7 @@ void
 somcluster(int nrows, int ncolumns, double** data, int** mask,
     const double weight[], int transpose, int nxgrid, int nygrid,
     double inittau, int niter, char dist, double*** celldata,
-    int clusterid[][2])
+    int clusterid[][2], uint64_t rng_seed)
 /*
 
 Purpose
@@ -4660,6 +4724,11 @@ cluster assignments are not returned. If clusterid is not NULL, enough memory
 should be allocated to store the clustering information before calling
 somcluster.
 
+rng_seed  (input) uint64_t
+The seed for the random number generator used to initialize the nodes and
+to randomize the order in which the items are presented. A given seed
+yields bit-identical results on every run.
+
 ========================================================================
 */
 {
@@ -4667,8 +4736,11 @@ somcluster.
     const int ndata = (transpose == 0) ? ncolumns : nrows;
     int i, j;
     const int lcelldata = (celldata == NULL) ? 0 : 1;
+    ClusterRNG rng;
 
     if (nobjects < 2) return;
+
+    clusterrng_init(&rng, rng_seed);
 
     if (lcelldata == 0) {
         celldata = MALLOC(nxgrid*nygrid*ndata*sizeof(double**));
@@ -4679,8 +4751,8 @@ somcluster.
         }
     }
 
-    somworker(nrows, ncolumns, data, mask, weight, transpose, nxgrid, nygrid,
-        inittau, celldata, niter, dist);
+    somworker(&rng, nrows, ncolumns, data, mask, weight, transpose, nxgrid,
+        nygrid, inittau, celldata, niter, dist);
     if (clusterid)
         somassign(nrows, ncolumns, data, mask, weight, transpose,
             nxgrid, nygrid, celldata, dist, clusterid);

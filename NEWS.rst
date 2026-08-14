@@ -58,6 +58,20 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.Cluster``'s ``kcluster``, ``kmedoids`` and ``somcluster`` (and the
+corresponding ``Record`` methods) accept a new optional ``rng_seed`` keyword,
+an integer between 0 and 2**64-1. Passing a seed makes the clustering
+bit-identical across runs, which finally makes these randomized algorithms
+reproducible; leaving it as ``None`` keeps the old behaviour of a fresh random
+seed per call. Internally the C library's random number generator was replaced:
+it used to keep its state in file-scope ``static`` variables and seed itself
+via ``srand(time(0))``, so results could never be reproduced, concurrent
+clustering calls would share (and corrupt) one generator, and merely calling
+``kcluster`` silently reset the process-wide C ``rand()`` stream for everyone
+else. The generator is now xoshiro256++ with caller-owned state, so
+``Bio.Cluster`` no longer touches ``rand()`` at all — a regression test checks
+this.
+
 ``Bio.SeqIO.index`` and ``index_db`` now derive each record's key from the
 format's own parser class, instead of re-implementing the id rules inside the
 indexing machinery, so index keys cannot silently drift from the ``record.id``
