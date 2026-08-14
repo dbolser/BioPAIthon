@@ -861,10 +861,11 @@ class _FeatureConsumer(_BaseGenBankConsumer):
             and len(sequence) != 0
             and self._expected_size != len(sequence)
         ):
-            warnings.warn(
-                "Expected sequence length %i, found %i (%s)."
-                % (self._expected_size, len(sequence), self.data.id),
-                BiopythonParserWarning,
+            raise ValueError(
+                "Expected sequence length %i, found %i (%s). The record "
+                "may be truncated, or the length declared on its LOCUS/ID "
+                "line may be wrong."
+                % (self._expected_size, len(sequence), self.data.id)
             )
 
         molecule_type = None

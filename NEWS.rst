@@ -58,6 +58,20 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+Parsing a GenBank or EMBL record whose sequence does not match the length
+declared on its LOCUS/ID line is now an error rather than a warning. A
+truncated download used to yield a ``SeqRecord`` whose ``.seq`` was silently
+shorter than the declared length, flagged only by a ``BiopythonParserWarning``
+that is easily lost in a pipeline; Biopython had relaxed this check from an
+exception to a warning in 2010. ``Bio.SeqIO`` (formats ``genbank``, ``embl``
+and ``imgt``) and ``Bio.GenBank.FeatureParser`` now raise ``ValueError``
+naming the record and the expected and found lengths. This also means a
+record whose declared length is simply wrong — the sequence itself being
+complete — no longer parses; fix the LOCUS/ID line. Two malformed-but-
+recoverable shapes still parse with a warning as before: a record whose
+sequence data is complete but which lacks the final ``//`` terminator, and a
+record with no sequence data at all.
+
 The writer helpers deprecated in Biopython 1.86 have been removed: ``as_fasta``
 and ``as_fasta_2line`` in ``Bio.SeqIO.FastaIO``, ``as_fastq``, ``as_qual``,
 ``as_fastq_solexa`` and ``as_fastq_illumina`` in ``Bio.SeqIO.QualityIO``, and

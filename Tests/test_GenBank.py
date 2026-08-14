@@ -7594,6 +7594,48 @@ class GenBankTests(unittest.TestCase):
         with open(path) as handle:
             self.assertRaises(ValueError, GenBank.read, handle)
 
+    def test_truncated_sequence_data_raises(self):
+        """Truncated sequence data raises ValueError, not just a warning."""
+        path = "GenBank/noref.gb"
+        with open(path) as handle:
+            lines = handle.read().splitlines(keepends=True)
+        # Cut the record part way through the ORIGIN sequence block
+        # (ten sequence lines of sixty bases), simulating a truncated
+        # download: no // line, and 600 of the declared 1622 bases.
+        truncated = "".join(lines[:53])
+        with warnings.catch_warnings():
+            # The scanner still warns about the premature end of file
+            # before the consumer raises.
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            with self.assertRaises(ValueError) as cm:
+                SeqIO.read(StringIO(truncated), "genbank")
+        self.assertIn("Expected sequence length 1622, found 600", str(cm.exception))
+        self.assertIn("NM_006141.1", str(cm.exception))
+
+    def test_locus_length_mismatch_raises(self):
+        """LOCUS length disagreeing with the sequence raises ValueError."""
+        path = "GenBank/noref.gb"
+        with open(path) as handle:
+            data = handle.read()
+        data = data.replace(" 1622 bp ", " 1620 bp ", 1)
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.read(StringIO(data), "genbank")
+        self.assertIn("Expected sequence length 1620, found 1622", str(cm.exception))
+
+    def test_missing_end_marker_complete_record_parses(self):
+        """A complete record missing the // terminator parses with a warning."""
+        # Deliberate behaviour since 2013: files whose sequence data is
+        # complete but which lack the final // line are recoverable and
+        # only warrant a warning (see Tests/GenBank/no_end_marker.gb).
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", BiopythonParserWarning)
+            record = SeqIO.read("GenBank/no_end_marker.gb", "genbank")
+        self.assertIn(
+            "Premature end of file in sequence data",
+            [str(w.message) for w in caught],
+        )
+        self.assertEqual(len(record), 6497)
+
     # Evil hack with 000 to manipulate sort order to ensure this is tested
     # first (otherwise something silences the warning)
     def test_000_genbank_bad_loc_wrap_warning(self):
