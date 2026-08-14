@@ -722,7 +722,9 @@ class TreeMixin:
 
         Polytomies are nodes with more than two child nodes. Some tools expect
         trees to be strictly bifurcating. This function converts polytomies
-        into a series of bifurcations with branch length of zero.
+        into a series of bifurcations with branch length of zero, arranged as
+        a balanced hierarchy so that even a very wide polytomy resolves into
+        a tree of modest depth.
 
         :Parameters:
             shuffle : bool
@@ -762,15 +764,28 @@ class TreeMixin:
         children = self.clades[:]  # shallow copy
         if shuffle:
             random.shuffle(children)
-        self.clades = []
-        # Walk down the caterpillar iteratively; recursing here would hit
-        # Python's recursion limit on a polytomy with ~1000 children.
-        node = self
-        while len(children) > 2:
-            new_clade = Clade(branch_length=0.0)
-            node.clades = [children.pop(0), new_clade]
-            node = new_clade
-        node.clades = children
+
+        # Split the children in half at each level, so an n-way polytomy
+        # resolves to depth log2(n) rather than a chain of depth n - a
+        # chain deeper than Python's recursion limit would defeat the
+        # recursive traversals used elsewhere (is_bifurcating, the Newick
+        # writer, preorder find_clades). Halving preserves the child order
+        # left to right, and only recurses to log2(n) deep itself.
+        def _build(node, to_add):
+            if len(to_add) <= 2:
+                node.clades = to_add
+                return
+            node.clades = []
+            mid = len(to_add) // 2
+            for half in (to_add[:mid], to_add[mid:]):
+                if len(half) == 1:
+                    node.clades.append(half[0])
+                else:
+                    new_clade = Clade(branch_length=0.0)
+                    _build(new_clade, half)
+                    node.clades.append(new_clade)
+
+        _build(self, children)
 
 
 class Tree(TreeElement, TreeMixin):
