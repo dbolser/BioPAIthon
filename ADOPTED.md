@@ -40,6 +40,27 @@ request.
 
 Newest first.
 
+### [#4918](https://github.com/biopython/biopython/pull/4918) — Erik Whiting
+
+Fixes upstream issue
+[#4879](https://github.com/biopython/biopython/issues/4879). The LOCUS line
+checks in `Bio/GenBank/Scanner.py` accepted only molecule types containing
+`DNA` or `RNA`, so `NA` — a nucleic acid of unspecified type, listed in
+section 3.4.4.2 of the GenBank release notes and written by e.g. SnapGene
+exports — was rejected with `ValueError: LOCUS line does not contain valid
+sequence type`. The one adopted commit adds `NA` as an exact-match
+alternative, deliberately not a substring test so that `99NA` and friends
+stay rejected.
+
+**The single commit taken, plus one correction on top.** As veghp pointed out
+on the pull request, the scanner change alone does not make such files parse:
+`_FeatureConsumer.record_end` in `Bio/GenBank/__init__.py` still raised
+`Could not determine molecule_type for seq_type NA`. The correction commit
+teaches `record_end` the `NA` branch, makes the same one-line change to the
+writer's LOCUS checks in `Bio/SeqIO/InsdcIO.py` (by their own comment "copied
+from Bio.GenBank.Scanner") so the record round-trips, and adds the regression
+tests the upstream pull request was asked for but never grew.
+
 ### [#3911](https://github.com/biopython/biopython/pull/3911) — Erik Whiting
 
 Fixes upstream issue

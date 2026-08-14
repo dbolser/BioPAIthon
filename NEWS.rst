@@ -58,6 +58,15 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+GenBank files whose LOCUS line declares molecule type ``NA`` — a nucleic acid
+of unspecified type, part of the GenBank specification and written by e.g.
+SnapGene exports — now parse instead of raising ``ValueError``. The scanner
+fix is adopted from upstream pull request
+`#4918 <https://github.com/biopython/biopython/pull/4918>`_ by Erik Whiting
+(see ``ADOPTED.md``); on top of it, the feature consumer now maps the ``NA``
+sequence type instead of failing on it, and the matching LOCUS line check in
+the GenBank writer accepts ``NA`` so such records round-trip.
+
 ``Bio.pairwise2`` has been removed (upstream Biopython 1.88 still ships it,
 deprecated). It was deprecated in release 1.80, eight releases ago, yet its
 roughly 2,900 lines — the module, a C extension that had to compile on every
