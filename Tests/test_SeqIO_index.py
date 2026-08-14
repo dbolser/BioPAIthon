@@ -24,6 +24,7 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
+import support
 from seq_tests_common import SeqRecordTestBaseClass
 from test_SeqIO import SeqIOTestBaseClass
 
@@ -31,8 +32,6 @@ from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.SeqIO._index import _FormatToRandomAccess
 from Bio.SeqRecord import SeqRecord
-
-CUR_DIR = os.getcwd()
 
 
 if sqlite3:
@@ -74,10 +73,15 @@ if sqlite3:
         """
 
         def setUp(self):
-            os.chdir(CUR_DIR)
+            # These tests deliberately use paths relative to the working
+            # directory (that is part of what index_db is being tested on),
+            # so pin the working directory to Tests/ rather than assume the
+            # process started there.
+            self.original_dir = os.getcwd()
+            os.chdir(support.DATA)
 
         def tearDown(self):
-            os.chdir(CUR_DIR)
+            os.chdir(self.original_dir)
 
         def test_old(self):
             """Load existing index with no options (from parent directory)."""
@@ -128,14 +132,16 @@ if sqlite3:
 
         def test_old_same_dir(self):
             """Load existing index with no options (from same directory)."""
-            os.chdir("Roche")
+            # Being in the directory holding the index is the case under test
+            os.chdir(support.DATA / "Roche")
             d = SeqIO.index_db("triple_sff.idx")
             self.assertEqual(54, len(d))
             self.assertEqual(395, len(d["alpha"]))
 
         def test_old_same_dir_rel(self):
             """Load existing index (with relative paths) with no options (from same directory)."""
-            os.chdir("Roche")
+            # Being in the directory holding the index is the case under test
+            os.chdir(support.DATA / "Roche")
             d = SeqIO.index_db("triple_sff_rel_paths.idx")
             self.assertEqual(54, len(d))
             self.assertEqual(395, len(d["alpha"]))
@@ -162,7 +168,8 @@ if sqlite3:
 
         def test_old_files_same_dir(self):
             """Load existing index with correct files (from same directory)."""
-            os.chdir("Roche")
+            # Being in the directory holding the index is the case under test
+            os.chdir(support.DATA / "Roche")
             d = SeqIO.index_db(
                 "triple_sff.idx",
                 ["E3MFGYR02_no_manifest.sff", "greek.sff", "paired.sff"],
@@ -192,13 +199,18 @@ if sqlite3:
         """Check paths etc in newly built index."""
 
         def setUp(self):
-            os.chdir(CUR_DIR)
+            # These tests build indexes from paths relative to the working
+            # directory (that is part of what index_db is being tested on),
+            # so pin the working directory to Tests/ rather than assume the
+            # process started there.
+            self.original_dir = os.getcwd()
+            os.chdir(support.DATA)
 
         def tearDown(self):
-            os.chdir(CUR_DIR)
-            for i in ["temp.idx", "Roche/temp.idx"]:
-                if os.path.isfile(i):
-                    os.remove(i)
+            os.chdir(self.original_dir)
+            for i in (support.DATA / "temp.idx", support.DATA / "Roche" / "temp.idx"):
+                if i.is_file():
+                    i.unlink()
 
         def check(self, index_file, sff_files, expt_sff_files):
             if os.path.isfile(index_file):
@@ -260,7 +272,8 @@ if sqlite3:
 
         def test_same_folder(self):
             """Check relative links in same folder."""
-            os.chdir("Roche")
+            # Being in the directory holding the index is the case under test
+            os.chdir(support.DATA / "Roche")
             expt_sff_files = ["E3MFGYR02_no_manifest.sff", "greek.sff", "paired.sff"]
 
             # Here everything is relative,
@@ -400,12 +413,17 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
     ]
 
     def setUp(self):
-        os.chdir(CUR_DIR)
+        # The data files in self.tests are addressed relative to Tests/,
+        # and simple_check deliberately switches directory part-way through,
+        # so pin the working directory to Tests/ rather than assume the
+        # process started there.
+        self.original_dir = os.getcwd()
+        os.chdir(support.DATA)
         h, self.index_tmp = tempfile.mkstemp("_idx.tmp")
         os.close(h)
 
     def tearDown(self):
-        os.chdir(CUR_DIR)
+        os.chdir(self.original_dir)
         if os.path.isfile(self.index_tmp):
             os.remove(self.index_tmp)
 
@@ -493,12 +511,14 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
 
             # Now reload without passing filenames and format
             # and switch directory to check  paths still work
+            # Switching to the directory holding the data file is the case
+            # under test here: the index must still be usable from elsewhere.
             index_tmp = os.path.abspath(index_tmp)
-            os.chdir(os.path.dirname(filename))
+            os.chdir(support.DATA / os.path.dirname(filename))
             try:
                 rec_dict = SeqIO.index_db(index_tmp)
             finally:
-                os.chdir(CUR_DIR)
+                os.chdir(support.DATA)
             self.check_dict_methods(rec_dict, id_list, id_list, msg=msg)
             rec_dict.close()
             rec_dict._con.close()  # hack for PyPy
@@ -870,7 +890,8 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
 
 
 class IndexOrderingSingleFile(unittest.TestCase):
-    f = "GenBank/NC_000932.faa"
+    # Note this runs at import time, so it must not rely on the cwd:
+    f = support.DATA / "GenBank" / "NC_000932.faa"
     ids = [r.id for r in SeqIO.parse(f, "fasta")]
 
     def test_order_to_dict(self):
@@ -896,7 +917,10 @@ if sqlite3:
     class IndexOrderingManyFiles(unittest.TestCase):
         def test_order_index_db(self):
             """Check index_db preserves order in multiple indexed files."""
-            files = ["GenBank/NC_000932.faa", "GenBank/NC_005816.faa"]
+            files = [
+                support.DATA / "GenBank" / "NC_000932.faa",
+                support.DATA / "GenBank" / "NC_005816.faa",
+            ]
             ids = []
             for f in files:
                 ids.extend(r.id for r in SeqIO.parse(f, "fasta"))

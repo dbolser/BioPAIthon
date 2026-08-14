@@ -10,13 +10,14 @@
 """Tests for the GenBank module."""
 
 import copy
-import os
 import sys
 import tempfile
 import unittest
 import warnings
 from datetime import datetime
 from io import StringIO
+
+import support
 
 from Bio import BiopythonParserWarning
 from Bio import BiopythonWarning
@@ -71,7 +72,7 @@ class TestBasics(unittest.TestCase):
         # don't test dbsource_wrap because it is a junky RefSeq file
         record_parser = GenBank.RecordParser(debug_level=0)
         for filename in filenames:
-            path = os.path.join("GenBank", filename)
+            path = support.DATA / "GenBank" / filename
             with open(path) as cur_handle, open(path) as compare_handle:
                 iterator = GenBank.Iterator(cur_handle, record_parser)
                 compare_iterator = GenBank.Iterator(compare_handle)
@@ -88,7 +89,7 @@ class TestBasics(unittest.TestCase):
         gb_parser = GenBank.FeatureParser(
             feature_cleaner=GenBank.utils.FeatureValueCleaner()
         )
-        path = "GenBank/arab1.gb"
+        path = support.DATA / "GenBank" / "arab1.gb"
         with open(path) as handle:
             iterator = GenBank.Iterator(handle, gb_parser)
             first_record = next(iterator)
@@ -166,7 +167,7 @@ class TestRecordParser(unittest.TestCase):
             self.assertEqual(tsa, record.tsa)
 
     def test_record_parser_01(self):
-        path = "GenBank/noref.gb"
+        path = support.DATA / "GenBank" / "noref.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -236,7 +237,7 @@ class TestRecordParser(unittest.TestCase):
 
     def test_wgs_record_serialization(self):
         """Test serializing WGS and WGS_SCAFLD ranges."""
-        path = "GenBank/noref.gb"
+        path = support.DATA / "GenBank" / "noref.gb"
         with open(path) as handle:
             source = handle.read()
         source = source.replace(
@@ -276,7 +277,7 @@ class TestRecordParser(unittest.TestCase):
         self.assertIn("WGS_SCAFLD  ABCD01000003-ABCD01000004\n", output)
 
     def test_record_parser_02(self):
-        path = "GenBank/cor6_6.gb"
+        path = support.DATA / "GenBank" / "cor6_6.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -549,7 +550,7 @@ class TestRecordParser(unittest.TestCase):
             )
 
     def test_record_parser_03(self):
-        path = "GenBank/iro.gb"
+        path = support.DATA / "GenBank" / "iro.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -594,7 +595,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_04(self):
-        path = "GenBank/pri1.gb"
+        path = support.DATA / "GenBank" / "pri1.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -644,7 +645,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_05(self):
-        path = "GenBank/arab1.gb"
+        path = support.DATA / "GenBank" / "arab1.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -1168,7 +1169,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_06(self):
-        path = "GenBank/protein_refseq.gb"
+        path = support.DATA / "GenBank" / "protein_refseq.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -1227,7 +1228,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_07(self):
-        path = "GenBank/extra_keywords.gb"
+        path = support.DATA / "GenBank" / "extra_keywords.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -1933,7 +1934,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_08(self):
-        path = "GenBank/one_of.gb"
+        path = support.DATA / "GenBank" / "one_of.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2032,7 +2033,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_09(self):
-        path = "GenBank/NT_019265.gb"
+        path = support.DATA / "GenBank" / "NT_019265.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2099,7 +2100,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_10(self):
-        path = "GenBank/origin_line.gb"
+        path = support.DATA / "GenBank" / "origin_line.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2129,7 +2130,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_11(self):
-        path = "GenBank/blank_seq.gb"
+        path = support.DATA / "GenBank" / "blank_seq.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2186,7 +2187,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_12(self):
-        path = "GenBank/dbsource_wrap.gb"
+        path = support.DATA / "GenBank" / "dbsource_wrap.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2235,7 +2236,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_13(self):
-        path = "GenBank/gbvrl1_start.seq"
+        path = support.DATA / "GenBank" / "gbvrl1_start.seq"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -2402,7 +2403,7 @@ class TestRecordParser(unittest.TestCase):
             )
 
     def test_record_parser_14(self):
-        path = "GenBank/NC_005816.gb"
+        path = support.DATA / "GenBank" / "NC_005816.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             with warnings.catch_warnings():
@@ -2990,7 +2991,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_15(self):
-        path = "GenBank/no_end_marker.gb"
+        path = support.DATA / "GenBank" / "no_end_marker.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             with warnings.catch_warnings():
@@ -3018,7 +3019,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_16(self):
-        path = "GenBank/wrong_sequence_indent.gb"
+        path = support.DATA / "GenBank" / "wrong_sequence_indent.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             with warnings.catch_warnings():
@@ -3046,7 +3047,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_17(self):
-        path = "GenBank/invalid_locus_line_spacing.gb"
+        path = support.DATA / "GenBank" / "invalid_locus_line_spacing.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             with warnings.catch_warnings():
@@ -3074,7 +3075,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_18(self):
-        path = "GenBank/empty_feature_qualifier.gb"
+        path = support.DATA / "GenBank" / "empty_feature_qualifier.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -3101,7 +3102,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_19(self):
-        path = "GenBank/invalid_misc_feature.gb"
+        path = support.DATA / "GenBank" / "invalid_misc_feature.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             with warnings.catch_warnings():
@@ -3129,7 +3130,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_20(self):
-        path = "GenBank/1MRR_A.gp"
+        path = support.DATA / "GenBank" / "1MRR_A.gp"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -3303,7 +3304,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_tsa(self):
-        path = "GenBank/tsa_acropora.gb"
+        path = support.DATA / "GenBank" / "tsa_acropora.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -3335,7 +3336,7 @@ class TestRecordParser(unittest.TestCase):
         )
 
     def test_record_parser_tls(self):
-        path = "GenBank/tls_KDHP01000000.gb"
+        path = support.DATA / "GenBank" / "tls_KDHP01000000.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.rec_parser)
             record = next(records)
@@ -3422,7 +3423,7 @@ class TestFeatureParser(unittest.TestCase):
         self.assertEqual(record.dbxrefs, dbxrefs)
 
     def test_feature_parser_01(self):
-        path = "GenBank/noref.gb"
+        path = support.DATA / "GenBank" / "noref.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -3515,7 +3516,7 @@ qualifiers:
         )
 
     def test_feature_parser_date_warning(self):
-        path = "GenBank/noref_date_warning.gb"
+        path = support.DATA / "GenBank" / "noref_date_warning.gb"
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             with open(path) as handle:
@@ -3623,7 +3624,7 @@ qualifiers:
         )
 
     def test_feature_parser_02(self):
-        path = "GenBank/cor6_6.gb"
+        path = support.DATA / "GenBank" / "cor6_6.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -4352,7 +4353,7 @@ qualifiers:
             )
 
     def test_feature_parser_03(self):
-        path = "GenBank/iro.gb"
+        path = support.DATA / "GenBank" / "iro.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -4482,7 +4483,7 @@ qualifiers:
         )
 
     def test_feature_parser_04(self):
-        path = "GenBank/pri1.gb"
+        path = support.DATA / "GenBank" / "pri1.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -4595,7 +4596,7 @@ qualifiers:
         )
 
     def test_feature_parser_05(self):
-        path = "GenBank/arab1.gb"
+        path = support.DATA / "GenBank" / "arab1.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -4969,7 +4970,7 @@ qualifiers:
         )
 
     def test_feature_parser_06(self):
-        path = "GenBank/protein_refseq.gb"
+        path = support.DATA / "GenBank" / "protein_refseq.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5101,7 +5102,7 @@ qualifiers:
         )
 
     def test_feature_parser_07(self):
-        path = "GenBank/extra_keywords.gb"
+        path = support.DATA / "GenBank" / "extra_keywords.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5472,7 +5473,7 @@ qualifiers:
         )
 
     def test_feature_parser_08(self):
-        path = "GenBank/one_of.gb"
+        path = support.DATA / "GenBank" / "one_of.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5603,7 +5604,7 @@ qualifiers:
         )
 
     def test_feature_parser_09(self):
-        path = "GenBank/NT_019265.gb"
+        path = support.DATA / "GenBank" / "NT_019265.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5720,7 +5721,7 @@ qualifiers:
         )
 
     def test_feature_parser_10(self):
-        path = "GenBank/origin_line.gb"
+        path = support.DATA / "GenBank" / "origin_line.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5799,7 +5800,7 @@ qualifiers:
         )
 
     def test_feature_parser_11(self):
-        path = "GenBank/blank_seq.gb"
+        path = support.DATA / "GenBank" / "blank_seq.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -5927,7 +5928,7 @@ qualifiers:
         )
 
     def test_feature_parser_12(self):
-        path = "GenBank/dbsource_wrap.gb"
+        path = support.DATA / "GenBank" / "dbsource_wrap.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -6062,7 +6063,7 @@ qualifiers:
         )
 
     def test_feature_parser_13(self):
-        path = "GenBank/gbvrl1_start.seq"
+        path = support.DATA / "GenBank" / "gbvrl1_start.seq"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -6303,7 +6304,7 @@ qualifiers:
             )
 
     def test_feature_parser_14(self):
-        path = "GenBank/NC_005816.gb"
+        path = support.DATA / "GenBank" / "NC_005816.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -6882,7 +6883,7 @@ qualifiers:
         )
 
     def test_feature_parser_15(self):
-        path = "GenBank/no_end_marker.gb"
+        path = support.DATA / "GenBank" / "no_end_marker.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -6942,7 +6943,7 @@ qualifiers:
         )
 
     def test_feature_parser_16(self):
-        path = "GenBank/wrong_sequence_indent.gb"
+        path = support.DATA / "GenBank" / "wrong_sequence_indent.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -7002,7 +7003,7 @@ qualifiers:
         )
 
     def test_feature_parser_17(self):
-        path = "GenBank/invalid_locus_line_spacing.gb"
+        path = support.DATA / "GenBank" / "invalid_locus_line_spacing.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -7062,7 +7063,7 @@ qualifiers:
         )
 
     def test_feature_parser_18(self):
-        path = "GenBank/empty_feature_qualifier.gb"
+        path = support.DATA / "GenBank" / "empty_feature_qualifier.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             record = next(records)
@@ -7120,7 +7121,7 @@ qualifiers:
         )
 
     def test_feature_parser_19(self):
-        path = "GenBank/invalid_misc_feature.gb"
+        path = support.DATA / "GenBank" / "invalid_misc_feature.gb"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -7180,7 +7181,7 @@ qualifiers:
         )
 
     def test_feature_parser_20(self):
-        path = "GenBank/1MRR_A.gp"
+        path = support.DATA / "GenBank" / "1MRR_A.gp"
         with open(path) as handle:
             records = GenBank.Iterator(handle, self.feat_parser)
             with warnings.catch_warnings():
@@ -7531,7 +7532,9 @@ qualifiers:
         """Test that features that span the origin on circular DNA are included correctly for different ways of specifying the topology."""
         # This first one should fail (location of the feature should be set to none), because
         # the file says the sequence is linear, but there is a feature that spans the origin.
-        file_fails = "GenBank/addgene-plasmid-11664-sequence-180430.gbk"
+        file_fails = (
+            support.DATA / "GenBank" / "addgene-plasmid-11664-sequence-180430.gbk"
+        )
 
         # The right warning is raised
         with warnings.catch_warnings(record=True) as caught:
@@ -7548,7 +7551,9 @@ qualifiers:
         self.assertIsNone(record.features[-1].location)
 
         # This one is circular and should include the features that span the origin
-        file_succeeds = "GenBank/addgene-plasmid-39296-sequence-49545.gbk"
+        file_succeeds = (
+            support.DATA / "GenBank" / "addgene-plasmid-39296-sequence-49545.gbk"
+        )
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -7569,31 +7574,31 @@ class GenBankTests(unittest.TestCase):
 
     def test_invalid_product_line_raises_value_error(self):
         """Parsing invalid product line."""
-        path = "GenBank/invalid_product.gb"
+        path = support.DATA / "GenBank" / "invalid_product.gb"
         self.assertRaises(ValueError, SeqIO.read, path, "genbank")
 
     def test_genbank_read(self):
         """GenBank.read(...) simple test."""
-        path = "GenBank/NC_000932.gb"
+        path = support.DATA / "GenBank" / "NC_000932.gb"
         with open(path) as handle:
             record = GenBank.read(handle)
         self.assertEqual(["NC_000932"], record.accession)
 
     def test_genbank_read_multirecord(self):
         """GenBank.read(...) error on multiple record input."""
-        path = "GenBank/cor6_6.gb"
+        path = support.DATA / "GenBank" / "cor6_6.gb"
         with open(path) as handle:
             self.assertRaises(ValueError, GenBank.read, handle)
 
     def test_genbank_read_invalid(self):
         """GenBank.read(...) error on invalid file (e.g. FASTA file)."""
-        path = "GenBank/NC_000932.faa"
+        path = support.DATA / "GenBank" / "NC_000932.faa"
         with open(path) as handle:
             self.assertRaises(ValueError, GenBank.read, handle)
 
     def test_genbank_read_no_origin_no_end(self):
         """GenBank.read(...) error on malformed file."""
-        path = "GenBank/no_origin_no_end.gb"
+        path = support.DATA / "GenBank" / "no_origin_no_end.gb"
         with open(path) as handle:
             self.assertRaises(ValueError, GenBank.read, handle)
 
@@ -7643,7 +7648,7 @@ class GenBankTests(unittest.TestCase):
     # first (otherwise something silences the warning)
     def test_000_genbank_bad_loc_wrap_warning(self):
         """Feature line wrapping warning."""
-        path = "GenBank/bad_loc_wrap.gb"
+        path = support.DATA / "GenBank" / "bad_loc_wrap.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("error", BiopythonParserWarning)
             with open(path) as handle:
@@ -7657,7 +7662,7 @@ class GenBankTests(unittest.TestCase):
     # Similar hack as we also want to catch that warning here
     def test_001_negative_location_warning(self):
         """Un-parsable feature location warning."""
-        path = "GenBank/negative_location.gb"
+        path = support.DATA / "GenBank" / "negative_location.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("error", BiopythonParserWarning)
             with self.assertRaises(BiopythonParserWarning) as cm:
@@ -7669,7 +7674,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_001_genbank_bad_origin_wrapping_location(self):
         """Bad origin wrapping."""
-        path = "GenBank/bad_origin_wrap_linear.gb"
+        path = support.DATA / "GenBank" / "bad_origin_wrap_linear.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("error", BiopythonParserWarning)
             with self.assertRaises(BiopythonParserWarning) as cm:
@@ -7681,7 +7686,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_001_implicit_orign_wrap_fix(self):
         """Attempt to fix implied origin wrapping."""
-        path = "GenBank/bad_origin_wrap.gb"
+        path = support.DATA / "GenBank" / "bad_origin_wrap.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("error", BiopythonParserWarning)
             with self.assertRaises(BiopythonParserWarning) as cm:
@@ -7698,7 +7703,7 @@ class GenBankTests(unittest.TestCase):
         """Test the attempts to fix compound complex origin wrapping."""
         from Bio.SeqFeature import CompoundLocation
 
-        path = "GenBank/bad_origin_wrap.gb"
+        path = support.DATA / "GenBank" / "bad_origin_wrap.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonParserWarning)
             record = SeqIO.read(path, "genbank")
@@ -7723,7 +7728,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_implicit_origin_wrap_extract_and_translate(self):
         """Test that features wrapped around origin give expected data."""
-        path = "GenBank/bad_origin_wrap_CDS.gb"
+        path = support.DATA / "GenBank" / "bad_origin_wrap_CDS.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonParserWarning)
             with open(path) as handle:
@@ -7747,7 +7752,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_fuzzy_origin_wrap(self):
         """Test features that wrap an origin, and have fuzzy location."""
-        path = "GenBank/bad_origin_wrap_fuzzy.gb"
+        path = support.DATA / "GenBank" / "bad_origin_wrap_fuzzy.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("error", BiopythonParserWarning)
             with self.assertRaises(BiopythonParserWarning) as cm:
@@ -7771,7 +7776,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_genbank_bad_loc_wrap_parsing(self):
         """Bad location wrapping."""
-        path = "GenBank/bad_loc_wrap.gb"
+        path = support.DATA / "GenBank" / "bad_loc_wrap.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonParserWarning)
             with open(path) as handle:
@@ -7785,7 +7790,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_negative_location(self):
         """Negative feature locations."""
-        path = "GenBank/negative_location.gb"
+        path = support.DATA / "GenBank" / "negative_location.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonParserWarning)
             record = SeqIO.read(path, "genbank")
@@ -7793,7 +7798,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_dot_lineage(self):
         """Missing taxonomy lineage."""
-        path = "GenBank/bad_loc_wrap.gb"
+        path = support.DATA / "GenBank" / "bad_loc_wrap.gb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonParserWarning)
             record = SeqIO.read(path, "genbank")
@@ -7802,14 +7807,14 @@ class GenBankTests(unittest.TestCase):
 
     def test_tsa(self):
         """Test TSA annotation parsing."""
-        path = "GenBank/tsa_acropora.gb"
+        path = support.DATA / "GenBank" / "tsa_acropora.gb"
         record = SeqIO.read(path, "genbank")
         self.assertIn("tsa", record.annotations)
         self.assertEqual(record.annotations["tsa"], ["GHGH01000001", "GHGH01126539"])
 
     def test_dblink(self):
         """Parse GenBank record with old DBLINK project entry."""
-        path = "GenBank/NC_005816.gb"
+        path = support.DATA / "GenBank" / "NC_005816.gb"
         record = SeqIO.read(path, "gb")
         self.assertEqual(record.dbxrefs, ["Project:58037"])
         gb = record.format("gb")
@@ -7819,7 +7824,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_dblink_two(self):
         """Parse GenBank record with old and new DBLINK project entries."""
-        path = "GenBank/NP_416719.gbwithparts"
+        path = support.DATA / "GenBank" / "NP_416719.gbwithparts"
         record = SeqIO.read(path, "gb")
         self.assertEqual(record.dbxrefs, ["Project:57779", "BioProject:PRJNA57779"])
         gb = record.format("gb")
@@ -7835,7 +7840,7 @@ KEYWORDS    """,
 
     def test_dblink_multiline(self):
         """Parse GenBank record with multiline DBLINK entries."""
-        path = "GenBank/EZ116220.gb"
+        path = support.DATA / "GenBank" / "EZ116220.gb"
         # Silence too long warnings
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", BiopythonWarning)
@@ -7861,7 +7866,7 @@ KEYWORDS    """
 
     def test_dbline_gb_embl(self):
         """Parse GenBank/EMBL paired records with PR project entry: GenBank."""
-        record = SeqIO.read("GenBank/DS830848.gb", "gb")
+        record = SeqIO.read(support.DATA / "GenBank" / "DS830848.gb", "gb")
         self.assertIn("BioProject:PRJNA16232", record.dbxrefs)
         gb = record.format("gb")
         self.assertIn(
@@ -7877,7 +7882,7 @@ KEYWORDS    """,
 
     def test_dbline_embl_gb(self):
         """Parse GenBank/EMBL paired records with PR project entry: EMBL."""
-        record = SeqIO.read("EMBL/DS830848.embl", "embl")
+        record = SeqIO.read(support.DATA / "EMBL" / "DS830848.embl", "embl")
         # TODO: Should we map this to BioProject:PRJNA16232
         self.assertIn("Project:PRJNA16232", record.dbxrefs)
         gb = record.format("gb")
@@ -7898,7 +7903,7 @@ KEYWORDS    """,
         """Structured comment parsing."""
         # GISAID_EpiFlu(TM)Data, HM138502.gbk has both
         # 'comment' and 'structured_comment'
-        path = "GenBank/HM138502.gbk"
+        path = support.DATA / "GenBank" / "HM138502.gbk"
         record = SeqIO.read(path, "genbank")
         self.assertEqual(
             record.annotations["comment"],
@@ -7914,21 +7919,21 @@ KEYWORDS    """,
         self.assertEqual(
             len(record.annotations["structured_comment"]["GISAID_EpiFlu(TM)Data"]), 3
         )
-        path = "GenBank/HM138502_output.gbk"
+        path = support.DATA / "GenBank" / "HM138502_output.gbk"
         with open(path) as ifile:
             self.assertEqual(record.format("gb"), ifile.read())
         # FluData structured comment
-        path = "GenBank/EU851978.gbk"
+        path = support.DATA / "GenBank" / "EU851978.gbk"
         record = SeqIO.read(path, "genbank")
         self.assertEqual(
             record.annotations["structured_comment"]["FluData"]["LabID"], "2008704957"
         )
         self.assertEqual(len(record.annotations["structured_comment"]["FluData"]), 6)
-        path = "GenBank/EU851978_output.gbk"
+        path = support.DATA / "GenBank" / "EU851978_output.gbk"
         with open(path) as ifile:
             self.assertEqual(record.format("gb"), ifile.read())
         # Assembly-Data structured comment
-        path = "GenBank/KF527485.gbk"
+        path = support.DATA / "GenBank" / "KF527485.gbk"
         record = SeqIO.read(path, "genbank")
         self.assertEqual(
             record.annotations["structured_comment"]["Assembly-Data"][
@@ -7939,11 +7944,11 @@ KEYWORDS    """,
         self.assertEqual(
             len(record.annotations["structured_comment"]["Assembly-Data"]), 2
         )
-        path = "GenBank/KF527485_output.gbk"
+        path = support.DATA / "GenBank" / "KF527485_output.gbk"
         with open(path) as ifile:
             self.assertEqual(record.format("gb"), ifile.read())
         # No structured comment in NC_000932.gb, just a regular comment
-        path = "GenBank/NC_000932.gb"
+        path = support.DATA / "GenBank" / "NC_000932.gb"
         record = SeqIO.read(path, "genbank")
         self.assertNotIn("structured_comment", record.annotations)
         self.assertEqual(
@@ -7956,7 +7961,7 @@ KEYWORDS    """,
     def test_multiline_structured_comment_parsing(self):
         """Multiline structured comment parsing."""
         # GU949562.1, MIENS-Data, environment has value on multiple lines
-        path = "GenBank/GU949562.1.gb"
+        path = support.DATA / "GenBank" / "GU949562.1.gb"
         record = SeqIO.read(path, "genbank")
         self.assertEqual(
             record.annotations["structured_comment"]["MIENS-Data"]["environment"],
@@ -7971,7 +7976,7 @@ KEYWORDS    """,
         The comment will be ignored if it is not read by the parser AYW00820.1;
         Malformed key-value delimiter used. Should be " :: ", but the record uses ": "
         """
-        path = "GenBank/invalid_structured_comment.gb"
+        path = support.DATA / "GenBank" / "invalid_structured_comment.gb"
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -7984,13 +7989,13 @@ KEYWORDS    """,
 
     def test_locus_line_topogoly(self):
         """Test if chromosome topology is conserved."""
-        record = SeqIO.read("GenBank/DS830848.gb", "genbank")
+        record = SeqIO.read(support.DATA / "GenBank" / "DS830848.gb", "genbank")
         self.assertEqual(record.annotations["topology"], "linear")
         out_handle = StringIO()
         SeqIO.write([record], out_handle, "genbank")
         first_line = out_handle.getvalue().split("\n")[0]
         self.assertIn("linear", first_line)
-        with open("GenBank/DS830848.gb") as fh:
+        with open(support.DATA / "GenBank" / "DS830848.gb") as fh:
             orig_first_line = fh.readline().strip()
         self.assertEqual(first_line, orig_first_line)
 
@@ -8032,7 +8037,7 @@ KEYWORDS    """,
 
     def test_qualifier_order(self):
         """Check the qualifier order is preserved."""
-        record = SeqIO.read("GenBank/DS830848.gb", "gb")
+        record = SeqIO.read(support.DATA / "GenBank" / "DS830848.gb", "gb")
         f = record.features[0]
         self.assertEqual(
             list(f.qualifiers),
@@ -8044,7 +8049,9 @@ KEYWORDS    """,
         # Make sure parsing improperly escaped qualifiers raises a warning
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            record = SeqIO.read("GenBank/qualifier_escaping_read.gb", "gb")
+            record = SeqIO.read(
+                support.DATA / "GenBank" / "qualifier_escaping_read.gb", "gb"
+            )
             self.assertEqual(len(caught), 4)
             self.assertEqual(caught[0].category, BiopythonParserWarning)
             self.assertEqual(
@@ -8068,7 +8075,7 @@ KEYWORDS    """,
     def test_qualifier_escaping_write(self):
         """Check qualifier escaping is preserved when writing."""
         # Write some properly escaped qualifiers and test
-        genbank_in = "GenBank/qualifier_escaping_write.gb"
+        genbank_in = support.DATA / "GenBank" / "qualifier_escaping_write.gb"
         record = SeqIO.read(genbank_in, "gb")
         f1 = record.features[0]
         f2 = record.features[1]
@@ -8088,7 +8095,7 @@ KEYWORDS    """,
 
     def test_long_names(self):
         """Various GenBank names which push the column based LOCUS line."""
-        original = SeqIO.read("GenBank/iro.gb", "gb")
+        original = SeqIO.read(support.DATA / "GenBank" / "iro.gb", "gb")
         self.assertEqual(len(original), 1326)
         # Acceptability of LOCUS line with length > 80
         # invalidates some of these tests
@@ -8256,7 +8263,7 @@ KEYWORDS    """,
     def test_longer_locus_line(self):
         """Check that we can read and write files with longer locus lines."""
         # Create example file from existing file
-        path = "GenBank/DS830848.gb"
+        path = support.DATA / "GenBank" / "DS830848.gb"
         with open(path) as inhandle:
             data = inhandle.readlines()
         data[0] = (
@@ -8293,7 +8300,7 @@ KEYWORDS    """,
             This is only run if sys.maxsize > 2147483647.
             """
             # Create example file from existing file
-            path = "GenBank/DS830848.gb"
+            path = support.DATA / "GenBank" / "DS830848.gb"
             with open(path) as inhandle:
                 data = inhandle.readlines()
             data[0] = (
@@ -8323,7 +8330,7 @@ KEYWORDS    """,
                 self.assertEqual(len(record_in.seq), 10000000000)
 
             def read_longer_than_maxsize():
-                path = "GenBank/DS830848.gb"
+                path = support.DATA / "GenBank" / "DS830848.gb"
                 with open(path) as inhandle:
                     data2 = inhandle.readlines()
                 data2[0] = (
@@ -8643,7 +8650,7 @@ class OutputTests(unittest.TestCase):
     def test_000_write_invalid_but_parsed_locus_line(self):
         """Make sure we survive writing slightly invalid LOCUS lines we could parse."""
         # grab a valid file
-        path = "GenBank/NC_005816.gb"
+        path = support.DATA / "GenBank" / "NC_005816.gb"
         with open(path) as handle:
             lines = handle.readlines()
 
@@ -8677,7 +8684,7 @@ class OutputTests(unittest.TestCase):
 
     def test_write_tsa_data_division(self):
         """Make sure we don't kill the TSA data_file_division for TSA files."""
-        with open("GenBank/tsa_acropora.gb") as infile:
+        with open(support.DATA / "GenBank" / "tsa_acropora.gb") as infile:
             rec = SeqIO.read(infile, "genbank")
             infile.seek(0)
             first_line = infile.readline()
@@ -8718,7 +8725,7 @@ class GenBankScannerTests(unittest.TestCase):
     def test_genbank_cds_interaction(self):
         """Test CDS interaction, parse CDS features on gb(k) files."""
         # Test parse CDS features on NC_000932.gb
-        l_cds_f = self.gb_to_l_cds_f("GenBank/NC_000932.gb")
+        l_cds_f = self.gb_to_l_cds_f(support.DATA / "GenBank" / "NC_000932.gb")
         # number of records, should be 85
         self.assertEqual(len(l_cds_f), 85)
         # Seq ID
@@ -8727,7 +8734,8 @@ class GenBankScannerTests(unittest.TestCase):
 
         # Test parse CDS features on NC_005816.gb, Tag to ID
         l_cds_f = self.gb_to_l_cds_f(
-            "GenBank/NC_005816.gb", tags2id=("gene", "locus_tag", "product")
+            support.DATA / "GenBank" / "NC_005816.gb",
+            tags2id=("gene", "locus_tag", "product"),
         )
         # number of records, should be 10
         self.assertEqual(len(l_cds_f), 10)
@@ -8738,10 +8746,12 @@ class GenBankScannerTests(unittest.TestCase):
         # Test parse CDS features on
         # NC_000932.gb and NC_005816.gb combined
         l_cds_f1 = self.gb_to_l_cds_f(
-            "GenBank/NC_000932.gb", tags2id=("gene", "locus_tag", "product")
+            support.DATA / "GenBank" / "NC_000932.gb",
+            tags2id=("gene", "locus_tag", "product"),
         )
         l_cds_f2 = self.gb_to_l_cds_f(
-            "GenBank/NC_005816.gb", tags2id=("gene", "locus_tag", "product")
+            support.DATA / "GenBank" / "NC_005816.gb",
+            tags2id=("gene", "locus_tag", "product"),
         )
         l_cds_combined = l_cds_f1 + l_cds_f2
         # number of records combined, should be 95
@@ -8755,7 +8765,9 @@ class GenBankScannerTests(unittest.TestCase):
     def test_genbank_interaction(self):
         """Test GenBank records interaction on gbk files."""
         # Test parse records, on NC_005816, do_features False
-        l_r = self.gb_to_l_r("GenBank/NC_005816.gb", do_features=False)
+        l_r = self.gb_to_l_r(
+            support.DATA / "GenBank" / "NC_005816.gb", do_features=False
+        )
         # number of records, should be 1
         self.assertEqual(len(l_r), 1)
         self.assertEqual(l_r[0].id, "NC_005816.1")
@@ -8769,7 +8781,9 @@ class GenBankScannerTests(unittest.TestCase):
         self.assertEqual(len(l_r[0].features), 0)
 
         # Test parse records on NC_005816, do_features True
-        l_r = self.gb_to_l_r("GenBank/NC_005816.gb", do_features=True)
+        l_r = self.gb_to_l_r(
+            support.DATA / "GenBank" / "NC_005816.gb", do_features=True
+        )
         # number of records, should be 1
         self.assertEqual(len(l_r), 1)
         self.assertEqual(l_r[0].id, "NC_005816.1")
@@ -8784,7 +8798,9 @@ class GenBankScannerTests(unittest.TestCase):
 
         # Test parse records on "GenBank/NC_000932.gb",
         # do_features False
-        l_r = self.gb_to_l_r("GenBank/NC_000932.gb", do_features=False)
+        l_r = self.gb_to_l_r(
+            support.DATA / "GenBank" / "NC_000932.gb", do_features=False
+        )
         # number of records, should be 1
         self.assertEqual(len(l_r), 1)
         self.assertEqual(l_r[0].id, "NC_000932.1")
@@ -8795,7 +8811,9 @@ class GenBankScannerTests(unittest.TestCase):
         self.assertEqual(len(l_r[0].features), 0)
 
         # Test parse records on NC_000932, do_features True
-        l_r = self.gb_to_l_r("GenBank/NC_000932.gb", do_features=True)
+        l_r = self.gb_to_l_r(
+            support.DATA / "GenBank" / "NC_000932.gb", do_features=True
+        )
         # number of records, should be 1
         self.assertEqual(len(l_r), 1)
         self.assertEqual(l_r[0].id, "NC_000932.1")
@@ -8810,7 +8828,7 @@ class GenBankScannerTests(unittest.TestCase):
         embl_s = GenBank.Scanner.EmblScanner()
 
         # Test parse CDS features on embl_file
-        with open("EMBL/AE017046.embl") as handle_embl7046:
+        with open(support.DATA / "EMBL" / "AE017046.embl") as handle_embl7046:
             l_cds_f = list(embl_s.parse_cds_features(handle_embl7046))
         # number of records, should be 10
         self.assertEqual(len(l_cds_f), 10)
@@ -8823,7 +8841,7 @@ class GenBankScannerTests(unittest.TestCase):
         embl_s = GenBank.Scanner.EmblScanner()
 
         #  Test parse records on embl_file
-        with open("EMBL/AE017046.embl") as handle_embl7046:
+        with open(support.DATA / "EMBL" / "AE017046.embl") as handle_embl7046:
             l_embl_r = list(embl_s.parse_records(handle_embl7046, do_features=True))
         # number of records, should be 1
         self.assertEqual(len(l_embl_r), 1)
