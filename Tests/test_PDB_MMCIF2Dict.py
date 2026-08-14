@@ -212,6 +212,16 @@ class MMCIF2dictTests(unittest.TestCase):
         mmcif = MMCIF2Dict(filename)
         self.assertEqual(list(mmcif._splitline("foo bar")), ["foo", "bar"])
         self.assertEqual(list(mmcif._splitline("  foo bar  ")), ["foo", "bar"])
+        # Lines without quote or comment characters take a str.split fast
+        # path; it must agree with the full tokenizer on tabs and runs of
+        # whitespace.
+        self.assertEqual(list(mmcif._splitline("foo\tbar")), ["foo", "bar"])
+        self.assertEqual(list(mmcif._splitline("foo \t  bar\t")), ["foo", "bar"])
+        self.assertEqual(list(mmcif._splitline("")), [])
+        self.assertEqual(list(mmcif._splitline("   \t ")), [])
+        # The same tokens through the full tokenizer (the trailing comment
+        # forces it) must give the same answer.
+        self.assertEqual(list(mmcif._splitline("foo\tbar #c")), ["foo", "bar"])
         self.assertEqual(list(mmcif._splitline("'foo' bar")), ["foo", "bar"])
         self.assertEqual(list(mmcif._splitline('foo "bar"')), ["foo", "bar"])
         self.assertEqual(list(mmcif._splitline("foo 'bar a' b")), ["foo", "bar a", "b"])
