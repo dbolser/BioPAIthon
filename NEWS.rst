@@ -58,6 +58,14 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.Phylo`` trees can now resolve polytomies: the new
+``resolve_polytomies`` method on trees and clades converts each
+multifurcation into a series of bifurcations with branch length zero, as
+many downstream tools require. Adopted from upstream pull request
+`#4634 <https://github.com/biopython/biopython/pull/4634>`_ by Brandon Seah
+(see ``ADOPTED.md``), with the internal recursion replaced by a loop so that
+polytomies wider than Python's recursion limit also resolve.
+
 GenBank files whose LOCUS line declares molecule type ``NA`` — a nucleic acid
 of unspecified type, part of the GenBank specification and written by e.g.
 SnapGene exports — now parse instead of raising ``ValueError``. The scanner
