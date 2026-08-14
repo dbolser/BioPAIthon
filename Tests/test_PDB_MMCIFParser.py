@@ -275,6 +275,23 @@ class ParseReal(unittest.TestCase):
             self.assertIsInstance(s, Seq)
             self.assertEqual(refseq, s)
 
+    def test_insertions_fast(self):
+        """FastMMCIFParser drops insertion codes with auth_residues=False."""
+        parser = FastMMCIFParser(QUIET=True)
+        parser_lab_res = FastMMCIFParser(auth_residues=False, QUIET=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            structure = parser.get_structure("example", "PDB/4ZHL.cif")
+            structure_lr = parser_lab_res.get_structure("example", "PDB/4ZHL.cif")
+        auth_ids = [residue.get_id() for residue in structure[0]["U"]]
+        label_ids = [residue.get_id() for residue in structure_lr[0]["U"]]
+        # Auth numbering keeps the insertion codes...
+        self.assertIn((" ", 37, "A"), auth_ids)
+        # ...while label numbering has none, so no residue id may mix
+        # label numbering with an auth insertion code.
+        self.assertEqual([rid for rid in label_ids if rid[2] != " "], [])
+        self.assertIn((" ", 23, " "), label_ids)
+
     def test_filehandle(self):
         """Test if the parser can handle file handle as well as filename."""
         parser = MMCIFParser()
