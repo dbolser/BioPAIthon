@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include <Python.h>
 
 #define INF 1000000
@@ -432,10 +433,14 @@ static int
 PointBuffer_append(PointBuffer* buffer, Py_ssize_t index, double radius)
 {
     if (buffer->count == buffer->capacity) {
-        const Py_ssize_t capacity =
-            buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
-        PointRecord* items =
-            PyMem_RawRealloc(buffer->items, capacity * sizeof(PointRecord));
+        Py_ssize_t capacity;
+        PointRecord* items;
+        /* guard both the doubling and the byte count against overflow */
+        if (buffer->capacity > (Py_ssize_t)(PY_SSIZE_T_MAX
+                                            / (2 * sizeof(PointRecord))))
+            return 0;
+        capacity = buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
+        items = PyMem_RawRealloc(buffer->items, capacity * sizeof(PointRecord));
         if (items == NULL) return 0;
         buffer->items = items;
         buffer->capacity = capacity;
@@ -452,10 +457,15 @@ NeighborBuffer_append(NeighborBuffer* buffer,
 {
     NeighborRecord* record;
     if (buffer->count == buffer->capacity) {
-        const Py_ssize_t capacity =
-            buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
-        NeighborRecord* items =
-            PyMem_RawRealloc(buffer->items, capacity * sizeof(NeighborRecord));
+        Py_ssize_t capacity;
+        NeighborRecord* items;
+        /* guard both the doubling and the byte count against overflow */
+        if (buffer->capacity > (Py_ssize_t)(PY_SSIZE_T_MAX
+                                            / (2 * sizeof(NeighborRecord))))
+            return 0;
+        capacity = buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
+        items = PyMem_RawRealloc(buffer->items,
+                                 capacity * sizeof(NeighborRecord));
         if (items == NULL) return 0;
         buffer->items = items;
         buffer->capacity = capacity;
@@ -517,9 +527,8 @@ NeighborBuffer_as_list(const NeighborBuffer* buffer)
 
 /* KDTree
  *
- * After construction the tree is immutable except for
- * neighbor_simple_search, which re-sorts _data_point_list; search and
- * neighbor_search only read the tree, and may therefore run concurrently
+ * After construction the tree is immutable: search, neighbor_search and
+ * neighbor_simple_search only read it, and may therefore run concurrently
  * on the same tree from several threads.
  */
 
@@ -1348,6 +1357,8 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
     double radius;
     PyObject* neighbors = NULL;
     NeighborBuffer buffer;
+    DataPoint* data_point_list;
+    const Py_ssize_t n = self->_data_point_list_size;
     Py_ssize_t i;
 
     if (!PyArg_ParseTuple(args, "d:neighbor_simple_search", &radius))
@@ -1364,21 +1375,29 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
     buffer.radius = radius;
     buffer.radius_sq = radius*radius;
 
-    /* Unlike search and neighbor_search, this function keeps the GIL:
-     * the sort below mutates the shared _data_point_list, so running it
-     * concurrently with any other search on the same tree is unsafe. */
-    DataPoint_sort(self->_data_point_list, self->_data_point_list_size, 0);
+    /* Sort a private copy of the data points: sorting the shared
+     * _data_point_list in place would race with GIL-released searches
+     * on the same tree, and would scramble the [start, end) ranges the
+     * tree nodes point into. */
+    data_point_list = PyMem_RawMalloc(n * sizeof(DataPoint));
+    if (data_point_list == NULL) return PyErr_NoMemory();
 
-    for (i = 0; ok && i < self->_data_point_list_size; i++) {
+    /* This kernel only reads the tree and writes to the private copy and
+     * the C result buffer, so it can run without the GIL. */
+    Py_BEGIN_ALLOW_THREADS
+    memcpy(data_point_list, self->_data_point_list, n * sizeof(DataPoint));
+    DataPoint_sort(data_point_list, n, 0);
+
+    for (i = 0; ok && i < n; i++) {
         double x1;
         Py_ssize_t j;
         DataPoint p1;
 
-        p1 = self->_data_point_list[i];
+        p1 = data_point_list[i];
         x1 = p1._coord[0];
 
-        for (j = i+1; j < self->_data_point_list_size; j++) {
-            DataPoint p2 = self->_data_point_list[j];
+        for (j = i+1; j < n; j++) {
+            DataPoint p2 = data_point_list[j];
             double x2 = p2._coord[0];
             if (fabs(x2-x1) <= radius)
             {
@@ -1391,12 +1410,14 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
             }
         }
     }
+    Py_END_ALLOW_THREADS
 
     if (ok)
         neighbors = NeighborBuffer_as_list(&buffer);
     else
         PyErr_NoMemory();
     PyMem_RawFree(buffer.items);
+    PyMem_RawFree(data_point_list);
     return neighbors;
 }
 

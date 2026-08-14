@@ -283,6 +283,39 @@ class KDTreeThreadTest(unittest.TestCase):
 
         self._run_in_threads(worker, n_threads)
 
+    def test_concurrent_mixed_search_same_tree(self):
+        """Tree searches and the simple search interleave safely on one tree.
+
+        neighbor_simple_search sorts a private copy of the point list; if
+        it sorted the shared list in place, the tree searches running in
+        the other thread would read a scrambled list and return wrong
+        results (as would any later search on this tree).
+        """
+        coords = random((self.nr_points, 3))
+        center = random(3)
+        kdt = kdtrees.KDTree(coords, self.bucket_size)
+        expected_points = self._point_set(kdt.search(center, 10 * self.radius))
+        expected_neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+
+        def worker(thread_index):
+            for i in range(self.iterations):
+                if thread_index == 0:
+                    points = self._point_set(kdt.search(center, 10 * self.radius))
+                    neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+                else:
+                    points = expected_points
+                    neighbors = self._neighbor_set(
+                        kdt.neighbor_simple_search(self.radius)
+                    )
+                self.assertEqual(points, expected_points)
+                self.assertEqual(neighbors, expected_neighbors)
+
+        self._run_in_threads(worker, 2)
+        # The simple search must not have perturbed the tree.
+        self.assertEqual(
+            self._point_set(kdt.search(center, 10 * self.radius)), expected_points
+        )
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

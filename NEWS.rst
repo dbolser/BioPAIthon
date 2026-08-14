@@ -58,6 +58,19 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.PDB.kdtrees`` now releases the GIL in its pure-C kernels, so KDTree
+builds and searches run concurrently across Python threads: two threads
+working on separate 100,000-point datasets measured about 1.75× the speed of
+running them serially, where previously threading gained nothing. Searching
+one shared tree from several threads at once is also safe — the tree is
+immutable after construction, each search keeps its state in per-call
+buffers, and ``neighbor_simple_search`` sorts a private copy of the point
+list instead of re-sorting the shared one (which also means it no longer
+corrupts the tree for subsequent searches). The sort itself no longer goes
+through file-scope mutable state, removing a latent data race. Results are
+unchanged; ``search``, ``neighbor_search`` and ``neighbor_simple_search``
+return the same lists as before.
+
 ``import Bio.SeqIO`` is roughly ten times faster (about 107 ms down to 11 ms,
 median of five ``python -X importtime`` runs on Python 3.12), because the
 per-format parser modules are now imported on first use rather than eagerly.
