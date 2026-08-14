@@ -19,6 +19,11 @@ parse_rng_seed(PyObject* object, uint64_t* rng_seed)
  * srand(time(0)) seeding, which also clobbered the C library's global
  * rand() state.) An integer in [0, 2**64) is used as given.
  *
+ * The Bio.Cluster wrappers resolve None to an integer in Python before
+ * calling in, so this None branch only runs for direct _cluster callers;
+ * calling os.urandom from C creates a few transient Python objects per
+ * call, which the Python-level call avoids.
+ *
  * Returns 0 on success. On failure, returns -1 with a Python exception
  * set.
  */

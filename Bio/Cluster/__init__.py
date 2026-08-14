@@ -13,6 +13,7 @@ M. de Hoon et al. (2004) https://doi.org/10.1093/bioinformatics/bth078
 """
 
 import numbers
+import os
 
 try:
     import numpy as np
@@ -177,6 +178,7 @@ def kcluster(
     mask = __check_mask(mask, shape)
     weight = __check_weight(weight, ndata)
     clusterid, npass = __check_initialid(initialid, npass, nitems)
+    rng_seed = __check_rng_seed(rng_seed)
     error, nfound = _cluster.kcluster(
         data,
         nclusters,
@@ -257,6 +259,7 @@ def kmedoids(distance, nclusters=2, npass=1, initialid=None, rng_seed=None):
     distance = __check_distancematrix(distance)
     nitems = len(distance)
     clusterid, npass = __check_initialid(initialid, npass, nitems)
+    rng_seed = __check_rng_seed(rng_seed)
     error, nfound = _cluster.kmedoids(distance, nclusters, npass, clusterid, rng_seed)
     return clusterid, error, nfound
 
@@ -433,6 +436,7 @@ def somcluster(
         raise ValueError("nygrid should be a positive integer (default is 1)")
     clusterids = np.ones((nitems, 2), dtype="intc")
     celldata = np.empty((nxgrid, nygrid, ndata), dtype="d")
+    rng_seed = __check_rng_seed(rng_seed)
     _cluster.somcluster(
         clusterids,
         celldata,
@@ -1260,6 +1264,19 @@ def read(handle):
 
 # Everything below is private
 #
+
+
+def __check_rng_seed(rng_seed):
+    """Return rng_seed, drawing a fresh one from os.urandom if it is None.
+
+    None is resolved here, at the Python layer, so that unseeded calls
+    through the public API create no per-call Python objects inside the C
+    wrapper; the C layer resolves None itself only for callers that use
+    Bio.Cluster._cluster directly.
+    """
+    if rng_seed is None:
+        rng_seed = int.from_bytes(os.urandom(8), "big")
+    return rng_seed
 
 
 def __check_data(data):
