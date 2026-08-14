@@ -342,15 +342,10 @@ __all__ = [
     "SequenceWriter",
     "Union",
     "abstractmethod",
-    "alignment_iterator_class",
-    "alignment_writer_class",
-    "cls",
     "convert",
-    "fmt",
     "fspath",
     "index",
     "index_db",
-    "name",
     "parse",
     "read",
     "to_dict",
@@ -398,36 +393,54 @@ __all__ = [
 #
 # --Peter
 
+import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from os import fspath
 from typing import Union
 
-from Bio import AlignIO
-from Bio.SeqIO import AbiIO
-from Bio.SeqIO import AceIO
-from Bio.SeqIO import FastaIO
-from Bio.SeqIO import GckIO
-from Bio.SeqIO import GfaIO
-from Bio.SeqIO import IgIO  # IntelliGenetics or MASE format
-from Bio.SeqIO import InsdcIO  # EMBL and GenBank
-from Bio.SeqIO import NibIO
-from Bio.SeqIO import PdbIO
-from Bio.SeqIO import PhdIO
-from Bio.SeqIO import PirIO
-from Bio.SeqIO import QualityIO  # FastQ and qual files
-from Bio.SeqIO import SeqXmlIO
-from Bio.SeqIO import SffIO
-from Bio.SeqIO import SnapGeneIO
-from Bio.SeqIO import SwissIO
-from Bio.SeqIO import TabIO
-from Bio.SeqIO import TwoBitIO
-from Bio.SeqIO import UniprotIO
-from Bio.SeqIO import XdnaIO
 from Bio.SeqRecord import SeqRecord
 
 from .Interfaces import _IOSource, _TextIOSource, SequenceIterator, SequenceWriter
+
+# The per-format modules (Bio.SeqIO.FastaIO and friends) are imported on
+# demand, so that "import Bio.SeqIO" does not pay for every parser and its
+# dependencies (Bio.AlignIO pulls in Bio.Align and hence NumPy; SeqXmlIO
+# pulls in urllib.request and xml.sax).  They remain accessible as
+# attributes of this package via the module __getattr__ below (PEP 562),
+# exactly as when they were imported eagerly.
+_submodule_names = frozenset(
+    [
+        "AbiIO",
+        "AceIO",
+        "FastaIO",
+        "GckIO",
+        "GfaIO",
+        "IgIO",  # IntelliGenetics or MASE format
+        "InsdcIO",  # EMBL and GenBank
+        "NibIO",
+        "PdbIO",
+        "PhdIO",
+        "PirIO",
+        "QualityIO",  # FastQ and qual files
+        "SeqXmlIO",
+        "SffIO",
+        "SnapGeneIO",
+        "SwissIO",
+        "TabIO",
+        "TwoBitIO",
+        "UniprotIO",
+        "XdnaIO",
+    ]
+)
+
+
+def __getattr__(name):
+    """Import format submodules of Bio.SeqIO on first attribute access."""
+    if name in _submodule_names:
+        return importlib.import_module("Bio.SeqIO." + name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _is_pathlike(obj):
@@ -448,68 +461,49 @@ def _is_pathlike(obj):
 #
 # Most alignment file formats will be handled via Bio.AlignIO
 
-_FormatToIterator = {
-    "abi": AbiIO.AbiIterator,
-    "abi-trim": AbiIO._AbiTrimIterator,
-    "ace": AceIO.AceIterator,
-    "fasta": FastaIO.FastaIterator,
-    "fasta-2line": FastaIO.FastaTwoLineIterator,
-    "fasta-blast": FastaIO.FastaBlastIterator,
-    "fasta-pearson": FastaIO.FastaPearsonIterator,
-    "ig": IgIO.IgIterator,
-    "embl": InsdcIO.EmblIterator,
-    "embl-cds": InsdcIO.EmblCdsFeatureIterator,
-    "gb": InsdcIO.GenBankIterator,
-    "gck": GckIO.GckIterator,
-    "genbank": InsdcIO.GenBankIterator,
-    "genbank-cds": InsdcIO.GenBankCdsFeatureIterator,
-    "gfa1": GfaIO.Gfa1Iterator,
-    "gfa2": GfaIO.Gfa2Iterator,
-    "imgt": InsdcIO.ImgtIterator,
-    "nib": NibIO.NibIterator,
-    "cif-seqres": PdbIO.CifSeqresIterator,
-    "cif-atom": PdbIO.CifAtomIterator,
-    "pdb-atom": PdbIO.PdbAtomIterator,
-    "pdb-seqres": PdbIO.PdbSeqresIterator,
-    "phd": PhdIO.PhdIterator,
-    "pir": PirIO.PirIterator,
-    "fastq": QualityIO.FastqPhredIterator,
-    "fastq-sanger": QualityIO.FastqPhredIterator,
-    "fastq-solexa": QualityIO.FastqSolexaIterator,
-    "fastq-illumina": QualityIO.FastqIlluminaIterator,
-    "qual": QualityIO.QualPhredIterator,
-    "seqxml": SeqXmlIO.SeqXmlIterator,
-    "sff": SffIO.SffIterator,
-    "snapgene": SnapGeneIO.SnapGeneIterator,
-    "sff-trim": SffIO._SffTrimIterator,  # Not sure about this in the long run
-    "swiss": SwissIO.SwissIterator,
-    "tab": TabIO.TabIterator,
-    "twobit": TwoBitIO.TwoBitIterator,
-    "uniprot-xml": UniprotIO.UniprotIterator,
-    "xdna": XdnaIO.XdnaIterator,
-}
 
-# Right now used in the unit tests as proxy for all supported outputs...
-_FormatToWriter = {
-    "fasta": FastaIO.FastaWriter,
-    "fasta-2line": FastaIO.FastaTwoLineWriter,
-    "gb": InsdcIO.GenBankWriter,
-    "genbank": InsdcIO.GenBankWriter,
-    "embl": InsdcIO.EmblWriter,
-    "imgt": InsdcIO.ImgtWriter,
-    "nib": NibIO.NibWriter,
-    "phd": PhdIO.PhdWriter,
-    "pir": PirIO.PirWriter,
-    "fastq": QualityIO.FastqPhredWriter,
-    "fastq-sanger": QualityIO.FastqPhredWriter,
-    "fastq-solexa": QualityIO.FastqSolexaWriter,
-    "fastq-illumina": QualityIO.FastqIlluminaWriter,
-    "qual": QualityIO.QualPhredWriter,
-    "seqxml": SeqXmlIO.SeqXmlWriter,
-    "sff": SffIO.SffWriter,
-    "tab": TabIO.TabWriter,
-    "xdna": XdnaIO.XdnaWriter,
-}
+class _LazyFormatRegistry(dict):
+    """Mapping of file format name to handler, resolved on first access.
+
+    Values are stored either as "ModuleName.attribute" strings naming a
+    module under Bio.SeqIO, or as None for alignment formats delegated to
+    Bio.AlignIO; on first access the stored value is replaced by the actual
+    class (or function), so the cost of importing a format module is only
+    paid by callers who use that format (PRIVATE).
+    """
+
+    def __init__(self, specs, alignio_factory=None):
+        """Initialize from a dict of format name to lazy value."""
+        super().__init__(specs)
+        self._alignio_factory = alignio_factory
+
+    def __getitem__(self, key):
+        """Return the handler for this format, importing it if needed."""
+        value = super().__getitem__(key)
+        if isinstance(value, str):
+            module_name, _, attribute = value.partition(".")
+            module = importlib.import_module("Bio.SeqIO." + module_name)
+            value = getattr(module, attribute)
+            super().__setitem__(key, value)
+        elif value is None:
+            value = self._alignio_factory(key)
+            super().__setitem__(key, value)
+        return value
+
+    def get(self, key, default=None):
+        """Return the handler for this format, or default if unknown."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def values(self):
+        """Return all handlers, importing any not yet imported."""
+        return [self[key] for key in self]
+
+    def items(self):
+        """Return all (format, handler) pairs, importing as needed."""
+        return [(key, self[key]) for key in self]
 
 
 class AlignmentSequenceIterator(SequenceIterator):
@@ -543,17 +537,19 @@ class AlignmentSequenceIterator(SequenceIterator):
         return next(self.iterator)
 
 
-for fmt, alignment_iterator_class in AlignIO._FormatToIterator.items():
+def _get_alignment_sequence_iterator_class(fmt):
+    """Build the SequenceIterator wrapper class for a Bio.AlignIO format (PRIVATE)."""
+    from Bio import AlignIO
+
     name = fmt.replace("-", " ").title().replace(" ", "") + "AlignmentSequenceIterator"
-    cls = type(
+    return type(
         name,
         (AlignmentSequenceIterator,),
         {
             "fmt": fmt,
-            "_alignment_iterator_class": alignment_iterator_class,
+            "_alignment_iterator_class": AlignIO._FormatToIterator[fmt],
         },
     )
-    _FormatToIterator[fmt] = cls
 
 
 class AlignmentSequenceWriter(SequenceWriter):
@@ -586,17 +582,113 @@ class AlignmentSequenceWriter(SequenceWriter):
         return count
 
 
-for fmt, alignment_writer_class in AlignIO._FormatToWriter.items():
+def _get_alignment_sequence_writer_class(fmt):
+    """Build the SequenceWriter wrapper class for a Bio.AlignIO format (PRIVATE)."""
+    from Bio import AlignIO
+
     name = fmt.replace("-", " ").title().replace(" ", "") + "AlignmentSequenceWriter"
-    cls = type(
+    return type(
         name,
         (AlignmentSequenceWriter,),
-        {"_alignment_writer_class": alignment_writer_class},
+        {"_alignment_writer_class": AlignIO._FormatToWriter[fmt]},
     )
-    _FormatToWriter[fmt] = cls  # type: ignore
 
 
-del AlignIO
+_FormatToIterator = _LazyFormatRegistry(
+    {
+        "abi": "AbiIO.AbiIterator",
+        "abi-trim": "AbiIO._AbiTrimIterator",
+        "ace": "AceIO.AceIterator",
+        "fasta": "FastaIO.FastaIterator",
+        "fasta-2line": "FastaIO.FastaTwoLineIterator",
+        "fasta-blast": "FastaIO.FastaBlastIterator",
+        "fasta-pearson": "FastaIO.FastaPearsonIterator",
+        "ig": "IgIO.IgIterator",
+        "embl": "InsdcIO.EmblIterator",
+        "embl-cds": "InsdcIO.EmblCdsFeatureIterator",
+        "gb": "InsdcIO.GenBankIterator",
+        "gck": "GckIO.GckIterator",
+        "genbank": "InsdcIO.GenBankIterator",
+        "genbank-cds": "InsdcIO.GenBankCdsFeatureIterator",
+        "gfa1": "GfaIO.Gfa1Iterator",
+        "gfa2": "GfaIO.Gfa2Iterator",
+        "imgt": "InsdcIO.ImgtIterator",
+        "nib": "NibIO.NibIterator",
+        "cif-seqres": "PdbIO.CifSeqresIterator",
+        "cif-atom": "PdbIO.CifAtomIterator",
+        "pdb-atom": "PdbIO.PdbAtomIterator",
+        "pdb-seqres": "PdbIO.PdbSeqresIterator",
+        "phd": "PhdIO.PhdIterator",
+        "pir": "PirIO.PirIterator",
+        "fastq": "QualityIO.FastqPhredIterator",
+        "fastq-sanger": "QualityIO.FastqPhredIterator",
+        "fastq-solexa": "QualityIO.FastqSolexaIterator",
+        "fastq-illumina": "QualityIO.FastqIlluminaIterator",
+        "qual": "QualityIO.QualPhredIterator",
+        "seqxml": "SeqXmlIO.SeqXmlIterator",
+        "sff": "SffIO.SffIterator",
+        "snapgene": "SnapGeneIO.SnapGeneIterator",
+        "sff-trim": "SffIO._SffTrimIterator",  # Not sure about this in the long run
+        "swiss": "SwissIO.SwissIterator",
+        "tab": "TabIO.TabIterator",
+        "twobit": "TwoBitIO.TwoBitIterator",
+        "uniprot-xml": "UniprotIO.UniprotIterator",
+        "xdna": "XdnaIO.XdnaIterator",
+        # Alignment formats delegated to Bio.AlignIO; None is resolved on
+        # first use by wrapping the AlignIO iterator in an
+        # AlignmentSequenceIterator subclass.  This list must be kept in
+        # sync with AlignIO._FormatToIterator (checked by test_SeqIO).
+        "clustal": None,
+        "emboss": None,
+        "fasta-m10": None,
+        "maf": None,
+        "mauve": None,
+        "msf": None,
+        "nexus": None,
+        "phylip": None,
+        "phylip-sequential": None,
+        "phylip-relaxed": None,
+        "stockholm": None,
+    },
+    _get_alignment_sequence_iterator_class,
+)
+
+# Right now used in the unit tests as proxy for all supported outputs...
+_FormatToWriter = _LazyFormatRegistry(
+    {
+        "fasta": "FastaIO.FastaWriter",
+        "fasta-2line": "FastaIO.FastaTwoLineWriter",
+        "gb": "InsdcIO.GenBankWriter",
+        "genbank": "InsdcIO.GenBankWriter",
+        "embl": "InsdcIO.EmblWriter",
+        "imgt": "InsdcIO.ImgtWriter",
+        "nib": "NibIO.NibWriter",
+        "phd": "PhdIO.PhdWriter",
+        "pir": "PirIO.PirWriter",
+        "fastq": "QualityIO.FastqPhredWriter",
+        "fastq-sanger": "QualityIO.FastqPhredWriter",
+        "fastq-solexa": "QualityIO.FastqSolexaWriter",
+        "fastq-illumina": "QualityIO.FastqIlluminaWriter",
+        "qual": "QualityIO.QualPhredWriter",
+        "seqxml": "SeqXmlIO.SeqXmlWriter",
+        "sff": "SffIO.SffWriter",
+        "tab": "TabIO.TabWriter",
+        "xdna": "XdnaIO.XdnaWriter",
+        # Alignment formats delegated to Bio.AlignIO; None is resolved on
+        # first use by wrapping the AlignIO writer in an
+        # AlignmentSequenceWriter subclass.  This list must be kept in
+        # sync with AlignIO._FormatToWriter (checked by test_SeqIO).
+        "clustal": None,
+        "maf": None,
+        "mauve": None,
+        "nexus": None,
+        "phylip": None,
+        "phylip-sequential": None,
+        "phylip-relaxed": None,
+        "stockholm": None,
+    },
+    _get_alignment_sequence_writer_class,
+)
 
 
 def write(
@@ -617,8 +709,6 @@ def write(
 
     Returns the number of records written (as an integer).
     """
-    from Bio import AlignIO
-
     # Try and give helpful error messages:
     if not isinstance(format, str):
         raise TypeError("Need a string for the file format (lower case)")
@@ -1080,42 +1170,68 @@ def index_db(
 
 
 # TODO? - Handling aliases explicitly would let us shorten this list:
-_converter = {
-    ("genbank", "fasta"): InsdcIO._genbank_convert_fasta,
-    ("gb", "fasta"): InsdcIO._genbank_convert_fasta,
-    ("embl", "fasta"): InsdcIO._embl_convert_fasta,
-    ("fastq", "fasta"): QualityIO._fastq_convert_fasta,
-    ("fastq-sanger", "fasta"): QualityIO._fastq_convert_fasta,
-    ("fastq-solexa", "fasta"): QualityIO._fastq_convert_fasta,
-    ("fastq-illumina", "fasta"): QualityIO._fastq_convert_fasta,
-    ("fastq", "tab"): QualityIO._fastq_convert_tab,
-    ("fastq-sanger", "tab"): QualityIO._fastq_convert_tab,
-    ("fastq-solexa", "tab"): QualityIO._fastq_convert_tab,
-    ("fastq-illumina", "tab"): QualityIO._fastq_convert_tab,
-    ("fastq", "fastq"): QualityIO._fastq_sanger_convert_fastq_sanger,
-    ("fastq-sanger", "fastq"): QualityIO._fastq_sanger_convert_fastq_sanger,
-    ("fastq-solexa", "fastq"): QualityIO._fastq_solexa_convert_fastq_sanger,
-    ("fastq-illumina", "fastq"): QualityIO._fastq_illumina_convert_fastq_sanger,
-    ("fastq", "fastq-sanger"): QualityIO._fastq_sanger_convert_fastq_sanger,
-    ("fastq-sanger", "fastq-sanger"): QualityIO._fastq_sanger_convert_fastq_sanger,
-    ("fastq-solexa", "fastq-sanger"): QualityIO._fastq_solexa_convert_fastq_sanger,
-    ("fastq-illumina", "fastq-sanger"): QualityIO._fastq_illumina_convert_fastq_sanger,
-    ("fastq", "fastq-solexa"): QualityIO._fastq_sanger_convert_fastq_solexa,
-    ("fastq-sanger", "fastq-solexa"): QualityIO._fastq_sanger_convert_fastq_solexa,
-    ("fastq-solexa", "fastq-solexa"): QualityIO._fastq_solexa_convert_fastq_solexa,
-    ("fastq-illumina", "fastq-solexa"): QualityIO._fastq_illumina_convert_fastq_solexa,
-    ("fastq", "fastq-illumina"): QualityIO._fastq_sanger_convert_fastq_illumina,
-    ("fastq-sanger", "fastq-illumina"): QualityIO._fastq_sanger_convert_fastq_illumina,
-    ("fastq-solexa", "fastq-illumina"): QualityIO._fastq_solexa_convert_fastq_illumina,
-    (
-        "fastq-illumina",
-        "fastq-illumina",
-    ): QualityIO._fastq_illumina_convert_fastq_illumina,
-    ("fastq", "qual"): QualityIO._fastq_sanger_convert_qual,
-    ("fastq-sanger", "qual"): QualityIO._fastq_sanger_convert_qual,
-    ("fastq-solexa", "qual"): QualityIO._fastq_solexa_convert_qual,
-    ("fastq-illumina", "qual"): QualityIO._fastq_illumina_convert_qual,
-}
+_converter = _LazyFormatRegistry(
+    {
+        ("genbank", "fasta"): "InsdcIO._genbank_convert_fasta",
+        ("gb", "fasta"): "InsdcIO._genbank_convert_fasta",
+        ("embl", "fasta"): "InsdcIO._embl_convert_fasta",
+        ("fastq", "fasta"): "QualityIO._fastq_convert_fasta",
+        ("fastq-sanger", "fasta"): "QualityIO._fastq_convert_fasta",
+        ("fastq-solexa", "fasta"): "QualityIO._fastq_convert_fasta",
+        ("fastq-illumina", "fasta"): "QualityIO._fastq_convert_fasta",
+        ("fastq", "tab"): "QualityIO._fastq_convert_tab",
+        ("fastq-sanger", "tab"): "QualityIO._fastq_convert_tab",
+        ("fastq-solexa", "tab"): "QualityIO._fastq_convert_tab",
+        ("fastq-illumina", "tab"): "QualityIO._fastq_convert_tab",
+        ("fastq", "fastq"): "QualityIO._fastq_sanger_convert_fastq_sanger",
+        ("fastq-sanger", "fastq"): "QualityIO._fastq_sanger_convert_fastq_sanger",
+        ("fastq-solexa", "fastq"): "QualityIO._fastq_solexa_convert_fastq_sanger",
+        ("fastq-illumina", "fastq"): "QualityIO._fastq_illumina_convert_fastq_sanger",
+        ("fastq", "fastq-sanger"): "QualityIO._fastq_sanger_convert_fastq_sanger",
+        (
+            "fastq-sanger",
+            "fastq-sanger",
+        ): "QualityIO._fastq_sanger_convert_fastq_sanger",
+        (
+            "fastq-solexa",
+            "fastq-sanger",
+        ): "QualityIO._fastq_solexa_convert_fastq_sanger",
+        (
+            "fastq-illumina",
+            "fastq-sanger",
+        ): "QualityIO._fastq_illumina_convert_fastq_sanger",
+        ("fastq", "fastq-solexa"): "QualityIO._fastq_sanger_convert_fastq_solexa",
+        (
+            "fastq-sanger",
+            "fastq-solexa",
+        ): "QualityIO._fastq_sanger_convert_fastq_solexa",
+        (
+            "fastq-solexa",
+            "fastq-solexa",
+        ): "QualityIO._fastq_solexa_convert_fastq_solexa",
+        (
+            "fastq-illumina",
+            "fastq-solexa",
+        ): "QualityIO._fastq_illumina_convert_fastq_solexa",
+        ("fastq", "fastq-illumina"): "QualityIO._fastq_sanger_convert_fastq_illumina",
+        (
+            "fastq-sanger",
+            "fastq-illumina",
+        ): "QualityIO._fastq_sanger_convert_fastq_illumina",
+        (
+            "fastq-solexa",
+            "fastq-illumina",
+        ): "QualityIO._fastq_solexa_convert_fastq_illumina",
+        (
+            "fastq-illumina",
+            "fastq-illumina",
+        ): "QualityIO._fastq_illumina_convert_fastq_illumina",
+        ("fastq", "qual"): "QualityIO._fastq_sanger_convert_qual",
+        ("fastq-sanger", "qual"): "QualityIO._fastq_sanger_convert_qual",
+        ("fastq-solexa", "qual"): "QualityIO._fastq_solexa_convert_qual",
+        ("fastq-illumina", "qual"): "QualityIO._fastq_illumina_convert_qual",
+    }
+)
 
 
 def convert(in_file, in_format, out_file, out_format, molecule_type=None):
