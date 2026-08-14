@@ -62,8 +62,9 @@ recorded below. They are not part of any upstream Biopython release.
 corresponding ``Record`` methods) accept a new optional ``rng_seed`` keyword,
 an integer between 0 and 2**64-1. Passing a seed makes the clustering
 bit-identical across runs, which finally makes these randomized algorithms
-reproducible; leaving it as ``None`` keeps the old behaviour of a fresh random
-seed per call. Internally the C library's random number generator was replaced:
+reproducible; leaving it as ``None`` keeps the old behaviour of a random start
+per call, now with a fresh seed drawn from the operating system's entropy
+source (``os.urandom``). Internally the C library's random number generator was replaced:
 it used to keep its state in file-scope ``static`` variables and seed itself
 via ``srand(time(0))``, so results could never be reproduced, concurrent
 clustering calls would share (and corrupt) one generator, and merely calling

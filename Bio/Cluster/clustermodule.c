@@ -2,14 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <float.h>
-#include <time.h>
-#ifdef MS_WINDOWS
-#include <process.h>
-#define CLUSTER_GETPID _getpid
-#else
-#include <unistd.h>
-#define CLUSTER_GETPID getpid
-#endif
 #include "cluster.h"
 
 
@@ -17,45 +9,66 @@
 /* -- Helper routines ------------------------------------------------------ */
 /* ========================================================================= */
 
-static uint64_t
-entropy_seed(void)
-/* Returns a fresh seed for the random number generator, used when the caller
- * did not pass an rng_seed. Wall-clock time, per-process CPU time, and the
- * process id are mixed through the splitmix64 finalizer (Sebastiano Vigna,
- * 2015, public domain: https://prng.di.unimi.it/splitmix64.c) so that calls
- * in the same second, and in processes forked in the same second, still get
- * well-separated seeds. This replaces the old srand(time(0)) seeding, which
- * also clobbered the C library's global rand() state.
- */
-{
-    uint64_t z = (uint64_t) time(NULL);
-    z = (z << 32) ^ (uint64_t) clock();
-    z += (uint64_t) CLUSTER_GETPID() * 0x9e3779b97f4a7c15u;
-    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9u;
-    z = (z ^ (z >> 27)) * 0x94d049bb133111ebu;
-    return z ^ (z >> 31);
-}
-
 static int
-rng_seed_converter(PyObject* object, void* pointer)
-/* Converts an rng_seed argument. None leaves the entropy-based default in
- * *pointer untouched; an integer in [0, 2**64) replaces it. */
+parse_rng_seed(PyObject* object, uint64_t* rng_seed)
+/* Resolves an rng_seed argument. If the argument was omitted (object is
+ * NULL) or None, a fresh seed is drawn from the operating system's entropy
+ * source via os.urandom, so that every unseeded call gets an independent
+ * seed no matter how rapidly the calls follow each other; a deterministic
+ * time-based mix cannot guarantee that. (This replaces the old
+ * srand(time(0)) seeding, which also clobbered the C library's global
+ * rand() state.) An integer in [0, 2**64) is used as given.
+ *
+ * Returns 0 on success. On failure, returns -1 with a Python exception
+ * set.
+ */
 {
     unsigned long long value;
 
-    if (object == Py_None) return 1;
+    if (object == NULL || object == Py_None) {
+        PyObject* os_module;
+        PyObject* bytes;
+        char* data;
+        Py_ssize_t size;
+        uint64_t seed;
+        size_t i;
+
+        os_module = PyImport_ImportModule("os");
+        if (!os_module) return -1;
+        bytes = PyObject_CallMethod(os_module, "urandom", "i",
+                                    (int) sizeof(seed));
+        Py_DECREF(os_module);
+        if (!bytes) return -1;
+        if (PyBytes_AsStringAndSize(bytes, &data, &size) == -1) {
+            Py_DECREF(bytes);
+            return -1;
+        }
+        if (size != (Py_ssize_t) sizeof(seed)) {
+            Py_DECREF(bytes);
+            PyErr_Format(PyExc_RuntimeError,
+                         "os.urandom returned %zd bytes (expected %zd)",
+                         size, (Py_ssize_t) sizeof(seed));
+            return -1;
+        }
+        seed = 0;
+        for (i = 0; i < sizeof(seed); i++)
+            seed = (seed << 8) | (uint64_t) (unsigned char) data[i];
+        Py_DECREF(bytes);
+        *rng_seed = seed;
+        return 0;
+    }
     if (!PyLong_Check(object)) {
         PyErr_SetString(PyExc_TypeError, "rng_seed must be an integer or None");
-        return 0;
+        return -1;
     }
     value = PyLong_AsUnsignedLongLong(object);
     if (value == (unsigned long long) -1 && PyErr_Occurred()) {
         PyErr_SetString(PyExc_ValueError,
                         "rng_seed must be a non-negative integer less than 2**64");
-        return 0;
+        return -1;
     }
-    *((uint64_t*)pointer) = (uint64_t) value;
-    return 1;
+    *rng_seed = (uint64_t) value;
+    return 0;
 }
 
 static char
@@ -1317,8 +1330,9 @@ static char kcluster__doc__[] =
 "\n"
 " - rng_seed: seed for the random number generator used to choose the\n"
 "   random initial clusterings (an integer between 0 and 2**64-1), or\n"
-"   None to seed from a fresh entropy source on each call. A given seed\n"
-"   yields identical results on every run. Only used if npass > 0.\n"
+"   None to draw a fresh seed from the operating system's entropy source\n"
+"   (os.urandom) on each call. A given seed yields identical results on\n"
+"   every run. Only used if npass > 0.\n"
 "\n";
 
 static PyObject*
@@ -1338,7 +1352,8 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
     Py_buffer clusterid = {0};
     double error;
     int ifound = 0;
-    uint64_t rng_seed = entropy_seed();
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"data",
                              "nclusters",
@@ -1352,7 +1367,7 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
                              "rng_seed",
                               NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iO&O&iiO&O&O&|O&",
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iO&O&iiO&O&O&|O",
                                      kwlist,
                                      data_converter, &data,
                                      &nclusters,
@@ -1363,8 +1378,9 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
                                      method_kcluster_converter, &method,
                                      distance_converter, &dist,
                                      index_converter, &clusterid,
-                                     rng_seed_converter, &rng_seed))
+                                     &rng_seed_obj))
         return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (!data.values) {
         PyErr_SetString(PyExc_RuntimeError, "data is None");
         goto exit;
@@ -1485,8 +1501,9 @@ static char kmedoids__doc__[] =
 "\n"
 " - rng_seed: seed for the random number generator used to choose the\n"
 "   random initial clusterings (an integer between 0 and 2**64-1), or\n"
-"   None to seed from a fresh entropy source on each call. A given seed\n"
-"   yields identical results on every run. Only used if npass > 0.\n"
+"   None to draw a fresh seed from the operating system's entropy source\n"
+"   (os.urandom) on each call. A given seed yields identical results on\n"
+"   every run. Only used if npass > 0.\n"
 "\n"
 "Return values:\n"
 " - error: the within-cluster sum of distances for the returned k-means\n"
@@ -1502,7 +1519,8 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
     int npass = 1;
     double error;
     int ifound = -2;
-    uint64_t rng_seed = entropy_seed();
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"distance",
                              "nclusters",
@@ -1511,13 +1529,14 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
                              "rng_seed",
                               NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iiO&|O&", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iiO&|O", kwlist,
                                      distancematrix_converter, &distances,
                                      &nclusters,
                                      &npass,
                                      index_converter, &clusterid,
-                                     rng_seed_converter, &rng_seed))
+                                     &rng_seed_obj))
         return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (npass < 0) {
         PyErr_SetString(PyExc_RuntimeError, "expected a non-negative integer");
         goto exit;
@@ -1833,9 +1852,9 @@ static char somcluster__doc__[] =
 "\n"
 " - rng_seed: seed for the random number generator used to initialize\n"
 "   the nodes and to randomize the order in which the items are\n"
-"   presented (an integer between 0 and 2**64-1), or None to seed from\n"
-"   a fresh entropy source on each call. A given seed yields identical\n"
-"   results on every run.\n";
+"   presented (an integer between 0 and 2**64-1), or None to draw a\n"
+"   fresh seed from the operating system's entropy source (os.urandom)\n"
+"   on each call. A given seed yields identical results on every run.\n";
 
 static PyObject*
 py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
@@ -1853,7 +1872,8 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
     Py_buffer indices = {0};
     Celldata celldata = {0};
     PyObject* result = NULL;
-    uint64_t rng_seed = entropy_seed();
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"clusterids",
                              "celldata",
@@ -1867,7 +1887,7 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                              "rng_seed",
                              NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&O&O&idiO&|O&",
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&O&O&idiO&|O",
                                      kwlist,
                                      index2d_converter, &indices,
                                      celldata_converter, &celldata,
@@ -1878,8 +1898,9 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                                      &inittau,
                                      &niter,
                                      distance_converter, &dist,
-                                     rng_seed_converter, &rng_seed))
+                                     &rng_seed_obj))
         return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (niter < 1) {
         PyErr_SetString(PyExc_ValueError,
                       "number of iterations (niter) should be positive");

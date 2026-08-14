@@ -3170,6 +3170,41 @@ class TestClusterRNGSeed(unittest.TestCase):
         clusterid3, celldata3 = somcluster(data, niter=3, rng_seed=2)
         self.assertFalse((celldata1 == celldata3).all())
 
+    def test_unseeded_calls_draw_from_os_entropy(self):
+        # An omitted (or None) rng_seed must draw the seed from the
+        # operating system's entropy source via os.urandom, not from a
+        # deterministic time-based mix: two unseeded calls in the same
+        # clock tick used to be able to collide on the same seed.
+        # Patching os.urandom makes the seed source controllable: the
+        # same bytes must give the same map, different bytes a different
+        # map, proving the seed comes from os.urandom and nowhere else.
+        from unittest import mock
+
+        from Bio.Cluster import somcluster
+
+        data = self._data()
+        with mock.patch("os.urandom", return_value=b"\x2a" * 8) as urandom:
+            clusterid1, celldata1 = somcluster(data, niter=1)
+            clusterid2, celldata2 = somcluster(data, niter=1)
+        self.assertEqual(urandom.call_count, 2)
+        urandom.assert_called_with(8)
+        np.testing.assert_array_equal(celldata1, celldata2)
+        with mock.patch("os.urandom", return_value=b"\x2b" * 8):
+            clusterid3, celldata3 = somcluster(data, niter=1)
+        self.assertFalse((celldata1 == celldata3).all())
+
+    def test_rapid_unseeded_calls_differ(self):
+        # With real OS entropy, unseeded calls in rapid succession get
+        # independent seeds; the probability of any two of these five
+        # maps colliding is negligible (the node values are continuous).
+        from Bio.Cluster import somcluster
+
+        data = self._data()
+        maps = [somcluster(data, niter=1)[1] for _ in range(5)]
+        for i, first in enumerate(maps):
+            for second in maps[i + 1 :]:
+                self.assertFalse((first == second).all())
+
     def test_rng_seed_validation(self):
         from Bio.Cluster import kcluster
 

@@ -155,9 +155,10 @@ def kcluster(
        k-means algorithm is fully deterministic.
      - rng_seed: seed for the random number generator used to choose the
        random initial clusterings (an integer between 0 and 2**64-1), or
-       None to seed from a fresh entropy source on each call. A given
-       seed yields identical results on every run, making the clustering
-       reproducible. Only used if initialid is None and npass > 0.
+       None to draw a fresh seed from the operating system's entropy
+       source (os.urandom) on each call. A given seed yields identical
+       results on every run, making the clustering reproducible. Only
+       used if initialid is None and npass > 0.
 
     Return values:
      - clusterid: array containing the index of the cluster to which each
@@ -239,9 +240,10 @@ def kmedoids(distance, nclusters=2, npass=1, initialid=None, rng_seed=None):
        In that case, the k-medoids algorithm is fully deterministic.
      - rng_seed: seed for the random number generator used to choose the
        random initial clusterings (an integer between 0 and 2**64-1), or
-       None to seed from a fresh entropy source on each call. A given
-       seed yields identical results on every run, making the clustering
-       reproducible. Only used if initialid is None and npass > 0.
+       None to draw a fresh seed from the operating system's entropy
+       source (os.urandom) on each call. A given seed yields identical
+       results on every run, making the clustering reproducible. Only
+       used if initialid is None and npass > 0.
 
     Return values:
      - clusterid: array containing the index of the cluster to which each
@@ -399,9 +401,10 @@ def somcluster(
        - dist == 'k': Kendall's tau
      - rng_seed: seed for the random number generator used to initialize
        the nodes and to randomize the order in which the items are
-       presented (an integer between 0 and 2**64-1), or None to seed from
-       a fresh entropy source on each call. A given seed yields identical
-       results on every run, making the map reproducible.
+       presented (an integer between 0 and 2**64-1), or None to draw a
+       fresh seed from the operating system's entropy source (os.urandom)
+       on each call. A given seed yields identical results on every run,
+       making the map reproducible.
 
     Return values:
 
@@ -846,9 +849,10 @@ class Record:
            matrix). In that case, the k-means algorithm is fully deterministic.
          - rng_seed: seed for the random number generator used to choose the
            random initial clusterings (an integer between 0 and 2**64-1), or
-           None to seed from a fresh entropy source on each call. A given
-           seed yields identical results on every run, making the clustering
-           reproducible. Only used if initialid is None and npass > 0.
+           None to draw a fresh seed from the operating system's entropy
+           source (os.urandom) on each call. A given seed yields identical
+           results on every run, making the clustering reproducible. Only
+           used if initialid is None and npass > 0.
 
         Return values:
          - clusterid: array containing the number of the cluster to which each
@@ -907,9 +911,10 @@ class Record:
            - dist == 'k': Kendall's tau
          - rng_seed: seed for the random number generator used to initialize
            the nodes and to randomize the order in which the items are
-           presented (an integer between 0 and 2**64-1), or None to seed
-           from a fresh entropy source on each call. A given seed yields
-           identical results on every run, making the map reproducible.
+           presented (an integer between 0 and 2**64-1), or None to draw
+           a fresh seed from the operating system's entropy source
+           (os.urandom) on each call. A given seed yields identical
+           results on every run, making the map reproducible.
 
         Return values:
          - clusterid: array with two columns, while the number of rows is equal
