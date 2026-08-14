@@ -58,6 +58,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.PDB.MMCIF2Dict`` — and with it ``MMCIFParser`` — is substantially
+faster. Most lines in an mmCIF file, every atom record among them, contain no
+quote and no comment character, yet each was walked character by character
+through the full CIF tokenizer. A line free of ``'``, ``"`` and ``#`` is now
+tokenized with ``str.split``; any line that could need the real tokenizer
+still gets it. Measured as the median of 15 runs, ``MMCIF2Dict`` reads
+``Tests/PDB/6WG6.cif`` in 181 ms instead of 556 ms, and
+``MMCIFParser.get_structure`` on the same file drops from 755 ms to 364 ms;
+parse output is identical on all 19 mmCIF test fixtures. A benchmark script,
+``Scripts/Performance/benchmark_mmcif_parsing.py``, is included. Adopted from
+biopython/biopython#5121 by Oz Nova; see ``ADOPTED.md``.
+
 ``Bio.PDB.kdtrees`` now releases the GIL in its pure-C kernels, so KDTree
 builds and searches run concurrently across Python threads: two threads
 working on separate 100,000-point datasets measured about 1.75× the speed of
