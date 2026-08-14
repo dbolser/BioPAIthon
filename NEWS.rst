@@ -72,6 +72,8 @@ recoverable shapes still parse with a warning as before: a record whose
 sequence data is complete but which lacks the final ``//`` terminator, and a
 record with no sequence data at all.
 
+
+
 The writer helpers deprecated in Biopython 1.86 have been removed: ``as_fasta``
 and ``as_fasta_2line`` in ``Bio.SeqIO.FastaIO``, ``as_fastq``, ``as_qual``,
 ``as_fastq_solexa`` and ``as_fastq_illumina`` in ``Bio.SeqIO.QualityIO``, and
