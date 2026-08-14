@@ -40,6 +40,25 @@ request.
 
 Newest first.
 
+### [#4634](https://github.com/biopython/biopython/pull/4634) — Brandon Seah
+
+`Bio.Phylo` had no way to resolve polytomies, which many downstream tools
+require — they insist on strictly bifurcating trees, while others (FastTree,
+for one) happily produce multifurcations. The pull request adds
+`TreeMixin.resolve_polytomies(shuffle=False, recursive=True)`, which converts
+each polytomy into a caterpillar of zero-length bifurcations, optionally
+shuffling the child order first.
+
+**All three commits taken**, including the author adding himself to
+`CONTRIB.rst` — the only review comment (peterjc asking the test to compare
+the resolved tree's string representation) was addressed by the author in the
+third commit, and nothing was left behind. Two corrections sit on top in a
+separate commit: the caterpillar is now built with a loop rather than the
+original one-child-per-call recursion, which hit Python's recursion limit on a
+polytomy with ~1000 children — a star tree being precisely the input the
+feature targets — and the public method gained the doctest the house style
+asks of new API.
+
 ### [#4918](https://github.com/biopython/biopython/pull/4918) — Erik Whiting
 
 Fixes upstream issue
