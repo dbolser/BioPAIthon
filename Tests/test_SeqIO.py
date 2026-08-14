@@ -6139,6 +6139,43 @@ class LazyFormatRegistries(unittest.TestCase):
         with self.assertRaises(AttributeError):
             Bio.SeqIO.ThereIsNoSuchModule
 
+    def test_concurrent_first_access_agrees_on_one_value(self):
+        """Concurrent first accesses must all see the same resolved class.
+
+        The factory may run more than once when threads race, but exactly
+        one result is stored and every caller gets that one, so class
+        identity is stable however the race falls out.
+        """
+        import threading
+        import time
+
+        factory_calls = []
+
+        def factory(fmt):
+            factory_calls.append(fmt)
+            time.sleep(0.01)  # widen the race window
+            return type("Wrapper", (), {"fmt": fmt})
+
+        registry = SeqIO._LazyFormatRegistry({"clustal": None}, factory)
+        nthreads = 4
+        barrier = threading.Barrier(nthreads)
+        results = []
+
+        def worker():
+            barrier.wait()
+            results.append(registry["clustal"])
+
+        threads = [threading.Thread(target=worker) for _ in range(nthreads)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(len(results), nthreads)
+        for result in results[1:]:
+            self.assertIs(result, results[0])
+        self.assertIs(registry["clustal"], results[0])
+        self.assertGreaterEqual(len(factory_calls), 1)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

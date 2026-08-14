@@ -394,6 +394,7 @@ __all__ = [
 # --Peter
 
 import importlib
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
@@ -476,6 +477,7 @@ class _LazyFormatRegistry(dict):
         """Initialize from a dict of format name to lazy value."""
         super().__init__(specs)
         self._alignio_factory = alignio_factory
+        self._lock = threading.Lock()
 
     def __getitem__(self, key):
         """Return the handler for this format, importing it if needed."""
@@ -483,11 +485,19 @@ class _LazyFormatRegistry(dict):
         if isinstance(value, str):
             module_name, _, attribute = value.partition(".")
             module = importlib.import_module("Bio.SeqIO." + module_name)
-            value = getattr(module, attribute)
-            super().__setitem__(key, value)
+            resolved = getattr(module, attribute)
         elif value is None:
-            value = self._alignio_factory(key)
-            super().__setitem__(key, value)
+            resolved = self._alignio_factory(key)
+        else:
+            return value
+        # Resolution happens outside the lock (imports take their own locks);
+        # storing happens under it, so concurrent first accesses agree on a
+        # single resolved value - in particular a single wrapper class.
+        with self._lock:
+            value = super().__getitem__(key)
+            if isinstance(value, str) or value is None:
+                super().__setitem__(key, resolved)
+                value = resolved
         return value
 
     def get(self, key, default=None):
