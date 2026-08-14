@@ -731,6 +731,20 @@ class TreeMixin:
             recursive : bool
                 Resolve polytomies in all descendant clades; otherwise resolve
                 this node only.
+
+        For example:
+
+            >>> from io import StringIO
+            >>> from Bio import Phylo
+            >>> tree = Phylo.read(StringIO("(A:1,(B:2,C:3,D:4):5);"), "newick")
+            >>> tree.is_bifurcating()
+            False
+            >>> tree.resolve_polytomies()
+            >>> tree.is_bifurcating()
+            True
+            >>> print(tree.format("newick").strip())
+            (A:1,(B:2,(C:3,D:4):0):5):0;
+
         """
         if recursive:
             for clade in self.get_nonterminals():
@@ -739,7 +753,7 @@ class TreeMixin:
         else:
             try:
                 self._resolve_polytomy(shuffle=shuffle)
-            except AttributeError as e:
+            except AttributeError:
                 # self is a Tree object, start from its root instead
                 self.root._resolve_polytomy(shuffle=shuffle)
 
@@ -749,18 +763,14 @@ class TreeMixin:
         if shuffle:
             random.shuffle(children)
         self.clades = []
-
-        def _recurse_add_branch(node, to_add):
-            if len(to_add) == 2:
-                node.clades = to_add
-                return
-            else:
-                new_clade = Clade(branch_length=0.0)
-                node.clades.append(to_add[0])
-                node.clades.append(new_clade)
-                return _recurse_add_branch(new_clade, to_add[1:])
-
-        _recurse_add_branch(self, children)
+        # Walk down the caterpillar iteratively; recursing here would hit
+        # Python's recursion limit on a polytomy with ~1000 children.
+        node = self
+        while len(children) > 2:
+            new_clade = Clade(branch_length=0.0)
+            node.clades = [children.pop(0), new_clade]
+            node = new_clade
+        node.clades = children
 
 
 class Tree(TreeElement, TreeMixin):

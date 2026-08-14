@@ -567,6 +567,25 @@ class MixinTests(unittest.TestCase):
         self.assertTrue(poly_tree.is_bifurcating())
         self.assertEqual(poly_tree.format("newick"), resolved_tree.format("newick"))
 
+    def test_resolve_polytomies_wide(self):
+        """TreeMixin: resolve_polytomies() on a star wider than the recursion limit."""
+        # A star tree, as produced by e.g. FastTree on unresolvable data.
+        # 1500 children exceeds Python's default recursion limit of 1000,
+        # which the original recursive implementation ran into.
+        size = 1500
+        star = "(" + ",".join("t%d:1" % i for i in range(size)) + ");"
+        tree = Phylo.read(StringIO(star), "newick")
+        tree.resolve_polytomies()
+        # The resolved tree is deeper than the recursion limit too, so
+        # check it with the iterative level-order traversal rather than
+        # is_bifurcating() or the default preorder find_clades().
+        terminals = 0
+        for clade in tree.find_clades(order="level"):
+            self.assertLessEqual(len(clade.clades), 2)
+            if clade.is_terminal():
+                terminals += 1
+        self.assertEqual(terminals, size)
+
 
 # ---------------------------------------------------------
 
