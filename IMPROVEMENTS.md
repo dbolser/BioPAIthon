@@ -863,6 +863,14 @@ migrate alignment-building onto `Bio.Align.CodonAligner` and keep only
 
 ### 2.6 Python-2-era shims, one of which silently breaks a documented promise
 
+> **Status: the `__nonzero__` half is fixed** in PR #12, which took the
+> "real `__bool__`" branch of the decision below: both methods are now
+> `__bool__` returning `True` per the documented promise, the docstrings are
+> corrected, and truthiness of zero-length locations is tested. The
+> `iteritems()` remnant has a deprecation in flight (PR #66 — deprecated
+> rather than deleted, since upstream still ships it as public API). The 101
+> unwarned `colour` aliases remain fully open.
+
 `Bio/SeqFeature.py:1117,1515` define `__nonzero__` — the **Python 2** name.
 Neither class defines `__bool__`, but both define `__len__`, so zero-length
 locations are falsy. The docstring at `:1118-1120` promises "Return True
