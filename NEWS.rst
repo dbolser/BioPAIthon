@@ -562,6 +562,19 @@ Reading FASTQ files is faster. The quality decoder no longer round-trips every
 record through ``array.array`` to accommodate the negative scores that only the
 Solexa format produces; that conversion now happens only in the Solexa reader.
 
+SAM files written by ``Bio.Align`` now carry a template length instead of
+TLEN 0 on every record — **the output of every SAM write changes where a
+template length is known**. The writer previously hard-coded the field to
+zero, discarding even the value the parser had read in. It now writes an
+explicit ``alignment.tlen`` attribute when one is set, so parsed files
+round-trip their TLEN, and when the alignments are passed as a list or tuple
+it computes the value for properly paired reads: the span from the leftmost
+mapped base of the pair to the rightmost, signed ``+`` on the leftmost mate
+and ``-`` on the rightmost as the SAM specification requires. Unpaired,
+unmapped, secondary and supplementary records keep TLEN 0, as do alignments
+supplied as an iterator, since pairing needs the mate's coordinates. Adopted
+from biopython/biopython#5244 by Gian Carlo D Dumpit; see ``ADOPTED.md``.
+
 The pairwise alignment kernels release the GIL. The Needleman-Wunsch,
 Smith-Waterman and Gotoh dynamic programming loops in
 ``Bio.Align.PairwiseAligner`` now run without holding Python's global
