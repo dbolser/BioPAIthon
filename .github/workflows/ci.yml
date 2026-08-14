@@ -149,6 +149,26 @@ jobs:
       run: |
         python -m build --sdist
 
+    # Guard against the sdist silently regrowing. The dominant content is
+    # Tests/ fixture data (the sdist is deliberately self-testing); the cap
+    # is ~2x the size measured when it was introduced (~19.6 MB, 2026-08).
+    # If this fails, a large fixture was probably added: gzip it (several
+    # tests already read fixtures through gzip.open) or trim it.
+    - name: Check sdist size
+      run: |
+        python - <<'PY'
+        import glob
+        import os
+        import sys
+
+        limit = 40_000_000  # bytes
+        [sdist] = glob.glob("dist/*.tar.gz")
+        size = os.path.getsize(sdist)
+        print(f"{sdist}: {size:,} bytes (limit {limit:,})")
+        if size > limit:
+            sys.exit(f"sdist exceeds the {limit:,} byte cap; see this step's comment in ci.yml")
+        PY
+
   # Note: CI deliberately does not build wheels. Compiling the C extensions on
   # each OS is already covered by the test jobs below, which all `pip install .`
   # from source. Real, installable, import-tested wheels are built by

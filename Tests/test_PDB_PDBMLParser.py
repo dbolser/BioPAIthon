@@ -5,6 +5,7 @@ These tests rely on the principle that the structure returned by the PDBML parse
 returned by the mmCIF parser for any PDB structure.
 """
 
+import gzip
 import unittest
 import warnings
 
@@ -22,8 +23,14 @@ class TestPDBMLParser(unittest.TestCase):
             warnings.simplefilter("ignore", PDBConstructionWarning)
             for entry in ["1GBT", "6WG6", "3JQH"]:
                 mmcif_structure = mmcif_parser.get_structure(entry, f"PDB/{entry}.cif")
-                pdbml_structure = pdbml_parser.get_structure(f"PDB/{entry}.xml")
-            self.assertEqual(mmcif_structure, pdbml_structure)
+                if entry == "6WG6":
+                    # This fixture is stored gzipped (39 MB uncompressed);
+                    # the parser accepts a file handle, so read through gzip.
+                    with gzip.open(f"PDB/{entry}.xml.gz") as source:
+                        pdbml_structure = pdbml_parser.get_structure(source)
+                else:
+                    pdbml_structure = pdbml_parser.get_structure(f"PDB/{entry}.xml")
+                self.assertEqual(mmcif_structure, pdbml_structure)
 
     def test_get_structure_filehandle(self):
         mmcif_parser = MMCIFParser()
