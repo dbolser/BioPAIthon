@@ -29,8 +29,6 @@ http://imgt.cines.fr/download/LIGM-DB/ftable_doc.html
 http://www.ebi.ac.uk/imgt/hla/docs/manual.html
 
 """
-from typing import Iterable
-
 import warnings
 from datetime import datetime, date as datetime_date
 from string import ascii_letters
@@ -1165,17 +1163,26 @@ class GenBankWriter(_InsdcWriter):
         handle.write("FEATURES             Location/Qualifiers\n")
         rec_length = len(record)
         for index, feature in enumerate(record.features):
-            # Handle any stray line breaks in the feature
-            for k in feature.qualifiers.keys():
-                if (
-                    isinstance(feature.qualifiers[k], Iterable)
-                    and "\n" in feature.qualifiers[k]
+            # Handle any stray line breaks in the feature qualifiers.
+            # Left in place, they would produce continuation lines without
+            # the leading whitespace the format requires, and the GenBank
+            # parser would then reject the file (upstream issue #3885).
+            for key, values in feature.qualifiers.items():
+                if isinstance(values, str) and "\n" in values:
+                    feature.qualifiers[key] = values.replace("\n", " ")
+                elif isinstance(values, (list, tuple)) and any(
+                    isinstance(value, str) and "\n" in value for value in values
                 ):
-                    feature.qualifiers[k] = feature.qualifiers[k].replace("\n", " ")
-                    warnings.warn(
-                        f"Replacing stray line break with space. Annotation: {k}. Record ID: {record.id}. Feature index: {index}",
-                        BiopythonWarning,
+                    feature.qualifiers[key] = type(values)(
+                        value.replace("\n", " ") if isinstance(value, str) else value
+                        for value in values
                     )
+                else:
+                    continue
+                warnings.warn(
+                    f"Replacing stray line break with space. Annotation: {key}. Record ID: {record.id}. Feature index: {index}",
+                    BiopythonWarning,
+                )
             self._write_feature(feature, rec_length)
         self._write_sequence(record)
         handle.write("//\n")
