@@ -29,6 +29,7 @@ http://imgt.cines.fr/download/LIGM-DB/ftable_doc.html
 http://www.ebi.ac.uk/imgt/hla/docs/manual.html
 
 """
+import copy
 import warnings
 from datetime import datetime, date as datetime_date
 from string import ascii_letters
@@ -1167,13 +1168,16 @@ class GenBankWriter(_InsdcWriter):
             # Left in place, they would produce continuation lines without
             # the leading whitespace the format requires, and the GenBank
             # parser would then reject the file (upstream issue #3885).
+            # The cleaned values go to the file only: writing a record must
+            # not modify the caller's data.
+            cleaned = {}
             for key, values in feature.qualifiers.items():
                 if isinstance(values, str) and "\n" in values:
-                    feature.qualifiers[key] = values.replace("\n", " ")
+                    cleaned[key] = values.replace("\n", " ")
                 elif isinstance(values, (list, tuple)) and any(
                     isinstance(value, str) and "\n" in value for value in values
                 ):
-                    feature.qualifiers[key] = type(values)(
+                    cleaned[key] = type(values)(
                         value.replace("\n", " ") if isinstance(value, str) else value
                         for value in values
                     )
@@ -1183,6 +1187,9 @@ class GenBankWriter(_InsdcWriter):
                     f"Replacing stray line break with space. Annotation: {key}. Record ID: {record.id}. Feature index: {index}",
                     BiopythonWarning,
                 )
+            if cleaned:
+                feature = copy.copy(feature)
+                feature.qualifiers = {**feature.qualifiers, **cleaned}
             self._write_feature(feature, rec_length)
         self._write_sequence(record)
         handle.write("//\n")

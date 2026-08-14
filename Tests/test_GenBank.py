@@ -9,6 +9,7 @@
 
 """Tests for the GenBank module."""
 
+import copy
 import os
 import sys
 import tempfile
@@ -8001,6 +8002,7 @@ KEYWORDS    """,
             {"label": "line\nbreak"},
             {"label": ["line\nbreak"]},
         ):
+            original = copy.deepcopy(qualifiers)
             record = SeqRecord(
                 Seq("AAAA"),
                 annotations={"molecule_type": "DNA"},
@@ -8021,6 +8023,8 @@ KEYWORDS    """,
             # The writer's own parser must accept the output again
             back = SeqIO.read(StringIO(generated), "genbank")
             self.assertEqual(back.features[0].qualifiers["label"], ["line break"])
+            # Writing must not modify the caller's record
+            self.assertEqual(record.features[0].qualifiers, original)
 
     def test_qualifier_order(self):
         """Check the qualifier order is preserved."""
