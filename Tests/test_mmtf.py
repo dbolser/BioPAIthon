@@ -8,7 +8,9 @@
 
 """Tests for mmtf module."""
 
+import importlib
 import os
+import sys
 import tempfile
 import unittest
 import warnings
@@ -22,12 +24,46 @@ except ImportError:
         "Install mmtf-python to use Bio.PDB.mmtf"
     ) from None
 
+from Bio import BiopythonDeprecationWarning
 from Bio.PDB import PDBParser
 from Bio.PDB import Select
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB.mmtf import MMTFIO
 from Bio.PDB.mmtf import MMTFParser
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
+
+
+class DeprecationWarningTest(unittest.TestCase):
+    """Check the module-level deprecation warning.
+
+    The warning fires only when the module is first executed, so the module
+    is removed from ``sys.modules`` and imported afresh; the interpreter-wide
+    state is restored afterwards.
+    """
+
+    def test_import_warns_and_names_replacements(self):
+        """A fresh import warns BiopythonDeprecationWarning, naming successors."""
+        old_module = sys.modules.pop("Bio.PDB.mmtf")
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                importlib.import_module("Bio.PDB.mmtf")
+        finally:
+            sys.modules["Bio.PDB.mmtf"] = old_module
+            import Bio.PDB
+
+            Bio.PDB.mmtf = old_module
+        messages = [
+            str(w.message)
+            for w in caught
+            if issubclass(w.category, BiopythonDeprecationWarning)
+        ]
+        self.assertEqual(
+            len(messages), 1, "expected exactly one BiopythonDeprecationWarning"
+        )
+        self.assertIn("Bio.PDB.mmtf has been deprecated", messages[0])
+        self.assertIn("Bio.PDB.binary_cif", messages[0])
+        self.assertIn("Bio.PDB.MMCIFParser", messages[0])
 
 
 class ParseMMTF(unittest.TestCase):
