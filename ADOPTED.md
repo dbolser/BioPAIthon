@@ -40,6 +40,30 @@ request.
 
 Newest first.
 
+### [#5244](https://github.com/biopython/biopython/pull/5244) — Gian Carlo D Dumpit
+
+`Bio.Align.sam.AlignmentWriter` hard-coded `tLen = 0`, so no SAM file the
+library wrote ever carried a template length, even when the parser had read
+one in (upstream issue #5232). The writer now honours an explicit
+`alignment.tlen` attribute — which the parser has always set for a nonzero
+TLEN, so round-trips keep the value — and, when the alignments are supplied as a list or tuple,
+computes TLEN for properly paired reads: same query name, paired flag (0x1)
+set, both mates mapped on the same reference, each record's `pnext` matching
+its mate's start; unmapped (0x4/0x8), secondary (0x100) and supplementary
+(0x800) records are excluded from pairing. The value is the span from the
+leftmost mapped base to the rightmost, signed `+` for the leftmost mate and
+`-` for the rightmost as the SAM specification requires, with a tie on start
+position broken by end coordinate.
+
+**The single commit was taken whole; nothing was omitted.** Two limitations
+discussed in review remain exactly as upstream left them: alignments supplied
+as an iterator are still written streaming with TLEN 0 unless `.tlen` is set,
+because pairing needs the mate's coordinates; and the pairing pass keeps one
+small tuple per paired alignment in memory for the duration of the write —
+the maintainer sketched a name-sorted streaming alternative for very large
+files that was never implemented. The author was already in `CONTRIB.rst`,
+having contributed upstream #5220, which arrived here with Biopython 1.88.
+
 ### [#3812](https://github.com/biopython/biopython/pull/3812) — Dominique Sydow
 
 `HSExposureCB._get_cb` returned `self._get_gly_cb_vector(r2), 0.0` for a
