@@ -10,6 +10,7 @@ import os
 import random
 import subprocess
 import sys
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20385,6 +20386,41 @@ class TestGILRelease(unittest.TestCase):
             aligner.open_gap_score = -10
             aligner.extend_gap_score = -0.5
             self.check_threaded_matches_serial(aligner)
+
+    def test_inplace_matrix_mutation(self):
+        # substitution_matrices.Array supports item assignment, so
+        # another thread may mutate the matrix in place while a kernel
+        # runs.  The kernels snapshot the matrix at call start, so each
+        # call must see one consistent matrix: aligning n letters of
+        # "A" against themselves scores exactly n * matrix["A", "A"],
+        # never a mixture of the old and new values.
+        n = 2000
+        seq = "A" * n
+        matrix = Array("AC", dims=2)
+        matrix["A", "A"] = 1.0
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        allowed = (1.0 * n, 2.0 * n)
+        stop = threading.Event()
+
+        def mutate():
+            value = 1.0
+            while not stop.is_set():
+                value = 3.0 - value  # toggle between 1.0 and 2.0
+                matrix["A", "A"] = value
+
+        def work(_):
+            scores = [aligner.score(seq, seq) for _ in range(20)]
+            self.assertTrue(all(score in allowed for score in scores), scores)
+
+        mutator = threading.Thread(target=mutate)
+        mutator.start()
+        try:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                list(executor.map(work, range(4)))
+        finally:
+            stop.set()
+            mutator.join()
 
     @unittest.skipUnless(os.name == "posix", "sends SIGINT; requires POSIX")
     def test_sigint_interrupts_score(self):

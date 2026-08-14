@@ -4630,40 +4630,62 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
  *   NULL if `interrupted` is nonzero.
  *
  * The substitution matrix needs one extra precaution: with the GIL
- * released, another thread could reassign aligner.substitution_matrix,
- * which releases the aligner's buffer view of the old matrix and could
- * deallocate the buffer this kernel is reading.  Pinning the exporting
- * object with Py_XINCREF for the duration of the region keeps the
- * buffer alive (a substitution_matrices.Array cannot be resized in
- * place, so keeping the object alive keeps its data valid).
+ * released, another thread could reassign aligner.substitution_matrix
+ * (releasing the aligner's buffer view, which could deallocate the
+ * buffer mid-kernel), or — since substitution_matrices.Array supports
+ * item assignment — mutate the matrix in place while a kernel reads
+ * the same doubles, an unsynchronized read/write race.
+ * PAIRWISE_NOGIL_BEGIN therefore snapshots the matrix into a private
+ * copy while it still holds the GIL; the kernels read the copy (via
+ * MATRIX_SCORE_NOGIL), so the whole call sees one consistent matrix,
+ * exactly as it did when the GIL was held throughout.  Matrices are
+ * small (a few kilobytes) so the copy is not measurable against the
+ * O(nA*nB) loops.  In the vanishingly unlikely case that allocating
+ * the copy fails, the kernel falls back to reading the live buffer
+ * with the GIL held for the whole call — the pre-existing behavior —
+ * rather than failing or racing; _save == NULL marks that state.
  *
  * Signals are checked about once every PAIRWISE_NOGIL_CHECK_CELLS
  * matrix cells, i.e. every 1 + PAIRWISE_NOGIL_CHECK_CELLS / (nB + 1)
- * rows.  At ~262k cells (well under a millisecond of work) per GIL
- * round trip the overhead is unmeasurable, while Ctrl-C latency stays
- * far below a second. */
+ * rows (computed in size_t, as nB may be as large as INT_MAX).  At
+ * ~262k cells (well under a millisecond of work) per GIL round trip
+ * the overhead is unmeasurable, while Ctrl-C latency stays far below
+ * a second. */
 
 #define PAIRWISE_NOGIL_CHECK_CELLS 0x40000
 
 #define PAIRWISE_NOGIL_BEGIN \
     { \
-        PyObject* _pinned = self->substitution_matrix.obj; \
-        const int _check_interval = 1 + PAIRWISE_NOGIL_CHECK_CELLS / (nB + 1); \
-        PyThreadState* _save; \
-        Py_XINCREF(_pinned); \
-        _save = PyEval_SaveThread();
+        const double* _pw_matrix = self->substitution_matrix.buf; \
+        double* _pw_matrix_copy = NULL; \
+        const int _check_interval = \
+            (int)(1 + PAIRWISE_NOGIL_CHECK_CELLS / ((size_t)nB + 1)); \
+        PyThreadState* _save = NULL; \
+        if (_pw_matrix) { \
+            const size_t _nbytes = (size_t)self->substitution_matrix.len; \
+            _pw_matrix_copy = PyMem_Malloc(_nbytes); \
+            if (_pw_matrix_copy) { \
+                memcpy(_pw_matrix_copy, _pw_matrix, _nbytes); \
+                _pw_matrix = _pw_matrix_copy; \
+            } \
+        } \
+        if (_pw_matrix_copy || !self->substitution_matrix.buf) \
+            _save = PyEval_SaveThread();
 
 #define PAIRWISE_NOGIL_CHECK(i) \
         if ((i) % _check_interval == 0) { \
-            PyEval_RestoreThread(_save); \
-            if (PyErr_CheckSignals() < 0) interrupted = 1; \
-            _save = PyEval_SaveThread(); \
+            if (_save != NULL) { \
+                PyEval_RestoreThread(_save); \
+                if (PyErr_CheckSignals() < 0) interrupted = 1; \
+                _save = PyEval_SaveThread(); \
+            } \
+            else if (PyErr_CheckSignals() < 0) interrupted = 1; \
             if (interrupted) break; \
         }
 
 #define PAIRWISE_NOGIL_END \
-        PyEval_RestoreThread(_save); \
-        Py_XDECREF(_pinned); \
+        if (_save != NULL) PyEval_RestoreThread(_save); \
+        if (_pw_matrix_copy != NULL) PyMem_Free(_pw_matrix_copy); \
     }
 
 #define NEEDLEMANWUNSCH_SCORE(align_score) \
@@ -6881,6 +6903,11 @@ exit:
 /* ----------------- alignment algorithms ----------------- */
 
 #define MATRIX_SCORE substitution_matrix[kA*n+kB]
+/* Variant for the kernels that release the GIL: reads the private
+ * snapshot taken by PAIRWISE_NOGIL_BEGIN instead of the live buffer,
+ * so that another thread mutating the substitution matrix in place
+ * cannot race the no-GIL loops. */
+#define MATRIX_SCORE_NOGIL _pw_matrix[kA*n+kB]
 #define COMPARE_SCORE (kA == wildcard || kB == wildcard) ? 0 : (kA == kB) ? match : mismatch
 
 
@@ -6903,8 +6930,7 @@ Aligner_needlemanwunsch_score_matrix(Aligner* self,
                                      unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    NEEDLEMANWUNSCH_SCORE(MATRIX_SCORE);
+    NEEDLEMANWUNSCH_SCORE(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -6924,8 +6950,7 @@ Aligner_smithwaterman_score_matrix(Aligner* self,
                                    const int* sB, int nB)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    SMITHWATERMAN_SCORE(MATRIX_SCORE);
+    SMITHWATERMAN_SCORE(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -6947,8 +6972,7 @@ Aligner_needlemanwunsch_align_matrix(Aligner* self,
                                      unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    NEEDLEMANWUNSCH_ALIGN(MATRIX_SCORE);
+    NEEDLEMANWUNSCH_ALIGN(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -6970,8 +6994,7 @@ Aligner_smithwaterman_align_matrix(Aligner* self,
                                    unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    SMITHWATERMAN_ALIGN(MATRIX_SCORE);
+    SMITHWATERMAN_ALIGN(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -6993,8 +7016,7 @@ Aligner_gotoh_global_score_matrix(Aligner* self,
                                   unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    GOTOH_GLOBAL_SCORE(MATRIX_SCORE);
+    GOTOH_GLOBAL_SCORE(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -7014,8 +7036,7 @@ Aligner_gotoh_local_score_matrix(Aligner* self,
                                  const int* sB, int nB)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    GOTOH_LOCAL_SCORE(MATRIX_SCORE);
+    GOTOH_LOCAL_SCORE(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -7037,8 +7058,7 @@ Aligner_gotoh_global_align_matrix(Aligner* self,
                                   unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    GOTOH_GLOBAL_ALIGN(MATRIX_SCORE);
+    GOTOH_GLOBAL_ALIGN(MATRIX_SCORE_NOGIL);
 }
 
 static PyObject*
@@ -7060,8 +7080,7 @@ Aligner_gotoh_local_align_matrix(Aligner* self,
                                  unsigned char strand)
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
-    const double* substitution_matrix = self->substitution_matrix.buf;
-    GOTOH_LOCAL_ALIGN(MATRIX_SCORE);
+    GOTOH_LOCAL_ALIGN(MATRIX_SCORE_NOGIL);
 }
 
 static int

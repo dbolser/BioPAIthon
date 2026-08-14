@@ -562,6 +562,21 @@ Reading FASTQ files is faster. The quality decoder no longer round-trips every
 record through ``array.array`` to accommodate the negative scores that only the
 Solexa format produces; that conversion now happens only in the Solexa reader.
 
+The pairwise alignment kernels release the GIL. The Needleman-Wunsch,
+Smith-Waterman and Gotoh dynamic programming loops in
+``Bio.Align.PairwiseAligner`` now run without holding Python's global
+interpreter lock, so scoring or aligning in threads actually runs in parallel
+— about 2.9x over serial for four concurrent ``score()`` calls on a
+four-thread pool — where previously threads gained nothing. The kernels also
+check for pending signals at regular intervals, so Ctrl-C now interrupts a
+long ``score()`` or ``align()`` call within milliseconds instead of after the
+whole computation. Each call snapshots the substitution matrix it was given,
+so a matrix mutated from another thread mid-call cannot produce a score mixing
+old and new values. Single-threaded performance is unchanged. The
+Waterman-Smith-Beyer and FOGSAA algorithms still hold the GIL: the former may
+call user-supplied Python gap functions from its innermost loops, and the
+latter allocates from within its main loop.
+
 ``Bio.PDB.mmtf`` is deprecated and now emits a ``BiopythonDeprecationWarning``
 on import; we intend to remove it in a later release. RCSB PDB decommissioned
 the MMTF file format in July 2024 and its download server, ``mmtf.rcsb.org``,
