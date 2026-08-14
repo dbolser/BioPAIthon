@@ -17,30 +17,52 @@
 
 /* DataPoint */
 
-static int DataPoint_current_dim = 0;
-
 typedef struct
 {
     Py_ssize_t _index;
     double _coord[DIM];
 } DataPoint;
 
-static int compare(const void* self, const void* other)
+/* One comparator per spatial dimension, so that sorting needs no shared
+ * mutable state and is safe to run on several threads at once.  A
+ * qsort_r-style context argument would achieve the same, but qsort_r is
+ * not portable (glibc, BSD/macOS, and Windows all disagree on its
+ * signature); with DIM fixed at 3, enumerating the comparators is simpler.
+ */
+static int compare_coord(const void* self, const void* other, int dim)
 {
     const DataPoint* p = self;
     const DataPoint* q = other;
-    const double a = p->_coord[DataPoint_current_dim];
-    const double b = q->_coord[DataPoint_current_dim];
+    const double a = p->_coord[dim];
+    const double b = q->_coord[dim];
     if (a < b) return -1;
     if (a > b) return +1;
     return 0;
 }
 
+static int compare_dim0(const void* self, const void* other)
+{
+    return compare_coord(self, other, 0);
+}
+
+static int compare_dim1(const void* self, const void* other)
+{
+    return compare_coord(self, other, 1);
+}
+
+static int compare_dim2(const void* self, const void* other)
+{
+    return compare_coord(self, other, 2);
+}
+
 static void DataPoint_sort(DataPoint* list, Py_ssize_t n, int i)
 {
-    /* set sort dimension */
-    DataPoint_current_dim = i;
-    qsort(list, n, sizeof(DataPoint), compare);
+    static int (*const comparators[DIM])(const void*, const void*) = {
+        compare_dim0,
+        compare_dim1,
+        compare_dim2,
+    };
+    qsort(list, n, sizeof(DataPoint), comparators[i]);
 }
 
 /* Point */
@@ -206,7 +228,9 @@ typedef struct Node
 static Node*
 Node_create(double cut_value, int cut_dim, Py_ssize_t start, Py_ssize_t end)
 {
-    Node* node = PyMem_Malloc(sizeof(Node));
+    /* PyMem_RawMalloc, not PyMem_Malloc: nodes are allocated while the
+     * GIL is released during KDTree_build_tree. */
+    Node* node = PyMem_RawMalloc(sizeof(Node));
     if (node == NULL) return NULL;
     node->_left = NULL;
     node->_right = NULL;
@@ -223,7 +247,7 @@ static void Node_destroy(Node* node)
     if (node == NULL) return;
     Node_destroy(node->_left);
     Node_destroy(node->_right);
-    PyMem_Free(node);
+    PyMem_RawFree(node);
 }
 
 static int Node_is_leaf(Node* node)
@@ -243,7 +267,9 @@ typedef struct
 static Region* Region_create(const double *left, const double *right)
 {
     int i;
-    Region* region = PyMem_Malloc(sizeof(Region));
+    /* PyMem_RawMalloc, not PyMem_Malloc: regions are allocated while the
+     * GIL is released during the search kernels. */
+    Region* region = PyMem_RawMalloc(sizeof(Region));
     if (region == NULL) return NULL;
 
     if (left == NULL || right == NULL)
@@ -266,7 +292,7 @@ static Region* Region_create(const double *left, const double *right)
 
 static void Region_destroy(Region* region)
 {
-    if (region) PyMem_Free(region);
+    if (region) PyMem_RawFree(region);
 }
 
 static int Region_encloses(Region* region, double *coord)
@@ -361,15 +387,141 @@ Region_create_intersect_right(Region* region, double split_coord, int current_di
     return p;
 }
 
-/* Radius */
+/* Result buffers
+ *
+ * The search kernels run with the GIL released, so instead of appending
+ * Point/Neighbor objects to a Python list as they go, they collect plain
+ * C records in one of these buffers; the caller converts the buffer to a
+ * Python list after re-acquiring the GIL.  Each buffer also carries the
+ * query parameters, so a search leaves no temporary state on the shared
+ * KDTree object and concurrent searches on one tree cannot interfere.
+ */
 
 typedef struct
 {
-    long int index;
-    double value;
-} Radius;
+    Py_ssize_t index;
+    double radius;
+} PointRecord;
 
-/* KDTree */
+typedef struct
+{
+    Py_ssize_t index1;
+    Py_ssize_t index2;
+    double radius;
+} NeighborRecord;
+
+typedef struct
+{
+    double radius_sq;          /* square of the query radius */
+    double center_coord[DIM];  /* center of the query */
+    PointRecord* items;
+    Py_ssize_t count;
+    Py_ssize_t capacity;
+} PointBuffer;
+
+typedef struct
+{
+    double radius;     /* the query radius */
+    double radius_sq;  /* square of the query radius */
+    NeighborRecord* items;
+    Py_ssize_t count;
+    Py_ssize_t capacity;
+} NeighborBuffer;
+
+static int
+PointBuffer_append(PointBuffer* buffer, Py_ssize_t index, double radius)
+{
+    if (buffer->count == buffer->capacity) {
+        const Py_ssize_t capacity =
+            buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
+        PointRecord* items =
+            PyMem_RawRealloc(buffer->items, capacity * sizeof(PointRecord));
+        if (items == NULL) return 0;
+        buffer->items = items;
+        buffer->capacity = capacity;
+    }
+    buffer->items[buffer->count].index = index;
+    buffer->items[buffer->count].radius = radius;
+    buffer->count++;
+    return 1;
+}
+
+static int
+NeighborBuffer_append(NeighborBuffer* buffer,
+                      Py_ssize_t index1, Py_ssize_t index2, double radius)
+{
+    NeighborRecord* record;
+    if (buffer->count == buffer->capacity) {
+        const Py_ssize_t capacity =
+            buffer->capacity == 0 ? 64 : 2 * buffer->capacity;
+        NeighborRecord* items =
+            PyMem_RawRealloc(buffer->items, capacity * sizeof(NeighborRecord));
+        if (items == NULL) return 0;
+        buffer->items = items;
+        buffer->capacity = capacity;
+    }
+    record = &buffer->items[buffer->count];
+    if (index1 < index2) {
+        record->index1 = index1;
+        record->index2 = index2;
+    }
+    else {
+        record->index1 = index2;
+        record->index2 = index1;
+    }
+    record->radius = radius;
+    buffer->count++;
+    return 1;
+}
+
+/* Requires the GIL. */
+static PyObject*
+PointBuffer_as_list(const PointBuffer* buffer)
+{
+    Py_ssize_t i;
+    PyObject* points = PyList_New(buffer->count);
+    if (points == NULL) return NULL;
+    for (i = 0; i < buffer->count; i++) {
+        Point* point = (Point*) PointType.tp_alloc(&PointType, 0);
+        if (point == NULL) {
+            Py_DECREF(points);
+            return NULL;
+        }
+        point->index = buffer->items[i].index;
+        point->radius = buffer->items[i].radius;
+        PyList_SET_ITEM(points, i, (PyObject*)point);
+    }
+    return points;
+}
+
+/* Requires the GIL. */
+static PyObject*
+NeighborBuffer_as_list(const NeighborBuffer* buffer)
+{
+    Py_ssize_t i;
+    PyObject* neighbors = PyList_New(buffer->count);
+    if (neighbors == NULL) return NULL;
+    for (i = 0; i < buffer->count; i++) {
+        Neighbor* neighbor = (Neighbor*) NeighborType.tp_alloc(&NeighborType, 0);
+        if (neighbor == NULL) {
+            Py_DECREF(neighbors);
+            return NULL;
+        }
+        neighbor->index1 = buffer->items[i].index1;
+        neighbor->index2 = buffer->items[i].index2;
+        neighbor->radius = buffer->items[i].radius;
+        PyList_SET_ITEM(neighbors, i, (PyObject*)neighbor);
+    }
+    return neighbors;
+}
+
+/* KDTree
+ *
+ * After construction the tree is immutable except for
+ * neighbor_simple_search, which re-sorts _data_point_list; search and
+ * neighbor_search only read the tree, and may therefore run concurrently
+ * on the same tree from several threads.
+ */
 
 typedef struct {
     PyObject_HEAD
@@ -377,12 +529,6 @@ typedef struct {
     Py_ssize_t _data_point_list_size;
     Node *_root;
     int _bucket_size;
-    /* The following are temporary variables used during a search only. */
-    double _radius;
-    double _radius_sq;
-    double _neighbor_radius;
-    double _neighbor_radius_sq;
-    double _center_coord[DIM];
 } KDTree;
 
 static double KDTree_dist(double *coord1, double *coord2)
@@ -399,59 +545,31 @@ static double KDTree_dist(double *coord1, double *coord2)
 }
 
 static int
-KDTree_report_point(KDTree* self, DataPoint* data_point, PyObject* points)
+KDTree_report_point(PointBuffer* points, DataPoint* data_point)
 {
-    int ok;
-    Py_ssize_t index = data_point->_index;
-    double *coord = data_point->_coord;
-    const double r = KDTree_dist(self->_center_coord, coord);
-    if (r <= self->_radius_sq)
+    const double r = KDTree_dist(points->center_coord, data_point->_coord);
+    if (r <= points->radius_sq)
     {
-        Point* point;
-        point = (Point*) PointType.tp_alloc(&PointType, 0);
-        if (!point) return 0;
-        point->index = index;
-        point->radius = sqrt(r); /* note sqrt */
-        ok = PyList_Append(points, (PyObject*)point);
-        Py_DECREF(point);
-        if (ok == -1) return 0;
+        /* note sqrt */
+        return PointBuffer_append(points, data_point->_index, sqrt(r));
     }
     return 1;
 }
 
 static int
-KDTree_test_neighbors(KDTree* self, DataPoint* p1, DataPoint* p2, PyObject* neighbors)
+KDTree_test_neighbors(NeighborBuffer* neighbors, DataPoint* p1, DataPoint* p2)
 {
-    int ok;
     const double r = KDTree_dist(p1->_coord, p2->_coord);
-    if (r <= self->_neighbor_radius_sq)
+    if (r <= neighbors->radius_sq)
     {
-        /* we found a neighbor pair! */
-        Neighbor* neighbor;
-        Py_ssize_t index1, index2;
-        neighbor = (Neighbor*) NeighborType.tp_alloc(&NeighborType, 0);
-        if (!neighbor) return 0;
-        index1 = p1->_index;
-        index2 = p2->_index;
-        if (index1 < index2) {
-            neighbor->index1 = index1;
-            neighbor->index2 = index2;
-        }
-        else {
-            neighbor->index1 = index2;
-            neighbor->index2 = index1;
-        }
-        neighbor->radius = sqrt(r); /* note sqrt */
-        ok = PyList_Append(neighbors, (PyObject*)neighbor);
-        Py_DECREF(neighbor);
-        if (ok == -1) return 0;
+        /* we found a neighbor pair!  note sqrt */
+        return NeighborBuffer_append(neighbors, p1->_index, p2->_index, sqrt(r));
     }
-
     return 1;
 }
 
 static int
-KDTree_search_neighbors_in_bucket(KDTree* self, Node *node, PyObject* neighbors)
+KDTree_search_neighbors_in_bucket(KDTree* self, Node *node, NeighborBuffer* neighbors)
 {
     Py_ssize_t i;
     int ok;
@@ -465,14 +583,14 @@ KDTree_search_neighbors_in_bucket(KDTree* self, Node *node, PyObject* neighbors)
 
         for (j = i+1; j < node->_end; j++) {
             DataPoint p2 = self->_data_point_list[j];
-            ok = KDTree_test_neighbors(self, &p1, &p2, neighbors);
+            ok = KDTree_test_neighbors(neighbors, &p1, &p2);
             if (!ok) return 0;
         }
     }
     return 1;
 }
 
-static int KDTree_search_neighbors_between_buckets(KDTree* self, Node *node1, Node *node2, PyObject* neighbors)
+static int KDTree_search_neighbors_between_buckets(KDTree* self, Node *node1, Node *node2, NeighborBuffer* neighbors)
 {
     Py_ssize_t i;
     int ok;
@@ -487,14 +605,14 @@ static int KDTree_search_neighbors_between_buckets(KDTree* self, Node *node1, No
         for (j = node2->_start; j < node2->_end; j++)
         {
             DataPoint p2 = self->_data_point_list[j];
-            ok = KDTree_test_neighbors(self, &p1, &p2, neighbors);
+            ok = KDTree_test_neighbors(neighbors, &p1, &p2);
             if (!ok) return 0;
         }
     }
     return 1;
 }
 
-static int KDTree_neighbor_search_pairs(KDTree* self, Node *down, Region *down_region, Node *up, Region *up_region, int depth, PyObject* neighbors)
+static int KDTree_neighbor_search_pairs(KDTree* self, Node *down, Region *down_region, Node *up, Region *up_region, int depth, NeighborBuffer* neighbors)
 {
     int down_is_leaf, up_is_leaf;
     int localdim;
@@ -507,7 +625,7 @@ static int KDTree_neighbor_search_pairs(KDTree* self, Node *down, Region *down_r
         return ok;
     }
 
-    if (Region_test_intersection(down_region, up_region, self->_neighbor_radius)== 0)
+    if (Region_test_intersection(down_region, up_region, neighbors->radius)== 0)
     {
         /* regions cannot contain neighbors */
         return ok;
@@ -651,7 +769,7 @@ static int KDTree_neighbor_search_pairs(KDTree* self, Node *down, Region *down_r
     return ok;
 }
 
-static int KDTree_neighbor_search(KDTree* self, Node *node, Region *region, int depth, PyObject* neighbors)
+static int KDTree_neighbor_search(KDTree* self, Node *node, Region *region, int depth, NeighborBuffer* neighbors)
 {
     Node *left, *right;
     Region *left_region = NULL;
@@ -806,14 +924,14 @@ KDTree_build_tree(KDTree* self, Py_ssize_t offset_begin, Py_ssize_t offset_end, 
     }
 }
 
-static int KDTree_report_subtree(KDTree* self, Node *node, PyObject* points)
+static int KDTree_report_subtree(KDTree* self, Node *node, PointBuffer* points)
 {
     int ok;
     if (Node_is_leaf(node)) {
         /* report point(s) */
         Py_ssize_t i;
         for (i = node->_start; i < node->_end; i++) {
-            ok = KDTree_report_point(self, &self->_data_point_list[i], points);
+            ok = KDTree_report_point(points, &self->_data_point_list[i]);
             if (!ok) return 0;
         }
     }
@@ -828,9 +946,9 @@ static int KDTree_report_subtree(KDTree* self, Node *node, PyObject* points)
 }
 
 static int
-KDTree_search(KDTree* self, Region *region, Node *node, int depth, Region* query_region, PyObject* points);
+KDTree_search(KDTree* self, Region *region, Node *node, int depth, Region* query_region, PointBuffer* points);
 
-static int KDTree_test_region(KDTree* self, Node *node, Region *region, int depth, Region* query_region, PyObject* points)
+static int KDTree_test_region(KDTree* self, Node *node, Region *region, int depth, Region* query_region, PointBuffer* points)
 {
     int ok;
     int intersect_flag;
@@ -862,7 +980,7 @@ static int KDTree_test_region(KDTree* self, Node *node, Region *region, int dept
 }
 
 static int
-KDTree_search(KDTree* self, Region *region, Node *node, int depth, Region* query_region, PyObject* points)
+KDTree_search(KDTree* self, Region *region, Node *node, int depth, Region* query_region, PointBuffer* points)
 {
     int current_dim;
     int ok = 1;
@@ -887,7 +1005,7 @@ KDTree_search(KDTree* self, Region *region, Node *node, int depth, Region* query
             data_point = &self->_data_point_list[i];
             if (Region_encloses(query_region, data_point->_coord)) {
                 /* point is enclosed in query region - report & stop */
-                ok = KDTree_report_point(self, data_point, points);
+                ok = KDTree_report_point(points, data_point);
             }
         }
     }
@@ -979,6 +1097,7 @@ KDTree_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
     KDTree* self;
     DataPoint* data_point_list;
     double value;
+    Node* root;
 
     if (!PyArg_ParseTuple(args, "O|i:KDTree_new" , &obj, &bucket_size))
         return NULL;
@@ -1036,7 +1155,13 @@ KDTree_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
     self->_data_point_list = data_point_list;
     self->_data_point_list_size = n;
 
-    self->_root = KDTree_build_tree(self, 0, 0, 0);
+    /* The build is pure C (qsort and raw allocations only), so release
+     * the GIL; self is not yet visible to any other thread. */
+    Py_BEGIN_ALLOW_THREADS
+    root = KDTree_build_tree(self, 0, 0, 0);
+    Py_END_ALLOW_THREADS
+
+    self->_root = root;
     if (!self->_root) {
         Py_DECREF(self);
         return PyErr_NoMemory();
@@ -1062,6 +1187,7 @@ PyKDTree_search(KDTree* self, PyObject* args)
     PyObject *obj;
     double radius;
     long int i;
+    int ok;
     double *coords;
     const int flags = PyBUF_ND | PyBUF_C_CONTIGUOUS;
     Py_buffer view;
@@ -1069,6 +1195,11 @@ PyKDTree_search(KDTree* self, PyObject* args)
     double right[DIM];
     Region* query_region = NULL;
     PyObject* points = NULL;
+    PointBuffer buffer;
+
+    buffer.items = NULL;
+    buffer.count = 0;
+    buffer.capacity = 0;
 
     if (!PyArg_ParseTuple(args, "Od:search", &obj, &radius))
         return NULL;
@@ -1097,16 +1228,15 @@ PyKDTree_search(KDTree* self, PyObject* args)
     }
     coords = view.buf;
 
-    self->_radius = radius;
     /* use of r^2 to avoid sqrt use */
-    self->_radius_sq = radius*radius;
+    buffer.radius_sq = radius*radius;
 
     for (i = 0; i < DIM; i++)
     {
         left[i] = coords[i] - radius;
         right[i] = coords[i] + radius;
         /* set center of query */
-        self->_center_coord[i] = coords[i];
+        buffer.center_coord[i] = coords[i];
     }
 
     query_region = Region_create(left, right);
@@ -1116,17 +1246,19 @@ PyKDTree_search(KDTree* self, PyObject* args)
         goto exit;
     }
 
-    points = PyList_New(0);
-    if (!points) goto exit;
+    /* The search kernel only reads the tree and writes to the C result
+     * buffer, so it can run without the GIL. */
+    Py_BEGIN_ALLOW_THREADS
+    ok = KDTree_search(self, NULL, NULL, 0, query_region, &buffer);
+    Py_END_ALLOW_THREADS
 
-    if (!KDTree_search(self, NULL, NULL, 0, query_region, points)) {
+    if (ok)
+        points = PointBuffer_as_list(&buffer);
+    else
         PyErr_NoMemory();
-        Py_DECREF(points);
-        points = NULL;
-        goto exit;
-    }
 
 exit:
+    PyMem_RawFree(buffer.items);
     if (query_region) Region_destroy(query_region);
     PyBuffer_Release(&view);
     return points;
@@ -1150,7 +1282,8 @@ PyKDTree_neighbor_search(KDTree* self, PyObject* args)
 {
     int ok = 0;
     double radius;
-    PyObject* neighbors;
+    PyObject* neighbors = NULL;
+    NeighborBuffer buffer;
 
     if (!PyArg_ParseTuple(args, "d:neighbor_search", &radius))
         return NULL;
@@ -1160,30 +1293,37 @@ PyKDTree_neighbor_search(KDTree* self, PyObject* args)
         return NULL;
     }
 
-    neighbors = PyList_New(0);
-
+    buffer.items = NULL;
+    buffer.count = 0;
+    buffer.capacity = 0;
+    buffer.radius = radius;
     /* note the use of r^2 to avoid use of sqrt */
-    self->_neighbor_radius = radius;
-    self->_neighbor_radius_sq = radius*radius;
+    buffer.radius_sq = radius*radius;
 
+    /* The search kernel only reads the tree and writes to the C result
+     * buffer, so it can run without the GIL. */
+    Py_BEGIN_ALLOW_THREADS
     if (Node_is_leaf(self->_root)) {
         /* this is a boundary condition */
         /* bucket_size > nr of points */
-        ok = KDTree_search_neighbors_in_bucket(self, self->_root, neighbors);
+        ok = KDTree_search_neighbors_in_bucket(self, self->_root, &buffer);
     }
     else {
         /* "normal" situation */
         /* start with [-INF, INF] */
         Region *region = Region_create(NULL, NULL);
         if (region) {
-            ok = KDTree_neighbor_search(self, self->_root, region, 0, neighbors);
+            ok = KDTree_neighbor_search(self, self->_root, region, 0, &buffer);
             Region_destroy(region);
         }
     }
-    if (!ok) {
-        Py_DECREF(neighbors);
-        return PyErr_NoMemory();
-    }
+    Py_END_ALLOW_THREADS
+
+    if (ok)
+        neighbors = NeighborBuffer_as_list(&buffer);
+    else
+        PyErr_NoMemory();
+    PyMem_RawFree(buffer.items);
     return neighbors;
 }
 
@@ -1204,9 +1344,10 @@ and an attribute radius with the radius between them.");
 static PyObject*
 PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
 {
-    int ok;
+    int ok = 1;
     double radius;
-    PyObject* neighbors;
+    PyObject* neighbors = NULL;
+    NeighborBuffer buffer;
     Py_ssize_t i;
 
     if (!PyArg_ParseTuple(args, "d:neighbor_simple_search", &radius))
@@ -1217,15 +1358,18 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
         return NULL;
     }
 
-    neighbors = PyList_New(0);
-    if (!neighbors) return NULL;
+    buffer.items = NULL;
+    buffer.count = 0;
+    buffer.capacity = 0;
+    buffer.radius = radius;
+    buffer.radius_sq = radius*radius;
 
-    self->_neighbor_radius = radius;
-    self->_neighbor_radius_sq = radius*radius;
-
+    /* Unlike search and neighbor_search, this function keeps the GIL:
+     * the sort below mutates the shared _data_point_list, so running it
+     * concurrently with any other search on the same tree is unsafe. */
     DataPoint_sort(self->_data_point_list, self->_data_point_list_size, 0);
 
-    for (i = 0; i < self->_data_point_list_size; i++) {
+    for (i = 0; ok && i < self->_data_point_list_size; i++) {
         double x1;
         Py_ssize_t j;
         DataPoint p1;
@@ -1238,8 +1382,8 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
             double x2 = p2._coord[0];
             if (fabs(x2-x1) <= radius)
             {
-                ok = KDTree_test_neighbors(self, &p1, &p2, neighbors);
-                if (!ok) return PyErr_NoMemory();
+                ok = KDTree_test_neighbors(&buffer, &p1, &p2);
+                if (!ok) break;
             }
             else
             {
@@ -1247,6 +1391,12 @@ PyKDTree_neighbor_simple_search(KDTree* self, PyObject* args)
             }
         }
     }
+
+    if (ok)
+        neighbors = NeighborBuffer_as_list(&buffer);
+    else
+        PyErr_NoMemory();
+    PyMem_RawFree(buffer.items);
     return neighbors;
 }
 
