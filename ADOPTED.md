@@ -40,6 +40,33 @@ request.
 
 Newest first.
 
+### [#4938](https://github.com/biopython/biopython/pull/4938) — Will Tyler
+
+`PDBList.retrieve_pdb_file(..., file_format="mmtf")` built its URL on
+`http://mmtf.rcsb.org`, a host the RCSB decommissioned when it retired the
+MMTF format in 2024 — while BinaryCIF, the format the RCSB points MMTF users
+at and which `Bio.PDB.binary_cif` already parses, could not be fetched at all.
+The pull request removes the mmtf option (requesting it now raises
+`ValueError` naming the surviving formats) and adds `file_format="bcif"`,
+fetched from `https://models.rcsb.org/`.
+
+**Two of the three commits taken.** The third adds a paragraph to the
+release notes upstream was accumulating for Biopython 1.86; in this tree that
+part of `NEWS.rst` is preserved upstream history, so the fork's own in-progress
+section carries the paragraph instead. There was no review discussion, so
+nothing review-grown to leave behind.
+
+Three corrections sit on top as separate commits: the new bcif branch guarded
+obsolete requests with a bare `assert`, which `python -O` strips — it now
+raises `ValueError`, per the same §0.8 stance the fork adopted
+[#5175](https://github.com/biopython/biopython/pull/5175) for; the pull
+request's two format-error tests had their `assertEqual` indented inside the
+`assertRaises` block after the raising line, so they never ran, and both
+expected strings were stale (running them revealed the supported-format list
+now names `bcif`); and a new offline test module,
+`Tests/test_PDB_PDBList_offline.py`, pins down the constructed URLs with the
+download mocked, which no existing PDBList test could do without the network.
+
 ### [#5121](https://github.com/biopython/biopython/pull/5121) — Oz Nova
 
 `MMCIF2Dict._splitline` walked every line character by character through the
