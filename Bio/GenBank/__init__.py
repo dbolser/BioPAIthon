@@ -882,6 +882,11 @@ class _FeatureConsumer(_BaseGenBankConsumer):
                 "PROTEIN" in self._seq_type.upper() or self._seq_type == "PRT"
             ):  # PRT is used in EMBL-bank for patents
                 molecule_type = "protein"
+            # NA means a nucleic acid of unspecified type (GenBank release
+            # notes section 3.4.4.2); checked after the DNA and RNA branches
+            # because those molecule type strings also contain "NA"
+            elif "NA" in self._seq_type.upper():
+                molecule_type = "NA"
             # work around ugly GenBank records which have circular or
             # linear but no indication of sequence type
             elif self._seq_type in ["circular", "linear", "unspecified"]:

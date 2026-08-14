@@ -8417,6 +8417,17 @@ class LineOneTests(unittest.TestCase):
                 None,
                 [BiopythonParserWarning],
             ),
+            # Molecule type NA, i.e. a nucleic acid of unspecified type,
+            # is in the GenBank specification (release notes section
+            # 3.4.4.2) and used by e.g. SnapGene exports (issue #4879).
+            (
+                "LOCUS       Exported                   4 bp    NA      linear"
+                "   UNA 05-NOV-2024",
+                "linear",
+                "NA",
+                "UNA",
+                None,
+            ),
         ]
         for line, topo, mol_type, div, warning_list in tests:
             with warnings.catch_warnings(record=True) as caught:
@@ -8444,6 +8455,40 @@ class LineOneTests(unittest.TestCase):
                     self.assertEqual(len(caught), len(warning_list))
                     for i, warning_class in enumerate(warning_list):
                         self.assertEqual(caught[i].category, warning_class)
+
+    def test_na_molecule_type_full_record(self):
+        """Parse and round-trip a whole record with molecule type NA."""
+        # Reduced from the example file on issue #4879; before the fix the
+        # scanner rejected the LOCUS line, and with the scanner fixed the
+        # feature consumer's record_end still raised
+        # "Could not determine molecule_type for seq_type NA      linear".
+        record_text = (
+            "LOCUS       Exported                   4 bp    NA      linear"
+            "   UNA 05-NOV-2024\n"
+            "DEFINITION  synthetic construct.\n"
+            "ACCESSION   Exported\n"
+            "VERSION     Exported\n"
+            "KEYWORDS    .\n"
+            "SOURCE      synthetic DNA construct\n"
+            "  ORGANISM  synthetic DNA construct\n"
+            "FEATURES             Location/Qualifiers\n"
+            "     source          1..4\n"
+            "ORIGIN\n"
+            "        1 acgt\n"
+            "//\n"
+        )
+        record = SeqIO.read(StringIO(record_text), "genbank")
+        self.assertEqual(str(record.seq), "ACGT")
+        self.assertEqual(record.annotations["molecule_type"], "NA")
+        self.assertEqual(record.annotations["topology"], "linear")
+        # The writer shares the scanner's LOCUS line checks, so a record
+        # we can read must also write.
+        handle = StringIO()
+        SeqIO.write(record, handle, "genbank")
+        handle.seek(0)
+        reparsed = SeqIO.read(handle, "genbank")
+        self.assertEqual(str(reparsed.seq), "ACGT")
+        self.assertEqual(reparsed.annotations["molecule_type"], "NA")
 
     def test_topology_embl(self):
         """Check EMBL ID line parsing."""
