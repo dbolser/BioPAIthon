@@ -64,7 +64,7 @@ class PDBList:
     To use it properly, prepare a directory /pdb or the like,
     where PDB files are stored.
 
-    All available file formats (PDB, PDBx/mmCif, PDBML) are supported.
+    All available file formats (PDB, PDBx/mmCif, PDBML, BinaryCIF) are supported.
     Please note that large structures (containing >62 chains
     and/or 99999 ATOM lines) are no longer stored as a single PDB file
     and by default (when PDB format selected) are not downloaded.
@@ -632,6 +632,7 @@ class PDBList:
         :param file_format: File format. Available options:
 
             * "mmCif" (default, PDBx/mmCif file),
+            * "bcif" (BinaryCIF format),
             * "pdb" (format PDB),
             * "xml" (PMDML/XML format),
             * "bundle" (PDB formatted archive for large structure)
