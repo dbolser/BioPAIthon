@@ -883,9 +883,16 @@ class _FeatureConsumer(_BaseGenBankConsumer):
             ):  # PRT is used in EMBL-bank for patents
                 molecule_type = "protein"
             # NA means a nucleic acid of unspecified type (GenBank release
-            # notes section 3.4.4.2); checked after the DNA and RNA branches
-            # because those molecule type strings also contain "NA"
-            elif "NA" in self._seq_type.upper():
+            # notes section 3.4.4.2). The seq_type may hold more than the
+            # molecule type (e.g. "NA      linear", or a strand prefix as
+            # in "ss-NA"), so match NA as a whole token after stripping the
+            # strand prefixes the LOCUS line allows - a substring test
+            # would wrongly accept any unrecognised type containing "NA".
+            elif any(
+                token.removeprefix("SS-").removeprefix("DS-").removeprefix("MS-")
+                == "NA"
+                for token in self._seq_type.upper().split()
+            ):
                 molecule_type = "NA"
             # work around ugly GenBank records which have circular or
             # linear but no indication of sequence type

@@ -8490,6 +8490,29 @@ class LineOneTests(unittest.TestCase):
         self.assertEqual(str(reparsed.seq), "ACGT")
         self.assertEqual(reparsed.annotations["molecule_type"], "NA")
 
+    def test_na_molecule_type_is_matched_as_a_token(self):
+        """Sequence types merely containing NA still raise in record_end."""
+
+        # The legacy scanner paths hand consumer.residue_type() split
+        # fields without the modern fixed-column validation, so the NA
+        # check must not be a substring test.
+        def run_consumer(seq_type):
+            consumer = GenBank._FeatureConsumer(1, GenBank.FeatureValueCleaner)
+            consumer.locus("FAKE")
+            consumer.size("4")
+            consumer.residue_type(seq_type)
+            consumer.sequence("ACGT")
+            consumer.record_end("//")
+            return consumer.data.annotations.get("molecule_type")
+
+        with self.assertRaises(ValueError) as cm:
+            run_consumer("BANANA")
+        self.assertIn("BANANA", str(cm.exception))
+        # But a real NA token still parses, with or without the strand
+        # prefixes the LOCUS line allows and trailing topology text.
+        self.assertEqual(run_consumer("NA      linear"), "NA")
+        self.assertEqual(run_consumer("ss-NA   linear"), "NA")
+
     def test_topology_embl(self):
         """Check EMBL ID line parsing."""
         # This is a bit low level, but can test parsing the ID line only
