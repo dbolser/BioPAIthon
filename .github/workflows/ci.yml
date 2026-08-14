@@ -162,8 +162,12 @@ jobs:
 
     steps:
 
-    # Start MySQL server: required for some tests.
-    - run: |
+    # BioSQL needs a running database server, so it is exercised on one
+    # matrix entry rather than all five. The runner image ships MySQL 8
+    # preinstalled (credentials root/root) but not running.
+    - name: Start MySQL server (for BioSQL tests)
+      if: matrix.python-version == '3.12'
+      run: |
         sudo /etc/init.d/mysql start
 
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -192,6 +196,33 @@ jobs:
     - name: Install from source
       run: |
         CC="gcc -fsanitize=address -fsanitize=undefined -g" python -m pip install .
+
+    # mysqlclient is installed here rather than via the `test` extra in
+    # pyproject.toml because only this matrix entry has a server to talk to;
+    # on the other entries Tests/test_BioSQL_MySQLdb.py skips as before.
+    # It was originally disabled for all jobs due to upstream #3834, a
+    # runner-image bug (actions/virtual-environments#4799, static TLS
+    # exhaustion importing MySQLdb) fixed in the images in early 2022.
+    # Tests/biosql.ini is gitignored and read by Tests/common_BioSQL.py; the
+    # tests create and drop the biosql_test database themselves, so nothing
+    # is created here. An empty dbuser disables the PostgreSQL section.
+    - name: Configure BioSQL MySQL tests
+      if: matrix.python-version == '3.12'
+      run: |
+        python -m pip install mysqlclient
+        tee Tests/biosql.ini <<'EOF'
+        [mysql]
+        dbhost=127.0.0.1
+        dbuser=root
+        dbpasswd=root
+        testdb=biosql_test
+
+        [pg]
+        dbhost=localhost
+        dbuser=
+        dbpasswd=
+        testdb=biosql_test
+        EOF
 
     - name: Run test suite
       # detect_leaks=0 is deliberate and should stay. LeakSanitizer reports
