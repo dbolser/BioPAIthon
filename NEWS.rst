@@ -69,6 +69,16 @@ accepting any version. Note ``[structure]`` deliberately omits ``mmtf-python``:
 RCSB shut the MMTF service down in July 2024 and ``Bio.PDB.mmtf`` is headed for
 removal.
 
+The source distribution remains self-testing — ``Tests/`` and its data still
+ship in full — but its unpacked size has dropped by 32% (124.1 MB to 84.3 MB).
+Five orphaned fixture directories whose modules were removed years ago
+(``Tests/FSSP/``, ``Tests/CodonUsage/``, ``Tests/MetaTool/``,
+``Tests/SubsMat/`` and ``Tests/NeuralNetwork/``) are deleted, and the 40 MB
+``Tests/PDB/6WG6.xml`` is now shipped gzipped, read through ``gzip.open`` by
+its test. Continuous integration fails if either the compressed or the
+unpacked source distribution grows past a cap (40 MB and 170 MB respectively,
+about twice today's sizes), so the payload cannot silently regrow.
+
 ``Bio.GenBank.Record.Record`` no longer corrupts a WGS range that was assigned
 as a string. Biopython 1.88 taught ``Record.__str__`` to join the list of range
 endpoints the parser produces, fixing a ``TypeError``, and corrected

@@ -150,23 +150,32 @@ jobs:
         python -m build --sdist
 
     # Guard against the sdist silently regrowing. The dominant content is
-    # Tests/ fixture data (the sdist is deliberately self-testing); the cap
-    # is ~2x the size measured when it was introduced (~19.6 MB, 2026-08).
-    # If this fails, a large fixture was probably added: gzip it (several
-    # tests already read fixtures through gzip.open) or trim it.
+    # Tests/ fixture data (the sdist is deliberately self-testing). The cap
+    # that matters is on the *unpacked* size — the sum of the tar members —
+    # because highly compressible fixtures barely move the tarball: removing
+    # a 40 MB XML fixture shrank the .tar.gz by only 0.27 MB. Both caps are
+    # ~2x the sizes measured when they were introduced (19.7 MB compressed,
+    # 84.3 MB unpacked, 2026-08). If this fails, a large fixture was probably
+    # added: gzip it (several tests already read fixtures through gzip.open)
+    # or trim it.
     - name: Check sdist size
       run: |
         python - <<'PY'
         import glob
         import os
         import sys
+        import tarfile
 
-        limit = 40_000_000  # bytes
+        compressed_limit = 40_000_000  # bytes
+        unpacked_limit = 170_000_000  # bytes, sum of regular members
         [sdist] = glob.glob("dist/*.tar.gz")
-        size = os.path.getsize(sdist)
-        print(f"{sdist}: {size:,} bytes (limit {limit:,})")
-        if size > limit:
-            sys.exit(f"sdist exceeds the {limit:,} byte cap; see this step's comment in ci.yml")
+        compressed = os.path.getsize(sdist)
+        with tarfile.open(sdist, "r:gz") as tar:
+            unpacked = sum(m.size for m in tar if m.isreg())
+        print(f"{sdist}: {compressed:,} bytes compressed (limit {compressed_limit:,}),")
+        print(f"  {unpacked:,} bytes unpacked (limit {unpacked_limit:,})")
+        if compressed > compressed_limit or unpacked > unpacked_limit:
+            sys.exit("sdist exceeds its size cap; see this step's comment in ci.yml")
         PY
 
   # Note: CI deliberately does not build wheels. Compiling the C extensions on
