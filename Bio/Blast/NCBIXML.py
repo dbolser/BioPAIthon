@@ -7,10 +7,17 @@
 # choice of the "Biopython License Agreement" or the "BSD 3-Clause License".
 # Please see the LICENSE file that should have been included as part of this
 # package.
-"""Code to work with the BLAST XML output.
+"""Code to work with the BLAST XML output (DEPRECATED).
 
 The BLAST XML DTD file is available on the NCBI site at:
 https://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd
+
+This module is deprecated and will be removed in a future release of
+BioPAIthon. Its replacements, the ``read`` and ``parse`` functions in
+``Bio.Blast``, parse the same BLAST XML output (opened in binary mode)
+into ``Bio.Blast.Record`` objects. See the "Migrating from the older
+BLAST modules" section of the Tutorial's BLAST chapter for how the
+attributes of the classes below map onto the new classes.
 
 Record classes to hold BLAST output are:
 
@@ -34,11 +41,22 @@ import warnings
 import xml.sax
 from xml.sax.handler import ContentHandler
 
+from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonParserWarning
 
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+warnings.warn(
+    "Bio.Blast.NCBIXML has been deprecated, and we intend to remove it in a "
+    "future release of BioPAIthon. Please use the read and parse functions in "
+    "Bio.Blast instead, which parse the same BLAST XML output (opened in "
+    "binary mode) into Bio.Blast.Record objects. See the 'Migrating from the "
+    "older BLAST modules' section of the Tutorial's BLAST chapter for how "
+    "existing code maps onto the new API.",
+    BiopythonDeprecationWarning,
+)
 
 
 def fmt_(value, format_spec="%s", default_str="<unknown>"):

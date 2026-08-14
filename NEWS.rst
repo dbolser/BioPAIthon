@@ -686,6 +686,14 @@ Reading FASTQ files is faster. The quality decoder no longer round-trips every
 record through ``array.array`` to accommodate the negative scores that only the
 Solexa format produces; that conversion now happens only in the Solexa reader.
 
+``Bio.Blast.NCBIWWW`` and ``Bio.Blast.NCBIXML`` are deprecated and now emit a
+``BiopythonDeprecationWarning`` on import; we intend to remove them in a later
+release. Both are superseded by ``Bio.Blast`` itself, which has offered
+``qblast``, ``read``, and ``parse`` functions since Biopython 1.83. The
+Tutorial's BLAST chapter teaches only the new API and ends with a migration
+section mapping the old record attributes onto the new classes. See
+``DEPRECATED.rst``.
+
 SAM files written by ``Bio.Align`` now carry a template length instead of
 TLEN 0 on every record — **the output of every SAM write changes where a
 template length is known**. The writer previously hard-coded the field to

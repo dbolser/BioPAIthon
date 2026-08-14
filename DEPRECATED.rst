@@ -83,6 +83,18 @@ From now on one should use the following commands:
 Biopython modules, methods, functions
 =====================================
 
+Bio.Blast.NCBIWWW and Bio.Blast.NCBIXML
+---------------------------------------
+**This deprecation is BioPAIthon's own; Biopython has not deprecated these
+modules.** Deprecated in BioPAIthon 1.88; the modules themselves have not been
+removed. Both are superseded by ``Bio.Blast`` itself: ``Bio.Blast.qblast``
+accepts all the arguments of ``Bio.Blast.NCBIWWW.qblast`` but returns a stream
+of ``bytes`` rather than text, and ``Bio.Blast.read`` and ``Bio.Blast.parse``
+parse the same BLAST XML output (opened in binary mode) that
+``Bio.Blast.NCBIXML`` did. See the "Migrating from the older BLAST modules"
+section of the Tutorial's BLAST chapter for how the old record attributes map
+onto the new classes.
+
 Bio.PDB.mmtf
 ------------
 **This deprecation is BioPAIthon's own; Biopython has not deprecated this
