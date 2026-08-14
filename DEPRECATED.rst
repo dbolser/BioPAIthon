@@ -153,9 +153,11 @@ Bio.AlignInfo
 The ``pos_specific_score_matrix`` method of the ``SummaryInfo`` class and the
 ``PSSM`` class were deprecated in release 1.82, and removed in release 1.85.
 The ``SummaryInfo`` class itself was deprecated in release 1.86, and removed
-in BioPAIthon 1.88, together with the ``Bio.Align.AlignInfo`` module, which it
-was the last remaining content of (upstream Biopython 1.88 still ships both,
-with the class deprecated).  As an
+in BioPAIthon 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It
+was the last remaining content of the ``Bio.Align.AlignInfo`` module, which
+is now shipped as a stub whose import raises ``ImportError`` naming the
+replacement, following the pattern used for ``Bio.Alphabet`` and
+``Bio.Application``.  As an
 alternative, please use the ``alignment`` property of a ``MultipleSeqAlignment``
 object to obtains a new-style ``Alignment`` object, and use it to create a
 ``Bio.motifs.Motif`` object. For example,

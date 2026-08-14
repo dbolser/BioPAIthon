@@ -62,9 +62,11 @@ The writer helpers deprecated in Biopython 1.86 have been removed: ``as_fasta``
 and ``as_fasta_2line`` in ``Bio.SeqIO.FastaIO``, ``as_fastq``, ``as_qual``,
 ``as_fastq_solexa`` and ``as_fastq_illumina`` in ``Bio.SeqIO.QualityIO``, and
 ``as_tab`` in ``Bio.SeqIO.TabIO`` — use ``format(record, "fasta")`` and
-friends instead. The deprecated ``SummaryInfo`` class is gone too, and with it
-the ``Bio.Align.AlignInfo`` module, whose other contents upstream had already
-removed in 1.86; the new-style ``Alignment`` object obtained from
+friends instead. The deprecated ``SummaryInfo`` class is gone too; it was the
+last content of the ``Bio.Align.AlignInfo`` module, which — being widely
+imported in public code — now ships as a stub whose import raises
+``ImportError`` naming the replacement, as ``Bio.Alphabet`` and the command
+line wrappers already do. The new-style ``Alignment`` object obtained from
 ``msa.alignment`` covers what it did. All of these had warned since 1.86 and
 were unused inside the library; see ``DEPRECATED.rst`` for the replacements.
 
