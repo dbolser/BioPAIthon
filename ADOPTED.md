@@ -40,6 +40,32 @@ request.
 
 Newest first.
 
+### [#3911](https://github.com/biopython/biopython/pull/3911) — Erik Whiting
+
+Fixes upstream issue
+[#3885](https://github.com/biopython/biopython/issues/3885). SnapGene files
+can carry literal newlines in feature qualifier values, and the SnapGene
+parser passes them through to the `SeqRecord`. `GenBankWriter.write_record`
+then wrote the qualifier across two lines with the continuation unindented —
+a file the GenBank parser itself rejects with `ValueError`. The fix replaces
+each newline with a space and warns with the qualifier key, record ID and
+feature index, the form peterjc's review asked for. The related
+[#4073](https://github.com/biopython/biopython/pull/4073) bundles the same
+writer fix with a `Scanner.py` rewrite that changes line-joining for every
+GenBank file read; this narrower shape is the one wanted.
+
+**One commit taken** (`570c02c79`) — the branch's only other content is a
+June 2022 merge of upstream master, long since part of this tree's history.
+One correction sits on top as a separate commit: the adopted check tested
+`"\n" in feature.qualifiers[k]` behind an `isinstance(..., Iterable)` guard,
+and qualifier values are usually *lists* of strings — that is what every
+`SeqIO` parser produces, the SnapGene parser included — for which that
+expression is an element-membership test, so the shape the motivating issue
+actually hits was never matched. Bare strings and lists or tuples of strings
+are now handled explicitly, and the regression test covers the list shape,
+asserts the warning, and re-parses the writer's output. The EMBL writer,
+which shares the defect, is outside the pull request's scope and unchanged.
+
 ### [#4938](https://github.com/biopython/biopython/pull/4938) — Will Tyler
 
 `PDBList.retrieve_pdb_file(..., file_format="mmtf")` built its URL on
