@@ -163,22 +163,23 @@ class TestPDBListGetStructure(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             pdb_list.retrieve_pdb_file("127d", file_format="invalid")
 
-            self.assertEqual(
-                "Specified file_format invalid does not exist or is not supported. Please use one of the "
-                "following: pdb, mmCif, xml, bundle.",
-                str(context.exception),
-            )
+        self.assertEqual(
+            "Specified file_format invalid does not exist or is not supported. Please use one of the "
+            "following: pdb, mmCif, bcif, xml, bundle.",
+            str(context.exception),
+        )
 
     def test_deprecated_mmtf_format(self):
+        """Tests that requesting the retired mmtf format raises ValueError."""
         pdb_list = PDBList()
         with self.assertRaises(ValueError) as context:
             pdb_list.retrieve_pdb_file("127d", file_format="mmtf")
 
-            self.assertEqual(
-                "The MMTF format is deprecated and no longer available. Please use one of the "
-                "following: pdb, mmCif, xml, bundle.",
-                str(context.exception),
-            )
+        self.assertEqual(
+            "The MMTF format is deprecated and no longer available. Please use one of the "
+            "following: pdb, mmCif, bcif, xml, bundle",
+            str(context.exception),
+        )
 
     def test_retrieve_pdb_file_not_existing(self):
         """Tests retrieving a non-existent molecule - returns None and prints error message."""
