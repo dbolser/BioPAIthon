@@ -772,7 +772,16 @@ The ``draw_graphviz`` function was removed in Release 1.79.
 
 Bio.pairwise2
 -------------
-The ``Bio.pairwise2`` module was deprecated in Release 1.80.
+The ``Bio.pairwise2`` module was deprecated in Release 1.80, and removed in
+BioPAIthon 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It is
+now shipped as a stub whose import raises ``ImportError`` naming the
+replacement, following the pattern used for ``Bio.Alphabet`` and
+``Bio.Application``.  Please use ``Bio.Align.PairwiseAligner`` instead, and
+note that migration is not mechanical: the defaults and semantics differ.
+In particular, ``Bio.pairwise2`` used a default gap score of 0, while the
+default gap score of ``PairwiseAligner`` has been -1 since Release 1.86 (see
+the ``Bio.Align`` entry above), so the two can rank alignments differently
+unless the match, mismatch and gap scores are all set explicitly.
 
 Bio.Wise
 --------
