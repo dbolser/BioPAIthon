@@ -4609,11 +4609,69 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
 
 /* ----------------- alignment algorithms ----------------- */
 
+/* The Needleman-Wunsch, Smith-Waterman, and Gotoh dynamic programming
+ * loops below run in pure C: they touch only buffers allocated before
+ * the loops start, scores copied from the aligner into C locals, and
+ * the sequence buffers held alive by the caller.  PAIRWISE_NOGIL_BEGIN
+ * therefore releases the GIL around them, so that other Python threads
+ * can run concurrently, and PAIRWISE_NOGIL_CHECK reacquires it briefly
+ * at regular intervals to run PyErr_CheckSignals, so that Ctrl-C can
+ * interrupt a long alignment.
+ *
+ * Rules for the region between PAIRWISE_NOGIL_BEGIN and
+ * PAIRWISE_NOGIL_END:
+ * - no Python API calls; in particular no PyMem_Malloc or PyMem_Free,
+ *   which require the GIL (allocate before the region, free after it);
+ * - no access to Python objects, only to plain C data;
+ * - the function must declare `int interrupted = 0;`.  On a pending
+ *   signal, PAIRWISE_NOGIL_CHECK sets it (PyErr_CheckSignals has then
+ *   already set the exception) and breaks out of the enclosing loop;
+ *   after PAIRWISE_NOGIL_END the function must clean up and return
+ *   NULL if `interrupted` is nonzero.
+ *
+ * The substitution matrix needs one extra precaution: with the GIL
+ * released, another thread could reassign aligner.substitution_matrix,
+ * which releases the aligner's buffer view of the old matrix and could
+ * deallocate the buffer this kernel is reading.  Pinning the exporting
+ * object with Py_XINCREF for the duration of the region keeps the
+ * buffer alive (a substitution_matrices.Array cannot be resized in
+ * place, so keeping the object alive keeps its data valid).
+ *
+ * Signals are checked about once every PAIRWISE_NOGIL_CHECK_CELLS
+ * matrix cells, i.e. every 1 + PAIRWISE_NOGIL_CHECK_CELLS / (nB + 1)
+ * rows.  At ~262k cells (well under a millisecond of work) per GIL
+ * round trip the overhead is unmeasurable, while Ctrl-C latency stays
+ * far below a second. */
+
+#define PAIRWISE_NOGIL_CHECK_CELLS 0x40000
+
+#define PAIRWISE_NOGIL_BEGIN \
+    { \
+        PyObject* _pinned = self->substitution_matrix.obj; \
+        const int _check_interval = 1 + PAIRWISE_NOGIL_CHECK_CELLS / (nB + 1); \
+        PyThreadState* _save; \
+        Py_XINCREF(_pinned); \
+        _save = PyEval_SaveThread();
+
+#define PAIRWISE_NOGIL_CHECK(i) \
+        if ((i) % _check_interval == 0) { \
+            PyEval_RestoreThread(_save); \
+            if (PyErr_CheckSignals() < 0) interrupted = 1; \
+            _save = PyEval_SaveThread(); \
+            if (interrupted) break; \
+        }
+
+#define PAIRWISE_NOGIL_END \
+        PyEval_RestoreThread(_save); \
+        Py_XDECREF(_pinned); \
+    }
+
 #define NEEDLEMANWUNSCH_SCORE(align_score) \
     int i; \
     int j; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     double score; \
@@ -4648,9 +4706,11 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     /* The top row of the score matrix is a special case, \
      * as there are no previously aligned characters. \
      */ \
+    PAIRWISE_NOGIL_BEGIN \
     row[0] = 0.0; \
     for (j = 1; j <= nB; j++) row[j] = j * left_gap_extend_A; \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         kA = sA[i-1]; \
         temp = row[0]; \
         row[0] = i * left_gap_extend_B; \
@@ -4684,7 +4744,9 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     SELECT_SCORE_GLOBAL(temp + (align_score), \
                         row[nB] + right_gap_extend_B, \
                         row[nB-1] + right_gap_extend_A); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
+    if (interrupted) return NULL; \
     return PyFloat_FromDouble(score);
 
 
@@ -4693,6 +4755,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     int j; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     double score; \
@@ -4707,9 +4770,11 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     /* The top row of the score matrix is a special case, \
      * as there are no previously aligned characters. \
      */ \
+    PAIRWISE_NOGIL_BEGIN \
     for (j = 0; j <= nB; j++) \
         row[j] = 0; \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         kA = sA[i-1]; \
         temp = 0; \
         for (j = 1; j < nB; j++) { \
@@ -4735,7 +4800,9 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     } \
     kB = sB[nB-1]; \
     SELECT_SCORE_LOCAL1(temp + (align_score)); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
+    if (interrupted) return NULL; \
     return PyFloat_FromDouble(maximum);
 
 
@@ -4744,6 +4811,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     int j; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     const double epsilon = self->epsilon; \
@@ -4784,9 +4852,11 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         return PyErr_NoMemory(); \
     } \
     M = paths->M; \
+    PAIRWISE_NOGIL_BEGIN \
     row[0] = 0; \
     for (j = 1; j <= nB; j++) row[j] = j * left_gap_extend_A; \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         temp = row[0]; \
         row[0] = i * left_gap_extend_B; \
         kA = sA[i-1]; \
@@ -4806,7 +4876,12 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     } \
     kB = sB[j-1]; \
     SELECT_TRACE_NEEDLEMAN_WUNSCH(right_gap_extend_A, right_gap_extend_B, align_score); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
+    } \
     M[nA][nB].path = 0; \
     return Py_BuildValue("fN", score, paths);
 
@@ -4818,6 +4893,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     int jm = nB; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     const double epsilon = self->epsilon; \
@@ -4838,8 +4914,10 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         return PyErr_NoMemory(); \
     } \
     M = paths->M; \
+    PAIRWISE_NOGIL_BEGIN \
     for (j = 0; j <= nB; j++) row[j] = 0; \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         temp = 0; \
         kA = sA[i-1]; \
         for (j = 1; j < nB; j++) { \
@@ -4857,7 +4935,12 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     } \
     kB = sB[nB-1]; \
     SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
+    } \
 \
     /* As we don't allow zero-score extensions to alignments, \
      * we need to remove all traces towards an ENDPOINT. \
@@ -4866,8 +4949,10 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
      * is reachable from a STARTPOINT. If it is unreachable, remove all \
      * traces from it, and don't allow it to be an ENDPOINT. It may still \
      * be a valid STARTPOINT. */ \
+    PAIRWISE_NOGIL_BEGIN \
     for (j = 0; j <= nB; j++) M[0][j].path = 1; \
     for (i = 1; i <= nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         M[i][0].path = 1; \
         for (j = 1; j <= nB; j++) { \
             trace = M[i][j].trace; \
@@ -4890,6 +4975,11 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
             M[i][j].trace = trace; \
         } \
     } \
+    PAIRWISE_NOGIL_END \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
+    } \
     if (maximum == 0) M[0][0].path = NONE; \
     else M[0][0].path = 0; \
     return Py_BuildValue("fN", maximum, paths);
@@ -4900,6 +4990,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     int j; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_open_A = self->open_internal_insertion_score; \
     const double gap_open_B = self->open_internal_deletion_score; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
@@ -4957,6 +5048,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     /* The top row of the score matrix is a special case, \
      * as there are no previously aligned characters. \
      */ \
+    PAIRWISE_NOGIL_BEGIN \
     M_row[0] = 0; \
     Ix_row[0] = -DBL_MAX; \
     Iy_row[0] = -DBL_MAX; \
@@ -4967,6 +5059,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     } \
 \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         M_temp = M_row[0]; \
         Ix_temp = Ix_row[0]; \
         Iy_temp = Iy_row[0]; \
@@ -5052,9 +5145,11 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     Iy_row[nB] = score; \
 \
     SELECT_SCORE_GLOBAL(M_row[nB], Ix_row[nB], Iy_row[nB]); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \
     PyMem_Free(Iy_row); \
+    if (interrupted) return NULL; \
     return PyFloat_FromDouble(score); \
 \
 exit: \
@@ -5069,6 +5164,7 @@ exit: \
     int j; \
     int kA; \
     int kB; \
+    int interrupted = 0; \
     const double gap_open_A = self->open_internal_insertion_score; \
     const double gap_open_B = self->open_internal_deletion_score; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
@@ -5094,6 +5190,7 @@ exit: \
     /* The top row of the score matrix is a special case, \
      * as there are no previously aligned characters. \
      */ \
+    PAIRWISE_NOGIL_BEGIN \
     M_row[0] = 0; \
     Ix_row[0] = -DBL_MAX; \
     Iy_row[0] = -DBL_MAX; \
@@ -5103,6 +5200,7 @@ exit: \
         Iy_row[j] = 0; \
     } \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         M_temp = M_row[0]; \
         Ix_temp = Ix_row[0]; \
         Iy_temp = Iy_row[0]; \
@@ -5164,9 +5262,11 @@ exit: \
                                    Ix_temp, \
                                    Iy_temp, \
                                    (align_score)); \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \
     PyMem_Free(Iy_row); \
+    if (interrupted) return NULL; \
     return PyFloat_FromDouble(maximum); \
 exit: \
     if (M_row) PyMem_Free(M_row); \
@@ -5193,6 +5293,7 @@ exit: \
     double right_gap_extend_A; \
     double right_gap_extend_B; \
     const double epsilon = self->epsilon; \
+    int interrupted = 0; \
     TraceGapsGotoh** gaps = NULL; \
     Trace** M = NULL; \
     double* M_row = NULL; \
@@ -5244,6 +5345,7 @@ exit: \
     gaps = paths->gaps.gotoh; \
  \
     /* Gotoh algorithm with three states */ \
+    PAIRWISE_NOGIL_BEGIN \
     M_row[0] = 0; \
     Ix_row[0] = -DBL_MAX; \
     Iy_row[0] = -DBL_MAX; \
@@ -5253,6 +5355,7 @@ exit: \
         Iy_row[j] = left_gap_open_A + left_gap_extend_A * (j-1); \
     } \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         kA = sA[i-1]; \
         M_temp = M_row[0]; \
         Ix_temp = Ix_row[0]; \
@@ -5341,9 +5444,14 @@ exit: \
     if (M_row[nB] < score - epsilon) M[nA][nB].trace = 0; \
     if (Ix_row[nB] < score - epsilon) gaps[nA][nB].Ix = 0; \
     if (Iy_row[nB] < score - epsilon) gaps[nA][nB].Iy = 0; \
+    PAIRWISE_NOGIL_END \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \
     PyMem_Free(Iy_row); \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
+    } \
     return Py_BuildValue("fN", score, paths); \
 exit: \
     Py_DECREF(paths); \
@@ -5365,6 +5473,7 @@ exit: \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     const double epsilon = self->epsilon; \
+    int interrupted = 0; \
     Trace** M = NULL; \
     TraceGapsGotoh** gaps = NULL; \
     double* M_row = NULL; \
@@ -5390,6 +5499,7 @@ exit: \
     if (!Ix_row) goto exit; \
     Iy_row = PyMem_Malloc((nB+1)*sizeof(double)); \
     if (!Iy_row) goto exit; \
+    PAIRWISE_NOGIL_BEGIN \
     M_row[0] = 0; \
     Ix_row[0] = -DBL_MAX; \
     Iy_row[0] = -DBL_MAX; \
@@ -5399,6 +5509,7 @@ exit: \
         Iy_row[j] = -DBL_MAX; \
     } \
     for (i = 1; i < nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         M_temp = M_row[0]; \
         Ix_temp = Ix_row[0]; \
         Iy_temp = Iy_row[0]; \
@@ -5461,10 +5572,15 @@ exit: \
     SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
     gaps[nA][nB].Ix = 0; \
     gaps[nA][nB].Iy = 0; \
+    PAIRWISE_NOGIL_END \
 \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \
     PyMem_Free(Iy_row); \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
+    } \
 \
     /* As we don't allow zero-score extensions to alignments, \
      * we need to remove all traces towards an ENDPOINT. \
@@ -5473,8 +5589,10 @@ exit: \
      * is reachable from a STARTPOINT. If it is unreachable, remove all \
      * traces from it, and don't allow it to be an ENDPOINT. It may still \
      * be a valid STARTPOINT. */ \
+    PAIRWISE_NOGIL_BEGIN \
     for (j = 0; j <= nB; j++) M[0][j].path = M_MATRIX; \
     for (i = 1; i <= nA; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
         M[i][0].path = M_MATRIX; \
         for (j = 1; j <= nB; j++) { \
             /* Remove traces to unreachable points. */ \
@@ -5526,6 +5644,11 @@ exit: \
             } \
             gaps[i][j].Iy = trace; \
         } \
+    } \
+    PAIRWISE_NOGIL_END \
+    if (interrupted) { \
+        Py_DECREF(paths); \
+        return NULL; \
     } \
 \
     /* traceback */ \
