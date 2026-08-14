@@ -90,6 +90,23 @@ The method now returns the matrix its docstring has always described, with
 ``stoch[i][j]`` holding the coefficient of the *j*-th species in the *i*-th
 reaction, and gains its first regression tests.
 
+``PairwiseAligner`` now fails loudly instead of overflowing when an alignment
+is too large. ``align()`` allocates an O(len(A)·len(B)) traceback matrix, and
+none of the size arithmetic was overflow-checked: in FOGSAA mode the cell
+count was even computed in C ``int``, so two sequences of ~65,536+ letters
+wrapped the multiplication, under-allocated the matrix, and corrupted the heap
+— a segfault reachable from pure Python. The matrix size is now computed in
+checked ``size_t`` arithmetic before allocation; a computation that cannot fit
+raises ``MemoryError`` naming the predicted size and both sequence lengths,
+and an allocation that fails reports the same numbers instead of a bare
+``MemoryError``. Sequences longer than the aligner's ``int`` storage can hold
+(above ``INT_MAX - 1`` letters) raise ``ValueError`` naming both lengths and
+the limit, where previously exactly ``INT_MAX`` slipped past the check into
+undefined behaviour. There is deliberately no size cap below what the platform
+can address: a machine with the memory for a huge alignment may still attempt
+it. ``score()`` keeps its linear-memory behaviour, except in FOGSAA mode,
+which inherently allocates the full matrix and gains the same guard.
+
 ``Bio.GenBank.Record.Record`` no longer corrupts a WGS range that was assigned
 as a string. Biopython 1.88 taught ``Record.__str__`` to join the list of range
 endpoints the parser produces, fixing a ``TypeError``, and corrected
