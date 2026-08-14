@@ -257,6 +257,15 @@ position, so the ranked counts are now padded with zeros and the rules apply
 unchanged; a three-letter column with equal counts gives ``V`` as it should.
 Four-letter alphabets are unaffected.
 
+The GenBank writer no longer produces output its own parser rejects when a
+feature qualifier value contains a line break. SnapGene files can carry
+literal newlines in qualifier values and the SnapGene parser passes them
+through; ``Bio.SeqIO.write`` then emitted the qualifier across two lines with
+the continuation unindented, and reading the file back raised ``ValueError``
+(upstream issue biopython/biopython#3885). Each newline is now replaced with
+a space, with a ``BiopythonWarning`` naming the qualifier, record and
+feature. Adopted from biopython/biopython#3911 by Erik Whiting; see
+
 ``Bio.PDB.PDBList`` can now download structures in BinaryCIF format, and no
 longer offers MMTF. The RCSB retired the MMTF format in 2024 and took down
 ``mmtf.rcsb.org``, so ``retrieve_pdb_file(..., file_format="mmtf")`` had been
