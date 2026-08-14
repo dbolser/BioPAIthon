@@ -7998,9 +7998,13 @@ KEYWORDS    """,
         """Handling line breaks."""
         # Qualifier values both as a bare string and as the usual list of
         # strings; both shapes reach _write_feature (upstream issue #3885).
+        # A CRLF pair collapses to a single space, and a lone "\r" counts
+        # as a line break too: read back in text mode, it is one.
         for qualifiers in (
             {"label": "line\nbreak"},
             {"label": ["line\nbreak"]},
+            {"label": "line\r\nbreak"},
+            {"label": ["line\rbreak"]},
         ):
             original = copy.deepcopy(qualifiers)
             record = SeqRecord(

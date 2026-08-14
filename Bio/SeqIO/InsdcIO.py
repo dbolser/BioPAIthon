@@ -51,6 +51,17 @@ from .Interfaces import SequenceWriter
 # https://www.insdc.org/submitting-standards/feature-table/#3.1
 _allowed_table_component_name_chars = set(ascii_letters + digits + "_-'*")
 
+
+def _replace_line_breaks(value):
+    """Replace CRLF, CR and LF in a string with single spaces (PRIVATE).
+
+    A CRLF pair counts as one line break. A lone carriage return counts
+    too: files are read back in text mode, where universal newlines make
+    it a line break like any other.
+    """
+    return value.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+
+
 # NOTE
 # ====
 # The "brains" for parsing GenBank, EMBL and IMGT files (and any
@@ -1172,13 +1183,14 @@ class GenBankWriter(_InsdcWriter):
             # not modify the caller's data.
             cleaned = {}
             for key, values in feature.qualifiers.items():
-                if isinstance(values, str) and "\n" in values:
-                    cleaned[key] = values.replace("\n", " ")
+                if isinstance(values, str) and ("\n" in values or "\r" in values):
+                    cleaned[key] = _replace_line_breaks(values)
                 elif isinstance(values, (list, tuple)) and any(
-                    isinstance(value, str) and "\n" in value for value in values
+                    isinstance(value, str) and ("\n" in value or "\r" in value)
+                    for value in values
                 ):
                     cleaned[key] = type(values)(
-                        value.replace("\n", " ") if isinstance(value, str) else value
+                        _replace_line_breaks(value) if isinstance(value, str) else value
                         for value in values
                     )
                 else:
