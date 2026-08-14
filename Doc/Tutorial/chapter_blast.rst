@@ -563,12 +563,15 @@ trying to save them all in a list.
 
 If you start iterating over the records *before* using ``blast_records`` as
 a list, the parser will first reset the file stream to the beginning of the
-data to ensure that all records are neing read. Note that this will fail if the
-stream cannot be reset to the beginning, for example if the data are being
-read remotely (e.g. by qblast; see subsection :ref:`sec:running-www-blast`).
-In those cases, you can explicitly read the records into a list by calling
-``blast_records = blast_records[:]`` before iterating over them. After reading
-in the records, it is safe to iterate over them or use them as a list.
+data to ensure that all records are being read. List-like access after
+partial iteration is therefore supported only if the input data is seekable;
+if the stream cannot be rewound, a ``ValueError`` is raised. Whether the
+stream returned by ``qblast`` (see section :ref:`sec:running-www-blast`) can
+be rewound is an implementation property of the connection, so do not rely
+on it. In such cases, you can explicitly read the records into a list by
+calling ``blast_records = blast_records[:]`` before iterating over them.
+After reading in the records, it is safe to iterate over them or use them as
+a list.
 
 Instead of opening the file yourself, you can just provide the file
 name:
