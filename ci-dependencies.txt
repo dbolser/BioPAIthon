@@ -1,29 +1,11 @@
-# Dependencies for testing and development
-# File used by CI workflow
+# Dependencies for testing, used by .github/workflows/ci.yml.
+#
+# The real list lives in pyproject.toml as the `test` extra under
+# [project.optional-dependencies]; this file just installs it, so the two
+# cannot drift. The editable install here is later replaced by the
+# sanitizer-instrumented `pip install .` in the test jobs.
+-e .[test]
 
-## Building/Packaging
-setuptools
-wheel
-
-# Style (for RST linting)
-# Most style dependencies are handled by pre-commit.
-black==22.12.0
-
-## Coverage
-coverage
-
-## Testing
-numpy!=2.1.0
-matplotlib
-mmtf-python
-#MySQL testing disabled due to #3834:
+# MySQL testing disabled due to upstream #3834:
 #mysqlclient
 #mysql-connector-python
-networkx
-igraph>=0.10.0
-rdflib
-reportlab
-scipy
-
-# Static type checking
-mypy
