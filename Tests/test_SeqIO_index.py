@@ -13,6 +13,7 @@ except ImportError:
 import gzip
 import os
 import shutil
+import struct
 import tempfile
 import threading
 import unittest
@@ -1000,6 +1001,22 @@ class MalformedFileTests(unittest.TestCase):
             SeqIO.index(path, "uniprot-xml")
         self.assertIn("Did not find <accession> line", str(cm.exception))
 
+    def test_uniprot_accession_split_over_lines(self):
+        """The <accession> element must open and close on the same line.
+
+        The indexer takes the key from the text between <accession> and
+        either </accession> or the line end, so an element split across
+        lines would silently give a key ending in a newline.
+        """
+        path = self.write(
+            "splitacc.xml",
+            self.UNIPROT_HEADER + "<entry dataset='Swiss-Prot'>\n<accession>P12345\n"
+            "</accession>\n</entry>\n</uniprot>\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "uniprot-xml")
+        self.assertIn("Did not find </accession> in line", str(cm.exception))
+
     def test_uniprot_get_raw_truncated_entry(self):
         """get_raw also refuses to return an entry it cannot see the end of."""
         path = self.write(
@@ -1118,6 +1135,45 @@ class MalformedFileTests(unittest.TestCase):
         index = SeqIO.index(path, "genbank")
         self.addCleanup(index.close)
         self.assertEqual(list(index), ["X56734"])
+
+    # SwissProt ----------------------------------------------------------
+
+    def test_swiss_id_line_not_followed_by_ac_line(self):
+        """The AC line supplies the key, so it must follow the ID line."""
+        path = self.write(
+            "noac.swiss",
+            "ID   TEST1_HUMAN             Reviewed;          10 AA.\n"
+            "DE   RecName: Full=Test protein;\n"
+            "SQ   SEQUENCE   10 AA;  1085 MW;  0000000000000000 CRC64;\n"
+            "     ACDEFGHIKL\n"
+            "//\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            SeqIO.index(path, "swiss")
+        self.assertIn("Expected AC line", str(cm.exception))
+        self.assertIn("offset 0", str(cm.exception))
+
+    # SFF ----------------------------------------------------------------
+
+    def test_sff_index_failing_mid_parse(self):
+        """A Roche index which fails part way through cannot be discarded.
+
+        Once record offsets have been yielded from the index, falling back
+        on scanning the reads would yield those records a second time.
+        """
+        with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+            data = handle.read()
+        # Bytes 20 to 24 of the header are the big endian number of reads.
+        # Claiming 9 reads makes the Roche index parser stop one entry short
+        # of the index block's declared size, after yielding 9 records.
+        path = os.path.join(self.temp_dir, "bad_read_count.sff")
+        with open(path, "wb") as handle:
+            handle.write(data[:20] + struct.pack(">I", 9) + data[24:])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            with self.assertRaises(ValueError) as cm:
+                SeqIO.index(path, "sff")
+        self.assertIn("cannot fall back to scanning the reads", str(cm.exception))
 
     # Tab ----------------------------------------------------------------
 

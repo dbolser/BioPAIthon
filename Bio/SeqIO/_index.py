@@ -115,7 +115,13 @@ class SffRandomAccess(SeqFileRandomAccess):
                 warnings.warn(
                     f"Could not parse the SFF index: {err}", BiopythonParserWarning
                 )
-                assert count == 0, "Partially populated index"
+                if count:
+                    # Records were already indexed from the broken index;
+                    # scanning the reads now would yield them all again.
+                    raise ValueError(
+                        "SFF index failed after %i records were indexed from it;"
+                        " cannot fall back to scanning the reads" % count
+                    ) from err
                 handle.seek(0)
                 # Drop out to the slow way...
             else:
@@ -396,7 +402,11 @@ class SwissRandomAccess(SequentialSeqFileRandomAccess):
             # normally the following AC line is used.
             line = handle.readline()
             length += len(line)
-            assert line.startswith(b"AC ")
+            if not line.startswith(b"AC "):
+                raise ValueError(
+                    "Expected AC line after start of SwissProt record"
+                    f" at offset {start_offset}, not:\n{line!r}"
+                )
             key = line[3:].strip().split(b";")[0].strip()
             while True:
                 end_offset = handle.tell()
@@ -436,7 +446,10 @@ class UniprotRandomAccess(SequentialSeqFileRandomAccess):
             while True:
                 line = handle.readline()
                 if key is None and start_acc_marker in line:
-                    assert end_acc_marker in line, line
+                    if end_acc_marker not in line:
+                        raise ValueError(
+                            f"Did not find </accession> in line:\n{line!r}"
+                        )
                     key = line[line.find(start_acc_marker) + 11 :].split(b"<", 1)[0]
                     length += len(line)
                 elif end_entry_marker in line:
