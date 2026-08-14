@@ -306,10 +306,11 @@ class PDBList:
                 + f"/pub/pdb/compatible/pdb_bundle/{pdb_code[1:3]}/{pdb_code}/{archive}"
             )
         else:
-            assert file_format == "bcif"
-            assert (
-                not obsolete
-            ), "PDBList cannot retrieve obsolete structures in BinaryCIF format."
+            # The format check above leaves only "bcif" here.
+            if obsolete:
+                raise ValueError(
+                    "PDBList cannot retrieve obsolete structures in BinaryCIF format."
+                )
             url = f"https://models.rcsb.org/{archive}"
 
         # Where does the final PDB file get saved?
