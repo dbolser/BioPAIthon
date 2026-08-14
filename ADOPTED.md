@@ -56,15 +56,21 @@ GenBank file read; this narrower shape is the one wanted.
 
 **One commit taken** (`570c02c79`) — the branch's only other content is a
 June 2022 merge of upstream master, long since part of this tree's history.
-One correction sits on top as a separate commit: the adopted check tested
-`"\n" in feature.qualifiers[k]` behind an `isinstance(..., Iterable)` guard,
-and qualifier values are usually *lists* of strings — that is what every
-`SeqIO` parser produces, the SnapGene parser included — for which that
+Three corrections sit on top as separate commits. First, the adopted check
+tested `"\n" in feature.qualifiers[k]` behind an `isinstance(..., Iterable)`
+guard, and qualifier values are usually *lists* of strings — that is what
+every `SeqIO` parser produces, the SnapGene parser included — for which that
 expression is an element-membership test, so the shape the motivating issue
-actually hits was never matched. Bare strings and lists or tuples of strings
-are now handled explicitly, and the regression test covers the list shape,
-asserts the warning, and re-parses the writer's output. The EMBL writer,
-which shares the defect, is outside the pull request's scope and unchanged.
+actually hits was never matched; bare strings and lists or tuples of strings
+are now handled explicitly. Second, the adopted code assigned the cleaned
+values back into `feature.qualifiers`, so writing a record permanently
+changed the caller's `SeqRecord`; the cleaned values now go to the file only,
+via a shallow-copied feature. Third, replacing only `\n` left `\r` behind —
+and a bare carriage return read back in text mode is a line break under
+universal newlines, regenerating the defect — so CRLF collapses to one space
+and a lone CR is treated like LF. The regression test covers all of this and
+re-parses the writer's output. The EMBL writer, which shares the defect, is
+outside the pull request's scope and unchanged.
 
 ### [#4938](https://github.com/biopython/biopython/pull/4938) — Will Tyler
 

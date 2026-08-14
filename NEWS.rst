@@ -262,9 +262,11 @@ feature qualifier value contains a line break. SnapGene files can carry
 literal newlines in qualifier values and the SnapGene parser passes them
 through; ``Bio.SeqIO.write`` then emitted the qualifier across two lines with
 the continuation unindented, and reading the file back raised ``ValueError``
-(upstream issue biopython/biopython#3885). Each newline is now replaced with
-a space, with a ``BiopythonWarning`` naming the qualifier, record and
-feature. Adopted from biopython/biopython#3911 by Erik Whiting; see
+(upstream issue biopython/biopython#3885). Each line break — LF, CR or a
+CRLF pair — is now replaced with a single space in the output, with a
+``BiopythonWarning`` naming the qualifier, record and feature. The record
+itself is not modified by writing it. Adopted from biopython/biopython#3911
+by Erik Whiting; see ``ADOPTED.md``.
 
 ``Bio.PDB.PDBList`` can now download structures in BinaryCIF format, and no
 longer offers MMTF. The RCSB retired the MMTF format in 2024 and took down
