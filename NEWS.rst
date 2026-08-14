@@ -243,6 +243,15 @@ position, so the ranked counts are now padded with zeros and the rules apply
 unchanged; a three-letter column with equal counts gives ``V`` as it should.
 Four-letter alphabets are unaffected.
 
+``Bio.PDB.PDBList`` can now download structures in BinaryCIF format, and no
+longer offers MMTF. The RCSB retired the MMTF format in 2024 and took down
+``mmtf.rcsb.org``, so ``retrieve_pdb_file(..., file_format="mmtf")`` had been
+building URLs for a host that no longer answers; it now raises ``ValueError``
+naming the surviving formats. ``file_format="bcif"`` fetches
+``https://models.rcsb.org/<code>.bcif.gz`` — a format ``Bio.PDB.binary_cif``
+already parses. Adopted from biopython/biopython#4938 by Will Tyler; see
+``ADOPTED.md``.
+
 ``Bio.PDB.HSExposureCB`` no longer abandons a whole model because one glycine
 is unusable. ``_get_cb`` returned ``self._get_gly_cb_vector(r2), 0.0``, and
 that helper returns ``None`` for a glycine missing N, C or CA — so the caller
