@@ -58,6 +58,16 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``PairwiseAligner.warn_defaults_changed()`` has been removed. It was
+transitional plumbing added in Biopython 1.86 with the change of the default
+gap score from 0 to -1 — a one-time ``UserWarning`` describing the new
+default — and its source carried a FIXME scheduling its removal once 1.87 was
+out. Biopython stopped calling it before 1.88 shipped, it was never
+documented, and its docstring misdescribed its return value. Code that calls
+it directly gets ``AttributeError``; deleting the call is the fix, and setting
+the gap scores explicitly is what silenced the warning anyway. See
+DEPRECATED.rst.
+
 ``Bio.Phylo`` trees can now resolve polytomies: the new
 ``resolve_polytomies`` method on trees and clades converts each
 multifurcation into bifurcations with branch length zero, as many downstream
