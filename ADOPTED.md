@@ -40,6 +40,27 @@ request.
 
 Newest first.
 
+### [#5121](https://github.com/biopython/biopython/pull/5121) — Oz Nova
+
+`MMCIF2Dict._splitline` walked every line character by character through the
+full CIF 1.1 tokenizer, though the lines that dominate an mmCIF file — the
+atom records — contain no quote and no comment character. A line without
+`'`, `"` or `#` is now handed to `str.split`; any line that could need the
+real tokenizer still gets it. Measured here, `MMCIF2Dict` reads
+`Tests/PDB/6WG6.cif` in 181 ms instead of 556 ms and
+`MMCIFParser.get_structure` drops from 755 ms to 364 ms (medians of 15
+runs); parse output is identical on all 19 mmCIF fixtures in `Tests/PDB`,
+compared at both the dictionary and the built-structure level.
+
+**All three commits taken**: the fast path, the author's benchmark script
+(`Scripts/Performance/benchmark_mmcif_parsing.py`), and his `CONTRIB.rst`
+line. Nothing left behind. peterjc wrote on 2025-12-25 that it "seems good
+to me - a worthwhile speedup for minimal change"; the thread has not moved
+since. One recorded caveat: `str.split()` splits on any whitespace, where
+the tokenizer recognises only space and tab — a difference visible only on
+a line whose unquoted token contains `\v`, `\f` or non-ASCII whitespace,
+none of which CIF 1.1's ASCII character set allows.
+
 ### [#5244](https://github.com/biopython/biopython/pull/5244) — Gian Carlo D Dumpit
 
 `Bio.Align.sam.AlignmentWriter` hard-coded `tLen = 0`, so no SAM file the
