@@ -39,7 +39,40 @@ class SequenceIterator(ABC, Generic[AnyStr]):
     may wish to redefine the __init__ method as well.
     You must also create a class property `modes` specifying the allowable
     file stream modes.
+
+    For formats supporting random access via Bio.SeqIO.index(...), the
+    knowledge of what a record looks like belongs to the parser class, not
+    to the indexing machinery, and is expressed with two class-level hooks:
+
+    - ``record_start_marker`` - an uncompiled bytes regular expression
+      pattern which, anchored at the start of a line, recognises the first
+      line of a new record.  ``None`` (the default) means the format does
+      not support generic marker-based scanning.
+    - ``parse_id_from_header`` - a classmethod returning the id string
+      which parsing would assign to the record starting with a given
+      header line.
     """
+
+    record_start_marker: bytes | None = None
+
+    @classmethod
+    def parse_id_from_header(cls, line: bytes) -> str:
+        """Return the record id this parser would assign to a record (PRIVATE).
+
+        Argument line is the raw first line of a record (as bytes, matching
+        ``record_start_marker``).
+
+        This is used by the Bio.SeqIO indexing machinery so that index keys
+        are derived by the same rule which gives ``record.id`` when parsing,
+        rather than by an independent re-implementation.  Formats where the
+        id is taken from later lines of the record (e.g. GenBank, EMBL)
+        do not implement this and instead have a dedicated random access
+        proxy in Bio.SeqIO._index.
+        """
+        raise NotImplementedError(
+            f"{cls.__name__} does not define how to derive a record id"
+            " from a record's first line"
+        )
 
     @property
     @abstractmethod

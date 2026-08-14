@@ -23,6 +23,17 @@ class AceIterator(SequenceIterator):
     """Return SeqRecord objects from an ACE file."""
 
     modes = "t"
+    record_start_marker = b"CO "
+
+    @classmethod
+    def parse_id_from_header(cls, line):
+        """Return the record id given the raw CO line (bytes) (PRIVATE).
+
+        Mirrors Bio.Sequencing.Ace.Contig.__init__, where the contig name is
+        the second word of the CO line.  Used by the Bio.SeqIO indexing code
+        so that index keys match ``record.id``.
+        """
+        return line.split()[1].decode()
 
     def __init__(
         self,

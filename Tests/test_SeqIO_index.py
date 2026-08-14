@@ -10,6 +10,7 @@ except ImportError:
     # Try to run what tests we can in case sqlite3 was not installed
     sqlite3 = None
 
+import glob
 import gzip
 import os
 import shutil
@@ -1001,6 +1002,43 @@ class MalformedFileTests(unittest.TestCase):
             SeqIO.index(path, "uniprot-xml")
         self.assertIn("Did not find <accession> line", str(cm.exception))
 
+    def test_uniprot_indented_entry_elements(self):
+        """Pretty-printed XML indents <entry>; the indexer must still see it.
+
+        The record start marker comes from UniprotIterator, and allows
+        leading whitespace because the XML parser is indifferent to
+        indentation.  Previously the marker only matched at the start of
+        the line, so a pretty-printed file gave a silently empty index.
+        """
+        path = self.write(
+            "indented.xml",
+            self.UNIPROT_HEADER + "  <entry dataset='Swiss-Prot'>\n"
+            "    <accession>P12345</accession>\n"
+            "    <sequence length='2' mass='200' version='1'>AC</sequence>\n"
+            "  </entry>\n</uniprot>\n",
+        )
+        parsed_ids = [record.id for record in SeqIO.parse(path, "uniprot-xml")]
+        self.assertEqual(parsed_ids, ["P12345"])
+        index = SeqIO.index(path, "uniprot-xml")
+        self.addCleanup(index.close)
+        self.assertEqual(list(index), parsed_ids)
+
+    # PIR ----------------------------------------------------------------
+
+    def test_pir_identifier_containing_spaces(self):
+        """The id is everything after ``>XX;``, spaces included.
+
+        That is the parser's rule, and the indexer now takes its ids from
+        the parser class.  It used to take just the first word, giving a
+        key which disagreed with the record.id of the record it named.
+        """
+        path = self.write("spaces.pir", ">P1;NAME with spaces\ndescription\nAC*\n")
+        parsed_ids = [record.id for record in SeqIO.parse(path, "pir")]
+        self.assertEqual(parsed_ids, ["NAME with spaces"])
+        index = SeqIO.index(path, "pir")
+        self.addCleanup(index.close)
+        self.assertEqual(list(index), parsed_ids)
+
     def test_uniprot_accession_split_over_lines(self):
         """The <accession> element must open and close on the same line.
 
@@ -1204,6 +1242,114 @@ class MalformedFileTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as cm:
                     list(SeqIO.parse(path, "tab"))
                 self.assertIn(message, str(cm.exception))
+
+
+class IndexParseKeyAgreementTests(unittest.TestCase):
+    """Index keys must be the ids the parser assigns, across the whole corpus.
+
+    The record start marker and the id-from-header rule used for indexing
+    are owned by each format's parser class (see Bio.SeqIO.Interfaces), so
+    for every indexable format and every fixture file the parser accepts,
+    the keys of SeqIO.index() and SeqIO.index_db() must equal the record.id
+    values from SeqIO.parse() - in the same order.
+    """
+
+    # Glob patterns (relative to Tests/) locating this format's fixture
+    # files.  Files the parser rejects are skipped: with no parse there are
+    # no ids to agree with.  Files whose parsed ids contain duplicates must
+    # instead make indexing fail, as index() forbids duplicate keys.
+    corpus = {
+        "ace": ["Ace/*.ace"],
+        "embl": ["EMBL/*.embl"],
+        "fasta": [
+            "Fasta/*.fasta",
+            "Fasta/*.fa",
+            "Fasta/*.nu",
+            "Fasta/*.pro",
+            "Fasta/f001",
+            "Fasta/f002",
+            "Fasta/fa01",
+            "GenBank/*.faa",
+            "GenBank/*.ffn",
+            "GenBank/*.fna",
+            "Quality/example.fasta",
+            "Roche/*.fasta",
+            "SwissProt/multi_ex.fasta",
+        ],
+        "fastq": ["Quality/*.fastq"],
+        "fastq-sanger": ["Quality/*_sanger.fastq", "Quality/sanger_*.fastq"],
+        "fastq-solexa": ["Quality/*_solexa.fastq", "Quality/solexa_*.fastq"],
+        "fastq-illumina": ["Quality/*_illumina.fastq", "Quality/illumina_*.fastq"],
+        "genbank": ["GenBank/*.gb", "GenBank/*.gbk"],
+        "gb": ["GenBank/cor6_6.gb", "GenBank/empty_accession.gbk"],
+        "ig": ["IntelliGenetics/*.txt"],
+        "imgt": ["EMBL/*.imgt"],
+        "phd": ["Phd/phd*"],
+        "pir": ["NBRF/*.pir"],
+        "qual": ["Quality/*.qual", "Roche/*.qual"],
+        "sff": ["Roche/*.sff"],
+        "sff-trim": ["Roche/*.sff"],
+        "swiss": ["SwissProt/*.txt", "SwissProt/sp*", "SwissProt/uni*"],
+        "tab": ["GenBank/NC_005816.tsv"],
+        "uniprot-xml": ["SwissProt/*.xml"],
+    }
+
+    def test_corpus_covers_every_indexable_format(self):
+        """Every indexable format must have fixture files in the corpus."""
+        self.assertEqual(sorted(self.corpus), sorted(_FormatToRandomAccess))
+
+    def test_index_keys_match_parsed_ids(self):
+        """list(SeqIO.index(f, fmt)) == [r.id for r in SeqIO.parse(f, fmt)]."""
+        checked = {}
+        for fmt in sorted(self.corpus):
+            filenames = set()
+            for pattern in self.corpus[fmt]:
+                filenames.update(glob.glob(pattern))
+            self.assertTrue(filenames, msg=f"No fixture files found for {fmt}")
+            checked[fmt] = 0
+            for filename in sorted(filenames):
+                with self.subTest(format=fmt, filename=filename):
+                    checked[fmt] += self.check_one(filename, fmt)
+        for fmt, count in checked.items():
+            self.assertTrue(count, msg=f"No fixture file was parseable as {fmt}")
+
+    def check_one(self, filename, fmt):
+        """Compare index keys with parsed ids; return 1 if compared, 0 if skipped."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            try:
+                ids = [record.id for record in SeqIO.parse(filename, fmt)]
+            except Exception:
+                # The parser rejects this file, so there are no record ids
+                # for the index keys to agree with.
+                return 0
+            if len(set(ids)) < len(ids):
+                # Duplicate ids cannot be dict keys; index() must refuse.
+                with self.assertRaises(ValueError):
+                    SeqIO.index(filename, fmt)
+                return 1
+            if fmt in ("sff", "sff-trim"):
+                # The fast path reads the Roche index block, which lists
+                # the reads in its own (sorted) order rather than file
+                # order, so compare the keys without regard to order.
+                compare = sorted
+            else:
+
+                def compare(keys):
+                    return list(keys)
+
+            index = SeqIO.index(filename, fmt)
+            try:
+                self.assertEqual(compare(index), compare(ids))
+            finally:
+                index.close()
+            if sqlite3:
+                index = SeqIO.index_db(":memory:", [filename], fmt)
+                try:
+                    self.assertEqual(compare(index), compare(ids))
+                finally:
+                    index.close()
+        return 1
 
 
 if __name__ == "__main__":

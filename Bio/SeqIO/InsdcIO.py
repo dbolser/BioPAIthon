@@ -74,6 +74,7 @@ class GenBankIterator(SequenceIterator):
     """Parser for GenBank files."""
 
     modes = "t"
+    record_start_marker = b"LOCUS "
 
     def __init__(self, source):
         """Break up a Genbank file into SeqRecord objects.
@@ -124,6 +125,7 @@ class EmblIterator(SequenceIterator):
     """Parser for EMBL files."""
 
     modes = "t"
+    record_start_marker = b"ID "
 
     def __init__(self, source):
         """Break up an EMBL file into SeqRecord objects.
@@ -180,6 +182,7 @@ class ImgtIterator(SequenceIterator):
     """Parser for IMGT files."""
 
     modes = "t"
+    record_start_marker = b"ID "
 
     def __init__(self, source):
         """Break up an IMGT file into SeqRecord objects.

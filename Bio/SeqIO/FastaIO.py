@@ -140,6 +140,21 @@ class FastaIterator(SequenceIterator):
     """Parser for plain Fasta files without comments."""
 
     modes = "t"
+    record_start_marker = b">"
+
+    @classmethod
+    def parse_id_from_header(cls, line):
+        """Return the record id given the raw ``>`` title line (bytes) (PRIVATE).
+
+        This is the same rule ``__next__`` applies to the title: the first
+        word, or an empty string for a bare ``>`` line.  It is used by the
+        Bio.SeqIO indexing code so that index keys match ``record.id``.
+        """
+        title = line[1:].rstrip()
+        try:
+            return title.split(None, 1)[0].decode()
+        except IndexError:
+            return ""
 
     def __init__(
         self,

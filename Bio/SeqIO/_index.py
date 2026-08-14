@@ -16,6 +16,14 @@ use as the record id, ideally without actually parsing the full record. We
 then use a subclassed Python dictionary to record the file offset for the
 record start against the record id.
 
+What a record looks like is knowledge belonging to each format's parser
+class: the record start marker and the id-from-header rule are taken from
+the parser class (its record_start_marker attribute and
+parse_id_from_header classmethod, see Bio.SeqIO.Interfaces), not
+re-implemented here. Formats whose id comes from later lines of the record
+(e.g. GenBank, EMBL), or which are not line-based at all (e.g. SFF), have
+dedicated proxy subclasses below instead.
+
 Note that this means full parsing is on demand, so any invalid or problem
 record may not trigger an exception until it is accessed. This is by design.
 
@@ -190,25 +198,25 @@ class SequentialSeqFileRandomAccess(SeqFileRandomAccess):
     def __init__(self, filename, format):
         """Initialize the class."""
         SeqFileRandomAccess.__init__(self, filename, format)
-        marker = {
-            "ace": b"CO ",
-            "embl": b"ID ",
-            "fasta": b">",
-            "genbank": b"LOCUS ",
-            "gb": b"LOCUS ",
-            "imgt": b"ID ",
-            "phd": b"BEGIN_SEQUENCE",
-            "pir": b">..;",
-            "qual": b">",
-            "swiss": b"ID ",
-            "uniprot-xml": b"<entry ",
-        }[format]
+        # The format's parser class owns the knowledge of what a record
+        # looks like; take the record start marker from it.
+        marker = self._iterator.record_start_marker
+        if marker is None:
+            raise ValueError(
+                f"{self._iterator.__name__} does not define record_start_marker,"
+                f" so {format!r} files cannot be indexed this way"
+            )
         self._marker = marker
         self._marker_re = re.compile(b"^" + marker)
 
     def __iter__(self):
         """Return (id, offset, length) tuples."""
-        marker_offset = len(self._marker)
+        # The id is derived from the record's first line by the parser
+        # class itself, using the same rule which sets record.id when
+        # parsing, so the index keys cannot drift from the parser's ids.
+        # (Formats where the id comes from a later line have their own
+        # proxy subclasses below and do not use this method.)
+        parse_id_from_header = self._iterator.parse_id_from_header
         marker_re = self._marker_re
         handle = self._handle
         handle.seek(0)
@@ -220,19 +228,13 @@ class SequentialSeqFileRandomAccess(SeqFileRandomAccess):
                 break
         # Should now be at the start of a record, or end of the file
         while marker_re.match(line):
-            # Here we can assume the record.id is the first word after the
-            # marker. This is generally fine... but not for GenBank, EMBL, Swiss
-            title = line[marker_offset:].strip()
-            if self._format in ("fasta", "pir") and not title:
-                id = b""
-            else:
-                id = title.split(None, 1)[0]
+            id = parse_id_from_header(line)
             length = len(line)
             while True:
                 end_offset = handle.tell()
                 line = handle.readline()
                 if marker_re.match(line) or not line:
-                    yield id.decode(), start_offset, length
+                    yield id, start_offset, length
                     start_offset = end_offset
                     break
                 else:

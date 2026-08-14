@@ -34,6 +34,9 @@ class UniprotIterator(SequenceIterator):
     """Parser for UniProt XML files, returning SeqRecord objects."""
 
     modes = "b"
+    # A regular expression pattern: the XML parser does not care about
+    # indentation, so pretty-printed files may indent their <entry> elements.
+    record_start_marker = b"[ \t]*<entry "
 
     def __init__(
         self,
