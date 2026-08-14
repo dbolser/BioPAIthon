@@ -7995,21 +7995,32 @@ KEYWORDS    """,
 
     def test_line_break_in_features(self):
         """Handling line breaks."""
-        record = SeqRecord(
-            Seq("AAAA"),
-            annotations={"molecule_type": "DNA"},
-            features=[
-                SeqFeature(
-                    FeatureLocation(1, 2),
-                    type="misc_feature",
-                    qualifiers={"label": "line\nbreak"},
-                )
-            ],
-        )
-        out_handle = StringIO()
-        SeqIO.write([record], out_handle, "genbank")
-        generated_label = out_handle.getvalue().split("/label=")[1].split("\n")[0]
-        self.assertEqual(generated_label, '"line break"')
+        # Qualifier values both as a bare string and as the usual list of
+        # strings; both shapes reach _write_feature (upstream issue #3885).
+        for qualifiers in (
+            {"label": "line\nbreak"},
+            {"label": ["line\nbreak"]},
+        ):
+            record = SeqRecord(
+                Seq("AAAA"),
+                annotations={"molecule_type": "DNA"},
+                features=[
+                    SeqFeature(
+                        FeatureLocation(1, 2),
+                        type="misc_feature",
+                        qualifiers=qualifiers,
+                    )
+                ],
+            )
+            out_handle = StringIO()
+            with self.assertWarns(BiopythonWarning):
+                SeqIO.write([record], out_handle, "genbank")
+            generated = out_handle.getvalue()
+            generated_label = generated.split("/label=")[1].split("\n")[0]
+            self.assertEqual(generated_label, '"line break"')
+            # The writer's own parser must accept the output again
+            back = SeqIO.read(StringIO(generated), "genbank")
+            self.assertEqual(back.features[0].qualifiers["label"], ["line break"])
 
     def test_qualifier_order(self):
         """Check the qualifier order is preserved."""
