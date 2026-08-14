@@ -7,6 +7,7 @@
 """Unit tests for the Bio.PDB.CEAligner module."""
 
 import gc
+import pickle
 import platform
 import sys
 import sysconfig
@@ -30,6 +31,7 @@ except ImportError:
 
 from Bio.PDB import CEAligner
 from Bio.PDB import MMCIFParser
+from Bio.PDB import ccealign
 from Bio.PDB.ccealign import run_cealign
 
 
@@ -245,6 +247,44 @@ class RunCEAlignArgumentTests(unittest.TestCase):
             len(run_cealign(as_tuples, as_tuples, 8, 30)),
             len(run_cealign(coords, coords, 8, 30)),
         )
+
+
+class RunCEAlignResultTypeTests(unittest.TestCase):
+    """The CEAlignment result type is shared and picklable.
+
+    run_cealign used to build a fresh CEAlignment type for every result,
+    so two results of the same call had distinct types and no result
+    could be pickled.
+    """
+
+    @staticmethod
+    def coords(n=40):
+        return [[float(i), 0.0, 0.0] for i in range(n)]
+
+    def test_results_share_one_type(self):
+        """Test that every result of a call has the same type."""
+        coords = self.coords()
+        results = run_cealign(coords, coords, 8, 30)
+        self.assertGreater(len(results), 1)
+        for result in results[1:]:
+            self.assertIs(type(result), type(results[0]))
+
+    def test_result_type_is_module_attribute(self):
+        """Test that the result type is ccealign.CEAlignment."""
+        coords = self.coords()
+        results = run_cealign(coords, coords, 8, 30)
+        self.assertIs(type(results[0]), ccealign.CEAlignment)
+
+    def test_result_pickles(self):
+        """Test that a result survives a pickle round-trip."""
+        coords = self.coords()
+        result = run_cealign(coords, coords, 8, 30)[0]
+        clone = pickle.loads(pickle.dumps(result))
+        self.assertIs(type(clone), type(result))
+        self.assertEqual(clone, result)
+        self.assertEqual(clone.path, result.path)
+        self.assertEqual(clone.z_score, result.z_score)
+        self.assertEqual(clone.length, result.length)
 
 
 if __name__ == "__main__":
