@@ -37,7 +37,58 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "numpy",
+    "numpy>=1.24,<3",
+]
+
+# Membership derived from what the code actually imports (each package below
+# is imported lazily and raises MissingPythonDependencyError when absent).
+[project.optional-dependencies]
+# Bio.Graphics: reportlab throughout; Bio.Graphics.KGML_vis also needs PIL.
+graphics = [
+    "reportlab",
+    "pillow",
+]
+# BioSQL's default driver is "MySQLdb", provided by mysqlclient, which
+# Bio.motifs.jaspar.db also uses. mysql-connector-python, psycopg2 and pgdb
+# are supported alternatives (pass driver= to open_database); sqlite3 is in
+# the standard library. An extra cannot offer a choice, so it installs the
+# default.
+biosql = [
+    "mysqlclient",
+]
+# Bio.PDB.binary_cif needs msgpack. mmtf-python is deliberately NOT here:
+# RCSB shut the MMTF service down in July 2024 (mmtf.rcsb.org no longer
+# resolves), the package's last release was 2022, and Bio.PDB.mmtf is slated
+# for removal — an extra should not advertise it to new users. It remains in
+# `test` while the offline mmtf parser tests still exist.
+structure = [
+    "msgpack",
+]
+# Bio.Phylo: draw() needs matplotlib, to_networkx() needs networkx,
+# to_igraph() needs igraph>=0.10, and CDAO support needs rdflib.
+phylo = [
+    "matplotlib",
+    "networkx",
+    "igraph>=0.10.0",
+    "rdflib",
+]
+# scipy is used by Bio.phenotype, Bio.codonalign and Bio.Align.analysis,
+# which fit none of the named stacks, so it is listed here directly.
+all = [
+    "biopaithon[graphics,biosql,structure,phylo]",
+    "scipy",
+]
+# What the offline test suite exercises; ci-dependencies.txt installs this
+# extra so the two cannot drift. Not simply `all`: BioSQL MySQL testing is
+# disabled (upstream #3834), so no mysqlclient. mmtf-python is still needed
+# for the offline mmtf parser tests; numpy 2.1.0 is excluded per upstream
+# (see ci-dependencies.txt history).
+test = [
+    "biopaithon[graphics,phylo,structure]",
+    "coverage",
+    "mmtf-python",
+    "numpy!=2.1.0",
+    "scipy",
 ]
 
 [project.urls]
