@@ -227,11 +227,12 @@ class System:
         # PS: We should implement automatic checking for NumPy here.
         species = self.species()
         reactions = self.reactions()
-        stoch = [] * len(reactions)
-        for i in range(len(reactions)):
-            stoch[i] = 0 * len(species)
-            for s in reactions[i].species():
-                stoch[species.index(s)] = reactions[i].reactants[s]
+        stoch = []
+        for reaction in reactions:
+            row = [0] * len(species)
+            for s in reaction.species():
+                row[species.index(s)] = reaction.reactants[s]
+            stoch.append(row)
         return (species, reactions, stoch)
 
 
