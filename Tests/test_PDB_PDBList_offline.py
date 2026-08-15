@@ -12,12 +12,15 @@ live in ``test_PDB_PDBList.py``.
 """
 
 import gzip
+import importlib
 import os
 import tempfile
 import unittest
 from unittest import mock
 
 from Bio.PDB.PDBList import PDBList
+
+pdb_list_module = importlib.import_module("Bio.PDB.PDBList")
 
 
 class URLConstructionTests(unittest.TestCase):
@@ -41,8 +44,8 @@ class URLConstructionTests(unittest.TestCase):
             with gzip.open(filename, "wb") as handle:
                 handle.write(b"payload")
 
-        with mock.patch("Bio.PDB.PDBList.urlretrieve", fake_urlretrieve):
-            with mock.patch("Bio.PDB.PDBList.urlcleanup"):
+        with mock.patch.object(pdb_list_module, "urlretrieve", fake_urlretrieve):
+            with mock.patch.object(pdb_list_module, "urlcleanup"):
                 final_file = self.pdblist.retrieve_pdb_file(*args, **kwargs)
         self.assertEqual(len(requested), 1)
         return requested[0], final_file
