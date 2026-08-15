@@ -7,6 +7,7 @@
 
 import array
 import os
+import subprocess
 import sys
 import unittest
 
@@ -22493,18 +22494,43 @@ class TestMatrixAllocationGuards(unittest.TestCase):
         # Regression test: (nA+1)*(nB+1) was computed in int arithmetic
         # when allocating the FOGSAA matrix, so two ~2-megabase sequences
         # wrapped the product and under-allocated the matrix, corrupting
-        # the heap.  Now the predicted 176 TB allocation must fail with a
+        # the heap. Now the predicted 176 TB allocation must fail with a
         # MemoryError naming the size and the sequence lengths.
-        aligner = Align.PairwiseAligner()
-        aligner.mode = "fogsaa"
-        n = 2**21
-        sequence = np.zeros(n, dtype=np.int32)  # 8 MB per sequence
-        for method in (aligner.score, aligner.align):
-            with self.assertRaises(MemoryError) as cm:
-                method(sequence, sequence)
-            message = str(cm.exception)
-            self.assertIn(str(n), message)
-            self.assertIn("bytes", message)
+        #
+        # Run this in a child process. AddressSanitizer aborts by default
+        # when an allocation exceeds its own limit instead of returning
+        # NULL to the caller; allocator_may_return_null lets this test reach
+        # the extension's normal MemoryError path without taking down the
+        # complete test run.
+        code = """
+import numpy as np
+from Bio import Align
+
+aligner = Align.PairwiseAligner()
+aligner.mode = "fogsaa"
+n = 2**21
+sequence = np.zeros(n, dtype=np.int32)
+for method in (aligner.score, aligner.align):
+    try:
+        method(sequence, sequence)
+    except MemoryError as error:
+        message = str(error)
+        assert str(n) in message
+        assert "bytes" in message
+    else:
+        raise AssertionError("impossible FOGSAA allocation did not fail")
+"""
+        env = os.environ.copy()
+        options = env.get("ASAN_OPTIONS", "")
+        env["ASAN_OPTIONS"] = f"{options}:allocator_may_return_null=1"
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
 if __name__ == "__main__":
