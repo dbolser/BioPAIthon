@@ -79,6 +79,17 @@ its test. Continuous integration fails if either the compressed or the
 unpacked source distribution grows past a cap (40 MB and 170 MB respectively,
 about twice today's sizes), so the payload cannot silently regrow.
 
+``Bio.Pathway.System.stochiometry`` now works. Since its introduction in 2001
+the method began with ``stoch = [] * len(reactions)``, which is always the
+empty list, so the first row assignment raised ``IndexError`` for any system
+containing a reaction — the method had never returned a matrix for real input.
+Two further defects hid behind that one: each row was created as the integer
+``0`` rather than a list of zeros, and coefficients were written to
+``stoch[species_index]`` instead of ``stoch[reaction_index][species_index]``.
+The method now returns the matrix its docstring has always described, with
+``stoch[i][j]`` holding the coefficient of the *j*-th species in the *i*-th
+reaction, and gains its first regression tests.
+
 ``Bio.GenBank.Record.Record`` no longer corrupts a WGS range that was assigned
 as a string. Biopython 1.88 taught ``Record.__str__`` to join the list of range
 endpoints the parser produces, fixing a ``TypeError``, and corrected

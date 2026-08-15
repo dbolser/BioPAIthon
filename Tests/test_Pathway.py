@@ -11,6 +11,7 @@ import unittest
 
 # modules to be tested
 from Bio.Pathway import Reaction
+from Bio.Pathway import System
 from Bio.Pathway.Rep.Graph import Graph
 from Bio.Pathway.Rep.MultiGraph import MultiGraph
 
@@ -201,6 +202,27 @@ class ReactionTestCase(unittest.TestCase):
         self.assertEqual(
             self.r_3.reverse().reverse(), self.r_3, "double reversal not identity"
         )
+
+
+class SystemTestCase(unittest.TestCase):
+    def test_stochiometry_empty(self):
+        species, reactions, stoch = System().stochiometry()
+        self.assertEqual(species, [])
+        self.assertEqual(reactions, [])
+        self.assertEqual(stoch, [])
+
+    def test_stochiometry(self):
+        r_1 = Reaction({"a": -1, "b": 1})
+        r_2 = Reaction({"b": -2, "c": 3})
+        system = System([r_1, r_2])
+        species, reactions, stoch = system.stochiometry()
+        self.assertEqual(species, ["a", "b", "c"])
+        self.assertCountEqual(reactions, [r_1, r_2])
+        # The order of reactions is arbitrary, so look up each row
+        # by the reaction it belongs to before checking its contents.
+        expected = {r_1: [-1, 1, 0], r_2: [0, -2, 3]}
+        for reaction, row in zip(reactions, stoch):
+            self.assertEqual(row, expected[reaction])
 
 
 if __name__ == "__main__":
