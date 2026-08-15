@@ -3233,8 +3233,12 @@ class TestClusterRNGSeed(unittest.TestCase):
 
         from Bio.Cluster import kcluster
 
+        # Build the NumPy input before reseeding libc. On PyPy, NumPy's
+        # generator setup itself consumes libc rand() values; the property
+        # under test is whether the clustering call changes that stream.
+        data = self._data()
         libc.srand(42)
-        kcluster(self._data(), nclusters=3, npass=5)
+        kcluster(data, nclusters=3, npass=5)
         observed = [libc.rand() for _ in range(5)]
         self.assertEqual(expected, observed)
 
