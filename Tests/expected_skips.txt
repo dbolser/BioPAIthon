@@ -1,0 +1,70 @@
+# Modules the test runner may skip because an optional dependency is absent.
+#
+# One module name per line; anything after "#" is a comment recording the
+# missing-dependency reason.  With run_tests.py --check-skips, a module that
+# skips without being listed here fails the run -- so a change that silently
+# knocks a module out of the suite (for example a library module growing an
+# import-time dependency it did not have before) is caught instead of
+# vanishing behind a green build.
+#
+# Add a line here only when a module has a legitimate new reason to skip,
+# and say what has to be missing for it to happen.
+Bio.Graphics                                # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.BasicChromosome                # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.ColorSpiral                    # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.Comparative                    # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.DisplayRepresentation          # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.Distribution                   # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram                  # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._AbstractDrawer  # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._CircularDrawer  # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._Colors          # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._CrossLink       # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._Diagram         # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._Feature         # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._FeatureSet      # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._Graph           # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._GraphSet        # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._LinearDrawer    # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.GenomeDiagram._Track           # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.Graphics.KGML_vis                       # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+Bio.PDB.mmtf                                # Install mmtf to use Bio.PDB.mmtf (e.g. pip install mmtf-python)
+Bio.PDB.mmtf.DefaultParser                  # Install mmtf to use Bio.PDB.mmtf (e.g. pip install mmtf-python)
+Bio.PDB.mmtf.mmtfio                         # Install mmtf to use Bio.PDB.mmtf (e.g. pip install mmtf-python)
+Bio.Phylo.CDAOIO                            # Support for CDAO tree format requires RDFlib.
+Bio.motifs.jaspar.db                        # Install MySQLdb if you want to use Bio.motifs.jaspar.db
+Bio.phenotype.pm_fitting                    # Install scipy to extract curve parameters.
+test_BioSQL_MySQLdb                         # BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)
+test_BioSQL_MySQLdb_online                  # internet not available
+test_BioSQL_mysql_connector                 # BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)
+test_BioSQL_mysql_connector_online          # internet not available
+test_BioSQL_psycopg2                        # BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)
+test_BioSQL_psycopg2_online                 # internet not available
+test_BioSQL_sqlite3_online                  # internet not available
+test_ColorSpiral                            # Install reportlab if you want to use Bio.Graphics.
+test_Entrez_online                          # internet not available
+test_ExPASy                                 # internet not available
+test_GenomeDiagram                          # Install reportlab if you want to use Bio.Graphics.
+test_GraphicsBitmaps                        # Install ReportLab if you want to use Bio.Graphics.
+test_GraphicsChromosome                     # Install reportlab if you want to use Bio.Graphics.
+test_GraphicsDistribution                   # Install reportlab if you want to use Bio.Graphics.
+test_GraphicsGeneral                        # Install reportlab if you want to use Bio.Graphics.
+test_KEGG_online                            # internet not available
+test_KGML_graphics                          # Please install ReportLab if you want to use Bio.Graphics. You can find ReportLab at http://www.reportlab.com/software/opensource/
+test_KGML_graphics_online                   # Install reportlab if you want to use Bio.Graphics.
+test_PAML_tools                             # Install PAML if you want to use the Bio.Phylo.PAML wrapper.
+test_PDB_PDBList                            # internet not available
+test_PDB_PSEA                               # Download and install psea from ftp://ftp.lmcp.jussieu.fr/pub/sincris/software/protein/p-sea/. Make sure that psea is on path
+test_PDB_alphafold_db                       # internet not available
+test_PDB_internal_coords                    # Install mmtf to use Bio.PDB.mmtf (e.g. pip install mmtf-python)
+test_Phylo_CDAO                             # Install RDFlib if you want to use the CDAO tree format.
+test_Phylo_igraph                           # Install igraph if you wish to use it with Bio.Phylo
+test_Phylo_matplotlib                       # Install matplotlib if you want to use Bio.Phylo._utils.
+test_Phylo_networkx                         # Install networkx if you wish to use it with Bio.Phylo
+test_SeqIO_online                           # internet not available
+test_TogoWS                                 # internet not available
+test_UniProt                                # internet not available
+test_mmtf                                   # Install mmtf-python to use Bio.PDB.mmtf
+test_mmtf_online                            # Install mmtf to use Bio.PDB.mmtf (e.g. pip install mmtf-python)
+test_motifs_online                          # internet not available
+test_phenotype_fit                          # Install SciPy if you want to use Bio.phenotype fit functionality.

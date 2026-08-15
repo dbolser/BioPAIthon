@@ -12,6 +12,8 @@ Command line options::
 
     --help        -- show usage info
     --offline     -- skip tests which require internet access
+    --check-skips -- fail if a module skips that is not listed in
+                     Tests/expected_skips.txt
     -v;--verbose  -- run tests with higher verbosity
     <test_name>   -- supply the name of one (or more) tests to be run.
                      The .py file extension is optional.
@@ -161,7 +163,9 @@ def main(argv):
     # get the command line options
     try:
         opts, args = getopt.getopt(
-            argv, "gv", ["generate", "verbose", "doctest", "help", "offline"]
+            argv,
+            "gv",
+            ["generate", "verbose", "doctest", "help", "offline", "check-skips"],
         )
     except getopt.error as msg:
         print(msg)
@@ -169,12 +173,15 @@ def main(argv):
         return 2
 
     verbosity = VERBOSITY
+    check_skips = False
 
     # deal with the options
     for opt, _ in opts:
         if opt == "--help":
             print(__doc__)
             return 0
+        if opt == "--check-skips":
+            check_skips = True
         if opt == "--offline":
             print("Skipping any tests requiring internet access")
             EXCLUDE_DOCTEST_MODULES.extend(ONLINE_DOCTEST_MODULES)
@@ -199,7 +206,7 @@ def main(argv):
     print(f"Operating system: {os.name} {sys.platform}")
 
     # run the tests
-    runner = TestRunner(args, verbosity)
+    runner = TestRunner(args, verbosity, check_skips)
     return runner.run()
 
 
@@ -210,7 +217,7 @@ class TestRunner(unittest.TextTestRunner):
         file = __file__
     testdir = os.path.abspath(os.path.dirname(file) or os.curdir)
 
-    def __init__(self, tests=None, verbosity=0):
+    def __init__(self, tests=None, verbosity=0, check_skips=False):
         """Initialise test runner.
 
         If not tests are specified, we run them all,
@@ -222,6 +229,11 @@ class TestRunner(unittest.TextTestRunner):
             self.tests = []
         else:
             self.tests = tests
+        self.check_skips = check_skips
+        # Modules which skipped, mapped to the missing-dependency reason.
+        self.skips = {}
+        # Number of individual test cases run across all modules.
+        self.cases_run = 0
         if not self.tests:
             # Make a list of all applicable test modules.
             names = os.listdir(TestRunner.testdir)
@@ -239,8 +251,16 @@ class TestRunner(unittest.TextTestRunner):
         unittest.TextTestRunner.__init__(self, stream, verbosity=verbosity)
 
     def runTest(self, name):
+        """Run one test module; return "ok", "skip" or "fail" (PRIVATE).
+
+        A module may skip only by raising MissingExternalDependencyError
+        (or its subclass MissingPythonDependencyError) while being
+        imported -- that is a test module declaring up front that a
+        dependency is absent.  The same exceptions raised later, from
+        code under test, are real failures and are reported as such.
+        """
+        # MissingPythonDependencyError subclasses this; one except covers both.
         from Bio import MissingExternalDependencyError
-        from Bio import MissingPythonDependencyError
 
         global CURRENT_TEST
         CURRENT_TEST = name
@@ -258,26 +278,19 @@ class TestRunner(unittest.TextTestRunner):
             if name.startswith("test_"):
                 # It's a unittest
                 sys.stderr.write(f"{name} ... ")
+                try:
+                    module = __import__(name)
+                except MissingExternalDependencyError as msg:
+                    self.skips[name] = str(msg)
+                    sys.stderr.write(f"skipping. {msg}\n")
+                    return "skip"
                 loader = unittest.TestLoader()
-                suite = loader.loadTestsFromName(name)
-                if hasattr(loader, "errors") and loader.errors:
-                    # New in Python 3.5, don't always get an exception anymore
-                    # Instead this is a list of error messages as strings
-                    for msg in loader.errors:
-                        if (
-                            "Bio.MissingExternalDependencyError: " in msg
-                            or "Bio.MissingPythonDependencyError: " in msg
-                        ):
-                            # Remove the traceback etc
-                            msg = msg[msg.find("Bio.Missing") :]
-                            msg = msg[msg.find("Error: ") :]
-                            sys.stderr.write(f"skipping. {msg}\n")
-                            return True
-                    # Looks like a real failure
+                suite = loader.loadTestsFromModule(module)
+                if loader.errors:
                     sys.stderr.write("loading tests failed:\n")
                     for msg in loader.errors:
                         sys.stderr.write(f"{msg}\n")
-                    return False
+                    return "fail"
                 if suite.countTestCases() == 0:
                     raise RuntimeError(f"No tests found in {name}")
             else:
@@ -285,17 +298,19 @@ class TestRunner(unittest.TextTestRunner):
                 sys.stderr.write(f"{name} docstring test ... ")
                 try:
                     module = __import__(name, fromlist=name.split("."))
-                except MissingPythonDependencyError:
-                    sys.stderr.write("skipped, missing Python dependency\n")
-                    return True
+                except MissingExternalDependencyError as msg:
+                    self.skips[name] = str(msg)
+                    sys.stderr.write(f"skipping. {msg}\n")
+                    return "skip"
                 except ImportError as e:
                     sys.stderr.write("FAIL, ImportError\n")
                     result.stream.write(f"ERROR while importing {name}: {e}\n")
                     result.printErrors()
-                    return False
+                    return "fail"
                 suite = doctest.DocTestSuite(module, optionflags=doctest.ELLIPSIS)
                 del module
             suite.run(result)
+            self.cases_run += result.testsRun
             if self.testdir != os.path.abspath("."):
                 sys.stderr.write("FAIL\n")
                 result.stream.write(result.separator1 + "\n")
@@ -307,52 +322,81 @@ class TestRunner(unittest.TextTestRunner):
                 os.chdir(self.testdir)
                 if not result.wasSuccessful():
                     result.printErrors()
-                return False
+                return "fail"
             elif result.wasSuccessful():
                 sys.stderr.write("ok\n")
-                return True
+                return "ok"
             else:
                 sys.stderr.write("FAIL\n")
                 result.printErrors()
-            return False
-        except MissingExternalDependencyError as msg:
-            # Seems this isn't always triggered on Python 3.5,
-            # exception messages can be in loader.errors instead.
-            sys.stderr.write(f"skipping. {msg}\n")
-            return True
-        except Exception as msg:  # noqa: BLE001
-            # This happened during the import
+            return "fail"
+        except Exception:  # noqa: BLE001
+            # An unexpected error, e.g. during import or test loading.
+            # MissingExternalDependencyError raised from code under test
+            # (rather than while importing the test module) also lands
+            # here, deliberately: that is a failure, not a skip.
             sys.stderr.write("ERROR\n")
             result.stream.write(result.separator1 + "\n")
             result.stream.write(f"ERROR: {name}\n")
             result.stream.write(result.separator2 + "\n")
             result.stream.write(traceback.format_exc())
-            return False
+            return "fail"
         finally:
             sys.stdout = stdout
             # Running under PyPy we were leaking file handles...
             gc.collect()
+
+    def checkSkips(self):
+        """Report skips absent from the manifest; return their number (PRIVATE)."""
+        manifest = os.path.join(self.testdir, "expected_skips.txt")
+        expected = set()
+        with open(manifest) as handle:
+            for line in handle:
+                entry = line.split("#", 1)[0].strip()
+                if entry:
+                    expected.add(entry)
+        unexpected = sorted(set(self.skips) - expected)
+        if unexpected:
+            sys.stderr.write(
+                "FAILED (unexpected skips = %d)\n"
+                "These modules skipped but are not listed in "
+                "Tests/expected_skips.txt:\n" % len(unexpected)
+            )
+            for name in unexpected:
+                sys.stderr.write(f"    {name} -- {self.skips[name]}\n")
+        return len(unexpected)
 
     def run(self):
         """Run tests, return number of failures (integer)."""
         failures = 0
         start_time = time.time()
         for test in self.tests:
-            ok = self.runTest(test)
-            if not ok:
+            status = self.runTest(test)
+            if status == "fail":
                 failures += 1
         total = len(self.tests)
+        skips = len(self.skips)
         stop_time = time.time()
         time_taken = stop_time - start_time
         sys.stderr.write(self.stream.getvalue())
         sys.stderr.write("-" * 70 + "\n")
         sys.stderr.write(
-            "Ran %d test%s in %.3f seconds\n"
-            % (total, total != 1 and "s" or "", time_taken)
+            "Ran %d module%s (%d case%s) in %.3f seconds, %d skipped, %d failed\n"
+            % (
+                total,
+                "s" if total != 1 else "",
+                self.cases_run,
+                "s" if self.cases_run != 1 else "",
+                time_taken,
+                skips,
+                failures,
+            )
         )
         sys.stderr.write("\n")
         if failures:
             sys.stderr.write("FAILED (failures = %d)\n" % failures)
+        if self.check_skips:
+            failures += self.checkSkips()
         return failures
 
 
