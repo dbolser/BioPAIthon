@@ -1,12 +1,14 @@
 name: CI
 
 # Avoid running multiple jobs for the same branch
-# in case of updates.
+# in case of updates. The event name is part of the group so that a push to
+# main cannot cancel an in-progress weekly scheduled run (or vice versa).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Run on pull requests and push events to main only
+# Run on pull requests and push events to main, plus a weekly scheduled run
+# that installs dependencies fresh instead of from the cache.
 on:
   pull_request:
     branches:
@@ -14,9 +16,23 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Mondays 03:00 UTC. Scheduled runs skip the pip environment cache steps
+    # below, so `pip install --upgrade --upgrade-strategy eager` really runs
+    # and picks up new dependency releases even though pyproject.toml and
+    # ci-dependencies.txt are unchanged.
+    - cron: "0 3 * * 1"
 
 permissions:
   contents: read
+
+env:
+  # Cache-busting knob for the pip environment caches below. Their keys hash
+  # pyproject.toml and the requirements files, but while those are unchanged
+  # the cached environment is reused and dependencies are never upgraded.
+  # Bump this number to discard every pip cache and force fresh installs.
+  # (The previous hard-coded key segment was "v2", hence starting at 3.)
+  CACHE_EPOCH: "3"
 
 jobs:
   # Style Checking: Linux and Python version only.
@@ -91,11 +107,15 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    # Skipped on scheduled runs so the weekly build installs everything
+    # fresh. With this step skipped, cache-hit below is empty (not "true"),
+    # so the install step runs, and nothing is saved back to the cache.
     - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+      if: github.event_name != 'schedule'
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{runner.os}}-${{ env.pythonLocation }}-${{ matrix.python-version }}-v2-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('**/ci-dependencies.txt') }}
+        key: ${{runner.os}}-${{ env.pythonLocation }}-${{ matrix.python-version }}-v${{ env.CACHE_EPOCH }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('**/ci-dependencies.txt') }}
 
     - name: Install Python packaging tools
       run: |
@@ -177,12 +197,16 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    # Retrieve cache to speed things up
+    # Retrieve cache to speed things up. The key must stay identical to the
+    # one in linux_prep, which populates this cache. Skipped on scheduled
+    # runs so the weekly build installs everything fresh (cache-hit is then
+    # empty, so the install step below runs).
     - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+      if: github.event_name != 'schedule'
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{runner.os}}-${{ env.pythonLocation }}-${{ matrix.python-version }}-v2-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('**/ci-dependencies.txt') }}
+        key: ${{runner.os}}-${{ env.pythonLocation }}-${{ matrix.python-version }}-v${{ env.CACHE_EPOCH }}-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('**/ci-dependencies.txt') }}
 
     - name: Install dependencies
       if: steps.cache-pip.outputs.cache-hit != 'true'
@@ -397,11 +421,19 @@ jobs:
       with:
         python-version: "3.10"
 
+    # This key used to interpolate matrix.python-version, but this job has no
+    # strategy, so that expression was empty; it also hashed
+    # ci-dependencies.txt, which this job does not install from. The "docs"
+    # segment keeps the key distinct from the linux_prep/test_linux caches,
+    # which share this runner and Python version but hold a different
+    # environment. Skipped on scheduled runs so the weekly build installs
+    # everything fresh (cache-hit is then empty, so the install step runs).
     - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+      if: github.event_name != 'schedule'
       id: cache-pip
       with:
         path: ${{ env.pythonLocation }}
-        key: ${{runner.os}}-${{ env.pythonLocation }}-${{ matrix.python-version }}-v2-${{ hashFiles('pyproject.toml') }}-${{ hashFiles('**/ci-dependencies.txt') }}
+        key: ${{runner.os}}-docs-${{ env.pythonLocation }}-v${{ env.CACHE_EPOCH }}-${{ hashFiles('Doc/requirements-sphinx.txt') }}
 
     - name: Install Python packaging tools
       run: |
