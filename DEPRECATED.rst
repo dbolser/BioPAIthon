@@ -136,6 +136,19 @@ the file in binary mode (as in ``open("myuniprotfile.xml", "rb")``), or let
 ``Bio.SeqIO.parse`` take care of opening and closing files by passing the file
 name instead of a file handle.
 
+Bio.Align.PairwiseAligner.warn_defaults_changed
+-----------------------------------------------
+Removed in BioPAIthon 1.88 without a deprecation period. This method was
+transitional plumbing added in Biopython release 1.86 alongside the change of
+the default gap score from 0 to -1: calling it emitted a one-time
+``UserWarning`` describing the new default, unless every gap score had been
+set explicitly, and it always returned ``None`` (its docstring incorrectly
+described a boolean return). Biopython's own calls to it were commented out
+before release 1.88, and the source marked the method itself for removal
+"once release 1.87 is out". It was never documented in the API documentation
+or Tutorial. Code that still calls it can simply delete the call; to silence
+the warning it emitted, set the aligner's gap scores explicitly.
+
 Bio.Entrez
 ----------
 The ``egquery`` function wrapping the NCBI EGQuery (Entrez Global Query)
