@@ -44,6 +44,7 @@ VERBOSITY = 0
 # These have been removed from Biopython and survive only as stubs whose
 # import raises an informative ImportError pointing at the replacement.
 EXCLUDE_DOCTEST_MODULES = [
+    "Bio.Align.AlignInfo",
     "Bio.Align.Applications",
     "Bio.Alphabet",
     "Bio.Application",

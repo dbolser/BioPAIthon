@@ -15,16 +15,12 @@ You are expected to use this module via the Bio.SeqIO functions.
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio import BiopythonDeprecationWarning
-
 
 from .Interfaces import _clean
 from .Interfaces import _get_seq_string
 from .Interfaces import _TextIOSource
 from .Interfaces import SequenceIterator
 from .Interfaces import SequenceWriter
-
-import warnings
 
 
 def SimpleFastaParser(handle):
@@ -640,44 +636,6 @@ class FastaTwoLineWriter(FastaWriter):
         assert "\r" not in data
 
         return f">{title}\n{data}\n"
-
-
-def as_fasta(record):
-    """Turn a SeqRecord into a FASTA formatted string."""
-    warnings.warn(
-        """\
-FastaIO.as_fasta is deprecated.
-
-Instead of
-
-FastaIO.as_fasta(record)
-
-please use
-
-format(record, "fasta")
-""",
-        DeprecationWarning,
-    )
-    return FastaWriter.to_string(record)
-
-
-def as_fasta_2line(record):
-    """Turn a SeqRecord into a two-line FASTA formatted string."""
-    warnings.warn(
-        """\
-FastaIO.as_fasta_2line is deprecated.
-
-Instead of
-
-FastaIO.as_fasta_2line(record)
-
-please use
-
-format(record, "fasta-2line")
-""",
-        DeprecationWarning,
-    )
-    return FastaTwoLineWriter.to_string(record)
 
 
 if __name__ == "__main__":

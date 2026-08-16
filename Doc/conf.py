@@ -378,6 +378,7 @@ def run_apidoc(_):
             # them, so autodoc cannot document them and warns once per stub.
             # Doc/Makefile builds with -W, so those warnings fail the build.
             # Bio/Alphabet above is excluded for exactly this reason.
+            "../Bio/Align/AlignInfo.py",
             "../Bio/Application/",
             "../Bio/Align/Applications/",
             "../Bio/Phylo/Applications/",

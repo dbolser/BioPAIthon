@@ -20,6 +20,7 @@ import unittest
 # Each entry is a module and a phrase its error message must contain, so that
 # a message cannot be reworded into uselessness without failing here.
 REMOVED_MODULES = [
+    ("Bio.Align.AlignInfo", "SummaryInfo"),
     ("Bio.Alphabet", "molecule_type"),
     ("Bio.Application", "subprocess"),
     ("Bio.Align.Applications", "MuscleCommandline"),
