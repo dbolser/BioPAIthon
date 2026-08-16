@@ -4,7 +4,18 @@
 # choice of the "Biopython License Agreement" or the "BSD 3-Clause License".
 # Please see the LICENSE file that should have been included as part of this
 # package.
-"""Support for loading 3D structures stored in MMTF files."""
+"""Support for loading 3D structures stored in MMTF files (DEPRECATED).
+
+RCSB PDB decommissioned the MMTF file format in July 2024 and switched off
+its download server, so MMTF files can no longer be downloaded. This module
+is deprecated and will be removed in a future release of BioPAIthon. Please
+use BinaryCIF files with ``Bio.PDB.binary_cif``, or mmCIF files with
+``Bio.PDB.MMCIFParser``, instead.
+"""
+
+import warnings
+
+from Bio import BiopythonDeprecationWarning
 
 try:
     from mmtf import fetch
@@ -18,6 +29,15 @@ except ImportError:
 from Bio.PDB.mmtf.DefaultParser import StructureDecoder
 
 from .mmtfio import MMTFIO
+
+warnings.warn(
+    "Bio.PDB.mmtf has been deprecated, and we intend to remove it in a "
+    "future release of BioPAIthon. RCSB decommissioned the MMTF file format "
+    "in July 2024 and switched off its download server, so MMTF files can "
+    "no longer be downloaded. As an alternative, please use BinaryCIF files "
+    "with Bio.PDB.binary_cif, or mmCIF files with Bio.PDB.MMCIFParser.",
+    BiopythonDeprecationWarning,
+)
 
 
 def get_from_decoded(decoder):
