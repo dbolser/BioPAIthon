@@ -58,6 +58,20 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.pairwise2`` has been removed (upstream Biopython 1.88 still ships it,
+deprecated). It was deprecated in release 1.80, eight releases ago, yet its
+roughly 2,900 lines — the module, a C extension that had to compile on every
+platform and Python in CI, three test files and a tutorial chapter — were
+still built and shipped, with no consumer left inside the library. Because
+the module remains heavily imported in public code (a GitHub code search
+finds over four thousand files using it), it ships as a stub whose import
+raises ``ImportError`` naming ``Bio.Align.PairwiseAligner`` as the
+replacement, as ``Bio.Alphabet`` and the command line wrappers already do.
+The stub also warns that migration is not mechanical: ``Bio.pairwise2``'s
+default gap score is 0, while ``PairwiseAligner``'s has been -1 since 1.86,
+so match, mismatch and gap scores should be set explicitly when porting. See
+``DEPRECATED.rst``.
+
 ``Bio.PDB.MMCIF2Dict`` — and with it ``MMCIFParser`` — is substantially
 faster. Most lines in an mmCIF file, every atom record among them, contain no
 quote and no comment character, yet each was walked character by character

@@ -24,11 +24,9 @@ It also needs no sanitizer build, so it runs everywhere the suite does.
 What it does not see is memory obtained from libc directly. ``tracemalloc``
 hooks the ``PyMem_*`` allocator domains, raw included, which is why a leak in
 ``ccealign`` is caught despite it using ``PyMem_RawMalloc`` throughout; a bare
-``malloc`` bypasses all three and never appears in the total. Of the shipped
-extensions only ``Bio/cpairwise2module.c`` allocates that way, for its score
-matrix, trace matrix and column cache. It is not covered here and cannot be
-until those become ``PyMem_Malloc`` - which is not worth doing to a module
-already deprecated for removal.
+``malloc`` bypasses all three and never appears in the total. No shipped
+extension allocates that way any more - ``Bio/cpairwise2module.c`` was the
+last, and it was removed along with the deprecated ``Bio.pairwise2`` module.
 """
 
 import gc

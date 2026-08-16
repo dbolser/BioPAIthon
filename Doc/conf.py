@@ -385,6 +385,7 @@ def run_apidoc(_):
             "../Bio/Sequencing/Applications/",
             "../Bio/Blast/Applications.py",
             "../Bio/Emboss/Applications.py",
+            "../Bio/pairwise2.py",
         ]
     )
     os.remove(os.path.join(tmp_path, "index.rst"))  # Using our own
