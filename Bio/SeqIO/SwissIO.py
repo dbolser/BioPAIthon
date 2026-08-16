@@ -28,6 +28,7 @@ class SwissIterator(SequenceIterator):
     """Parser to break up a Swiss-Prot/UniProt file into SeqRecord objects."""
 
     modes = "t"
+    record_start_marker = b"ID "
 
     def __init__(self, source: _TextIOSource) -> None:
         """Iterate over a Swiss-Prot file and return SeqRecord objects.

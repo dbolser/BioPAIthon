@@ -58,6 +58,17 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.SeqIO.index`` and ``index_db`` now derive each record's key from the
+format's own parser class, instead of re-implementing the id rules inside the
+indexing machinery, so index keys cannot silently drift from the ``record.id``
+values ``Bio.SeqIO.parse`` assigns. Two formats change behaviour, both
+converging on their parser: "pir" ids keep internal spaces (the indexer used to
+truncate the id at the first word, giving a key that disagreed with the record
+it named), and pretty-printed UniProt XML files whose ``<entry>`` elements are
+indented now index correctly (the indexer used to return an empty index for
+such files without complaint). A corpus-wide test asserts index keys equal
+parsed ids for every indexable format across the test fixtures.
+
 The ``Scripts/xbbtools`` directory has been removed. The xbbtools graphical
 sequence viewer, contributed by Thomas Sicheritz-Pontén in 2000, stopped being
 launchable when ``Bio.Blast.Applications`` was removed in Biopython 1.86:

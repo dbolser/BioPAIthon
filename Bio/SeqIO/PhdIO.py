@@ -68,6 +68,18 @@ class PhdIterator(SequenceIterator):
     """Parser for PHD files."""
 
     modes = "t"
+    record_start_marker = b"BEGIN_SEQUENCE"
+
+    @classmethod
+    def parse_id_from_header(cls, line):
+        """Return the record id given the raw BEGIN_SEQUENCE line (bytes) (PRIVATE).
+
+        Mirrors Bio.Sequencing.Phd._read (``file_name = line[15:].rstrip()``)
+        combined with the rule in ``__next__`` (the first word of the file
+        name).  Used by the Bio.SeqIO indexing code so that index keys
+        match ``record.id``.
+        """
+        return line[15:].rstrip().split(None, 1)[0].decode()
 
     def __init__(self, source: _TextIOSource) -> None:
         """Return SeqRecord objects from a PHD file.

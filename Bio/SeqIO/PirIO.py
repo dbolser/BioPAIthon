@@ -111,6 +111,19 @@ class PirIterator(SequenceIterator):
     """Parser for PIR files."""
 
     modes = "t"
+    # A regular expression pattern: the two characters after ">" are the
+    # sequence type code (P1, F1, DL, ...), then a semi colon.
+    record_start_marker = b">..;"
+
+    @classmethod
+    def parse_id_from_header(cls, line):
+        """Return the record id given the raw ``>XX;`` title line (bytes) (PRIVATE).
+
+        The same rule ``__next__`` applies: everything after the ``>XX;``
+        prefix, stripped of whitespace.  Used by the Bio.SeqIO indexing
+        code so that index keys match ``record.id``.
+        """
+        return line[4:].strip().decode()
 
     def __init__(self, source):
         """Iterate over a PIR file and yield SeqRecord objects.

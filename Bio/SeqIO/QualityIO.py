@@ -1470,6 +1470,18 @@ class QualPhredIterator(SequenceIterator):
     """Parser for QUAL files with PHRED quality scores but no sequence."""
 
     modes = "t"
+    record_start_marker = b">"
+
+    @classmethod
+    def parse_id_from_header(cls, line):
+        """Return the record id given the raw ``>`` title line (bytes) (PRIVATE).
+
+        The same rule ``__next__`` applies to the title line: the first
+        word.  Used by the Bio.SeqIO indexing code so that index keys
+        match ``record.id``.
+        """
+        descr = line[1:].rstrip()
+        return descr.split()[0].decode()
 
     def __init__(
         self,
