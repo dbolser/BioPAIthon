@@ -9,9 +9,10 @@
 # package.
 """Unit tests for the Bio.PDB.StructureAlignment module."""
 
-import os
 import unittest
 import warnings
+
+import support
 
 from Bio import Align
 from Bio import AlignIO
@@ -34,7 +35,7 @@ class StructureAlignTests(unittest.TestCase):
         """Tests on module to align two proteins according to a FASTA file."""
         p = PDBParser(QUIET=1)
 
-        al_file = "PDB/alignment_file.fa"
+        al_file = support.DATA / "PDB" / "alignment_file.fa"
 
         # Using Bio.AlignIO, which returns a MultipleSeqAlignment object:
         with open(al_file) as handle:
@@ -46,8 +47,8 @@ class StructureAlignTests(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s1 = p.get_structure("1", "PDB/2XHE.pdb")
-            s2 = p.get_structure("2", "PDB/1A8O.pdb")
+            s1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")
+            s2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")
         m1 = s1[0]
         m2 = s2[0]
 
@@ -76,13 +77,13 @@ class StructureAlignTests(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s1 = p.get_structure("1", "PDB/2XHE.pdb")
-            s2 = p.get_structure("2", "PDB/1A8O.pdb")
+            s1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")
+            s2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")
         m1 = s1[0]
         m2 = s2[0]
 
         # Read the same alignment file that works in the first test
-        al_file = "PDB/alignment_file.fa"
+        al_file = support.DATA / "PDB" / "alignment_file.fa"
 
         # Test 1: Using Bio.AlignIO to get MultipleSeqAlignment
         with open(al_file) as handle:
@@ -130,8 +131,8 @@ class StructureAlignTests(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s1 = p.get_structure("1", "PDB/2XHE.pdb")
-            s2 = p.get_structure("2", "PDB/1A8O.pdb")
+            s1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")
+            s2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")
         m1 = s1[0]
         m2 = s2[0]
 
@@ -202,8 +203,8 @@ class StructureAlignTests(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s1 = p.get_structure("1", "PDB/2XHE.pdb")
-            s2 = p.get_structure("2", "PDB/1A8O.pdb")
+            s1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")
+            s2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")
         m1 = s1[0]
         m2 = s2[0]
 
@@ -222,6 +223,5 @@ class StructureAlignTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    os.chdir("Tests")
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)

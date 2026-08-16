@@ -18,6 +18,8 @@ from tempfile import mkdtemp
 from tempfile import NamedTemporaryFile
 from contextlib import ExitStack
 
+import support
+
 from Bio import AlignIO
 from Bio import BiopythonParserWarning
 from Bio import BiopythonWarning
@@ -224,9 +226,9 @@ class TestZipped(unittest.TestCase):
 
     def test_gzip_fastq(self):
         """Testing FASTQ with gzip."""
-        with gzip.open("Quality/example.fastq.gz", "rt") as handle:
+        with gzip.open(support.DATA / "Quality" / "example.fastq.gz", "rt") as handle:
             self.assertEqual(3, len(list(SeqIO.parse(handle, "fastq"))))
-        with gzip.open("Quality/example.fastq.gz") as handle:
+        with gzip.open(support.DATA / "Quality" / "example.fastq.gz") as handle:
             with self.assertRaisesRegex(
                 ValueError, "Fastq files must be opened in text mode"
             ):
@@ -234,9 +236,9 @@ class TestZipped(unittest.TestCase):
 
     def test_gzip_fasta(self):
         """Testing FASTA with gzip."""
-        with gzip.open("Fasta/flowers.pro.gz", "rt") as handle:
+        with gzip.open(support.DATA / "Fasta" / "flowers.pro.gz", "rt") as handle:
             self.assertEqual(3, len(list(SeqIO.parse(handle, "fasta"))))
-        with gzip.open("Fasta/flowers.pro.gz") as handle:
+        with gzip.open(support.DATA / "Fasta" / "flowers.pro.gz") as handle:
             with self.assertRaisesRegex(
                 ValueError, "Fasta files must be opened in text mode"
             ):
@@ -245,9 +247,9 @@ class TestZipped(unittest.TestCase):
     def test_gzip_genbank(self):
         """Testing GenBank with gzip."""
         # BGZG files are still GZIP files
-        with gzip.open("GenBank/cor6_6.gb.bgz", "rt") as handle:
+        with gzip.open(support.DATA / "GenBank" / "cor6_6.gb.bgz", "rt") as handle:
             self.assertEqual(6, len(list(SeqIO.parse(handle, "gb"))))
-        with gzip.open("GenBank/cor6_6.gb.bgz") as handle:
+        with gzip.open(support.DATA / "GenBank" / "cor6_6.gb.bgz") as handle:
             with self.assertRaisesRegex(
                 ValueError, "GenBank files must be opened in text mode."
             ):
@@ -500,6 +502,7 @@ class TestSeqIO(SeqIOTestBaseClass):
         expected_messages,
         molecule_types=None,
     ):
+        t_filename = support.DATA / t_filename
         mode = "r" + self.get_mode(t_format)
         with warnings.catch_warnings():
             # e.g. BiopythonParserWarning: Dropping bond qualifier in feature
@@ -2637,9 +2640,8 @@ class TestSeqIO(SeqIOTestBaseClass):
         )
 
     def test_uniprot_xml_namespace(self):
-        uniref_file_name = (
-            "SwissProt/UniRef90_P99999.xml"  # non-uniprot file (related uniref format)
-        )
+        # A non-uniprot file (related uniref format):
+        uniref_file_name = support.DATA / "SwissProt" / "UniRef90_P99999.xml"
         with self.assertRaises(ValueError) as context:
             records = []
             for record in SeqIO.parse(uniref_file_name, format="uniprot-xml"):
@@ -3275,7 +3277,7 @@ class TestSeqIO(SeqIOTestBaseClass):
 
     def test_genbank22(self):
         """Test that genbank format write doesn't destroy db_source in annotations."""
-        record = SeqIO.read("GenBank/protein_refseq.gb", "genbank")
+        record = SeqIO.read(support.DATA / "GenBank" / "protein_refseq.gb", "genbank")
         db_source = record.annotations.get("db_source")
         handle = StringIO()
         SeqIO.write(record, handle, "genbank")
@@ -5875,14 +5877,26 @@ class TestSeqIO(SeqIOTestBaseClass):
         """Convert FASTA to SeqXML without molecule type."""
         handle = BytesIO()
         self.assertRaises(
-            ValueError, SeqIO.convert, "Fasta/rosemary.pro", "fasta", handle, "seqxml"
+            ValueError,
+            SeqIO.convert,
+            support.DATA / "Fasta" / "rosemary.pro",
+            "fasta",
+            handle,
+            "seqxml",
         )
 
     def test_fasta_to_seqxml_with_mol_type(self):
         """Convert FASTA to SeqXML with molecule type."""
         handle = BytesIO()
         self.assertEqual(
-            1, SeqIO.convert("Fasta/rosemary.pro", "fasta", handle, "seqxml", "protein")
+            1,
+            SeqIO.convert(
+                support.DATA / "Fasta" / "rosemary.pro",
+                "fasta",
+                handle,
+                "seqxml",
+                "protein",
+            ),
         )
         self.assertIn(
             b'<property name="molecule_type" value="protein">', handle.getvalue()
@@ -5894,7 +5908,7 @@ class TestSeqIO(SeqIOTestBaseClass):
         self.assertRaises(
             ValueError,
             SeqIO.convert,
-            "Clustalw/protein.aln",
+            support.DATA / "Clustalw" / "protein.aln",
             "clustal",
             handle,
             "nexus",
@@ -5906,7 +5920,11 @@ class TestSeqIO(SeqIOTestBaseClass):
         self.assertEqual(
             20,
             SeqIO.convert(
-                "Clustalw/protein.aln", "clustal", handle, "nexus", "protein"
+                support.DATA / "Clustalw" / "protein.aln",
+                "clustal",
+                handle,
+                "nexus",
+                "protein",
             ),
         )
         self.assertIn(" datatype=protein ", handle.getvalue())
@@ -5984,13 +6002,13 @@ class BadArguments(unittest.TestCase):
     def test_index_bad_format(self):
         """Bio.SeqIO.index insists on a lower case format string."""
         with self.assertRaises(TypeError) as cm:
-            SeqIO.index("Fasta/f002", 42)
+            SeqIO.index(support.DATA / "Fasta" / "f002", 42)
         self.assertIn("Need a string for the file format", str(cm.exception))
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index("Fasta/f002", "")
+            SeqIO.index(support.DATA / "Fasta" / "f002", "")
         self.assertIn("Format required", str(cm.exception))
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index("Fasta/f002", "FASTA")
+            SeqIO.index(support.DATA / "Fasta" / "f002", "FASTA")
         self.assertIn("should be lower case", str(cm.exception))
 
     def test_index_unsupported_format(self):
@@ -5998,12 +6016,12 @@ class BadArguments(unittest.TestCase):
         # "clustal" is an alignment format Bio.SeqIO can read but not index.
         self.assertIn("clustal", SeqIO._FormatToIterator)
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index("Clustalw/protein.aln", "clustal")
+            SeqIO.index(support.DATA / "Clustalw" / "protein.aln", "clustal")
         self.assertIn("Unsupported format 'clustal'", str(cm.exception))
 
     def test_index_needs_a_filename(self):
         """Bio.SeqIO.index cannot work from an already open handle."""
-        with open("Fasta/f002") as handle:
+        with open(support.DATA / "Fasta" / "f002") as handle:
             with self.assertRaises(TypeError) as cm:
                 SeqIO.index(handle, "fasta")
         self.assertIn("not a handle", str(cm.exception))
@@ -6070,10 +6088,18 @@ class BadArguments(unittest.TestCase):
     def test_convert_bad_molecule_type(self):
         """The molecule type must be a string naming DNA, RNA or protein."""
         with self.assertRaises(TypeError) as cm:
-            SeqIO.convert("Fasta/f002", "fasta", StringIO(), "fasta", 42)
+            SeqIO.convert(
+                support.DATA / "Fasta" / "f002", "fasta", StringIO(), "fasta", 42
+            )
         self.assertIn("Molecule type should be a string", str(cm.exception))
         with self.assertRaises(ValueError) as cm:
-            SeqIO.convert("Fasta/f002", "fasta", StringIO(), "fasta", "nonsense")
+            SeqIO.convert(
+                support.DATA / "Fasta" / "f002",
+                "fasta",
+                StringIO(),
+                "fasta",
+                "nonsense",
+            )
         self.assertIn("Unexpected molecule type", str(cm.exception))
 
 
