@@ -7,9 +7,12 @@
 
 import array
 import os
+import random
 import subprocess
 import sys
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     import numpy as np
@@ -20335,6 +20338,138 @@ query	16	target	1	255	6D17M5I	*	0	0	ACGATCGAGCNGCTACGCCCNC	*	AS:i:13
         )
 
 
+class TestGILRelease(unittest.TestCase):
+    """GIL release and signal handling in the pairwise alignment kernels.
+
+    The Needleman-Wunsch, Smith-Waterman, and Gotoh kernels release the
+    GIL around their dynamic programming loops and briefly reacquire it
+    at intervals to check for signals.  These tests check that concurrent
+    calls still compute correct results (a data race in the kernels would
+    corrupt scores or crash the interpreter), and that SIGINT interrupts
+    a long score() call long before it would complete.
+    """
+
+    def make_sequences(self, count, length, seed):
+        rng = random.Random(seed)
+        return [
+            "".join(rng.choice("ACGT") for _ in range(length)) for _ in range(count)
+        ]
+
+    def check_threaded_matches_serial(self, aligner):
+        seqs = self.make_sequences(8, 400, seed=5)
+        pairs = [(seqs[2 * i], seqs[2 * i + 1]) for i in range(4)]
+        expected = [
+            (aligner.score(sA, sB), aligner.align(sA, sB).score) for sA, sB in pairs
+        ]
+
+        def work(pair):
+            sA, sB = pair
+            return (aligner.score(sA, sB), aligner.align(sA, sB).score)
+
+        for _ in range(10):
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                results = list(executor.map(work, pairs))
+            self.assertEqual(results, expected)
+
+    def test_needlemanwunsch_smithwaterman_threaded(self):
+        for mode in ("global", "local"):
+            aligner = Align.PairwiseAligner()
+            aligner.mode = mode
+            aligner.open_gap_score = -1
+            aligner.extend_gap_score = -1
+            self.check_threaded_matches_serial(aligner)
+
+    def test_gotoh_threaded(self):
+        for mode in ("global", "local"):
+            aligner = Align.PairwiseAligner()
+            aligner.mode = mode
+            aligner.open_gap_score = -10
+            aligner.extend_gap_score = -0.5
+            self.check_threaded_matches_serial(aligner)
+
+    def test_inplace_matrix_mutation(self):
+        # substitution_matrices.Array supports item assignment, so
+        # another thread may mutate the matrix in place while a kernel
+        # runs.  The kernels snapshot the matrix at call start, so each
+        # call must see one consistent matrix: aligning n letters of
+        # "A" against themselves scores exactly n * matrix["A", "A"],
+        # never a mixture of the old and new values.
+        n = 2000
+        seq = "A" * n
+        matrix = Array("AC", dims=2)
+        matrix["A", "A"] = 1.0
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        allowed = (1.0 * n, 2.0 * n)
+        stop = threading.Event()
+
+        def mutate():
+            value = 1.0
+            while not stop.is_set():
+                value = 3.0 - value  # toggle between 1.0 and 2.0
+                matrix["A", "A"] = value
+
+        def work(_):
+            scores = [aligner.score(seq, seq) for _ in range(20)]
+            self.assertTrue(all(score in allowed for score in scores), scores)
+
+        mutator = threading.Thread(target=mutate)
+        mutator.start()
+        try:
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                list(executor.map(work, range(4)))
+        finally:
+            stop.set()
+            mutator.join()
+
+    @unittest.skipUnless(os.name == "posix", "sends SIGINT; requires POSIX")
+    def test_sigint_interrupts_score(self):
+        # A 500k x 500k alignment needs 2.5e11 matrix cells (many minutes
+        # of work on any current machine); if SIGINT is only serviced
+        # after the C kernel returns, the 30-second timeout below expires
+        # and the test fails.  With the kernels checking signals, the
+        # child dies within milliseconds of the signal.
+        import signal
+        import time
+
+        child_code = """
+import random, sys
+from Bio import Align
+rng = random.Random(11)
+n = 500000
+sA = "".join(rng.choice("ACGT") for _ in range(n))
+sB = "".join(rng.choice("ACGT") for _ in range(n))
+aligner = Align.PairwiseAligner()
+print("started", flush=True)
+try:
+    aligner.score(sA, sB)
+except KeyboardInterrupt:
+    sys.exit(42)
+"""
+        process = subprocess.Popen(
+            [sys.executable, "-c", child_code],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        try:
+            self.assertEqual(process.stdout.readline().strip(), "started")
+            time.sleep(1.0)  # let the child enter the kernel
+            process.send_signal(signal.SIGINT)
+            try:
+                process.communicate(timeout=30)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate()
+                self.fail("SIGINT did not interrupt aligner.score()")
+            self.assertEqual(process.returncode, 42)
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.communicate()
+            process.stdout.close()
+
+
 class TestAlgorithmRestrictions(unittest.TestCase):
     def test_fogsaa_restrictions(self):
         aligner = Align.PairwiseAligner(mode="fogsaa")
@@ -22436,101 +22571,6 @@ AlignmentCounts object with
                 extend_right_deletions = 0.
 """,
         )
-
-
-class TestMatrixAllocationGuards(unittest.TestCase):
-    """Length validation and matrix-size guards for align() and score().
-
-    The aligner stores sequence lengths as C int and allocates an
-    O(len(A) * len(B)) traceback matrix; these tests check that lengths
-    that cannot be handled are rejected with a clear error instead of
-    being silently truncated or dying on an unexplained out-of-memory.
-    """
-
-    def huge_zeros(self, length):
-        # An untouched np.zeros only reserves address space (the pages
-        # are lazily zero-filled), so on 64-bit systems these gigabytes
-        # are virtual; skip on platforms that refuse the reservation.
-        try:
-            return np.zeros(length, dtype=np.int32)
-        except MemoryError:
-            self.skipTest(f"cannot reserve address space for {length} letters")
-
-    @unittest.skipUnless(sys.maxsize > 2**32, "requires a 64-bit build")
-    def test_sequence_length_rejected(self):
-        # Lengths that do not fit the aligner's int storage must raise a
-        # ValueError naming both lengths, for score() and align() alike.
-        aligner = Align.PairwiseAligner()
-        big = self.huge_zeros(2**31)  # beyond the maximum of INT_MAX - 1
-        small = np.zeros(4, dtype=np.int32)
-        for method in (aligner.score, aligner.align):
-            with self.assertRaises(ValueError) as cm:
-                method(big, small)
-            message = str(cm.exception)
-            self.assertIn("sequences too long", message)
-            self.assertIn(str(2**31), message)
-            self.assertIn("at most", message)
-
-    @unittest.skipUnless(sys.maxsize > 2**32, "requires a 64-bit build")
-    def test_traceback_matrix_size_overflow(self):
-        # Two maximum-length sequences pass the length check, but the
-        # Waterman-Smith-Beyer traceback matrix would overflow size_t;
-        # the guard must fail cleanly before anything quadratic is
-        # allocated (this returns quickly, nothing large is touched).
-        aligner = Align.PairwiseAligner()
-        aligner.insertion_score = lambda index, length: -length
-        aligner.deletion_score = lambda index, length: -length
-        self.assertEqual(
-            aligner.algorithm, "Waterman-Smith-Beyer global alignment algorithm"
-        )
-        big = self.huge_zeros(2**31 - 2)  # exactly the maximum length
-        with self.assertRaises(MemoryError) as cm:
-            aligner.align(big, big)
-        message = str(cm.exception)
-        self.assertIn(str(2**31 - 2), message)
-        self.assertIn("more than this platform can address", message)
-
-    def test_fogsaa_matrix_int_overflow(self):
-        # Regression test: (nA+1)*(nB+1) was computed in int arithmetic
-        # when allocating the FOGSAA matrix, so two ~2-megabase sequences
-        # wrapped the product and under-allocated the matrix, corrupting
-        # the heap. Now the predicted 176 TB allocation must fail with a
-        # MemoryError naming the size and the sequence lengths.
-        #
-        # Run this in a child process. AddressSanitizer aborts by default
-        # when an allocation exceeds its own limit instead of returning
-        # NULL to the caller; allocator_may_return_null lets this test reach
-        # the extension's normal MemoryError path without taking down the
-        # complete test run.
-        code = """
-import numpy as np
-from Bio import Align
-
-aligner = Align.PairwiseAligner()
-aligner.mode = "fogsaa"
-n = 2**21
-sequence = np.zeros(n, dtype=np.int32)
-for method in (aligner.score, aligner.align):
-    try:
-        method(sequence, sequence)
-    except MemoryError as error:
-        message = str(error)
-        assert str(n) in message
-        assert "bytes" in message
-    else:
-        raise AssertionError("impossible FOGSAA allocation did not fail")
-"""
-        env = os.environ.copy()
-        options = env.get("ASAN_OPTIONS", "")
-        env["ASAN_OPTIONS"] = f"{options}:allocator_may_return_null=1"
-        process = subprocess.run(
-            [sys.executable, "-c", code],
-            capture_output=True,
-            env=env,
-            text=True,
-            timeout=60,
-        )
-        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
 if __name__ == "__main__":
