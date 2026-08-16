@@ -130,7 +130,7 @@ class ContentHandler(handler.ContentHandler):
             self.record.n_match = int(attrs["n_match"])
             self.record.n_seq = int(attrs["n_seq"])
         elif self.element == ["scanprosite_response", "matchset", "match"]:
-            match = {}
+            match: dict[str, str | int] = {}
             self.record.append(match)
 
     def endElement(self, name):

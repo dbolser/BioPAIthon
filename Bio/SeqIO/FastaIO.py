@@ -62,7 +62,7 @@ def SimpleFastaParser(handle):
     # Note, remove trailing whitespace, and any internal spaces
     # (and any embedded \r which are possible in mangled files
     # when not opened in universal read lines mode)
-    lines = []
+    lines: list[str] = []
     for line in handle:
         if line[0] == ">":
             yield title, "".join(lines).replace(" ", "").replace("\r", "")

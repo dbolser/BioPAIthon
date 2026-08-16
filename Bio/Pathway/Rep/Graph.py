@@ -16,7 +16,7 @@ class Graph:
 
     def __init__(self, nodes=()):
         """Initialize a new Graph object."""
-        self._adjacency_list = {}  # maps parent -> set of child objects
+        self._adjacency_list: dict = {}  # maps parent -> set of child objects
         for n in nodes:
             self._adjacency_list[n] = set()
         self._label_map = {}  # maps label -> set of (parent, child) pairs

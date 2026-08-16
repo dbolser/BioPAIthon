@@ -237,7 +237,7 @@ class MauveIterator(AlignmentIterator):
         while line and line.strip().startswith("#"):
             line = handle.readline()
 
-        seqs = {}
+        seqs: dict[str, str] = {}
         seq_regions = {}
         passed_end_alignment = False
 
