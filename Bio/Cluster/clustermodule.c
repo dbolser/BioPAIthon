@@ -612,7 +612,7 @@ celldata_converter(PyObject* argument, void* pointer)
                         "celldata array has incorrect data type");
         goto exit;
     }
-    pp = PyMem_Malloc(nx*ny*sizeof(double*));
+    pp = PyMem_Malloc((size_t)nx*ny*sizeof(double*));
     ppp = PyMem_Malloc(nx*sizeof(double**));
     if (!pp || !ppp) {
         PyErr_NoMemory();

@@ -99,7 +99,7 @@ def read_PIC(
         r"'(?P<chn>\s|\w)',\s\('(?P<het>\s|[\w\s-]+)"
         r"',\s(?P<pos>-?\d+),\s'(?P<icode>\s|\w)'\)\)"
         r"\s+(?P<res>[\w]{1,3})"
-        r"(\s\[(?P<segid>[a-zA-z\s]+)\])?"
+        r"(\s\[(?P<segid>[a-zA-Z\s]+)\])?"
         r"\s*$"
     )
     pdb_atm_re = re.compile(
@@ -109,7 +109,7 @@ def read_PIC(
         r"(?P<x>[\s\-\d\.]{8})(?P<y>[\s\-\d\.]{8})"
         r"(?P<z>[\s\-\d\.]{8})(?P<occ>[\s\d\.]{6})"
         r"(?P<tfac>[\s\d\.]{6})\s{6}"
-        r"(?P<segid>[a-zA-z\s]{4})(?P<elm>.{2})"
+        r"(?P<segid>[a-zA-Z\s]{4})(?P<elm>.{2})"
         r"(?P<chg>.{2})?\s*$"
     )
     pdbx_atm_re = re.compile(
@@ -119,7 +119,7 @@ def read_PIC(
         r"(?P<x>[\s\-\d\.]{10})(?P<y>[\s\-\d\.]{10})"
         r"(?P<z>[\s\-\d\.]{10})(?P<occ>[\s\d\.]{7})"
         r"(?P<tfac>[\s\d\.]{6})\s{6}"
-        r"(?P<segid>[a-zA-z\s]{4})(?P<elm>.{2})"
+        r"(?P<segid>[a-zA-Z\s]{4})(?P<elm>.{2})"
         r"(?P<chg>.{2})?\s*$"
     )
     bfac_re = re.compile(

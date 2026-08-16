@@ -4743,9 +4743,9 @@ yields bit-identical results on every run.
     clusterrng_init(&rng, rng_seed);
 
     if (lcelldata == 0) {
-        celldata = MALLOC(nxgrid*nygrid*ndata*sizeof(double**));
+        celldata = MALLOC((size_t)nxgrid*nygrid*ndata*sizeof(double**));
         for (i = 0; i < nxgrid; i++) {
-            celldata[i] = MALLOC(nygrid*ndata*sizeof(double*));
+            celldata[i] = MALLOC((size_t)nygrid*ndata*sizeof(double*));
             for (j = 0; j < nygrid; j++)
                 celldata[i][j] = MALLOC(ndata*sizeof(double));
         }
