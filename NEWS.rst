@@ -135,6 +135,12 @@ and ``Reference``'s excludes its ``location`` list and its ``authors``, which
 is documented as either a string or a list; features or references differing
 only in an excluded field collide rather than compare equal.
 
+``Bio.SearchIO``'s ``QueryResult.iteritems`` — named after the Python 2
+``dict.iteritems``, which has not existed since Python 2 — now triggers a
+``BiopythonDeprecationWarning``. It still works; use
+``zip(qresult.iterhit_keys(), qresult.iterhits())`` or the ``items`` property
+instead. See ``DEPRECATED.rst``.
+
 ``Motif.degenerate_consensus`` now works on alphabets of fewer than four
 letters. The Cavener rules it applies rank the letters of a column by count and
 then inspect the second- and fourth-ranked counts, which do not exist for a

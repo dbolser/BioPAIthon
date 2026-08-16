@@ -346,6 +346,13 @@ Bio.CodonAlign
 This new experimental module included in Biopython 1.64 was renamed to
 Bio.codonalign in Biopython 1.65 to follow PEP8 module naming rules.
 
+Bio.SearchIO
+------------
+The ``QueryResult.iteritems`` method, named after the Python 2
+``dict.iteritems``, was deprecated in BioPAIthon 1.88. Use
+``zip(qresult.iterhit_keys(), qresult.iterhits())`` or the ``items``
+property instead.
+
 Bio.SeqRecord
 -------------
 Creating a SeqRecord with a plain string as the seq argument was deprecated in
