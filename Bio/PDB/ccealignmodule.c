@@ -534,7 +534,7 @@ buildAlignment(
     }
     PyStructSequence_SetItem(alignment, 1, value);
 
-    value = PyLong_FromLong(pathLength * fragmentSize);
+    value = PyLong_FromLong((long)pathLength * fragmentSize);
     if (!value) {
         goto error;
     }
