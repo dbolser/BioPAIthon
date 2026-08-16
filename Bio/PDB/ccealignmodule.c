@@ -85,6 +85,7 @@
 
 #include "Python.h"
 #include <limits.h>
+#include <stdint.h>
 
 #define MAX_PATHS 20
 
@@ -107,8 +108,21 @@ calcDM(pcePoint coords, int len)
 {
     double **dm = (double **)PyMem_RawMalloc(sizeof(double *) * len);
 
+    if (!dm) {
+        PyErr_NoMemory();
+        return NULL;
+    }
     for (int i = 0; i < len; i++) {
         dm[i] = (double *)PyMem_RawMalloc(sizeof(double) * len);
+
+        if (!dm[i]) {
+            while (i--) {
+                PyMem_RawFree(dm[i]);
+            }
+            PyMem_RawFree(dm);
+            PyErr_NoMemory();
+            return NULL;
+        }
     }
     for (int row = 0; row < len; row++) {
         for (int col = row; col < len; col++) {
@@ -193,8 +207,21 @@ calcS(
     const int colCount = lenB - fragmentSize + 1;
     double **S = (double **)PyMem_RawMalloc(sizeof(double *) * rowCount);
 
+    if (!S) {
+        PyErr_NoMemory();
+        return NULL;
+    }
     for (int i = 0; i < rowCount; i++) {
         S[i] = (double *)PyMem_RawMalloc(sizeof(double) * colCount);
+
+        if (!S[i]) {
+            while (i--) {
+                PyMem_RawFree(S[i]);
+            }
+            PyMem_RawFree(S);
+            PyErr_NoMemory();
+            return NULL;
+        }
     }
 
     //
@@ -423,6 +450,106 @@ error:
     return NULL;
 }
 
+// The result type of run_cealign, a named tuple (path, z_score, length).
+// It is created once, in the module init, and shared by every result:
+// building a fresh type per result gave results of the same call distinct
+// types and made them impossible to pickle. The dotted name makes the
+// type's __module__ the importable module, which is what pickle needs to
+// find the type again, and the init exposes it there as CEAlignment.
+static PyStructSequence_Field alignmentFields[] = {
+    {"path", NULL},
+    {"z_score", NULL},
+    {"length", NULL},
+    {NULL, NULL},
+};
+
+static PyStructSequence_Desc alignmentDesc = {
+    "Bio.PDB.ccealign.CEAlignment",
+    NULL,
+    alignmentFields,
+    3,
+};
+
+static PyTypeObject *alignmentType;
+
+// Build one CEAlignment result from a stored path.
+static PyObject *
+buildAlignment(
+    const path alignPath,
+    const int pathLength,
+    const double zScore,
+    const int fragmentSize)
+{
+    PyObject *pathAList = PyList_New(0);
+    PyObject *pathBList = PyList_New(0);
+    PyObject *pairList = NULL;
+    PyObject *alignment = NULL;
+    PyObject *value;
+
+    if (!pathAList || !pathBList) {
+        goto error;
+    }
+
+    for (int j = 0; j < pathLength; j++) {
+        const int pA = alignPath[j].pA;
+        const int pB = alignPath[j].pB;
+
+        for (int k = 0; k < fragmentSize; k++) {
+            value = PyLong_FromLong(pA + k);
+            if (!value || PyList_Append(pathAList, value) < 0) {
+                Py_XDECREF(value);
+                goto error;
+            }
+            Py_DECREF(value);
+
+            value = PyLong_FromLong(pB + k);
+            if (!value || PyList_Append(pathBList, value) < 0) {
+                Py_XDECREF(value);
+                goto error;
+            }
+            Py_DECREF(value);
+        }
+    }
+
+    pairList = PyList_New(2);
+    if (!pairList) {
+        goto error;
+    }
+    // The pair list owns the two path lists from here on.
+    PyList_SET_ITEM(pairList, 0, pathAList);
+    PyList_SET_ITEM(pairList, 1, pathBList);
+    pathAList = NULL;
+    pathBList = NULL;
+
+    alignment = PyStructSequence_New(alignmentType);
+    if (!alignment) {
+        goto error;
+    }
+    PyStructSequence_SetItem(alignment, 0, pairList);
+    pairList = NULL;
+
+    value = PyFloat_FromDouble(zScore);
+    if (!value) {
+        goto error;
+    }
+    PyStructSequence_SetItem(alignment, 1, value);
+
+    value = PyLong_FromLong(pathLength * fragmentSize);
+    if (!value) {
+        goto error;
+    }
+    PyStructSequence_SetItem(alignment, 2, value);
+
+    return alignment;
+
+error:
+    Py_XDECREF(pathAList);
+    Py_XDECREF(pathBList);
+    Py_XDECREF(pairList);
+    Py_XDECREF(alignment);
+    return NULL;
+}
+
 // Find the best N alignment paths
 static PyObject *
 findPath(
@@ -470,6 +597,14 @@ findPath(
 
             // Initialize current path
             path curPath = (path)PyMem_RawMalloc(sizeof(afp) * smaller);
+
+            if (!curPath) {
+                for (int i = 0; i < bufferSize; i++) {
+                    PyMem_RawFree(pathBuffer[i]);
+                }
+                return PyErr_NoMemory();
+            }
+
             int curPathLength = 1;
             double curPathSimilarity = S[iA][iB];
 
@@ -630,60 +765,17 @@ findPath(
     // List to store all paths
     PyObject *result = PyList_New(bufferSize);
 
-    for (int o = 0; o < bufferSize; o++) {
-        // Make a new list to store this path
-        PyObject *pathAList = PyList_New(0);
-        PyObject *pathBList = PyList_New(0);
+    if (result) {
+        for (int o = 0; o < bufferSize; o++) {
+            PyObject *alignment = buildAlignment(
+                pathBuffer[o], lenBuffer[o], zScoreBuffer[o], fragmentSize);
 
-        for (int j = 0; j < lenBuffer[o]; j++) {
-            const int pA = pathBuffer[o][j].pA;
-            const int pB = pathBuffer[o][j].pB;
-
-            for (int k = 0; k < fragmentSize; k++) {
-                PyObject *v = Py_BuildValue("i", pA + k);
-                PyList_Append(pathAList, v);
-                Py_DECREF(v);
-                v = Py_BuildValue("i", pB + k);
-                PyList_Append(pathBList, v);
-                Py_DECREF(v);
+            if (!alignment) {
+                Py_CLEAR(result);
+                break;
             }
+            PyList_SET_ITEM(result, o, alignment);
         }
-
-        const double zScore = zScoreBuffer[o];
-        const int length = lenBuffer[o];
-        PyObject *pairList = Py_BuildValue("[NN]", pathAList, pathBList);
-
-        PyStructSequence_Field namedtupleFields[] = {
-            (PyStructSequence_Field) {
-                "path",
-                NULL,
-            },
-            (PyStructSequence_Field) {
-                "z_score",
-                NULL,
-            },
-            (PyStructSequence_Field) {
-                "length",
-                NULL,
-            },
-            {NULL},
-        };
-        PyStructSequence_Desc namedtupleDesc = (PyStructSequence_Desc) {
-            "ccealign.CEAlignment",
-            NULL,
-            namedtupleFields,
-            3,
-        };
-        PyTypeObject *namedtupleType =
-            PyStructSequence_NewType(&namedtupleDesc);
-        PyObject *namedtuple = PyStructSequence_New(namedtupleType);
-
-        PyStructSequence_SetItem(namedtuple, 0, pairList);
-        PyStructSequence_SetItem(namedtuple, 1, PyFloat_FromDouble(zScore));
-        PyStructSequence_SetItem(namedtuple, 2, PyLong_FromLong(length * fragmentSize));
-
-        PyList_SET_ITEM(result, o, namedtuple);
-        Py_DECREF(namedtupleType);
     }
 
     for (int i = 0; i < bufferSize; i++) {
@@ -716,6 +808,24 @@ PyCealign(PyObject *Py_UNUSED(self), PyObject *args)
     const Py_ssize_t sizeB = PySequence_Size(listB);
 
     if (sizeA < 0 || sizeB < 0) {
+        return NULL;
+    }
+
+    /* A sequence can report any Py_ssize_t as its length without holding
+       that many items. A length above INT_MAX would wrap in the int casts
+       below, reaching the C loops with a lenA inconsistent with the checks
+       made here, and on 32-bit platforms even a smaller length overflows
+       the size_t multiplications in the allocators (whose element sizes
+       are all constants no larger than sizeof(cePoint)). Both are rejected
+       once here, at the boundary, instead of in every allocator. */
+    const size_t maxAllocable = SIZE_MAX / sizeof(cePoint);
+    const Py_ssize_t maxLength =
+        maxAllocable < INT_MAX ? (Py_ssize_t)maxAllocable : INT_MAX;
+
+    if (sizeA > maxLength || sizeB > maxLength) {
+        PyErr_Format(PyExc_ValueError,
+            "each structure is limited to %zd coordinates "
+            "(got %zd and %zd)", maxLength, sizeA, sizeB);
         return NULL;
     }
 
@@ -758,33 +868,53 @@ PyCealign(PyObject *Py_UNUSED(self), PyObject *args)
         return NULL;
     }
 
+    /* Each step below can fail on an out-of-memory condition, in which
+       case it has set an exception and everything allocated before it
+       still has to be released. */
+    double **dA = NULL, **dB = NULL, **S = NULL;
+
+    result = NULL;
+
     /* calculate the distance matrix for each protein */
-    double **dA = (double **)calcDM(coordsA, lenA);
-    double **dB = (double **)calcDM(coordsB, lenB);
+    dA = calcDM(coordsA, lenA);
+    if (!dA)
+        goto cleanup;
+    dB = calcDM(coordsB, lenB);
+    if (!dB)
+        goto cleanup;
 
     /* calculate the CE Similarity matrix */
-    double **S = (double **)calcS(dA, dB, lenA, lenB, fragmentSize);
+    S = calcS(dA, dB, lenA, lenB, fragmentSize);
+    if (!S)
+        goto cleanup;
 
     // Calculate Top N Paths
-    result = (PyObject *)findPath(S, dA, dB, lenA, lenB, fragmentSize, gapMax);
+    result = findPath(S, dA, dB, lenA, lenB, fragmentSize, gapMax);
 
+cleanup:
     /* release memory */
     PyMem_RawFree(coordsA);
     PyMem_RawFree(coordsB);
 
     /* distance matrices	 */
-    for (int i = 0; i < lenA; i++)
-        PyMem_RawFree(dA[i]);
-    PyMem_RawFree(dA);
+    if (dA) {
+        for (int i = 0; i < lenA; i++)
+            PyMem_RawFree(dA[i]);
+        PyMem_RawFree(dA);
+    }
 
-    for (int i = 0; i < lenB; i++)
-        PyMem_RawFree(dB[i]);
-    PyMem_RawFree(dB);
+    if (dB) {
+        for (int i = 0; i < lenB; i++)
+            PyMem_RawFree(dB[i]);
+        PyMem_RawFree(dB);
+    }
 
     // Similarity matrix
-    for (int i = 0; i <= lenA - fragmentSize; i++)
-        PyMem_RawFree(S[i]);
-    PyMem_RawFree(S);
+    if (S) {
+        for (int i = 0; i <= lenA - fragmentSize; i++)
+            PyMem_RawFree(S[i]);
+        PyMem_RawFree(S);
+    }
 
     return result;
 }
@@ -814,7 +944,8 @@ PyDoc_STRVAR(module_doc,
 This module implements a single function: run_cealign. \
 Refer to its docstring for more documentation on usage and implementation.");
 
-PyObject *PyInit_ccealign(void)
+PyMODINIT_FUNC
+PyInit_ccealign(void)
 {
     static struct PyModuleDef moduledef = {PyModuleDef_HEAD_INIT,
                                            "ccealign",
@@ -825,5 +956,22 @@ PyObject *PyInit_ccealign(void)
                                            NULL,
                                            NULL,
                                            NULL};
-    return PyModule_Create(&moduledef);
+    PyObject *module = PyModule_Create(&moduledef);
+
+    if (!module) {
+        return NULL;
+    }
+    if (!alignmentType) {
+        alignmentType = PyStructSequence_NewType(&alignmentDesc);
+        if (!alignmentType) {
+            Py_DECREF(module);
+            return NULL;
+        }
+    }
+    if (PyModule_AddObjectRef(module, "CEAlignment",
+                              (PyObject *)alignmentType) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    return module;
 }
