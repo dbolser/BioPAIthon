@@ -10,7 +10,16 @@
 # Jan.O.Andersson@home.se
 # flake8: noqa
 
-"""Find next open reading frame in sequence data."""
+"""Find next open reading frame in sequence data.
+
+A Python re-implementation of the Tcl script nextorf.tcl, used together
+with xbbtools for ORF-fishing during the complete genome sequencing
+project of the typhus bacterium Rickettsia prowazekii (Andersson et al.
+1998, Nature 396, 133-140).
+
+Usage: nextorf.py <FASTA file>
+   or: nextorf.py -h
+"""
 
 import re
 import sys
@@ -237,7 +246,7 @@ def help():
     for key, table in CodonTable.ambiguous_dna_by_id.items():
         print(f"\t{key} {table._codon_table.names[0]}")
     print("\ne.g.")
-    print("./nextorf.py --minlength 5 --strand plus --output nt --gc 1 test.fas")
+    print("./nextorf.py --minlength 5 --strand plus --output nt --gc 1 <input.fasta>")
     sys.exit(0)
 
 
