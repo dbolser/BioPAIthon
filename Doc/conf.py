@@ -380,6 +380,7 @@ def run_apidoc(_):
             # Bio/Alphabet above is excluded for exactly this reason.
             "../Bio/Align/AlignInfo.py",
             "../Bio/Application/",
+            "../Bio/HMM/",
             "../Bio/Align/Applications/",
             "../Bio/Phylo/Applications/",
             "../Bio/Sequencing/Applications/",
