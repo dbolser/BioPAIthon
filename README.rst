@@ -8,9 +8,6 @@
    :alt: Supported Python versions
    :target: https://pypi.org/project/biopaithon/
 
-BioPAIthon README file
-======================
-
 **BioPAIthon** is a fork of `Biopython <https://biopython.org>`_, the
 long-running international association of developers of freely available
 Python tools for computational molecular biology.
