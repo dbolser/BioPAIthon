@@ -22,7 +22,6 @@ Partially inspired by MedLine Code.
 
 __all__ = [
     "Record",
-    "deepcopy",
     "get_indiv",
     "read",
 ]

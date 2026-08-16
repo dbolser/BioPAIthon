@@ -332,18 +332,12 @@ making up each alignment as SeqRecords.
 """
 
 __all__ = [
-    "ABC",
     "AlignmentSequenceIterator",
     "AlignmentSequenceWriter",
-    "Callable",
-    "Iterable",
     "SeqRecord",
     "SequenceIterator",
     "SequenceWriter",
-    "Union",
-    "abstractmethod",
     "convert",
-    "fspath",
     "index",
     "index_db",
     "parse",

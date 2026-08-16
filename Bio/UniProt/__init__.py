@@ -17,10 +17,7 @@ Bio.SeqIO.
 """
 
 __all__ = [
-    "HTTPResponse",
-    "Optional",
     "search",
-    "urlopen",
 ]
 
 import json

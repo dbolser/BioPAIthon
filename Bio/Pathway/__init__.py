@@ -39,7 +39,6 @@ __all__ = [
     "Network",
     "Reaction",
     "System",
-    "reduce",
 ]
 
 from functools import reduce

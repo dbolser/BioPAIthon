@@ -128,9 +128,6 @@ Functions:
 """
 
 __all__ = [
-    "HTTPError",
-    "Request",
-    "URLError",
     "api_key",
     "ecitmatch",
     "efetch",
@@ -148,8 +145,6 @@ __all__ = [
     "read",
     "sleep_between_tries",
     "tool",
-    "urlencode",
-    "urlopen",
 ]
 
 import io

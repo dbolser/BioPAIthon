@@ -58,6 +58,15 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+The ``__all__`` declarations added to the re-exporting packages no longer
+list names the packages merely import: 45 standard-library and NumPy
+functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
+gone from 14 packages' ``__all__``, so ``from Bio.motifs import *`` no
+longer injects ``urlopen`` into the caller's namespace, and dropping an
+internal import can no longer count as an API break. The attributes
+themselves are unchanged; only the declared public surface shrank, and the
+public-exports test now rejects foreign names so they cannot creep back.
+
 ``import Bio.HMM`` now raises an informative ``ImportError`` instead of
 silently succeeding. All four of the package's modules were removed in
 Biopython 1.86, but the package itself survived as an importable docstring:

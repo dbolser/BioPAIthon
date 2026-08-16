@@ -14,7 +14,6 @@ class, used in the Bio.AlignIO module.
 """
 
 __all__ = [
-    "ABC",
     "Alignment",
     "Alignments",
     "AlignmentsAbstractBaseClass",
@@ -28,14 +27,12 @@ __all__ = [
     "SeqRecord",
     "SequenceDataAbstractBaseClass",
     "UndefinedSequenceError",
-    "abstractmethod",
     "formats",
     "parse",
     "read",
     "reverse_complement",
     "translate",
     "write",
-    "zip_longest",
 ]
 
 import copy
