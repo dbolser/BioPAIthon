@@ -1722,6 +1722,187 @@ Two defects were found while surveying and belong to no pull request:
 
 ---
 
+## Addendum — the 2026-08-16 post-queue sweep
+
+After the 2026-08-14 queue merged (every numbered item above reflects that),
+six parallel reviews swept the tree once more: security, correctness, code
+quality, consistency, canonical idioms including CI/CD, and documentation.
+Everything below is new — each reviewer read this document and `TODO.md`
+first and reported only what they do not already cover. Two findings were
+fixed the same day rather than listed: PR #91's deprecation of
+`Bio.Blast.NCBIWWW`/`NCBIXML` had been merged into its stacked base branch
+rather than `main` and was invisible to the tracking (re-landed in
+[#109](https://github.com/dbolser/BioPAIthon/pull/109)), and the `__all__`
+sweep had declared 45 merely-imported stdlib and NumPy names as public API
+across 14 packages (fixed in
+[#110](https://github.com/dbolser/BioPAIthon/pull/110)).
+
+The security review otherwise came back clean: TwoBit/alignmentcounts/pwm
+bounds, Entrez XML (XXE and path traversal), BLAST XML entity handling,
+SnapGene/Xdna length fields, BioSQL parameterization and network defaults
+were each checked and found guarded or already tracked. The one exception is
+A.10 below.
+
+### A. New correctness defects, all reproduced
+
+Ranked by user impact. A.1 and A.4 also reproduce on stock Biopython 1.85,
+so they are upstream's too — queued in `UPSTREAM.md` pending a
+duplicate-check against the tracker.
+
+1. **TwoBit-backed sequences mis-slice three ways.**
+   `Bio/SeqIO/_twoBitIO.c:401` computes `size = (end - start) / step` —
+   truncating, not ceiling — so any extended slice with
+   `(end - start) % step != 0` silently drops the final base:
+   `record.seq[0::3]` loses the last codon position unless the length is a
+   multiple of 3. `Bio/SeqIO/TwoBitIO.py:132-133` ignores negative steps
+   when computing the byte range, so `record.seq[::-1]` raises
+   `RuntimeError`. And `:124-131` has no upper bound on integer indices, so
+   `record.seq[len(record)]` returns a base decoded from the *next* record's
+   packed data instead of `IndexError`. **Effort S–M · Impact high.**
+2. **`SeqRecord.upper()`/`lower()` share `letter_annotations` lists with the
+   parent.** `Bio/SeqRecord.py:1181,1232` shallow-copy the dict, so
+   mutating the derived record's `phred_quality` corrupts the original —
+   the same disease §0.3 fixed for `annotations` at these sites; this
+   dimension was missed. Only these two methods; the other derivations
+   rebuild or drop the lists. **Effort S · Impact medium-high.**
+3. **`SeqFeature._shift`/`_flip` share qualifier value lists**
+   (`Bio/SeqFeature.py:280,297`) — so features on `record[2:8]` or
+   `record.reverse_complement()` alias their qualifier lists with the
+   parent's. §0.3's status note above claims these methods "do not share";
+   that is true at the dict level and false at the value level. Fold into
+   the planned features-copy work. **Effort S · Impact medium.**
+4. **`BgzfWriter` crashes on poorly-compressible data.**
+   `Bio/bgzf.py:834-837`: ~64 KB of high-entropy input deflates to more
+   than 65,536 bytes and raises `RuntimeError: TODO - Didn't compress
+   enough`; htslib caps per-block input instead. The guard also admits
+   compressed sizes 65,511–65,536, which then fail in `struct.pack("<H",
+   ...)` with a misleading error. **Effort S–M · Impact medium.**
+5. **`Medline.read()` returns the first record of many** and raises bare
+   `StopIteration` on an empty file (`Bio/Medline/__init__.py:218-219`),
+   breaking the exactly-one contract every sibling `read()` enforces and
+   `AGENTS.md` documents. **Effort S · Impact medium.**
+6. **`Bio/motifs/__init__.py:208` is `raise Exception(ValueError, "...")`**
+   — a typo; the intended `ValueError` is never raised and `except
+   ValueError` misses it. **Effort S · Impact low-medium.**
+7. **The GFA2 parser discards the mandatory length field** for `*`
+   sequences (`Bio/SeqIO/GfaIO.py:199-207`): `S\ts1\t100\t*` parses to
+   `len(record) == 0`, while the GFA1 branch preserves its optional
+   `LN:i:` equivalent. **Effort S · Impact low-medium.**
+8. **`GC123("")` raises `ZeroDivisionError`**
+   (`Bio/SeqUtils/__init__.py:207`) — the per-position divisions are
+   guarded, the total is not. **Effort S · Impact low.**
+9. **`MafIndex.close()` closes the SQLite connection but not the MAF
+   handle** (`Bio/AlignIO/MafIO.py:308-317`) — the Windows file-deletion
+   case its own docstring exists for still fails. Should travel with the
+   §1.1 MafIndex port. **Effort S · Impact low.**
+10. **`Bio/Nexus/cnexus.c:34-35` sets `PyErr_NoMemory()` on allocation
+    failure and falls through** to write through the NULL pointer — the
+    §0.12/§0.13 error-path class, in the one extension that sweep missed.
+    Reachable only under memory exhaustion. **Effort S · Impact low.**
+11. **Two independent exception classes are both named `NexusError`**
+    (`Bio/Nexus/Nexus.py:61`, `Bio/Nexus/StandardData.py:13`), and
+    `Nexus.py:1057` calls into StandardData, so `except NexusError` around
+    a parse can miss the parse error. **Effort S · Impact low-medium.**
+12. **`Bio/SCOP/__init__.py:266-270` prints a missing sunid to stdout and
+    then crashes on the same lookup** with a bare `KeyError`. **Effort S ·
+    Impact low.**
+
+### B. Consistency debts (decide once, then mechanical)
+
+- `Bio.Align.read`'s docstring documents its first parameter as `source`;
+  the signature says `handle` (`Bio/Align/__init__.py:4937-4941`), so the
+  documented keyword is a `TypeError`. Its sibling `parse` says `source`.
+  One-word fix, whichever way §1.2's registry work settles the convention.
+- `Bio/PDB/StructureAlignment.py:64-71` deprecates with stdlib
+  `DeprecationWarning` — invisible by default — instead of
+  `BiopythonDeprecationWarning`, and has no `DEPRECATED.rst` entry.
+- `Bio/SeqIO/GfaIO.py:35-95` issues 13 parse-time malformed-input warnings
+  as plain `BiopythonWarning` where ~55 sites elsewhere use
+  `BiopythonParserWarning`.
+- Parser exception bases are split 11 `ValueError`-based / 13 plain
+  `Exception`-based, and ~30 sites `raise Exception(...)` inside files
+  whose own convention is `ValueError` (worst: `Bio/Align/bigbed.py:795`,
+  `a2m.py:101-109`). Widening bases to `ValueError` only increases
+  catchability.
+- First-parameter naming is `handle` (majority) vs `source` vs `file`, and
+  the format argument is `format` (five packages) vs `fmt` (three);
+  `Bio.motifs.write()` alone among the `write()`s takes no file and returns
+  a string. Docs-first migration; keyword renames need deprecation shims.
+- The fork's own #88 indexing protocol (`parse_id_from_header`,
+  `Bio/SeqIO/Interfaces.py:59` and five format modules) is public-named but
+  docstring-marked "(PRIVATE)" — decide its status once, before downstream
+  format authors copy it.
+- Docstring parameter style is three-way (reST `:param` / `Arguments:`
+  lists / numpydoc), with `Bio/PDB/Atom.py` using two styles in one file.
+  Fold into the §1.3 annotation pass rather than sweeping separately.
+
+### C. Structural quality (M-effort, high leverage)
+
+- **The dN/dS and McDonald–Kreitman suite exists twice** —
+  `Bio/Align/analysis.py` and `Bio/codonalign/codonseq.py` — and the copy
+  has already cost double maintenance: PR #25 fixed three bugs in one, PR
+  #35 re-fixed the identical three in the other. Whatever §2.5 decides,
+  make `cal_dn_ds`/`mktest` delegate to `Bio.Align.analysis` and delete
+  ~1,000 duplicated lines. **Effort M.**
+- **Newick trees have two full parser stacks** (`Bio/Nexus/Trees.py` +
+  `Nodes.py` vs `Bio/Phylo/NewickIO.py`), and `Phylo.read(f, "nexus")`
+  parses tree text with the *old* one, then converts node-by-node through a
+  recursive helper that dies on deep trees. Scoped fix: feed the tree
+  strings Nexus extracts directly to `NewickIO.Parser`; the full merge is
+  §1.1-scale and separate. **Effort M (scoped).**
+- `Bio.PopGen.GenePop.LargeFileParser` has zero importers and zero tests,
+  and parses missing alleles differently from the live parser in the same
+  package (literal `0` vs `None`); `FileParser.FileRecord` never closes its
+  handle. Deprecate the dead parser per house style; give `FileRecord` a
+  `close()`/context manager. **Effort S.**
+- `read_PIC` (`Bio/PDB/PICIO.py:41-815`) is a 774-line function of eleven
+  nested closures — decompose into a private parser class; and
+  `_get_atom_radius` (`Bio/PDB/ResidueDepth.py:108-491`) is a 383-line
+  elif transcription of MSMS's radius table that should be a data table.
+  `Bio/PDB/internal_coords.py:4940`'s `MissingAtomError` is advertised and
+  never raised. **Effort M each.**
+
+### D. CI/CD and packaging canon (all S)
+
+- Replace `tj-actions/changed-files` + the 12-line heredoc in
+  `ci.yml:47-90` with pre-commit's native `--from-ref/--to-ref` — removes
+  the third-party dependency (the CVE-2025-30066 one, currently SHA-pinned)
+  outright.
+- No `timeout-minutes` outside the test jobs and no `concurrency:` group on
+  `release.yml`; a hung cibuildwheel burns six hours, and two tags pushed
+  close together interleave publishes.
+- `persist-credentials: false` on the ten checkouts (nothing pushes);
+  decide `fail_ci_if_error` for the three codecov uploads; delete the no-op
+  `zip-safe` line; `packages.find` could replace the 68-entry list but
+  needs a wheel-contents diff first (three data-only directories are
+  load-bearing).
+- `Scripts/` still uses `getopt`/`optparse` in four files — low value,
+  legacy demos.
+
+### E. Documentation corrections
+
+- `README.rst:36-38` claims upstream's documentation "still describes this
+  fork accurately" — no longer true post-sweep (pairwise2, GenBank length
+  errors, mmtf, extras). `:120` claims Python 3.15-rc testing no CI job
+  performs. The extras exist only in NEWS; the documented dev install
+  (`--group dev`) under-installs relative to `.[test]` and silently skips
+  the optional-stack tests.
+- `Doc/Tutorial/chapter_pdb.rst:87-117,317-334` still teaches
+  `Bio.PDB.mmtf` — including URL fetches against a host that has been
+  DNS-dead since 2024 — with no deprecation note, directly above its own
+  BinaryCIF section. `chapter_testing.rst:323-359` quotes a `run_tests.py`
+  excerpt that no longer exists.
+- `Doc/Tutorial/chapter_contributing.rst:17-18` sends this fork's bug
+  reports to upstream's issue tracker, contradicting `README.rst:30`;
+  `CONTRIBUTING.rst:62-64,150-151` and `chapter_introduction.rst` similarly
+  present upstream links as this project's.
+- `Bio/SeqIO/__init__.py`'s format table is missing five readable formats
+  (`embl-cds`, `genbank-cds`, `twobit`, `fasta-blast`, `fasta-pearson`) and
+  names "clustalw" where the format is "clustal".
+- `NEWS.rst`'s in-progress section announces pairwise2's removal and then
+  describes pairwise2 crash fixes as current behaviour further down — fold
+  the fixes into the removal entry.
+
 ## How this document was produced
 
 Seven independent reviews of the tree at `5d6fe8d22`, each assigned one
