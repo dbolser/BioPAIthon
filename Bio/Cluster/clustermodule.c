@@ -9,6 +9,73 @@
 /* -- Helper routines ------------------------------------------------------ */
 /* ========================================================================= */
 
+static int
+parse_rng_seed(PyObject* object, uint64_t* rng_seed)
+/* Resolves an rng_seed argument. If the argument was omitted (object is
+ * NULL) or None, a fresh seed is drawn from the operating system's entropy
+ * source via os.urandom, so that every unseeded call gets an independent
+ * seed no matter how rapidly the calls follow each other; a deterministic
+ * time-based mix cannot guarantee that. (This replaces the old
+ * srand(time(0)) seeding, which also clobbered the C library's global
+ * rand() state.) An integer in [0, 2**64) is used as given.
+ *
+ * The Bio.Cluster wrappers resolve None to an integer in Python before
+ * calling in, so this None branch only runs for direct _cluster callers;
+ * calling os.urandom from C creates a few transient Python objects per
+ * call, which the Python-level call avoids.
+ *
+ * Returns 0 on success. On failure, returns -1 with a Python exception
+ * set.
+ */
+{
+    unsigned long long value;
+
+    if (object == NULL || object == Py_None) {
+        PyObject* os_module;
+        PyObject* bytes;
+        char* data;
+        Py_ssize_t size;
+        uint64_t seed;
+        size_t i;
+
+        os_module = PyImport_ImportModule("os");
+        if (!os_module) return -1;
+        bytes = PyObject_CallMethod(os_module, "urandom", "i",
+                                    (int) sizeof(seed));
+        Py_DECREF(os_module);
+        if (!bytes) return -1;
+        if (PyBytes_AsStringAndSize(bytes, &data, &size) == -1) {
+            Py_DECREF(bytes);
+            return -1;
+        }
+        if (size != (Py_ssize_t) sizeof(seed)) {
+            Py_DECREF(bytes);
+            PyErr_Format(PyExc_RuntimeError,
+                         "os.urandom returned %zd bytes (expected %zd)",
+                         size, (Py_ssize_t) sizeof(seed));
+            return -1;
+        }
+        seed = 0;
+        for (i = 0; i < sizeof(seed); i++)
+            seed = (seed << 8) | (uint64_t) (unsigned char) data[i];
+        Py_DECREF(bytes);
+        *rng_seed = seed;
+        return 0;
+    }
+    if (!PyLong_Check(object)) {
+        PyErr_SetString(PyExc_TypeError, "rng_seed must be an integer or None");
+        return -1;
+    }
+    value = PyLong_AsUnsignedLongLong(object);
+    if (value == (unsigned long long) -1 && PyErr_Occurred()) {
+        PyErr_SetString(PyExc_ValueError,
+                        "rng_seed must be a non-negative integer less than 2**64");
+        return -1;
+    }
+    *rng_seed = (uint64_t) value;
+    return 0;
+}
+
 static char
 extract_single_character(PyObject* object, const char variable[],
                          const char allowed[])
@@ -1220,7 +1287,7 @@ py_version(PyObject* self)
 /* kcluster */
 static char kcluster__doc__[] =
 "kcluster(data, nclusters, mask, weight, transpose, npass, method,\n"
-"         dist, clusterid) -> None\n"
+"         dist, clusterid, rng_seed) -> None\n"
 "\n"
 "This function implements k-means clustering.\n"
 "\n"
@@ -1265,6 +1332,12 @@ static char kcluster__doc__[] =
 "   as an input variable, containing the initial condition from which\n"
 "   the EM algorithm should start. In this case, the k-means algorithm\n"
 "   is fully deterministic.\n"
+"\n"
+" - rng_seed: seed for the random number generator used to choose the\n"
+"   random initial clusterings (an integer between 0 and 2**64-1), or\n"
+"   None to draw a fresh seed from the operating system's entropy source\n"
+"   (os.urandom) on each call. A given seed yields identical results on\n"
+"   every run. Only used if npass > 0.\n"
 "\n";
 
 static PyObject*
@@ -1284,6 +1357,8 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
     Py_buffer clusterid = {0};
     double error;
     int ifound = 0;
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"data",
                              "nclusters",
@@ -1294,9 +1369,11 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
                              "method",
                              "dist",
                              "clusterid",
+                             "rng_seed",
                               NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iO&O&iiO&O&O&", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iO&O&iiO&O&O&|O",
+                                     kwlist,
                                      data_converter, &data,
                                      &nclusters,
                                      mask_converter, &mask,
@@ -1305,7 +1382,10 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
                                      &npass,
                                      method_kcluster_converter, &method,
                                      distance_converter, &dist,
-                                     index_converter, &clusterid)) return NULL;
+                                     index_converter, &clusterid,
+                                     &rng_seed_obj))
+        return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (!data.values) {
         PyErr_SetString(PyExc_RuntimeError, "data is None");
         goto exit;
@@ -1365,7 +1445,8 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
              dist,
              clusterid.buf,
              &error,
-             &ifound);
+             &ifound,
+             rng_seed);
 exit:
     data_converter(NULL, &data);
     mask_converter(NULL, &mask);
@@ -1378,7 +1459,8 @@ exit:
 
 /* kmedoids */
 static char kmedoids__doc__[] =
-"kmedoids(distance, nclusters, npass, clusterid) -> error, nfound\n"
+"kmedoids(distance, nclusters, npass, clusterid, rng_seed)\n"
+"    -> error, nfound\n"
 "\n"
 "This function implements k-medoids clustering.\n"
 "\n"
@@ -1422,6 +1504,12 @@ static char kmedoids__doc__[] =
 "   the EM algorithm should start. In this case, the k-medoids algorithm\n"
 "   is fully deterministic.\n"
 "\n"
+" - rng_seed: seed for the random number generator used to choose the\n"
+"   random initial clusterings (an integer between 0 and 2**64-1), or\n"
+"   None to draw a fresh seed from the operating system's entropy source\n"
+"   (os.urandom) on each call. A given seed yields identical results on\n"
+"   every run. Only used if npass > 0.\n"
+"\n"
 "Return values:\n"
 " - error: the within-cluster sum of distances for the returned k-means\n"
 "   clustering solution;\n"
@@ -1436,18 +1524,24 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
     int npass = 1;
     double error;
     int ifound = -2;
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"distance",
                              "nclusters",
                              "npass",
                              "clusterid",
+                             "rng_seed",
                               NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iiO&", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&iiO&|O", kwlist,
                                      distancematrix_converter, &distances,
                                      &nclusters,
                                      &npass,
-                                     index_converter, &clusterid)) return NULL;
+                                     index_converter, &clusterid,
+                                     &rng_seed_obj))
+        return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (npass < 0) {
         PyErr_SetString(PyExc_RuntimeError, "expected a non-negative integer");
         goto exit;
@@ -1477,7 +1571,8 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
              npass,
              clusterid.buf,
              &error,
-             &ifound);
+             &ifound,
+             rng_seed);
 
 exit:
     distancematrix_converter(NULL, &distances);
@@ -1714,7 +1809,7 @@ exit:
 /* somcluster */
 static char somcluster__doc__[] =
 "somcluster(clusterid, celldata, data, mask, weight, transpose,\n"
-"           inittau, niter, dist) -> None\n"
+"           inittau, niter, dist, rng_seed) -> None\n"
 "\n"
 "This function implements a self-organizing map on a rectangular grid.\n"
 "\n"
@@ -1758,7 +1853,13 @@ static char somcluster__doc__[] =
 "   - dist == 'u': uncentered correlation\n"
 "   - dist == 'x': absolute uncentered correlation\n"
 "   - dist == 's': Spearman's rank correlation\n"
-"   - dist == 'k': Kendall's tau\n";
+"   - dist == 'k': Kendall's tau\n"
+"\n"
+" - rng_seed: seed for the random number generator used to initialize\n"
+"   the nodes and to randomize the order in which the items are\n"
+"   presented (an integer between 0 and 2**64-1), or None to draw a\n"
+"   fresh seed from the operating system's entropy source (os.urandom)\n"
+"   on each call. A given seed yields identical results on every run.\n";
 
 static PyObject*
 py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
@@ -1776,6 +1877,8 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
     Py_buffer indices = {0};
     Celldata celldata = {0};
     PyObject* result = NULL;
+    PyObject* rng_seed_obj = NULL;
+    uint64_t rng_seed;
 
     static char* kwlist[] = {"clusterids",
                              "celldata",
@@ -1786,9 +1889,11 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                              "inittau",
                              "niter",
                              "dist",
+                             "rng_seed",
                              NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&O&O&idiO&", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&O&O&idiO&|O",
+                                     kwlist,
                                      index2d_converter, &indices,
                                      celldata_converter, &celldata,
                                      data_converter, &data,
@@ -1797,7 +1902,10 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                                      &transpose,
                                      &inittau,
                                      &niter,
-                                     distance_converter, &dist)) return NULL;
+                                     distance_converter, &dist,
+                                     &rng_seed_obj))
+        return NULL;
+    if (parse_rng_seed(rng_seed_obj, &rng_seed) == -1) goto exit;
     if (niter < 1) {
         PyErr_SetString(PyExc_ValueError,
                       "number of iterations (niter) should be positive");
@@ -1844,7 +1952,8 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                niter,
                dist,
                celldata.values,
-               indices.buf);
+               indices.buf,
+               rng_seed);
     Py_INCREF(Py_None);
     result = Py_None;
 

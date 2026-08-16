@@ -27,6 +27,8 @@
  *
  */
 
+#include <stdint.h>
+
 #ifndef min
 #define min(x, y)	((x) < (y) ? (x) : (y))
 #endif
@@ -51,9 +53,9 @@ void getclustermedoids(int nclusters, int nelements, double** distance,
   int clusterid[], int centroids[], double errors[]);
 void kcluster(int nclusters, int ngenes, int ndata, double** data,
   int** mask, double weight[], int transpose, int npass, char method, char dist,
-  int clusterid[], double* error, int* ifound);
+  int clusterid[], double* error, int* ifound, uint64_t rng_seed);
 void kmedoids(int nclusters, int nelements, double** distance,
-  int npass, int clusterid[], double* error, int* ifound);
+  int npass, int clusterid[], double* error, int* ifound, uint64_t rng_seed);
 
 /* Chapter 4 */
 typedef struct {int left; int right; double distance;} Node;
@@ -76,7 +78,7 @@ int cuttree(int nelements, const Node* tree, int nclusters, int clusterid[]);
 void somcluster(int nrows, int ncolumns, double** data, int** mask,
   const double weight[], int transpose, int nxnodes, int nynodes,
   double inittau, int niter, char dist, double*** celldata,
-  int clusterid[][2]);
+  int clusterid[][2], uint64_t rng_seed);
 
 /* Chapter 6 */
 int pca(int m, int n, double** u, double** v, double* w);
