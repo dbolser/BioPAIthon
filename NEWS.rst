@@ -58,6 +58,18 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``import Bio.SeqIO`` is roughly ten times faster (about 107 ms down to 11 ms,
+median of five ``python -X importtime`` runs on Python 3.12), because the
+per-format parser modules are now imported on first use rather than eagerly.
+Importing every format pulled in ``Bio.AlignIO`` and hence ``Bio.Align`` and
+NumPy, plus ``urllib.request`` and ``xml.sax``, whether or not the caller ever
+touched those formats. The format registries now resolve a format's module the
+first time that format is asked for, and the submodules remain reachable as
+``Bio.SeqIO.FastaIO`` and friends exactly as before. A practical consequence:
+parsing and writing FASTA (and other formats whose parsers do not need NumPy)
+now works on a machine where NumPy is not installed; alignment formats still
+raise ``MissingPythonDependencyError`` when actually used, as before.
+
 Parsing a GenBank or EMBL record whose sequence does not match the length
 declared on its LOCUS/ID line is now an error rather than a warning. A
 truncated download used to yield a ``SeqRecord`` whose ``.seq`` was silently

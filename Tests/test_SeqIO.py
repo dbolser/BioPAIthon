@@ -7,6 +7,8 @@
 import copy
 import gzip
 import os
+import subprocess
+import sys
 import unittest
 import warnings
 from io import BytesIO
@@ -6073,6 +6075,106 @@ class BadArguments(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             SeqIO.convert("Fasta/f002", "fasta", StringIO(), "fasta", "nonsense")
         self.assertIn("Unexpected molecule type", str(cm.exception))
+
+
+class LazyFormatRegistries(unittest.TestCase):
+    """The format registries import their modules on first use only."""
+
+    def test_import_seqio_is_lazy(self):
+        """Importing Bio.SeqIO must not drag in NumPy, urllib or xml.sax.
+
+        Run in a subprocess because sys.modules in this process is already
+        polluted by the imports of the test suite itself.  Parsing a FASTA
+        file must not import them either; this is what lets Bio.SeqIO read
+        sequences on a machine where NumPy is not installed.
+        """
+        code = (
+            "import sys\n"
+            "import Bio.SeqIO\n"
+            "heavy = ['numpy', 'Bio.Align', 'Bio.AlignIO',"
+            " 'urllib.request', 'xml.sax']\n"
+            "loaded = [name for name in heavy if name in sys.modules]\n"
+            "assert not loaded, 'import Bio.SeqIO pulled in %s' % loaded\n"
+            "records = list(Bio.SeqIO.parse('Fasta/f002', 'fasta'))\n"
+            "assert len(records) == 3, len(records)\n"
+            "loaded = [name for name in heavy if name in sys.modules]\n"
+            "assert not loaded, 'parsing FASTA pulled in %s' % loaded\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_every_registered_format_resolves(self):
+        """Every lazy registry entry names something that really exists."""
+        for fmt in SeqIO._FormatToIterator:
+            self.assertTrue(callable(SeqIO._FormatToIterator[fmt]), fmt)
+        for fmt in SeqIO._FormatToWriter:
+            self.assertTrue(callable(SeqIO._FormatToWriter[fmt]), fmt)
+        for conversion in SeqIO._converter:
+            self.assertTrue(callable(SeqIO._converter[conversion]), conversion)
+
+    def test_alignio_formats_stay_in_sync(self):
+        """Every Bio.AlignIO format is registered in Bio.SeqIO.
+
+        Bio.SeqIO lists the delegated alignment formats by name rather than
+        importing Bio.AlignIO; this is the check that keeps the two lists
+        from drifting apart.
+        """
+        for fmt in AlignIO._FormatToIterator:
+            cls = SeqIO._FormatToIterator[fmt]
+            self.assertTrue(issubclass(cls, SeqIO.AlignmentSequenceIterator), fmt)
+        for fmt in AlignIO._FormatToWriter:
+            cls = SeqIO._FormatToWriter[fmt]
+            self.assertTrue(issubclass(cls, SeqIO.AlignmentSequenceWriter), fmt)
+
+    def test_submodules_accessible_as_attributes(self):
+        """Bio.SeqIO.FastaIO and friends work without an explicit import."""
+        import Bio.SeqIO
+
+        self.assertIs(Bio.SeqIO.FastaIO.FastaIterator, SeqIO._FormatToIterator["fasta"])
+        with self.assertRaises(AttributeError):
+            Bio.SeqIO.ThereIsNoSuchModule
+
+    def test_concurrent_first_access_agrees_on_one_value(self):
+        """Concurrent first accesses must all see the same resolved class.
+
+        The factory may run more than once when threads race, but exactly
+        one result is stored and every caller gets that one, so class
+        identity is stable however the race falls out.
+        """
+        import threading
+        import time
+
+        factory_calls = []
+
+        def factory(fmt):
+            factory_calls.append(fmt)
+            time.sleep(0.01)  # widen the race window
+            return type("Wrapper", (), {"fmt": fmt})
+
+        registry = SeqIO._LazyFormatRegistry({"clustal": None}, factory)
+        nthreads = 4
+        barrier = threading.Barrier(nthreads)
+        results = []
+
+        def worker():
+            barrier.wait()
+            results.append(registry["clustal"])
+
+        threads = [threading.Thread(target=worker) for _ in range(nthreads)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(len(results), nthreads)
+        for result in results[1:]:
+            self.assertIs(result, results[0])
+        self.assertIs(registry["clustal"], results[0])
+        self.assertGreaterEqual(len(factory_calls), 1)
 
 
 if __name__ == "__main__":
