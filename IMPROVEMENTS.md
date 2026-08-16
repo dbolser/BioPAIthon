@@ -207,13 +207,15 @@ this fires on real files with no obvious connection to the user's action.
 for unknown — so unknown positions sort stably to the end.
 **Effort S · Impact medium**
 
-### 0.7 `SeqIO.index()` and `SeqIO.parse()` disagree on the same file **[from source — this case FIXED]**
+### 0.7 `SeqIO.index()` and `SeqIO.parse()` disagree on the same file **[from source — FIXED]**
 
 > **Status: this case is fixed** in PR #8. `Bio/SeqIO/_index.py` (~:220) now
 > yields an empty ID for a bare title line in the fasta and pir formats,
 > matching the parsers. The structural duplication that caused it — the index
-> layer re-deriving IDs independently of each parser — remains, and is still
-> §1.4.
+> layer re-deriving IDs independently of each parser — has since been removed
+> as well: PR #88 moved the marker and id rules onto the parser classes
+> (§1.4), so this whole category of disagreement is closed, not just this
+> instance.
 
 `Bio/SeqIO/_index.py:219` re-derives the record ID independently of the parser
 (`line[marker_offset:].strip().split(None, 1)[0]`), while
@@ -226,7 +228,16 @@ bare `IndexError: list index out of range` with no filename or line number.
 for the structural fix.
 **Effort S (this case) · Impact medium**
 
-### 0.8 343 `assert` statements validate untrusted file content **[from source]**
+### 0.8 343 `assert` statements validate untrusted file content **[worst file FIXED, sweep open]**
+
+> **Status: the worst file is done; the sweep is not.** PR #69 converted the
+> three content-checking asserts in `Bio/SeqIO/_index.py` to `ValueError`s
+> naming the offending line and offset (the file's other nine asserts are
+> internal invariants and deliberately stay), and the adopted upstream #5175
+> had already converted nine more across `Bio.ExPASy.Enzyme`,
+> `Bio.ExPASy.ScanProsite`, `Bio.SeqIO.TabIO` and `Bio.motifs.alignace`.
+> Roughly 300 sites across the parsers remain — mechanical but
+> judgement-laden, tracked in `TODO.md`.
 
 `grep -c "^\s*assert " Bio/{SeqIO,AlignIO,Align,GenBank}/*.py` → 343. These are
 not internal invariants; they check parsed input — `Bio/SeqIO/_index.py:671`
@@ -243,7 +254,16 @@ filename and offset. Keep asserts only for provably internal invariants. Add
 ruff `S101` scoped to parser modules to prevent regression.
 **Effort M · Impact medium**
 
-### 0.9 Malformed GenBank is a warning where malformed EMBL is an error **[from source]**
+### 0.9 Malformed GenBank is a warning where malformed EMBL is an error **[length check FIXED, `strict=` open]**
+
+> **Status: the length-mismatch half is fixed.** PR #71 made a
+> declared-vs-actual sequence length mismatch a `ValueError` naming the
+> record and both lengths, for `Bio.SeqIO` (genbank, embl, imgt) and
+> `Bio.GenBank.FeatureParser` — a truncated download no longer yields a
+> silently short `SeqRecord`. Two malformed-but-recoverable shapes still
+> parse with a warning as before: complete sequence data missing only the
+> final `//`, and a record with no sequence data at all. The broader
+> `strict=` option promoting parser warnings to errors remains unbuilt.
 
 Two branches of the same file. EMBL (`Bio/GenBank/Scanner.py:656-662`) raises
 `ValueError("Premature end of file in sequence data")`. GenBank
@@ -359,9 +379,17 @@ allocation failure and its `ValueError` path.
 comparison; return `NULL` from every error path and set `PyErr_NoMemory()`.
 **Effort S · Impact high (memory safety)**
 
-### 0.13 `ccealign` leaks ~116 KB per call and segfaults on tuple coordinates **[reproduced by review — leak and crashes FIXED, hardening open]**
+### 0.13 `ccealign` leaks ~116 KB per call and segfaults on tuple coordinates **[reproduced by review — FIXED]**
 
-> **Status: partly fixed, in two PRs.** PR #16 removed the three `Py_INCREF`s
+> **Status: now fully fixed.** PR #68 closed everything the note below left
+> open: the `CEAlignment` struct-sequence type is created once at module load
+> and exposed as `Bio.PDB.ccealign.CEAlignment`, so all results share one
+> type and pickle; every allocation is checked and raises `MemoryError`
+> instead of crashing; coordinate lengths the extension's arithmetic cannot
+> hold are rejected up front; and `PyInit_ccealign` carries `PyMODINIT_FUNC`.
+> The history of the leak and validation fixes is below.
+
+> **Status of the earlier fixes: partly fixed, in two PRs.** PR #16 removed the three `Py_INCREF`s
 > and frees every surviving `pathBuffer[]` entry before returning (~:690), so
 > both the object and byte leaks are gone — the measurements are in the
 > update blocks below. PR #39 added argument validation: coordinates go
@@ -529,7 +557,19 @@ with a per-module `disallow_untyped_defs` allowlist in `.mypy.ini` that grows as
 each is finished, locking in the gains.
 **Effort L overall, S–M per module · Impact high**
 
-### 1.4 The indexing layer re-implements each parser's record-boundary logic
+### 1.4 The indexing layer re-implements each parser's record-boundary logic **[FIXED]**
+
+> **Status: done, essentially as planned.** PR #88 moved the record markers
+> and id rules onto the format's own parser classes, so `Bio.SeqIO.index`
+> and `index_db` derive each key from the same code that sets `record.id`,
+> and the corpus-wide test proposed below exists: index keys are asserted
+> equal to parsed ids for every indexable format across the fixtures. Two
+> formats changed behaviour, both converging on their parser: "pir" ids
+> keep internal spaces, and pretty-printed UniProt XML with indented
+> `<entry>` elements indexes instead of silently returning an empty index.
+> The three unrelated random-access implementations named below still exist
+> (`Bio/File.py`, `MafIO`, `bigbed`) — that consolidation is §1.1/§1.2
+> territory.
 
 `Bio/SeqIO/_index.py:187-201` hardcodes byte markers for *other modules'*
 formats inside a base class, and `:219` re-derives record IDs independently —
@@ -545,7 +585,16 @@ automatic for any sequential format. Add a corpus-wide test asserting
 `list(index(f, fmt)) == [r.id for r in parse(f, fmt)]`.
 **Effort M · Impact high**
 
-### 1.5 Three parallel BLAST stacks, and the tutorial teaches the superseded one
+### 1.5 Three parallel BLAST stacks, and the tutorial teaches the superseded one **[a and b FIXED, c is a decision]**
+
+> **Status: (a) and (b) are done.** PR #90 rewrote the Tutorial's BLAST
+> chapter against `Bio.Blast`, including a "Migrating from the older BLAST
+> modules" section mapping the old record attributes onto the new classes,
+> and PR #91 added `BiopythonDeprecationWarning`s to `NCBIWWW` and `NCBIXML`
+> with the `DEPRECATED.rst` entry — deprecation only, the modules still
+> work, and removal waits at least a release as the plan requires.
+> (c) — whether SearchIO's `blast-xml` becomes an adapter over `Bio.Blast`
+> — remains an open decision, tracked in `TODO.md`.
 
 New: `Bio/Blast/__init__.py` + `_parser.py` + `_writers.py` (~4,100 lines).
 Old and carrying **no deprecation warning**: `Bio/Blast/NCBIXML.py` (1,331) and
@@ -559,7 +608,17 @@ breaks nothing; (b) add deprecation warnings to `NCBIXML`/`NCBIWWW` with a
 becomes an adapter. Do not remove `NCBIXML` in the same release as the warning.
 **Effort L (M if scoped to a+b) · Impact high**
 
-### 1.6 `check_untyped_defs` is off, hiding 2,172 real errors
+### 1.6 `check_untyped_defs` is off, hiding 2,172 real errors **[FIXED — ratchet in place]**
+
+> **Status: enabled, with the ratchet.** PR #96 turned
+> `check_untyped_defs = True` on globally, with a per-module
+> `check_untyped_defs = False` baseline in `.mypy.ini` for the modules that
+> do not yet pass — shrink-only: a module leaves the baseline when it is
+> fixed and nothing may join it. The approach paid for itself immediately:
+> working through the baseline surfaced `Bio.Pathway.System.stochiometry`,
+> broken since its introduction in 2001 (`[] * len(reactions)` is always
+> empty), fixed in PR #97 with its first-ever regression tests, and its
+> module left the baseline.
 
 `.mypy.ini:6` has `#check_untyped_defs = True` commented out, so mypy skips
 essentially every function body. Enabling it: **2,172 errors in 186 files**.
@@ -577,14 +636,18 @@ touched code is checked from day one and the list only shrinks. Triage
 `Bio/GenBank/Scanner.py` and `Bio/Blast/_parser.py` first.
 **Effort M · Impact high**
 
-### 1.7 Import cost: ~190 ms warm for `import Bio.SeqIO`, and 77 ms of it is one module body
+### 1.7 Import cost: ~190 ms warm for `import Bio.SeqIO`, and 77 ms of it is one module body **[mostly FIXED]**
 
-> **Status: the `CodonTable` piece is partly done.** PR #53 made the
+> **Status: the `CodonTable` and `SeqIO` pieces are done.** PR #53 made the
 > ambiguous codon list expansion lazy — expanded on first use instead of at
-> import. The `Restriction` PEP 562 `__getattr__` and the lazy per-format
-> `SeqIO` imports below remain open (and the usage survey later in this
-> document found `Bio.Restriction` far less imported than assumed, which
-> lowers that half's priority).
+> import — and PR #73 made the per-format `SeqIO` parser imports lazy:
+> `import Bio.SeqIO` is roughly ten times faster (about 107 ms down to
+> 11 ms, median of five `python -X importtime` runs on 3.12), submodules
+> stay reachable as `Bio.SeqIO.FastaIO` and friends, and parsing FASTA now
+> works on a machine without NumPy. The `Restriction` PEP 562 `__getattr__`
+> is deliberately deferred on the usage evidence (the survey later in this
+> document found `Bio.Restriction` far less imported than assumed);
+> revisit only if import-cost complaints actually name it.
 
 Measured cumulative `-X importtime`: `Bio.Seq` 45.3 ms, `Bio.Align` 155.9 ms,
 `Bio.Restriction` 239.6 ms, `Bio.SeqIO` 547.8 ms cold / 188.7 ms warm.
@@ -651,7 +714,17 @@ matches the documented API. Hand-write `.pyi` stubs starting with
 `Bio/Align/_pairwisealigner.pyi` and `Bio/Cluster/_cluster.pyi`.
 **Effort S (`__all__`) / M (stubs) · Impact high**
 
-### 1.9 No C extension ever releases the GIL, so threads give zero speed-up
+### 1.9 No C extension ever releases the GIL, so threads give zero speed-up **[aligner and kdtrees FIXED]**
+
+> **Status: the two hottest extensions now release the GIL.** PR #75 wrapped
+> the NW/SW/Gotoh pairwise alignment kernels and PR #74 the `kdtrees` build
+> and search kernels (measured there: two threads on separate
+> 100,000-point datasets run at about 1.75× serial speed, previously 1.0×).
+> PR #74 also made `kdtrees` reentrant — searching one shared tree from
+> several threads is safe, and `neighbor_simple_search` no longer corrupts
+> the tree by re-sorting the shared point list. The `cluster.c` kernels are
+> the remaining slice; PR #89's removal of the file-scope RNG state was its
+> prerequisite. `ccealign`'s kernels stay GIL-bound for now.
 
 `grep -rn "Py_BEGIN_ALLOW_THREADS" --include=*.c .` returns **nothing** across
 all 13 extensions. Measured on a 14-core machine,
@@ -678,7 +751,19 @@ bodies in `_pairwisealigner.c:4593-5300`, `findPath`/`calcS`/`calcDM` in
 periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 **Effort M · Impact high**
 
-### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope state
+### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope state **[static-state half FIXED]**
+
+> **Status: the named static-state blockers are gone.** PR #74 threads the
+> kdtrees sort dimension through per-call state instead of
+> `DataPoint_current_dim`, and PR #89 replaced `Bio.Cluster`'s
+> `srand(time(0))`-seeded file-scope RNG with caller-owned xoshiro256++
+> state — which, exactly as predicted below, also delivered a reproducible
+> `rng_seed=` keyword for `kcluster`/`kmedoids`/`somcluster` and stopped
+> the library silently resetting the process-wide `rand()` stream (a
+> regression test now checks `Bio.Cluster` never touches `rand()`).
+> The multi-phase init migration across the remaining extensions, the
+> `Py_mod_gil` slot and a `3.14t` CI job are still to do, tracked in
+> `TODO.md`.
 
 No `Py_mod_gil`, `Py_MOD_GIL_NOT_USED` or `Py_GIL_DISABLED` anywhere; all 13
 modules use single-phase init with `m_size = -1`. A single-phase module without a
@@ -739,7 +824,19 @@ an opt-in `array('b')`/`bytes` backing for `letter_annotations`, which
 reduction.
 **Effort S (a) / M (b) · Impact medium**
 
-### 1.12 `PairwiseAligner.align()` allocates the full O(n·m) traceback matrix
+### 1.12 `PairwiseAligner.align()` allocates the full O(n·m) traceback matrix **[guards FIXED, linear-space open]**
+
+> **Status: the short-term guards are in.** PR #67 computes the matrix size
+> in checked `size_t` arithmetic before allocating: a size that cannot fit
+> raises `MemoryError` naming the predicted size and both sequence lengths,
+> a failed allocation reports the same numbers, and lengths above the
+> aligner's `int` storage (`INT_MAX - 1`) raise `ValueError` — previously
+> exactly `INT_MAX` slipped past into undefined behaviour, and FOGSAA
+> computed its cell count in C `int`, so ~65,536-letter sequences wrapped
+> the multiplication and corrupted the heap from pure Python. There is
+> deliberately no cap below what the platform can address. The
+> Hirschberg/Myers-Miller linear-space traceback remains the long-term
+> item, tracked in `TODO.md`.
 
 `Bio/Align/_pairwisealigner.c:69-80`. Fresh-process measurements with
 `scoring="blastn"`:
@@ -771,7 +868,19 @@ A fork has more latitude here than upstream, but users are real. Where an item
 is widely copy-pasted, prefer an `ImportError` stub with a migration pointer over
 silent deletion.
 
-### 2.1 Already-broken or already-empty — no user impact
+### 2.1 Already-broken or already-empty — no user impact **[FIXED]**
+
+> **Status: all four bullets are resolved.** `Scripts/xbbtools` is removed
+> (PR #86 — dead at import since 1.86; `nextorf.py`, which shared the
+> directory but not the broken import chain, moved to `Scripts/nextorf.py`).
+> `import Bio.HMM` now raises an informative `ImportError` naming the
+> removed modules and pointing at hmmlearn (PR #92, taking the
+> `Bio.Alphabet` stub route argued for below; the package deliberately
+> stays in `pyproject.toml` so the message ships). The unreachable
+> `run_tests.py` doctest-exclusion block was already gone, and the two
+> `FIXME remove this after 1.87` sites are resolved by PR #83, which
+> removed the transitional `warn_defaults_changed()` (see
+> `DEPRECATED.rst`).
 
 - `Scripts/xbbtools/xbb_blastbg.py:20-24` and `xbb_blast.py:23,200` import
   `Bio.Blast.Applications`, **which no longer exists**, and `MANIFEST.in:14`
@@ -806,7 +915,16 @@ silent deletion.
 
 **Effort S · Impact medium** (nothing breaks — it is already broken)
 
-### 2.2 `Bio.PDB.mmtf` — the format's server no longer resolves in DNS
+### 2.2 `Bio.PDB.mmtf` — the format's server no longer resolves in DNS **[deprecation SHIPPED, removal scheduled]**
+
+> **Status: step one is done.** PR #72 deprecated `Bio.PDB.mmtf` with a
+> warning pointing at `Bio.PDB.binary_cif`, and the `DEPRECATED.rst` entry
+> is explicit that this deprecation is BioPAIthon's own. Relatedly,
+> `PDBList` no longer offers MMTF downloads and gained BinaryCIF (adopted
+> upstream #4938), and the new `[structure]` extra deliberately omits
+> `mmtf-python`. The removal itself — subpackage, test files, packaging
+> entry, CI dependency — waits the customary release and is tracked in
+> `TODO.md`.
 
 RCSB decommissioned MMTF in July 2024; `mmtf.rcsb.org` does not resolve. The
 dependency `mmtf-python` last released 2022-07-06. `Tests/test_mmtf_online.py:28`
@@ -819,7 +937,16 @@ both test files, the `pyproject.toml` entry and the CI dependency; repoint
 `Bio.PDB.binary_cif` is the successor.
 **Effort S · Impact medium-high**
 
-### 2.3 `Bio.pairwise2` — deprecated eight releases ago, still built and shipped
+### 2.3 `Bio.pairwise2` — deprecated eight releases ago, still built and shipped **[FIXED]**
+
+> **Status: removed, exactly as planned.** PR #79 deleted the ~2,900 lines
+> and ships `Bio/pairwise2.py` as a stub whose import raises `ImportError`
+> naming `Bio.Align.PairwiseAligner` — and warning that migration is not
+> mechanical: `pairwise2`'s default gap score is 0 where `PairwiseAligner`'s
+> has been -1 since 1.86, so scores should be set explicitly when porting.
+> This also removes the last consumer of `cpairwise2module.c` (§0.14's
+> module) and its per-platform CI compile cost. Upstream Biopython 1.88
+> still ships the deprecated module; this is a deliberate difference.
 
 Deprecated in 1.80 (`Bio/pairwise2.py:274-284`); current version 1.88.dev0.
 ~2,900 lines: the module (1,441), `Bio/cpairwise2module.c` (479), three test
@@ -834,7 +961,13 @@ StackOverflow answers, and semantics differ from `PairwiseAligner` (notably the
 deletion would be hostile.
 **Effort M · Impact high**
 
-### 2.4 The 1.86 deprecation cohort is ripe for one batched removal
+### 2.4 The 1.86 deprecation cohort is ripe for one batched removal **[FIXED]**
+
+> **Status: removed in one batch** in PR #70 — the seven `as_*` writer
+> helpers and `SummaryInfo`, whose module `Bio.Align.AlignInfo` (widely
+> imported in public code) ships as an `ImportError` stub naming
+> `msa.alignment` as the replacement. The `PairwiseAligner` alias table was
+> held one more release, exactly as the plan below says.
 
 All emit `BiopythonDeprecationWarning`, are documented in `DEPRECATED.rst`, and
 have zero internal callers: `as_fasta`/`as_fasta_2line`
@@ -867,9 +1000,10 @@ migrate alignment-building onto `Bio.Align.CodonAligner` and keep only
 > "real `__bool__`" branch of the decision below: both methods are now
 > `__bool__` returning `True` per the documented promise, the docstrings are
 > corrected, and truthiness of zero-length locations is tested. The
-> `iteritems()` remnant has a deprecation in flight (PR #66 — deprecated
-> rather than deleted, since upstream still ships it as public API). The 101
-> unwarned `colour` aliases remain fully open.
+> `iteritems()` remnant was deprecated in PR #66 (deprecated rather than
+> deleted, since upstream still ships it as public API). The 101 unwarned
+> `colour` aliases remain fully open — add warnings, then remove a release
+> later (tracked in `TODO.md`).
 
 `Bio/SeqFeature.py:1117,1515` define `__nonzero__` — the **Python 2** name.
 Neither class defines `__bool__`, but both define `__len__`, so zero-length
@@ -955,7 +1089,13 @@ actually imports the compiled extensions; upload artifacts; delete the dead
 cleanup job; add a tag-triggered release workflow using Trusted Publishing.
 **Effort M · Impact high**
 
-### 3.3 Caching defeats the "test against latest dependencies" intent
+### 3.3 Caching defeats the "test against latest dependencies" intent **[FIXED]**
+
+> **Status: fixed** in PR #63. `ci.yml` now has a weekly `schedule:` trigger
+> (Mondays 03:00 UTC) on which the cache steps are skipped entirely, so the
+> weekly run installs everything fresh and a new dependency release can
+> actually break CI within a week; a bumpable `CACHE_EPOCH` env var is part
+> of every cache key for manual invalidation.
 
 `ci.yml:76-89` caches the whole `${{ env.pythonLocation }}` keyed only on
 `pyproject.toml` + `ci-dependencies.txt`, and gates installation on a cache miss.
@@ -970,12 +1110,14 @@ expression is empty.
 `CACHE_EPOCH` to the key; fix the docs job key.
 **Effort S · Impact high**
 
-### 3.4 Two of five supported Pythons are tested; MySQL is started but unusable **[PARTLY FIXED]**
+### 3.4 Two of five supported Pythons are tested; MySQL is started but unusable **[MOSTLY FIXED]**
 
-> **Status: the Python-matrix half is fixed.** PR #4 extended `test_linux` and
+> **Status: both named halves are fixed.** PR #4 extended `test_linux` and
 > `linux_prep` to 3.10–3.14, so every advertised version is now compiled *and*
-> tested rather than compiled and discarded. macOS and Windows still run only
-> 3.10 and 3.14, and the MySQL/BioSQL half below is untouched.
+> tested rather than compiled and discarded, and PR #87 made one Linux CI
+> job actually run the BioSQL suite against the MySQL server that was
+> previously started and never used. macOS and Windows still run only 3.10
+> and 3.14.
 
 Wheels are built for 3.10–3.14 (`ci.yml:119`) and `pyproject.toml:23-32`
 advertises all five, but every test matrix is `["3.10","3.14"]`
@@ -1040,7 +1182,13 @@ black pin; replace `ci-dependencies.txt` with `[dependency-groups]`; add a weekl
 full-tree `pre-commit run --all-files`.
 **Effort M · Impact high**
 
-### 3.7 No optional-dependency extras; unbounded `numpy`
+### 3.7 No optional-dependency extras; unbounded `numpy` **[FIXED]**
+
+> **Status: fixed** in PR #64. `pip install biopaithon[graphics]`,
+> `[biosql]`, `[structure]`, `[phylo]`, `[all]` and `[test]` now work;
+> `numpy` is bounded to `>=1.24,<3`; and `ci-dependencies.txt` just
+> installs the `test` extra, so the two cannot drift. `[structure]`
+> deliberately omits `mmtf-python` (§2.2).
 
 `pyproject.toml` declares exactly `dependencies = ["numpy"]`, unbounded, and no
 `[project.optional-dependencies]` — despite `.mypy.ini:43-77` and
@@ -1080,7 +1228,15 @@ with `--no-build-isolation` against exactly the declared minimum, so the floor
 is tested rather than assumed.
 **Effort S · Impact medium**
 
-### 3.8 The sdist ships ~108 MB of test data
+### 3.8 The sdist ships ~108 MB of test data **[FIXED]**
+
+> **Status: fixed** in PR #84, taking the "stay self-testing" branch of the
+> decision below: `Tests/` and its data still ship in full, but unpacked
+> size dropped 32% (124.1 MB to 84.3 MB). The five orphaned fixture
+> directories (§4.8) are deleted, the 40 MB `Tests/PDB/6WG6.xml` ships
+> gzipped and its test reads it through `gzip.open`, and CI fails if the
+> compressed or unpacked sdist grows past 40 MB / 170 MB respectively —
+> about twice today's sizes — so the payload cannot silently regrow.
 
 `MANIFEST.in:15` is `recursive-include Tests *` with no filter. Tracked `Tests/`
 totals 108 MB across 1,607 files; `Tests/PDB/6WG6.xml` alone is 39 MB — roughly
@@ -1129,7 +1285,14 @@ is already used 184 times elsewhere in the suite. Failing that, add
 `simplefilter("always")` as the first statement in every block.
 **Effort S · Impact high**
 
-### 4.2 The suite only runs from inside `Tests/`
+### 4.2 The suite only runs from inside `Tests/` **[pattern established, migration ongoing]**
+
+> **Status: the mechanism exists and five modules are migrated.** PR #93
+> added `Tests/support.py` with `DATA = pathlib.Path(__file__).parent` —
+> including guidance for tests that deliberately exercise relative paths —
+> and freed the first five modules from the working directory. 108 of 217
+> test modules remain cwd-relative; the migration is mechanical from here
+> and tracked in `TODO.md`.
 
 Data paths are relative, so `python Tests/test_GenBank.py` from the repo root
 gives 83 `FileNotFoundError`s. The only thing making the suite work is
@@ -1170,14 +1333,12 @@ tests — add `[tool.pytest.ini_options]` to `pyproject.toml` and keep
 phase to `--doctest-modules` so failures print inline.
 **Effort M · Impact high**
 
-### 4.4 The previously documented test command did not work
+### 4.4 The previously documented test command did not work **[FIXED]**
 
-> **Status: the runner half is fixed; the extras half is not.** PR #14
-> removed the module-scope `from setuptools import find_packages` from
-> `Tests/run_tests.py`, so the runner works in a clean venv. There is still
-> no `test` extra: `pyproject.toml` has only a `[dependency-groups]` `dev`
-> group (holding `setuptools>=77`), and `ci-dependencies.txt` remains the
-> unreferenced list it was.
+> **Status: both halves are fixed.** PR #14 removed the module-scope
+> `from setuptools import find_packages` from `Tests/run_tests.py`, so the
+> runner works in a clean venv, and PR #64 added the `test` extra with
+> `ci-dependencies.txt` reduced to installing it, so the two cannot drift.
 
 `python setup.py test` does not work, yet the old `CLAUDE.md` documented it as
 the primary way to run tests. `setup.py` is now a 19-line deprecation shim with
@@ -1200,12 +1361,19 @@ with `pkgutil.walk_packages`. Add a `test` extra mirroring
 drift. See also §3.7.
 **Effort S · Impact high**
 
-### 4.5 Skips are silent and unbounded, and a live API key is committed
+### 4.5 Skips are silent and unbounded, and a live API key is committed **[MOSTLY FIXED]**
 
-> **Status: the API-key half is fixed** in PR #15. `Tests/test_Entrez.py`
-> uses the literal `"offline-test-api-key"`, and `Tests/test_Entrez_online.py`
-> reads `NCBI_API_KEY` from the environment and skips when it is unset — the
-> exact fix proposed below. The skip-accounting half is untouched.
+> **Status: both main halves are fixed.** PR #15 removed the committed API
+> key: `Tests/test_Entrez.py` uses the literal `"offline-test-api-key"`,
+> and `Tests/test_Entrez_online.py` reads `NCBI_API_KEY` from the
+> environment and skips when it is unset. PR #98 fixed the accounting: the
+> summary now reads `Ran N modules (M cases), S skipped, F failed`, skip
+> detection is a real `except MissingExternalDependencyError` around the
+> import rather than substring matching (the same exception raised later,
+> from code under test, is a failure again), and `Tests/expected_skips.txt`
+> is a manifest the runner enforces — an unexpected skip fails the run.
+> Still open: the macOS and Windows jobs install only numpy, so optional
+> stacks remain untested on two of three platforms.
 
 A fully-populated local run skips **61 of 501 modules (12%) and still exits 0**,
 with no skip count in the summary. The macOS and Windows CI jobs install only
@@ -1246,7 +1414,14 @@ output into fixture files so regenerating expectations is a data diff rather tha
 a 40,000-line source diff.
 **Effort M–L · Impact medium-high**
 
-### 4.7 Dead and unsound runner machinery
+### 4.7 Dead and unsound runner machinery **[FIXED]**
+
+> **Status: the three remaining bullets are fixed** in PR #95, exactly as
+> the fix line proposes: `--offline` now patches `socket.socket.connect`
+> (allowing AF_UNIX and loopback), so `http.client`, `requests` and raw
+> sockets are covered too; `requires_internet.check()` is lazy and
+> time-boxed instead of a live `getaddrinfo` at import; and
+> `test_PAML_tools.py` uses `shutil.which`.
 
 - `run_tests.py:62-104` — a 43-line `if np is None:` block excluding 40 modules
   from doctests. numpy is a hard dependency, so this is unreachable (also §2.1).
@@ -1266,7 +1441,13 @@ a 40,000-line source diff.
 hand-rolled `which`.
 **Effort S · Impact medium**
 
-### 4.8 Test fixtures dominate the repository
+### 4.8 Test fixtures dominate the repository **[MOSTLY FIXED]**
+
+> **Status: the actionable parts landed with §3.8.** PR #84 verified and
+> deleted the five orphaned fixture directories and gzipped
+> `Tests/PDB/6WG6.xml` (its test reads through `gzip.open`). The fixtures
+> still dominate the repository by file count — that is the nature of a
+> parser library's test suite and no further action is planned.
 
 `Tests/` is 1,607 of 2,414 tracked files (67%) and 108 MB; the packed git repo is
 77 MB. Beyond the sdist consequence in §3.8, roughly 1.1 MB is fully orphaned —
@@ -1323,22 +1504,23 @@ vendored copies. Only search for something a *user* would write.
 
 ### Modules with a pending decision
 
-**"State" is this fork and upstream `master` on the same day.** Every row below
-is currently *identical* in both — this fork has not removed or deprecated
-anything upstream still ships. Where a proposal says "remove", it is a proposal
-here and there.
+**"State" was this fork and upstream `master` on the same day**, when every
+row was *identical* in both. That is no longer true: the fork has since acted
+on most of these (the "item" column links the section recording what was
+done), so the state column now notes where the two have diverged. The counts
+remain the usage evidence the decisions rested on.
 
 | module | files | state (here = upstream) | item | what the number says |
 |---|---|---|---|---|
-| `Bio.pairwise2` | **4,176** | deprecated in both | §2.3 delete | Deprecated eight releases ago and still on the scale of `Bio.Phylo`. §2.3's "leave an `ImportError` stub" is not a courtesy, it is the whole change. |
-| `Bio.Blast.NCBIXML` | 1,792 | shipped, no warning, in both | §1.5 deprecate | Real users on the superseded stack. Rewriting the tutorial first, as §1.5 sequences it, is right. |
-| `Bio.Blast.NCBIWWW` | 1,040 | shipped, no warning, in both | §1.5 deprecate | As above. |
+| `Bio.pairwise2` | **4,176** | **removed here** (PR #79, `ImportError` stub); deprecated upstream | §2.3 delete | Deprecated eight releases ago and still on the scale of `Bio.Phylo`. §2.3's "leave an `ImportError` stub" is not a courtesy, it is the whole change. |
+| `Bio.Blast.NCBIXML` | 1,792 | **deprecated here** (PR #91); shipped, no warning, upstream | §1.5 deprecate | Real users on the superseded stack. Rewriting the tutorial first, as §1.5 sequences it, is right. |
+| `Bio.Blast.NCBIWWW` | 1,040 | **deprecated here** (PR #91); shipped, no warning, upstream | §1.5 deprecate | As above. |
 | `Bio.SearchIO` | 1,064 | shipped in both | §1.5 | Smaller than either old BLAST module, which bears on whether `blast-xml` is worth adapting. |
-| `Bio.PDB.mmtf` | 154 | shipped in both | §2.2 remove | Low, and the format's server no longer resolves. Removal is defensible; a stub still costs nothing. |
+| `Bio.PDB.mmtf` | 154 | **deprecated here** (PR #72); shipped upstream | §2.2 remove | Low, and the format's server no longer resolves. Removal is defensible; a stub still costs nothing. |
 | `Bio.Restriction` | 141 | shipped in both | §1.7 lazy imports | **Much lower than assumed.** Its 77 ms import cost is paid by few people, and no module in `Bio/` imports it, which is why the lazy-loading half of §1.7 was not done with the `CodonTable` half. |
-| `Bio.HMM` | 35 | empty package in both | §2.1 | Imports of a package whose contents were removed in 1.86 — already broken for all 35. |
+| `Bio.HMM` | 35 | **`ImportError` stub here** (PR #92); empty package upstream | §2.1 | Imports of a package whose contents were removed in 1.86 — already broken for all 35. |
 | `Bio.codonalign` | 27 | experimental warning in both | §2.5 decide | Twelve years of an import-time warning, and this is the audience. Whatever is decided, it is not urgent. |
-| `Scripts/xbbtools` | — | shipped and broken in both | §2.1 | Not measurable this way; see the trap above. Decide on the code, not a count. |
+| `Scripts/xbbtools` | — | **removed here** (PR #86); shipped and broken upstream | §2.1 | Not measurable this way; see the trap above. Decide on the code, not a count. |
 
 ### The command line wrappers removed upstream in 1.86
 
@@ -1438,10 +1620,12 @@ outranks a crash, a crash outranks a missing feature, and anything reproduced
 outranks anything inferred. Every item below was checked against this fork's
 tree, not just read about.
 
-> **Status: seven of the fifteen have been adopted** — #3897, #4866, #4450,
-> #3812, #5127 (first commit only), #5181 (the `matrix.py` half only, as
-> planned) and #5175. Rows are marked **adopted** below; `ADOPTED.md` records
-> what was taken and what was left behind on each.
+> **Status: fourteen of the fifteen have been adopted** — #3897, #4866,
+> #4450, #3812, #5127 (first commit only), #5181 (the `matrix.py` half only,
+> as planned), #5175, and now #4390, #3911, #4938, #5121, #5244, #4918 and
+> #4634. Rows are marked **adopted** below; `ADOPTED.md` records what was
+> taken and what was left behind on each. The one remaining candidate is
+> #5157 (PDBList mirror support).
 
 | | upstream | defect | effort |
 |---|---|---|---|
@@ -1450,16 +1634,16 @@ tree, not just read about.
 | 3 | [#4450](https://github.com/biopython/biopython/pull/4450) **adopted** | one non-standard month in a PDB `HEADER` aborts the whole parse with `ValueError: list.index(x)`, naming no file or field | S |
 | 4 | [#3812](https://github.com/biopython/biopython/pull/3812) **adopted** | one residue with missing atoms destroys an entire HSExposure calculation, because `_get_cb` returns `(None, 0.0)` where the caller checks for `None` | S |
 | 5 | [#5127](https://github.com/biopython/biopython/pull/5127) **adopted** | `polar_angle` is read from uninitialised memory wherever the radius is zero | S |
-| 6 | [#4390](https://github.com/biopython/biopython/pull/4390) | `auth_residues=False` staples auth insertion codes onto label numbering, giving residue ids that exist in neither scheme | S |
+| 6 | [#4390](https://github.com/biopython/biopython/pull/4390) **adopted** | `auth_residues=False` staples auth insertion codes onto label numbering, giving residue ids that exist in neither scheme | S |
 | 7 | [#5181](https://github.com/biopython/biopython/pull/5181) **adopted** | `calculate_consensus` raises `UnboundLocalError` on an all-zero column — take the `matrix.py` half only, see below | S |
-| 8 | [#3911](https://github.com/biopython/biopython/pull/3911) | the GenBank writer emits multi-line qualifiers that its own parser then rejects | M |
-| 9 | [#4938](https://github.com/biopython/biopython/pull/4938) | `PDBList` still fetches MMTF from a host RCSB decommissioned; BinaryCIF, which this fork already parses, cannot be fetched at all | S |
+| 8 | [#3911](https://github.com/biopython/biopython/pull/3911) **adopted** | the GenBank writer emits multi-line qualifiers that its own parser then rejects | M |
+| 9 | [#4938](https://github.com/biopython/biopython/pull/4938) **adopted** | `PDBList` still fetches MMTF from a host RCSB decommissioned; BinaryCIF, which this fork already parses, cannot be fetched at all | S |
 | 10 | [#5175](https://github.com/biopython/biopython/pull/5175) **adopted** | nine `assert`s validating input in production code, which vanish under `python -O` — the same defect as §0.8 | S |
-| 11 | [#5121](https://github.com/biopython/biopython/pull/5121) | mmCIF parsing is ~50% slower than it needs to be for want of a six-line fast path | S |
-| 12 | [#5244](https://github.com/biopython/biopython/pull/5244) | every SAM file written has `TLEN` 0 on every record | M |
-| 13 | [#4918](https://github.com/biopython/biopython/pull/4918) | GenBank `LOCUS` lines with molecule type `NA` are rejected outright | S |
+| 11 | [#5121](https://github.com/biopython/biopython/pull/5121) **adopted** | mmCIF parsing is ~50% slower than it needs to be for want of a six-line fast path | S |
+| 12 | [#5244](https://github.com/biopython/biopython/pull/5244) **adopted** | every SAM file written has `TLEN` 0 on every record | M |
+| 13 | [#4918](https://github.com/biopython/biopython/pull/4918) **adopted** | GenBank `LOCUS` lines with molecule type `NA` are rejected outright | S |
 | 14 | [#5157](https://github.com/biopython/biopython/pull/5157) | `PDBList` hardcodes wwPDB paths, so EBI and other mirrors cannot be used | S |
-| 15 | [#4634](https://github.com/biopython/biopython/pull/4634) | no way to resolve polytomies in `Bio.Phylo`, which many downstream tools require | S |
+| 15 | [#4634](https://github.com/biopython/biopython/pull/4634) **adopted** | no way to resolve polytomies in `Bio.Phylo`, which many downstream tools require | S |
 
 Two defects were found while surveying and belong to no pull request:
 
@@ -1499,8 +1683,8 @@ Two defects were found while surveying and belong to no pull request:
 1. **§0.11–0.14 before anything else.** These are memory-safety defects in C
    code, three of them reproduced as segfaults, and §0.11 is reachable from a
    malformed input file. All four are S-effort. §0.11 in particular should be
-   treated as a security fix, not a bug fix. *(Done — all four are fixed;
-   only §0.13's remaining hardening is open.)*
+   treated as a security fix, not a bug fix. *(Done — all four are
+   fully fixed, §0.13's hardening included.)*
 2. **The rest of Tier 0.** Mostly S-effort, and it is where users are actively
    getting wrong answers. §0.1–0.4 are reproduced and unambiguous. Fix the
    `Tests/test_ProtParam.py` fixture that currently pins §0.1 in place.
@@ -1508,25 +1692,33 @@ Two defects were found while surveying and belong to no pull request:
    under `PYTHONWARNINGS`), §4.4 (the runner breaks in a clean venv) and the
    committed NCBI API key in §4.5. All S-effort, and everything below is
    verified by running the tests, so this comes first among the non-urgent work.
-   *(Done — all three of those specifics are fixed; §4.4's missing `test`
-   extra and §4.5's skip accounting remain.)*
+   *(Done — all three specifics are fixed, and §4.4's `test` extra and
+   §4.5's skip accounting have since landed too.)*
 4. **§3.1 and §3.6** — supply-chain pinning and making mypy actually see numpy
    are both S-effort and make every later change safer to land. *(Done in the
    parts that motivated this step; each entry lists its remainder.)*
 5. **§1.6 then §1.3** — turn on `check_untyped_defs` with a ratchet baseline
    before annotating, so the annotation work is checked as it lands.
+   *(§1.6 is done; §1.3, the annotation work itself, is the open half.)*
 6. **§1.7 (import cost)** and **§1.11 (FASTQ hot path)** are the highest
    user-visible-value M-effort items, and §1.11(a) is nearly free.
+   *(Both are done except their deliberately deferred remainders:
+   `Restriction` laziness and §1.11(b).)*
 7. **Tier 2 cruft** can proceed in parallel with anything; start with §2.1,
-   which breaks nothing because it is already broken.
+   which breaks nothing because it is already broken. *(Done — §2.1, §2.3
+   and §2.4 are removed, §2.2 is deprecated pending removal; what remains
+   are §2.5's decision and §2.6's `colour` aliases.)*
 8. **§4.2 and §4.3** — removing the cwd dependency and moving to a real runner
    unlock parallelism and per-test reporting, which makes every later item
    cheaper to verify.
 9. **§1.1, §1.2 and §1.4** are the L-effort structural items. Do §1.4 first —
-   it is the smallest, and it fixes §0.7 properly.
+   it is the smallest, and it fixes §0.7 properly. *(§1.4 is done; §1.1 and
+   §1.2 remain.)*
 10. **§1.9 then §1.10** — releasing the GIL is what makes the free-threading
     work worthwhile, but §1.10's static-state cleanup is a prerequisite for
-    doing §1.9 safely under a free-threaded build.
+    doing §1.9 safely under a free-threaded build. *(The aligner and kdtrees
+    kernels release the GIL and the static-state cleanup is done; the
+    multi-phase-init migration is the open remainder.)*
 
 ---
 
