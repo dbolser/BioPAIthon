@@ -11,6 +11,7 @@
 
 """Unit tests for those parts of the Bio.PDB module using Bio.PDB.kdtrees."""
 
+import threading
 import unittest
 
 try:
@@ -185,6 +186,135 @@ class KDTreeTest(unittest.TestCase):
                     self.assertEqual(neighbor1.index1, neighbor2.index1)
                     self.assertEqual(neighbor1.index2, neighbor2.index2)
                     self.assertAlmostEqual(neighbor1.radius, neighbor2.radius)
+
+
+class KDTreeThreadTest(unittest.TestCase):
+    """Concurrent KDTree builds and searches give the same results as serial ones.
+
+    The tree build sorts with per-dimension comparators (it used to go
+    through a file-scope sort dimension) and the build/search kernels
+    release the GIL, so builds and searches in different threads really
+    do interleave; these tests check they do not interfere.
+    """
+
+    nr_points = 2000
+    bucket_size = 5
+    radius = 0.05
+    iterations = 20
+
+    @staticmethod
+    def _point_set(points):
+        return {(point.index, round(point.radius, 9)) for point in points}
+
+    @staticmethod
+    def _neighbor_set(neighbors):
+        return {
+            (neighbor.index1, neighbor.index2, round(neighbor.radius, 9))
+            for neighbor in neighbors
+        }
+
+    def _run_in_threads(self, worker, n_threads):
+        barrier = threading.Barrier(n_threads)
+        errors = []
+
+        def run(thread_index):
+            try:
+                barrier.wait()
+                worker(thread_index)
+            except Exception as exception:  # noqa: BLE001
+                errors.append(exception)
+
+        threads = [
+            threading.Thread(target=run, args=(thread_index,))
+            for thread_index in range(n_threads)
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        if errors:
+            raise errors[0]
+
+    def test_concurrent_build_and_search(self):
+        """Two threads building and searching distinct trees agree with serial runs."""
+        n_threads = 2
+        datasets = [random((self.nr_points, 3)) for i in range(n_threads)]
+        centers = [random(3) for i in range(n_threads)]
+
+        # Serial reference results.
+        expected = []
+        for coords, center in zip(datasets, centers):
+            kdt = kdtrees.KDTree(coords, self.bucket_size)
+            expected.append(
+                (
+                    self._point_set(kdt.search(center, 10 * self.radius)),
+                    self._neighbor_set(kdt.neighbor_search(self.radius)),
+                )
+            )
+
+        def worker(thread_index):
+            coords = datasets[thread_index]
+            center = centers[thread_index]
+            expected_points, expected_neighbors = expected[thread_index]
+            for i in range(self.iterations):
+                kdt = kdtrees.KDTree(coords, self.bucket_size)
+                points = self._point_set(kdt.search(center, 10 * self.radius))
+                neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+                self.assertEqual(points, expected_points)
+                self.assertEqual(neighbors, expected_neighbors)
+
+        self._run_in_threads(worker, n_threads)
+
+    def test_concurrent_search_same_tree(self):
+        """Two threads searching one shared tree agree with a serial run."""
+        n_threads = 2
+        coords = random((self.nr_points, 3))
+        center = random(3)
+        kdt = kdtrees.KDTree(coords, self.bucket_size)
+        expected_points = self._point_set(kdt.search(center, 10 * self.radius))
+        expected_neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+
+        def worker(thread_index):
+            for i in range(self.iterations):
+                points = self._point_set(kdt.search(center, 10 * self.radius))
+                neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+                self.assertEqual(points, expected_points)
+                self.assertEqual(neighbors, expected_neighbors)
+
+        self._run_in_threads(worker, n_threads)
+
+    def test_concurrent_mixed_search_same_tree(self):
+        """Tree searches and the simple search interleave safely on one tree.
+
+        neighbor_simple_search sorts a private copy of the point list; if
+        it sorted the shared list in place, the tree searches running in
+        the other thread would read a scrambled list and return wrong
+        results (as would any later search on this tree).
+        """
+        coords = random((self.nr_points, 3))
+        center = random(3)
+        kdt = kdtrees.KDTree(coords, self.bucket_size)
+        expected_points = self._point_set(kdt.search(center, 10 * self.radius))
+        expected_neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+
+        def worker(thread_index):
+            for i in range(self.iterations):
+                if thread_index == 0:
+                    points = self._point_set(kdt.search(center, 10 * self.radius))
+                    neighbors = self._neighbor_set(kdt.neighbor_search(self.radius))
+                else:
+                    points = expected_points
+                    neighbors = self._neighbor_set(
+                        kdt.neighbor_simple_search(self.radius)
+                    )
+                self.assertEqual(points, expected_points)
+                self.assertEqual(neighbors, expected_neighbors)
+
+        self._run_in_threads(worker, 2)
+        # The simple search must not have perturbed the tree.
+        self.assertEqual(
+            self._point_set(kdt.search(center, 10 * self.radius)), expected_points
+        )
 
 
 if __name__ == "__main__":
