@@ -11,8 +11,6 @@ __all__ = [
     "BiopythonWarning",
     "CodonAlignment",
     "CodonSeq",
-    "Iterable",
-    "Mapping",
     "SeqRecord",
     "build",
     "mktest",

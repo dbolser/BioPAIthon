@@ -14,11 +14,6 @@ value decomposition, which is used in the algorithm.
 
 __all__ = [
     "SVDSuperimposer",
-    "det",
-    "dot",
-    "sqrt",
-    "svd",
-    "transpose",
 ]
 
 try:

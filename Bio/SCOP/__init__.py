@@ -54,8 +54,6 @@ __all__ = [
     "nodeCodeDict",
     "nodeCodeOrder",
     "parse_domain",
-    "urlencode",
-    "urlopen",
 ]
 
 import os

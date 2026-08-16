@@ -18,12 +18,9 @@ and MAST programs, as well as files in the TRANSFAC format.
 __all__ = [
     "Alignment",
     "Motif",
-    "Request",
     "create",
     "parse",
     "read",
-    "urlencode",
-    "urlopen",
     "write",
 ]
 

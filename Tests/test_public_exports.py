@@ -53,6 +53,21 @@ REEXPORTING_PACKAGES = [
 ]
 
 
+def _is_our_name(obj):
+    """Whether the object is defined in this distribution (PRIVATE).
+
+    Functions and classes merely imported from the standard library or
+    numpy (``urlopen``, ``deepcopy``, ``sqrt``...) are implementation
+    details, not API, and must not appear in ``__all__``: exporting them
+    makes ``import *`` inject stdlib names and turns removing an internal
+    import into an API break.  Objects with no ``__module__`` -- plain
+    data such as dictionaries and strings -- are kept, since they can only
+    have been defined by the package itself.
+    """
+    module = getattr(obj, "__module__", None)
+    return module is None or module.startswith(("Bio", "BioSQL"))
+
+
 class TestPublicExports(unittest.TestCase):
     """Each package declares __all__, and it matches what the package holds."""
 
@@ -84,7 +99,9 @@ class TestPublicExports(unittest.TestCase):
             public = {
                 n
                 for n in dir(module)
-                if not n.startswith("_") and not inspect.ismodule(getattr(module, n))
+                if not n.startswith("_")
+                and not inspect.ismodule(getattr(module, n))
+                and _is_our_name(getattr(module, n))
             }
             with self.subTest(package=name):
                 self.assertEqual(public, set(module.__all__))
