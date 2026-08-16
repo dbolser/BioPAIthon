@@ -110,6 +110,22 @@ Verified unreported in the GitHub tracker and still present on upstream
 - **`cpairwise2.rint` parses `int` with `"l"`.** A genuine LP64 stack
   overwrite, but reachable only from the deprecated `Bio.pairwise2`.
 
+- **TwoBit `__getitem__` mis-slices three ways.** Reproduced here and on
+  stock Biopython 1.85: `_twoBitIO.c` truncates `(end - start) / step`
+  instead of ceiling-dividing, so extended slices silently drop the final
+  base (`seq[0::3]` loses the last codon position unless `len % 3 == 0`);
+  negative-step slices compute a negative byte count and raise
+  `RuntimeError` (`seq[::-1]`); and an integer index equal to the record
+  length reads a base from the *next* record's packed data instead of
+  raising `IndexError`. Needs a duplicate-check against the tracker and
+  re-verification on `master` before filing.
+- **`BgzfWriter` crashes on poorly-compressible input.** ~64 KB of
+  high-entropy data deflates past the 65,536-byte block cap and raises
+  `RuntimeError: TODO - Didn't compress enough`; compressed sizes
+  65,511–65,536 slip the guard and fail later in `struct.pack("<H", ...)`.
+  htslib caps per-block input instead. Reproduced on 1.85; needs the same
+  duplicate-check before filing.
+
 ## Disclosed, in progress
 
 Both of the memory-safety findings have now been passed on. Neither is closed.
