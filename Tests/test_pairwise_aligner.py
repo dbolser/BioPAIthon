@@ -7,6 +7,7 @@
 
 import array
 import os
+import subprocess
 import sys
 import unittest
 
@@ -22435,6 +22436,101 @@ AlignmentCounts object with
                 extend_right_deletions = 0.
 """,
         )
+
+
+class TestMatrixAllocationGuards(unittest.TestCase):
+    """Length validation and matrix-size guards for align() and score().
+
+    The aligner stores sequence lengths as C int and allocates an
+    O(len(A) * len(B)) traceback matrix; these tests check that lengths
+    that cannot be handled are rejected with a clear error instead of
+    being silently truncated or dying on an unexplained out-of-memory.
+    """
+
+    def huge_zeros(self, length):
+        # An untouched np.zeros only reserves address space (the pages
+        # are lazily zero-filled), so on 64-bit systems these gigabytes
+        # are virtual; skip on platforms that refuse the reservation.
+        try:
+            return np.zeros(length, dtype=np.int32)
+        except MemoryError:
+            self.skipTest(f"cannot reserve address space for {length} letters")
+
+    @unittest.skipUnless(sys.maxsize > 2**32, "requires a 64-bit build")
+    def test_sequence_length_rejected(self):
+        # Lengths that do not fit the aligner's int storage must raise a
+        # ValueError naming both lengths, for score() and align() alike.
+        aligner = Align.PairwiseAligner()
+        big = self.huge_zeros(2**31)  # beyond the maximum of INT_MAX - 1
+        small = np.zeros(4, dtype=np.int32)
+        for method in (aligner.score, aligner.align):
+            with self.assertRaises(ValueError) as cm:
+                method(big, small)
+            message = str(cm.exception)
+            self.assertIn("sequences too long", message)
+            self.assertIn(str(2**31), message)
+            self.assertIn("at most", message)
+
+    @unittest.skipUnless(sys.maxsize > 2**32, "requires a 64-bit build")
+    def test_traceback_matrix_size_overflow(self):
+        # Two maximum-length sequences pass the length check, but the
+        # Waterman-Smith-Beyer traceback matrix would overflow size_t;
+        # the guard must fail cleanly before anything quadratic is
+        # allocated (this returns quickly, nothing large is touched).
+        aligner = Align.PairwiseAligner()
+        aligner.insertion_score = lambda index, length: -length
+        aligner.deletion_score = lambda index, length: -length
+        self.assertEqual(
+            aligner.algorithm, "Waterman-Smith-Beyer global alignment algorithm"
+        )
+        big = self.huge_zeros(2**31 - 2)  # exactly the maximum length
+        with self.assertRaises(MemoryError) as cm:
+            aligner.align(big, big)
+        message = str(cm.exception)
+        self.assertIn(str(2**31 - 2), message)
+        self.assertIn("more than this platform can address", message)
+
+    def test_fogsaa_matrix_int_overflow(self):
+        # Regression test: (nA+1)*(nB+1) was computed in int arithmetic
+        # when allocating the FOGSAA matrix, so two ~2-megabase sequences
+        # wrapped the product and under-allocated the matrix, corrupting
+        # the heap. Now the predicted 176 TB allocation must fail with a
+        # MemoryError naming the size and the sequence lengths.
+        #
+        # Run this in a child process. AddressSanitizer aborts by default
+        # when an allocation exceeds its own limit instead of returning
+        # NULL to the caller; allocator_may_return_null lets this test reach
+        # the extension's normal MemoryError path without taking down the
+        # complete test run.
+        code = """
+import numpy as np
+from Bio import Align
+
+aligner = Align.PairwiseAligner()
+aligner.mode = "fogsaa"
+n = 2**21
+sequence = np.zeros(n, dtype=np.int32)
+for method in (aligner.score, aligner.align):
+    try:
+        method(sequence, sequence)
+    except MemoryError as error:
+        message = str(error)
+        assert str(n) in message
+        assert "bytes" in message
+    else:
+        raise AssertionError("impossible FOGSAA allocation did not fail")
+"""
+        env = os.environ.copy()
+        options = env.get("ASAN_OPTIONS", "")
+        env["ASAN_OPTIONS"] = f"{options}:allocator_may_return_null=1"
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=60,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
 if __name__ == "__main__":

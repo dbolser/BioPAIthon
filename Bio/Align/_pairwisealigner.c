@@ -9,7 +9,9 @@
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include <float.h>
+#include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include "_pairwisealigner.h"
 #include "substitution_matrices/_arraycore.h"
 
@@ -63,6 +65,14 @@ typedef struct {
     int* MIy;
     int* IxIy;
 } TraceGapsWatermanSmithBeyer;
+
+/* Sequence lengths are stored as int, and the matrix loops run to i <= n
+ * inclusive, so n + 1 must still fit in an int; in addition, a single
+ * matrix row of up to sizeof(TraceGapsWatermanSmithBeyer) bytes per letter
+ * must not overflow size_t (which only binds on 32-bit platforms). */
+#define MAX_SEQUENCE_LENGTH \
+    ((Py_ssize_t)Py_MIN((size_t)INT_MAX - 1, \
+                        SIZE_MAX / sizeof(TraceGapsWatermanSmithBeyer) - 1))
 
 typedef struct {
     PyObject_HEAD
@@ -4404,6 +4414,48 @@ static PyGetSetDef Aligner_getset[] = {
     M_row[i][j] = score; \
     M[i][j].trace = trace;
 
+/* Calculate the number of bytes needed for an alignment matrix of
+ * (nA+1) x (nB+1) cells of cellsize bytes each, plus rowpointers arrays
+ * of nA+1 row pointers each, and store it in *nbytes.  If the calculation
+ * would overflow size_t, set a MemoryError naming the predicted size and
+ * the two sequence lengths and return false, so that the overflow becomes
+ * a clear error instead of undefined behavior. */
+static bool
+_matrix_size(int nA, int nB, size_t cellsize, int rowpointers, size_t* nbytes)
+{
+    const size_t na = (size_t)nA + 1;
+    const size_t nb = (size_t)nB + 1;
+    const size_t overhead = (size_t)rowpointers * sizeof(void*);
+    if (nb <= (SIZE_MAX - overhead) / cellsize) {
+        const size_t rowsize = nb * cellsize + overhead;
+        if (na <= SIZE_MAX / rowsize) {
+            *nbytes = na * rowsize;
+            return true;
+        }
+    }
+    {
+        char size[32];
+        PyOS_snprintf(size, sizeof(size), "%.4g",
+                      (double)na * (double)nb * (double)cellsize);
+        PyErr_Format(PyExc_MemoryError,
+                     "aligning sequences of length %d and %d would need a "
+                     "%s byte matrix, more than this platform can address",
+                     nA, nB, size);
+    }
+    return false;
+}
+
+/* Report a failed alignment matrix allocation, naming the predicted size
+ * and the two sequence lengths. */
+static void
+_set_matrix_memory_error(int nA, int nB, size_t nbytes)
+{
+    PyErr_Format(PyExc_MemoryError,
+                 "failed to allocate the %zu bytes needed to align "
+                 "sequences of length %d and %d",
+                 nbytes, nA, nB);
+}
+
 struct fogsaa_cell {
     double present_score, lower, upper;
     int type, filled, is_left_gap;
@@ -4419,7 +4471,7 @@ struct fogsaa_queue_node {
     double next_lower, next_upper;
 };
 
-#define MATRIX(a, b) matrix[a * (nB+1) + b]
+#define MATRIX(a, b) matrix[(size_t)(a) * (nB+1) + (b)]
 
 #define FOGSAA_SORT() \
   for (i = 0; i < 2; i++) { \
@@ -5986,8 +6038,11 @@ exit: \
 
 #define WATERMANSMITHBEYER_EXIT_ALIGN \
 exit: \
-    if (ok) /* otherwise, an exception was already set */ \
-        PyErr_SetNone(PyExc_MemoryError); \
+    if (ok) { /* otherwise, an exception was already set */ \
+        size_t nbytes; \
+        if (_matrix_size(nA, nB, 3 * sizeof(double), 3, &nbytes)) \
+            _set_matrix_memory_error(nA, nB, nbytes); \
+    } \
     Py_DECREF(paths); \
     if (M_row) { \
         /* If M is NULL, then Ix is also NULL. */ \
@@ -6072,9 +6127,17 @@ exit: \
 
 #define FOGSAA_DO(align_score) \
     /* allocate and initialize matrix */ \
-    matrix = PyMem_Calloc((nA+1) * (nB+1), sizeof(struct fogsaa_cell)); \
-    if (!matrix) \
-        return PyErr_NoMemory(); \
+    { \
+        size_t nbytes; \
+        if (!_matrix_size(nA, nB, sizeof(struct fogsaa_cell), 0, &nbytes)) \
+            return NULL; \
+        matrix = PyMem_Calloc(((size_t)nA + 1) * ((size_t)nB + 1), \
+                              sizeof(struct fogsaa_cell)); \
+        if (!matrix) { \
+            _set_matrix_memory_error(nA, nB, nbytes); \
+            return NULL; \
+        } \
+    } \
     MATRIX(0, 0).present_score = 0; \
     MATRIX(0, 0).type = STARTPOINT; \
     FOGSAA_CALCULATE_SCORE(MATRIX(0, 0).present_score, STARTPOINT, MATRIX(0, 0).lower, MATRIX(0, 0).upper, 0, 0); \
@@ -6370,8 +6433,11 @@ exit: \
         return NULL; \
     } \
     paths = PathGenerator_create_FOGSAA(nA, nB, strand); \
+    if (!paths) { \
+        PyMem_Free(matrix); \
+        return NULL; \
+    } \
     M = paths->M; \
-    if (!paths) return NULL; \
     \
     /* copy only the cells of the optimal path to trace and path */ \
     i = nA; \
@@ -6415,6 +6481,9 @@ PathGenerator_create_NWSW(int nA, int nB, Mode mode, unsigned char strand)
     unsigned char trace = 0;
     Trace** M;
     PathGenerator* paths;
+    size_t nbytes;
+
+    if (!_matrix_size(nA, nB, sizeof(Trace), 1, &nbytes)) return NULL;
 
     paths = (PathGenerator*)PyType_GenericAlloc(&PathGenerator_Type, 0);
     if (!paths) return NULL;
@@ -6455,7 +6524,7 @@ PathGenerator_create_NWSW(int nA, int nB, Mode mode, unsigned char strand)
     return paths;
 exit:
     Py_DECREF(paths);
-    PyErr_SetNone(PyExc_MemoryError);
+    _set_matrix_memory_error(nA, nB, nbytes);
     return NULL;
 }
 
@@ -6467,6 +6536,7 @@ PathGenerator_create_Gotoh(int nA, int nB, Mode mode, unsigned char strand)
     Trace** M;
     TraceGapsGotoh** gaps;
     PathGenerator* paths;
+    size_t nbytes;
 
     switch (mode) {
         case Global: trace = 0; break;
@@ -6475,6 +6545,9 @@ PathGenerator_create_Gotoh(int nA, int nB, Mode mode, unsigned char strand)
             ERR_UNEXPECTED_MODE
             return NULL;
     }
+
+    if (!_matrix_size(nA, nB, sizeof(Trace) + sizeof(TraceGapsGotoh), 2,
+                      &nbytes)) return NULL;
 
     paths = (PathGenerator*)PyType_GenericAlloc(&PathGenerator_Type, 0);
     if (!paths) return NULL;
@@ -6537,7 +6610,7 @@ PathGenerator_create_Gotoh(int nA, int nB, Mode mode, unsigned char strand)
     return paths;
 exit:
     Py_DECREF(paths);
-    PyErr_SetNone(PyExc_MemoryError);
+    _set_matrix_memory_error(nA, nB, nbytes);
     return NULL;
 }
 
@@ -6549,6 +6622,11 @@ PathGenerator_create_WSB(int nA, int nB, Mode mode, unsigned char strand)
     Trace** M = NULL;
     TraceGapsWatermanSmithBeyer** gaps = NULL;
     PathGenerator* paths;
+    size_t nbytes;
+
+    if (!_matrix_size(nA, nB,
+                      sizeof(Trace) + sizeof(TraceGapsWatermanSmithBeyer), 2,
+                      &nbytes)) return NULL;
 
     paths = (PathGenerator*)PyType_GenericAlloc(&PathGenerator_Type, 0);
     if (!paths) return NULL;
@@ -6632,7 +6710,7 @@ PathGenerator_create_WSB(int nA, int nB, Mode mode, unsigned char strand)
     return paths;
 exit:
     Py_DECREF(paths);
-    PyErr_SetNone(PyExc_MemoryError);
+    _set_matrix_memory_error(nA, nB, nbytes);
     return NULL;
 }
 
@@ -6642,6 +6720,9 @@ PathGenerator_create_FOGSAA(int nA, int nB, unsigned char strand)
     int i;
     Trace** M;
     PathGenerator* paths;
+    size_t nbytes;
+
+    if (!_matrix_size(nA, nB, sizeof(Trace), 1, &nbytes)) return NULL;
 
     paths = (PathGenerator*)PyType_GenericAlloc(&PathGenerator_Type, 0);
     if (!paths) return NULL;
@@ -6669,7 +6750,7 @@ PathGenerator_create_FOGSAA(int nA, int nB, unsigned char strand)
     return paths;
 exit:
     Py_DECREF(paths);
-    PyErr_SetNone(PyExc_MemoryError);
+    _set_matrix_memory_error(nA, nB, nbytes);
     return NULL;
 }
 
@@ -7394,11 +7475,19 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
         if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
     }
 
-    nA = (int) (bA.len / bA.itemsize);
-    nB = (int) (bB.len / bB.itemsize);
-    if (nA != bA.len / bA.itemsize || nB != bB.len / bB.itemsize) {
-        PyErr_SetString(PyExc_ValueError, "sequences too long");
-        goto exit;
+    {
+        const Py_ssize_t lA = bA.len / bA.itemsize;
+        const Py_ssize_t lB = bB.len / bB.itemsize;
+        if (lA > MAX_SEQUENCE_LENGTH || lB > MAX_SEQUENCE_LENGTH) {
+            PyErr_Format(PyExc_ValueError,
+                         "sequences too long (%zd and %zd letters); the "
+                         "pairwise aligner supports at most %zd letters "
+                         "per sequence",
+                         lA, lB, MAX_SEQUENCE_LENGTH);
+            goto exit;
+        }
+        nA = (int) lA;
+        nB = (int) lB;
     }
     sA = bA.buf;
     sB = bB.buf;
@@ -7513,11 +7602,19 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
     }
 
-    nA = (int) (bA.len / bA.itemsize);
-    nB = (int) (bB.len / bB.itemsize);
-    if (nA != bA.len / bA.itemsize || nB != bB.len / bB.itemsize) {
-        PyErr_SetString(PyExc_ValueError, "sequences too long");
-        goto exit;
+    {
+        const Py_ssize_t lA = bA.len / bA.itemsize;
+        const Py_ssize_t lB = bB.len / bB.itemsize;
+        if (lA > MAX_SEQUENCE_LENGTH || lB > MAX_SEQUENCE_LENGTH) {
+            PyErr_Format(PyExc_ValueError,
+                         "sequences too long (%zd and %zd letters); the "
+                         "pairwise aligner supports at most %zd letters "
+                         "per sequence",
+                         lA, lB, MAX_SEQUENCE_LENGTH);
+            goto exit;
+        }
+        nA = (int) lA;
+        nB = (int) lB;
     }
     sA = bA.buf;
     sB = bB.buf;
