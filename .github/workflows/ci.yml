@@ -52,7 +52,7 @@ jobs:
         safe_output: "false"
 
     # Cache CI packages
-    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       id: cache-precommit
       with:
         path: ~/.cache/pre-commit
@@ -110,7 +110,7 @@ jobs:
     # Skipped on scheduled runs so the weekly build installs everything
     # fresh. With this step skipped, cache-hit below is empty (not "true"),
     # so the install step runs, and nothing is saved back to the cache.
-    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       if: github.event_name != 'schedule'
       id: cache-pip
       with:
@@ -230,7 +230,7 @@ jobs:
     # one in linux_prep, which populates this cache. Skipped on scheduled
     # runs so the weekly build installs everything fresh (cache-hit is then
     # empty, so the install step below runs).
-    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       if: github.event_name != 'schedule'
       id: cache-pip
       with:
@@ -457,7 +457,7 @@ jobs:
     # which share this runner and Python version but hold a different
     # environment. Skipped on scheduled runs so the weekly build installs
     # everything fresh (cache-hit is then empty, so the install step runs).
-    - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
       if: github.event_name != 'schedule'
       id: cache-pip
       with:
