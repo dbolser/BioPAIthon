@@ -55,6 +55,12 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.vectors.Vector.angle`` now raises ``ValueError`` for zero-length
+vectors instead of returning an incorrect angle. This also affects
+``calc_angle`` and ``calc_dihedral`` when their defining points coincide or
+do not define the required planes. Valid planar dihedral angles remain
+supported, with an angle of 180 degrees returned as positive pi.
+
 Rerooting a ``Bio.Phylo`` tree no longer lengthens it. When the outgroup
 given to ``root_with_outgroup`` was a child of the old root and
 ``outgroup_branch_length`` was not zero, the new root was put on the
