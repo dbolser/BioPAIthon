@@ -235,6 +235,11 @@ U:   0.50   0.17   0.50   0.17   0.50
         )
         self.assertEqual(str(m_rna.reverse_complement().pwm), expected_reverse_rna_pwm)
 
+    def test_counts_and_alignment_both_given(self):
+        m = motifs.create([Seq("ATATA")])
+        with self.assertRaisesRegex(ValueError, "either counts or an alignment"):
+            motifs.Motif(counts=m.counts, alignment=m.alignment)
+
 
 class TestDegenerateConsensus(unittest.TestCase):
     """Tests for degenerate_consensus on alphabets of fewer than four letters."""

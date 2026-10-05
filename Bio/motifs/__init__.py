@@ -202,8 +202,8 @@ class Motif:
 
         self.name = ""
         if counts is not None and alignment is not None:
-            raise Exception(
-                ValueError, "Specify either counts or an alignment, don't specify both"
+            raise ValueError(
+                "Specify either counts or an alignment, don't specify both"
             )
         elif counts is not None:
             self.alignment = None
