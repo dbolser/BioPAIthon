@@ -58,6 +58,12 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.AlignIO.MafIO.MafIndex.close()`` now closes the MAF file as well as the
+SQLite index. It used to close only the index, leaving the MAF file open until
+the object was garbage collected, so the one job its docstring gives it —
+releasing handles so the file can be deleted on Windows — did not work, and a
+``ResourceWarning`` followed.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

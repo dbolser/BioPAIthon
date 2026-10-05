@@ -313,6 +313,7 @@ class MafIndex:
         - for example if you wish to delete the file, on Windows
         you must first close all open handles to that file.
         """
+        self._maf_fp.close()
         self._con.close()
         self._record_count = 0
 
