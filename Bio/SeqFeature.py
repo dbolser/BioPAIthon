@@ -61,6 +61,7 @@ Exceptions:
 
 """
 
+import copy
 import functools
 import re
 import warnings
@@ -271,13 +272,14 @@ class SeqFeature:
     def _shift(self, offset):
         """Return a copy of the feature with its location shifted (PRIVATE).
 
-        The annotation qualifiers are copied.
+        The annotation qualifiers are copied, each value one level deep, so
+        editing a qualifier list on the copy leaves this feature's alone.
         """
         return SeqFeature(
             location=self.location._shift(offset),
             type=self.type,
             id=self.id,
-            qualifiers=self.qualifiers.copy(),
+            qualifiers={k: copy.copy(v) for k, v in self.qualifiers.items()},
         )
 
     def _flip(self, length):
@@ -288,13 +290,14 @@ class SeqFeature:
         after flipping 10..30 (-1 strand). Strandless (None) or unknown
         strand (0) remain like that - just their end points are changed.
 
-        The annotation qualifiers are copied.
+        The annotation qualifiers are copied, each value one level deep, so
+        editing a qualifier list on the copy leaves this feature's alone.
         """
         return SeqFeature(
             location=self.location._flip(length),
             type=self.type,
             id=self.id,
-            qualifiers=self.qualifiers.copy(),
+            qualifiers={k: copy.copy(v) for k, v in self.qualifiers.items()},
         )
 
     def extract(self, parent_sequence, references=None):

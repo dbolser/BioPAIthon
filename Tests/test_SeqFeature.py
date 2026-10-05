@@ -214,6 +214,28 @@ class TestSeqFeature(unittest.TestCase):
         with self.assertRaises(TranslationError):
             f.translate(seq)
 
+    def _assert_qualifiers_isolated(self, derive):
+        """Editing a derived record's qualifier list must not reach the parent."""
+        record = SeqRecord.SeqRecord(
+            Seq.Seq("ACGTACGTAC"),
+            features=[
+                SeqFeature(
+                    SimpleLocation(3, 6, 1), type="gene", qualifiers={"note": ["a"]}
+                )
+            ],
+        )
+        derived = derive(record)
+        derived.features[0].qualifiers["note"].append("EVIL")
+        self.assertEqual(record.features[0].qualifiers["note"], ["a"])
+
+    def test_slice_isolates_qualifier_values(self):
+        self._assert_qualifiers_isolated(lambda record: record[2:8])
+
+    def test_reverse_complement_isolates_qualifier_values(self):
+        self._assert_qualifiers_isolated(
+            lambda record: record.reverse_complement(features=True)
+        )
+
 
 class TestHashing(unittest.TestCase):
     """Tests that the value objects defining __eq__ are usable in sets."""

@@ -501,6 +501,14 @@ Relatedly, a failed concatenation of per-letter annotations in ``__add__`` now
 raises a ``TypeError`` naming the offending key and the two incompatible types,
 instead of printing to stdout and re-raising a message with no detail.
 
+Features on a sliced or reverse-complemented ``SeqRecord`` no longer share
+their qualifier values with the original's features. ``SeqFeature._shift``
+and ``_flip`` copied the qualifiers dictionary but not its values, so
+appending to a ``note`` list on a feature of ``record[2:8]`` or
+``record.reverse_complement(features=True)`` also changed the parent's
+feature. Each value is now copied one level deep, which covers the lists of
+strings the parsers produce.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
