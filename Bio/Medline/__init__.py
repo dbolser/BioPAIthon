@@ -224,10 +224,9 @@ def read(handle):
         raise ValueError("No records found in handle") from None
     try:
         next(records)
-        raise ValueError("More than one record found in handle")
     except StopIteration:
-        pass
-    return record
+        return record
+    raise ValueError("More than one record found in handle")
 
 
 if __name__ == "__main__":

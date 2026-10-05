@@ -172,6 +172,17 @@ Passing it positionally, as in ``CodonAligner(table, 10)``, now raises
 ``TypeError``. Passed by keyword, ``anchor_len=...`` is stored as a plain
 attribute and still does nothing. Either way, delete the argument.
 
+Bio.Medline.read
+----------------
+Changed in BioPAIthon 1.88 without a deprecation period. ``read`` now enforces
+the exactly-one-record contract its docstring and the Tutorial always
+described, like ``Bio.SeqIO.read`` and the other ``read`` functions. A handle
+holding more than one record raises ``ValueError("More than one record found
+in handle")`` instead of silently returning the first record, and an empty
+handle raises ``ValueError("No records found in handle")`` instead of a bare
+``StopIteration``. Code that relied on getting the first of several records
+should use ``next(Bio.Medline.parse(handle))``.
+
 Bio.Entrez
 ----------
 The ``egquery`` function wrapping the NCBI EGQuery (Entrez Global Query)
