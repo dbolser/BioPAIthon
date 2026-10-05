@@ -103,6 +103,15 @@ incompressible data cannot fit in a BGZF block. Each block now holds at most
 which always fits. Files are still valid BGZF and read back unchanged, but
 their block boundaries differ from those written by earlier versions.
 
+``Bio.Medline.read()`` now enforces the exactly-one-record contract its
+docstring and the Tutorial always described, matching ``Bio.SeqIO.read``,
+``Bio.AlignIO.read`` and the other ``read()`` functions. A handle with more
+than one record raises ``ValueError("More than one record found in handle")``
+instead of silently returning the first, and an empty handle raises
+``ValueError("No records found in handle")`` instead of a bare
+``StopIteration``. Code that used ``read()`` to take the first of several
+records should use ``next(Bio.Medline.parse(handle))``.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
