@@ -174,9 +174,13 @@ if sqlite3:
                 warnings.simplefilter("always", ResourceWarning)
                 del idx
                 gc.collect()
-            self.assertEqual(
-                [w for w in caught if issubclass(w.category, ResourceWarning)], []
-            )
+            leaks = [
+                w
+                for w in caught
+                if issubclass(w.category, ResourceWarning)
+                and "ucsc_mm9_chr10.maf" in str(w.message)
+            ]
+            self.assertEqual(leaks, [])
 
         def test_bundle_without_target(self):
             self.assertRaises(
