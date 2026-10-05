@@ -69,6 +69,16 @@ class OldSelfTests(unittest.TestCase):
             "Nexus/vSysLab_Oreiscelio_discrete+continuous.nex",
         )
 
+    def test_standard_data_error_is_nexus_error(self):
+        """A bad standard-datatype coding raises Nexus.NexusError."""
+        nexus = Nexus.Nexus()
+        with self.assertRaisesRegex(Nexus.NexusError, "Improper character"):
+            nexus.read(
+                "#NEXUS\nbegin data;\ndimensions ntax=2 nchar=3;\n"
+                'format datatype=standard symbols="01";\n'
+                "matrix\na 01)\nb 010\n;\nend;\n"
+            )
+
 
 class NexusTest1(unittest.TestCase):
     def setUp(self):

@@ -58,6 +58,13 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.Nexus`` now has a single ``NexusError`` exception class.
+``Bio.Nexus.StandardData`` defined its own, unrelated class of the same name,
+so a malformed standard-datatype matrix read through ``Bio.Nexus.Nexus``
+raised an error that ``except Nexus.NexusError`` did not catch.
+``Bio.Nexus.Nexus.NexusError`` and ``Bio.Nexus.StandardData.NexusError`` are
+now the same class, so both import paths keep working.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
