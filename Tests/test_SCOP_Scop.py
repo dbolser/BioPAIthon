@@ -8,6 +8,7 @@
 """Unit test for Scop."""
 
 import unittest
+from contextlib import redirect_stdout
 from io import StringIO
 
 from Bio.SCOP import cmp_sccs
@@ -66,6 +67,20 @@ class ScopTests(unittest.TestCase):
         self.assertIsNone(dom)
         dom = scop.getDomainBySid("no such domain")
         self.assertIsNone(dom)
+
+    def testHieSunidMissingFromDes(self):
+        with open("./SCOP/dir.cla.scop.txt_test") as f:
+            cla = f.read()
+        with open("./SCOP/dir.des.scop.txt_test") as f:
+            des = f.read()
+        with open("./SCOP/dir.hie.scop.txt_test") as f:
+            hie = f.read() + "99999\t-\t-\n"
+
+        stdout = StringIO()
+        with redirect_stdout(stdout):
+            with self.assertRaisesRegex(ValueError, "99999"):
+                Scop(StringIO(cla), StringIO(des), StringIO(hie))
+        self.assertEqual(stdout.getvalue(), "")
 
     def testSccsOrder(self):
         self.assertEqual(cmp_sccs("a.1.1.1", "a.1.1.1"), 0)
