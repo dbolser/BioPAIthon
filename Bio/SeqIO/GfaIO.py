@@ -25,10 +25,12 @@ from .Interfaces import SequenceIterator
 
 def _check_tags(seq, tags):
     """Check a segment line's tags for inconsistencies (PRIVATE)."""
+    # A segment without sequence data is empty (GFA1) or undefined (GFA2)
+    absent = len(seq) == 0 or not seq.defined
     for tag in tags:
         if tag[:2] == "LN":
             # Sequence length
-            if len(seq) == 0:
+            if absent:
                 # No sequence data, set the sequence length
                 seq._data = _UndefinedSequenceData(int(tag[5:]))
             elif int(tag[5:]) != len(seq):
@@ -36,8 +38,8 @@ def _check_tags(seq, tags):
                     f"Segment line has incorrect length. Expected {tag[5:]} but got {len(seq)}.",
                     BiopythonWarning,
                 )
-        elif tag[:2] == "SH":
-            # SHA256 checksum
+        elif tag[:2] == "SH" and not absent:
+            # SHA256 checksum, which cannot be verified without sequence data
             checksum = hashlib.sha256(str(seq).encode()).hexdigest()
             if checksum.upper() != tag[5:]:
                 warnings.warn(
