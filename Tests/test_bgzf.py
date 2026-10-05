@@ -11,6 +11,7 @@ See also the doctests in bgzf.py which are called via run_tests.py
 import gzip
 import io
 import os
+import random
 import tempfile
 import unittest
 from random import shuffle
@@ -48,22 +49,22 @@ class BgzfTests(unittest.TestCase):
         self.assertEqual(data, new_data)
 
     def check_blocks(self, old_file, new_file):
-        """Verify newly created BGZF file has similar blocks to original.
+        """Verify newly created BGZF file has the expected blocks.
 
-        We originally assumed it would have the same blocks, since zlib
-        behaviour has been near static for years. However, there is scope
-        for changes in default compression level or the zlib implementation
-        (e.g. zlib-ng) which breaks that assumption.
+        The writer puts 0xff00 bytes of data in each block, as htslib does,
+        so the blocks need not match the original file (some were written
+        with 65536 bytes per block). We confirm the same amount of data, in
+        full blocks bar the last, then the empty EOF block.
 
-        Therefore, from (start, raw_len, data_start, data_len) for each
-        block we only confirm that the data values match (and allow for
-        the compressed representation to vary).
+        From (start, raw_len, data_start, data_len) for each block we only
+        check the data values, as the compressed representation can vary
+        with the compression level or the zlib implementation (e.g. zlib-ng).
         """
         with open(old_file, "rb") as h:
-            old = [
-                (data_start, data_len)
+            size = sum(
+                data_len
                 for (start, raw_len, data_start, data_len) in bgzf.BgzfBlocks(h)
-            ]
+            )
 
         with open(new_file, "rb") as h:
             new = [
@@ -71,8 +72,12 @@ class BgzfTests(unittest.TestCase):
                 for (start, raw_len, data_start, data_len) in bgzf.BgzfBlocks(h)
             ]
 
-        self.assertEqual(len(old), len(new))
-        self.assertEqual(old, new)
+        expected = [
+            (data_start, min(0xFF00, size - data_start))
+            for data_start in range(0, size, 0xFF00)
+        ]
+        expected.append((size, 0))
+        self.assertEqual(new, expected)
 
     def check_text(self, old_file, new_file):
         """Check text mode using explicit open/close."""
@@ -474,6 +479,43 @@ class BgzfTests(unittest.TestCase):
             self.assertEqual(len(data), 4 * n + 1)
             self.assertEqual(data[:4], b"\x01\x02\x03\x04")
             self.assertEqual(data[-5:], b"\x01\x02\x03\x04\n")
+
+    def test_write_incompressible(self):
+        """Check high-entropy data writes a valid BGZF file.
+
+        Such data deflates to slightly more than its input size. 65536 bytes
+        then overflowed the block (RuntimeError), and 65500 bytes gave a block
+        size which did not fit the 16-bit BSIZE field (struct.error).
+        """
+        rng = random.Random(4)
+        for compresslevel in (6, 0):
+            for chunks in (
+                [rng.randbytes(65500)],
+                [rng.randbytes(65536), b"Magic", rng.randbytes(65536)],
+                [rng.randbytes(200000), b"Magic", rng.randbytes(200000)],
+            ):
+                sizes = [len(chunk) for chunk in chunks]
+                with self.subTest(compresslevel=compresslevel, sizes=sizes):
+                    offsets = []
+                    with bgzf.BgzfWriter(
+                        self.temp_file, "wb", compresslevel=compresslevel
+                    ) as h:
+                        for chunk in chunks:
+                            offsets.append(h.tell())
+                            h.write(chunk)
+                    data = b"".join(chunks)
+                    # BGZF is valid multi-member GZIP:
+                    with gzip.open(self.temp_file, "rb") as h:
+                        self.assertEqual(h.read(), data)
+                    with open(self.temp_file, "rb") as h:
+                        for start, raw_len, data_start, data_len in bgzf.BgzfBlocks(h):
+                            self.assertLessEqual(raw_len, 65536)
+                    with bgzf.BgzfReader(self.temp_file, "rb") as h:
+                        self.assertEqual(h.read(len(data)), data)
+                        self.assertEqual(h.read(1), b"")
+                        for offset, chunk in zip(offsets, chunks):
+                            h.seek(offset)
+                            self.assertEqual(h.read(len(chunk)), chunk)
 
     def test_BgzfBlocks_TypeError(self):
         """Check get expected TypeError from BgzfBlocks."""

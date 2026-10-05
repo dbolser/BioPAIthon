@@ -58,6 +58,15 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.bgzf.BgzfWriter`` can now write data which does not compress, such as
+random bytes or already compressed content. It used to raise ``RuntimeError``
+("Didn't compress enough") once about 64 KB of such data was buffered, or a
+``struct.error`` for slightly smaller blocks, because 65536 bytes of
+incompressible data cannot fit in a BGZF block. Each block now holds at most
+0xff00 (65280) bytes of data, as htslib's ``bgzip`` and ``samtools`` write,
+which always fits. Files are still valid BGZF and read back unchanged, but
+their block boundaries differ from those written by earlier versions.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
