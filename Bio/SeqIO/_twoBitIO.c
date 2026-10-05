@@ -398,9 +398,15 @@ TwoBit_convert(PyObject* self, PyObject* args, PyObject* keywords)
                                      &blocks_converter, &maskBlocks))
         return NULL;
 
-    if (step > 0) size = (end - start + step - 1) / step;
-    else size = (start - end - step - 1) / (-step);
-    if (size < 0) size = 0;
+    if (step == 0) {
+        PyErr_SetString(PyExc_ValueError, "slice step cannot be zero");
+        blocks_converter(NULL, &nBlocks);
+        blocks_converter(NULL, &maskBlocks);
+        return NULL;
+    }
+    /* overflow-safe slice length, as in PySlice_AdjustIndices */
+    if (step > 0) size = (start < end) ? (end - start - 1) / step + 1 : 0;
+    else size = (end < start) ? 1 - (start - end - 1) / step : 0;
     object = PyBytes_FromStringAndSize(NULL, size);
     if (!object) goto exit;
 
@@ -430,12 +436,12 @@ TwoBit_convert(PyObject* self, PyObject* args, PyObject* keywords)
             current = start - end - 1; /* last position in sequence */
         }
         full_sequence = PyMem_Malloc((full_end-full_start+1)*sizeof(char));
-        full_sequence[full_end-full_start] = '\0';
         if (!full_sequence) {
             Py_DECREF(object);
             object = NULL;
             goto exit;
         }
+        full_sequence[full_end-full_start] = '\0';
         if (extract(data, length, full_start, full_end, full_sequence) < 0) {
             PyMem_Free(full_sequence);
             Py_DECREF(object);
@@ -444,8 +450,8 @@ TwoBit_convert(PyObject* self, PyObject* args, PyObject* keywords)
         }
         applyNs(full_sequence, full_start, full_end, &nBlocks);
         applyMask(full_sequence, full_start, full_end, &maskBlocks);
-        for (i = 0; i < size; current += step, i++)
-            sequence[i] = full_sequence[current];
+        for (i = 0; i < size; i++)
+            sequence[i] = full_sequence[current + i * step];
         PyMem_Free(full_sequence);
     }
 

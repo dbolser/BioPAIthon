@@ -1,11 +1,15 @@
 """Tests for SeqIO TwoBitIO module."""
 
+import sys
 import unittest
+
+import numpy as np
 
 from Bio import SeqIO
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
 from Bio.Seq import UndefinedSequenceError
+from Bio.SeqIO import _twoBitIO  # type: ignore
 from Bio.SeqRecord import SeqRecord
 
 
@@ -67,11 +71,19 @@ class Parsing(unittest.TestCase):
                         with self.assertRaises(IndexError):
                             seq2[i]
                 positions = (None, -n - 5, -n, -7, -1, 0, 1, 5, 7, n - 1, n, n + 5)
+                steps = (None, 1, 2, 3, 4, 5, 7, -1, -2, -3, -4, -7)
+                steps += (sys.maxsize, -sys.maxsize, -sys.maxsize - 1)
                 for start in positions:
                     for stop in positions:
-                        for step in (None, 1, 2, 3, 4, 5, 7, -1, -2, -3, -4, -7):
+                        for step in steps:
                             key = slice(start, stop, step)
                             self.assertEqual(seq1[key], seq2[key], msg=key)
+
+    def test_convert_zero_step(self):
+        """Check the C helper rejects a zero step instead of dividing by it."""
+        blocks = np.empty((0, 2), dtype="uint32")
+        with self.assertRaises(ValueError):
+            _twoBitIO.convert(b"\x00", 0, 4, 0, blocks, blocks)
 
     def test_sequence_long(self):
         path = "TwoBit/sequence.long.2bit"
