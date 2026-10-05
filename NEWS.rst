@@ -504,9 +504,8 @@ instead of printing to stdout and re-raising a message with no detail.
 ``SeqRecord.upper()`` and ``SeqRecord.lower()`` no longer share per-letter
 annotation values with the original. They copied the ``letter_annotations``
 dictionary shallowly, so editing the derived record's ``phred_quality`` list
-also changed the parent's. The values are now copied the same way the
-annotations are. For a record with a long quality list the copy is now most of
-the cost of the call (about 0.6 ms per 10,000 scores).
+also changed the parent's. Each value is now copied one level deep, as the
+other derivations already do by slicing.
 
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and

@@ -143,9 +143,7 @@ def _copy_annotations(annotations: dict[str, Any]) -> dict[str, Any]:
     Copying the values is inexpensive here - annotations are metadata, a handful
     of short lists and a few ``Reference`` objects - so the correctness is worth
     the cost. The sequence and the features are much larger and are not touched
-    by this helper. ``upper`` and ``lower`` also use it for ``letter_annotations``,
-    whose values scale with the sequence length; there the copy dominates the
-    call, but the alternative is a quality list shared with the parent.
+    by this helper.
     """
     return {key: _copy_annotation_value(value) for key, value in annotations.items()}
 
@@ -1180,7 +1178,7 @@ class SeqRecord:
             letter_annotations=(
                 None
                 if self._per_letter_annotations is None
-                else _copy_annotations(self.letter_annotations)
+                else {k: copy.copy(v) for k, v in self.letter_annotations.items()}
             ),
         )
 
@@ -1231,7 +1229,7 @@ class SeqRecord:
             letter_annotations=(
                 None
                 if self._per_letter_annotations is None
-                else _copy_annotations(self.letter_annotations)
+                else {k: copy.copy(v) for k, v in self.letter_annotations.items()}
             ),
         )
 
