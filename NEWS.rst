@@ -58,6 +58,11 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+``Bio.Nexus`` no longer segfaults when the C extension ``cnexus`` cannot
+allocate its working buffer while reading a NEXUS file: it set ``MemoryError``
+but then carried on and wrote through the NULL pointer. It now raises
+``MemoryError``.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

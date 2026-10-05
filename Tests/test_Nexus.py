@@ -12,6 +12,7 @@
 """Tests for Nexus module."""
 
 import os.path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -28,6 +29,11 @@ from Bio.Nexus import Nexus
 from Bio.Nexus import Trees
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+try:
+    from Bio.Nexus import cnexus
+except ImportError:
+    cnexus = None
 
 
 class OldSelfTests(unittest.TestCase):
@@ -1600,6 +1606,44 @@ end;
         handle = StringIO()
         with self.assertRaises(ValueError):
             NexusWriter(handle).write_file([a, a])
+
+
+@unittest.skipIf(cnexus is None, "C extension Bio.Nexus.cnexus not available")
+@unittest.skipUnless(
+    sys.platform.startswith("linux") and sys.maxsize > 2**32,
+    "needs RLIMIT_AS to be enforced (Linux, 64-bit)",
+)
+class TestCnexusAllocationFailure(unittest.TestCase):
+    """cnexus.scanfile must raise MemoryError when it cannot allocate."""
+
+    def test_scanfile_out_of_memory(self):
+        # Regression test: scanfile set MemoryError when its working buffer
+        # could not be allocated, but then carried on and wrote through the
+        # NULL pointer (segfault). Cap the child's address space so that a
+        # 64 MB input fits but a second 64 MB buffer does not.
+        code = """
+import resource
+from Bio.Nexus import cnexus
+text = "A" * (64 * 1024 * 1024)
+cnexus.scanfile("warm up;")
+with open("/proc/self/status") as handle:
+    for line in handle:
+        if line.startswith("VmSize:"):
+            vmsize = int(line.split()[1]) * 1024
+limit = vmsize + 16 * 1024 * 1024
+resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+try:
+    cnexus.scanfile(text)
+except MemoryError:
+    print("MemoryError")
+"""
+        result = subprocess.run(
+            [sys.executable, "-W", "ignore", "-c", code],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "MemoryError")
 
 
 if __name__ == "__main__":
