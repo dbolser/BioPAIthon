@@ -763,6 +763,13 @@ class DerivedRecordIsolation(unittest.TestCase):
     def test_lower_isolates_letter_annotations(self):
         self._assert_letter_annotations_isolated(SeqRecord.lower)
 
+    def test_uncopyable_letter_annotation_does_not_break_upper_lower(self):
+        """A per-letter value that cannot be copied is shared, not raised over."""
+        view = memoryview(bytearray(4))
+        rec = SeqRecord(Seq("acgt"), letter_annotations={"q": view})
+        self.assertIs(rec.upper().letter_annotations["q"], view)
+        self.assertIs(rec.lower().letter_annotations["q"], view)
+
     def test_reverse_complement_isolates_annotations(self):
         self._assert_isolated(self.parent.reverse_complement(annotations=True))
 
