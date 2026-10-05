@@ -1623,26 +1623,43 @@ class TestCnexusAllocationFailure(unittest.TestCase):
         # 64 MB input fits but a second 64 MB buffer does not.
         code = """
 import resource
+import sys
 from Bio.Nexus import cnexus
 text = "A" * (64 * 1024 * 1024)
 cnexus.scanfile("warm up;")
-with open("/proc/self/status") as handle:
-    for line in handle:
-        if line.startswith("VmSize:"):
-            vmsize = int(line.split()[1]) * 1024
-limit = vmsize + 16 * 1024 * 1024
-resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+try:
+    with open("/proc/self/status") as handle:
+        vmsize = next(
+            int(line.split()[1]) * 1024
+            for line in handle
+            if line.startswith("VmSize:")
+        )
+    limit = vmsize + 16 * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+except (OSError, StopIteration, ValueError) as err:
+    print("SKIP", repr(err))
+    sys.exit()
 try:
     cnexus.scanfile(text)
 except MemoryError:
     print("MemoryError")
 """
+        # CI runs the suite with AddressSanitizer preloaded, whose allocator
+        # aborts on failure by default; ask it to return NULL like malloc.
+        env = os.environ.copy()
+        asan_options = env.get("ASAN_OPTIONS")
+        env["ASAN_OPTIONS"] = ":".join(
+            filter(None, [asan_options, "allocator_may_return_null=1"])
+        )
         result = subprocess.run(
             [sys.executable, "-W", "ignore", "-c", code],
             capture_output=True,
             text=True,
+            env=env,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+        if result.stdout.startswith("SKIP"):
+            self.skipTest(f"cannot cap the address space: {result.stdout.strip()}")
         self.assertEqual(result.stdout.strip(), "MemoryError")
 
 
