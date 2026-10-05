@@ -123,14 +123,18 @@ class _TwoBitSequenceData(SequenceDataAbstractBaseClass):
         else:
             if key < 0:
                 key += length
-                if key < 0:
-                    raise IndexError("index out of range")
+            if not 0 <= key < length:
+                raise IndexError("index out of range")
             start = key
             end = key + 1
             step = 1
             size = 1
-        byteStart = start // 4
-        byteEnd = (end + 3) // 4
+        if step > 0:
+            byteStart = start // 4
+            byteEnd = (end + 3) // 4
+        else:
+            byteStart = (end + 1) // 4
+            byteEnd = (start + 1 + 3) // 4
         byteSize = byteEnd - byteStart
         stream = self.stream
         try:

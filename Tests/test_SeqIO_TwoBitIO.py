@@ -51,6 +51,28 @@ class Parsing(unittest.TestCase):
                         self.assertEqual(seq1[i:j], seq2[i:j])
                         self.assertEqual(repr(seq1[i:j]), repr(seq2[i:j]))
 
+    def test_extended_slices_and_indices(self):
+        """Check slicing and indexing against an in-memory Seq."""
+        path = "TwoBit/sequence.littleendian.2bit"
+        with open(path, "rb") as stream:
+            records = SeqIO.parse(stream, "twobit")
+            for record1, record2 in zip(self.records, records):
+                seq1 = record1.seq
+                seq2 = record2.seq
+                n = len(seq1)
+                for i in range(-n - 3, n + 3):
+                    if -n <= i < n:
+                        self.assertEqual(seq1[i], seq2[i])
+                    else:
+                        with self.assertRaises(IndexError):
+                            seq2[i]
+                positions = (None, -n - 5, -n, -7, -1, 0, 1, 5, 7, n - 1, n, n + 5)
+                for start in positions:
+                    for stop in positions:
+                        for step in (None, 1, 2, 3, 4, 5, 7, -1, -2, -3, -4, -7):
+                            key = slice(start, stop, step)
+                            self.assertEqual(seq1[key], seq2[key], msg=key)
+
     def test_sequence_long(self):
         path = "TwoBit/sequence.long.2bit"
         with open(path, "rb") as stream:

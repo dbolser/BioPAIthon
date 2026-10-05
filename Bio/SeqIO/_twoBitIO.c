@@ -398,7 +398,9 @@ TwoBit_convert(PyObject* self, PyObject* args, PyObject* keywords)
                                      &blocks_converter, &maskBlocks))
         return NULL;
 
-    size = (end - start) / step;
+    if (step > 0) size = (end - start + step - 1) / step;
+    else size = (start - end - step - 1) / (-step);
+    if (size < 0) size = 0;
     object = PyBytes_FromStringAndSize(NULL, size);
     if (!object) goto exit;
 
