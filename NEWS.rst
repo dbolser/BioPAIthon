@@ -58,6 +58,12 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+The ``gfa2`` parser in ``Bio.SeqIO`` now keeps the length of a segment whose
+sequence is given as ``*``. A segment line with length 100 and sequence
+``*`` used to give a record of length 0, discarding the mandatory length
+field; it now gives a record of length 100 with undefined sequence, as
+the ``gfa1`` parser already did for a ``*`` segment with an ``LN:i:`` tag.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

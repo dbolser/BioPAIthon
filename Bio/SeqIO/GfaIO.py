@@ -197,14 +197,14 @@ class Gfa2Iterator(SequenceIterator):
                 f"Segment line must have name, length, and sequence fields: {line}."
             )
         try:
-            int(fields[2])
+            length = int(fields[2])
         except ValueError:
             raise ValueError(
                 f"Segment line must have an integer length: {line}."
             ) from None
 
         if fields[3] == "*":
-            seq = Seq(None, length=0)
+            seq = Seq(None, length=length)
         else:
             seq = Seq(fields[3])
 

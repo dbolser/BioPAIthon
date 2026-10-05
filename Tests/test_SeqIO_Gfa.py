@@ -1,6 +1,7 @@
 """Tests for SeqIO GFA module."""
 
 import unittest
+from io import StringIO
 
 from Bio import BiopythonWarning
 from Bio import SeqIO
@@ -39,6 +40,12 @@ class TestRead(unittest.TestCase):
         records = list(SeqIO.parse("GFA/fake_gfa2.gfa", "gfa2"))
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0].seq, "AAA")
+
+    def test_read_GFA2_no_seq(self):
+        """Test a GFA 2.0 segment without sequence keeps its length."""
+        record = SeqIO.read(StringIO("S\ts1\t100\t*\n"), "gfa2")
+        self.assertEqual(len(record), 100)
+        self.assertFalse(record.seq.defined)
 
 
 class TestCorrupt(unittest.TestCase):
