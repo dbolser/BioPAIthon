@@ -4,6 +4,13 @@
 
 """Tests for Array in the Bio.Align.substitution_matrices module."""
 
+import os
+import pickle
+import subprocess
+import sys
+import unittest
+from collections import Counter
+
 try:
     import numpy as np
 except ImportError:
@@ -13,21 +20,39 @@ except ImportError:
         "Install NumPy if you want to use Bio.Align.substitution_matrices."
     ) from None
 
-
-import os
-import pickle
-import unittest
-from collections import Counter
-
 from Bio import SeqIO
 from Bio.Align import substitution_matrices
 from Bio.Data import IUPACData
+
 
 nucleotide_alphabet = IUPACData.unambiguous_dna_letters
 protein_alphabet = IUPACData.protein_letters
 
 
 class TestBasics(unittest.TestCase):
+    @unittest.skipUnless(sys.implementation.name == "cpython", "requires CPython")
+    def test_arraycore_import_preserves_references(self):
+        extension = sys.modules["Bio.Align.substitution_matrices._arraycore"].__file__
+        tests = (
+            "ArrayCoreImportTests.test_successful_import",
+            "ArrayCoreImportTests.test_missing_ndarray",
+            "ArrayCoreImportTests.test_invalid_ndarray",
+            "ArrayCoreImportTests.test_poisoned_retry",
+        )
+        for test in tests:
+            with self.subTest(test=test):
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "Tests.arraycore_import_tests",
+                        test,
+                        extension,
+                    ],
+                    check=True,
+                    cwd=os.path.dirname(os.path.dirname(__file__)),
+                )
+
     def test_basics_vector(self):
         """Test basic vector operations."""
         counts = substitution_matrices.Array("XYZ")
@@ -129,10 +154,10 @@ Z  0.0
         """Test nucleotide frequency calculations."""
         counts = Counter()
         path = os.path.join("Align", "ecoli.fa")
-        records = SeqIO.parse(path, "fasta")
-        for record in records:
-            for nucleotide in record.seq:
-                counts[nucleotide] += 1
+        with SeqIO.parse(path, "fasta") as records:
+            for record in records:
+                for nucleotide in record.seq:
+                    counts[nucleotide] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, sorted(nucleotide_alphabet))
         path = os.path.join("Align", "ecoli.txt")
@@ -154,10 +179,10 @@ Z  0.0
         self.assertAlmostEqual(frequencies["T"], 0.204928664072632)
         counts = Counter()
         path = os.path.join("Align", "bsubtilis.fa")
-        records = SeqIO.parse(path, "fasta")
-        for record in records:
-            for nucleotide in record.seq:
-                counts[nucleotide] += 1
+        with SeqIO.parse(path, "fasta") as records:
+            for record in records:
+                for nucleotide in record.seq:
+                    counts[nucleotide] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, sorted(nucleotide_alphabet))
         path = os.path.join("Align", "bsubtilis.txt")
@@ -182,10 +207,10 @@ Z  0.0
         """Test amino acid frequency calculations."""
         counts = Counter()
         path = os.path.join("Align", "cow.fa")
-        records = SeqIO.parse(path, "fasta")
-        for record in records:
-            for aminoacid in record.seq:
-                counts[aminoacid] += 1
+        with SeqIO.parse(path, "fasta") as records:
+            for record in records:
+                for aminoacid in record.seq:
+                    counts[aminoacid] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, list(protein_alphabet))
         path = os.path.join("Align", "cow.txt")
@@ -223,10 +248,10 @@ Z  0.0
         self.assertAlmostEqual(frequencies["Y"], 0.031971154)
         counts = Counter()
         path = os.path.join("Align", "pig.fa")
-        records = SeqIO.parse(path, "fasta")
-        for record in records:
-            for aminoacid in record.seq:
-                counts[aminoacid] += 1
+        with SeqIO.parse(path, "fasta") as records:
+            for record in records:
+                for aminoacid in record.seq:
+                    counts[aminoacid] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, list(protein_alphabet))
         path = os.path.join("Align", "pig.txt")
@@ -295,22 +320,22 @@ class TestScoringMatrices(unittest.TestCase):
         aligner.mismatch = -1
         cow_path = "Align/cow.fa"
         pig_path = "Align/pig.fa"
-        cow_records = SeqIO.parse(cow_path, "fasta")
-        pig_records = SeqIO.parse(pig_path, "fasta")
-        for cow_record, pig_record in zip(cow_records, pig_records):
-            cow_sequence = cow_record.seq
-            pig_sequence = pig_record.seq
-            alignments = aligner.align(cow_sequence, pig_sequence)
-            assert len(alignments) == 1
-            alignment = alignments[0]
-            cow_aligned, pig_aligned = alignment.aligned
-            for cow_segment, pig_segment in zip(cow_aligned, pig_aligned):
-                cow_start, cow_end = cow_segment
-                pig_start, pig_end = pig_segment
-                cow_subsequence = cow_sequence[cow_start:cow_end]
-                pig_subsequence = pig_sequence[pig_start:pig_end]
-                for c1, c2 in zip(cow_subsequence, pig_subsequence):
-                    observed[c1, c2] += 1
+        with SeqIO.parse(cow_path, "fasta") as cow_records:
+            with SeqIO.parse(pig_path, "fasta") as pig_records:
+                for cow_record, pig_record in zip(cow_records, pig_records):
+                    cow_sequence = cow_record.seq
+                    pig_sequence = pig_record.seq
+                    alignments = aligner.align(cow_sequence, pig_sequence)
+                    assert len(alignments) == 1
+                    alignment = alignments[0]
+                    cow_aligned, pig_aligned = alignment.aligned
+                    for cow_segment, pig_segment in zip(cow_aligned, pig_aligned):
+                        cow_start, cow_end = cow_segment
+                        pig_start, pig_end = pig_segment
+                        cow_subsequence = cow_sequence[cow_start:cow_end]
+                        pig_subsequence = pig_sequence[pig_start:pig_end]
+                        for c1, c2 in zip(cow_subsequence, pig_subsequence):
+                            observed[c1, c2] += 1
         cls.observed = observed
 
     def test1_observed_frequencies(self):

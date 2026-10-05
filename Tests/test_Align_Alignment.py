@@ -54,7 +54,7 @@ class TestPrintedAlignmentParser(unittest.TestCase):
         self.assertEqual(parser.feed(b"ACGT", 4), (0, b""))
 
     def test_feed_offset_out_of_bounds(self):
-        for offset in (-1, 5):
+        for offset in (-1, 5, 100):
             with self.subTest(offset=offset):
                 parser = _aligncore.PrintedAlignmentParser()
                 with self.assertRaisesRegex(

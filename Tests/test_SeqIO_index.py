@@ -805,6 +805,34 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
                         self.assertEqual(records.get_raw(key), raw_records[key])
                 records.close()
 
+    def test_qual_empty_identifier(self):
+        """Index a QUAL record whose title is empty."""
+        data = b">named description\n1 2\n>\n3 4\n"
+        keys = ["named", ""]
+        qualities = {"named": [1, 2], "": [3, 4]}
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "empty_identifier.qual"
+            filename.write_bytes(data)
+
+            self.assertEqual(
+                [record.id for record in SeqIO.parse(filename, "qual")], keys
+            )
+            indexes = [SeqIO.index(filename, "qual")]
+            if sqlite3:
+                index_filename = Path(temp_dir) / "empty_identifier.idx"
+                indexes.append(SeqIO.index_db(index_filename, [filename], "qual"))
+
+            for records in indexes:
+                with self.subTest(index_type=type(records)):
+                    self.assertEqual(list(records), keys)
+                    for key in keys:
+                        self.assertEqual(
+                            records[key].letter_annotations["phred_quality"],
+                            qualities[key],
+                        )
+                records.close()
+
     def test_pir_empty_identifier(self):
         """Index a PIR record whose identifier is empty."""
         data = b">P1;named\ndescription\nAC*\n>P1;\ndescription\nGT*\n"

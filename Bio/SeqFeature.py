@@ -1222,7 +1222,10 @@ class SimpleLocation(Location):
             yield from range(self._start, self._end)
 
     def __eq__(self, other):
-        """Implement equality by comparing all the location attributes."""
+        """Implement equality by comparing all the location attributes.
+
+        See also __hash__, which is kept consistent with this method.
+        """
         if not isinstance(other, SimpleLocation):
             return False
         return (
@@ -1234,7 +1237,15 @@ class SimpleLocation(Location):
         )
 
     def __hash__(self):
-        """Return the hash value of the SimpleLocation object."""
+        """Implement hash with all the location attributes.
+
+        Based on start, end, strand, ref and ref_db, matching the attributes
+        used by __eq__. Note this reflects equality of coordinates (and,
+        where set, an external reference), not identity of the parent
+        sequence: two SimpleLocation objects with the same coordinates but
+        no ref/ref_db will compare equal and hash equal even if they were
+        created against different parent sequences.
+        """
         return hash((self._start, self._end, self._strand, self.ref, self.ref_db))
 
     def _shift(self, offset):
@@ -1564,7 +1575,10 @@ class CompoundLocation(Location):
             yield from loc
 
     def __eq__(self, other):
-        """Check if all parts of CompoundLocation are equal to all parts of other CompoundLocation."""
+        """Check if all parts of CompoundLocation are equal to all parts of other CompoundLocation.
+
+        See also __hash__, which is kept consistent with this method.
+        """
         if not isinstance(other, CompoundLocation):
             return False
         if len(self.parts) != len(other.parts):
@@ -1577,8 +1591,17 @@ class CompoundLocation(Location):
         return True
 
     def __hash__(self):
-        """Return the hash value of the CompoundLocation object."""
-        return hash((tuple(self.parts), self.operator))
+        """Implement hash with all the location attributes.
+
+        Based on operator and parts, matching the attributes used by
+        __eq__. Note this reflects equality of operator and part sequence,
+        not identity of the parent sequence: since each part's hash relies
+        on SimpleLocation.__hash__, two CompoundLocation objects made up of
+        parts with the same coordinates but no ref/ref_db will compare
+        equal and hash equal even if their parts were created against
+        different parent sequences.
+        """
+        return hash((self.operator, tuple(self.parts)))
 
     def _shift(self, offset):
         """Return a copy of the CompoundLocation shifted by an offset (PRIVATE)."""
