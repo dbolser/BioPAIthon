@@ -3086,7 +3086,8 @@ def reverse_complement_rna(sequence, inplace=False):
     If given a string, returns a new string object.
     Given a Seq object, returns a new Seq object.
     Given a MutableSeq, returns a new MutableSeq object.
-    Given a SeqRecord object, returns a new SeqRecord object.
+    Given a SeqRecord object, raises a TypeError; use
+    ``record.seq.reverse_complement_rna()`` or ``record.reverse_complement()``.
 
     >>> my_seq = "CGA"
     >>> reverse_complement_rna(my_seq)
@@ -3135,7 +3136,12 @@ def reverse_complement_rna(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
-        return sequence.reverse_complement_rna()
+        raise TypeError(
+            "reverse_complement_rna() does not accept a SeqRecord; use "
+            "record.seq.reverse_complement_rna() for the sequence, or "
+            "record.reverse_complement() for a SeqRecord (RNA if its "
+            "molecule_type annotation is RNA)"
+        )
     # Assume it's a string.
     if inplace:
         raise TypeError("strings are immutable")
@@ -3151,7 +3157,8 @@ def complement(sequence, inplace=False):
     If given a string, returns a new string object.
     Given a Seq object, returns a new Seq object.
     Given a MutableSeq, returns a new MutableSeq object.
-    Given a SeqRecord object, returns a new SeqRecord object.
+    Given a SeqRecord object, raises a TypeError; use
+    ``record.seq.complement()`` or ``record.reverse_complement()``.
 
     >>> my_seq = "CGA"
     >>> complement(my_seq)
@@ -3200,7 +3207,11 @@ def complement(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
-        return sequence.complement()
+        raise TypeError(
+            "complement() does not accept a SeqRecord; use "
+            "record.seq.complement() for the sequence, or "
+            "record.reverse_complement() for a reverse-complemented SeqRecord"
+        )
     # Assume it's a string.
     if inplace is True:
         raise TypeError("strings are immutable")
@@ -3215,7 +3226,8 @@ def complement_rna(sequence, inplace=False):
     If given a string, returns a new string object.
     Given a Seq object, returns a new Seq object.
     Given a MutableSeq, returns a new MutableSeq object.
-    Given a SeqRecord object, returns a new SeqRecord object.
+    Given a SeqRecord object, raises a TypeError; use
+    ``record.seq.complement_rna()`` or ``record.reverse_complement()``.
 
     >>> my_seq = "CGA"
     >>> complement_rna(my_seq)
@@ -3264,7 +3276,11 @@ def complement_rna(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
-        return sequence.complement_rna()
+        raise TypeError(
+            "complement_rna() does not accept a SeqRecord; use "
+            "record.seq.complement_rna() for the sequence, or "
+            "record.reverse_complement() for a reverse-complemented SeqRecord"
+        )
     # Assume it's a string.
     if inplace:
         raise TypeError("strings are immutable")
