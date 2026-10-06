@@ -5227,8 +5227,8 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
     """Return the optimal alignment of a nucleotide sequence to an amino acid sequence.
 
     This function creates a CodonAligner object and uses it to find the
-    optimal codon alignment of a nucleotide seqeuence seqA and an amino
-    acid sequence seqB using a dynamic programming algorithm.
+    optimal codon alignment of an amino acid sequence seqA and a nucleotide
+    sequence seqB using a dynamic programming algorithm.
 
     Arguments:
      - seqA        - the amino acid sequence (plain string, Seq, MutableSeq, or
