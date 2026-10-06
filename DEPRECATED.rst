@@ -106,6 +106,17 @@ can no longer be downloaded, and the ``mmtf-python`` package this module
 depends on last saw a release in 2022. Please use BinaryCIF files with
 ``Bio.PDB.binary_cif``, or mmCIF files with ``Bio.PDB.MMCIFParser``, instead.
 
+Bio.PDB.internal_coords
+-----------------------
+**This deprecation is BioPAIthon's own; Biopython has not deprecated this
+class.** The ``MissingAtomError`` exception was deprecated in BioPAIthon 1.88.
+Nothing has raised it since Biopython 1.80, which removed its only raise site;
+missing atoms are tolerated rather than treated as errors. Importing it, or
+reading it as an attribute of ``Bio.PDB.internal_coords``, now gives a
+``BiopythonDeprecationWarning``, and ``from Bio.PDB.internal_coords import *``
+no longer provides the name. An ``except MissingAtomError`` clause never runs,
+so it can simply be deleted.
+
 Bio.SeqIO.FastaIO
 -----------------
 Parsing a FASTA file using Bio.SeqIO.parse with ``format='fasta'`` interprets

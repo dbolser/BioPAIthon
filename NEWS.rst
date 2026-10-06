@@ -263,6 +263,13 @@ includes double quotes, which ``Bio.Nexus`` accepted: ``"a b"`` used to keep
 its double quotes and now becomes ``b"``. Malformed tree text raises
 ``NewickError`` instead of ``TreeError``; both subclass ``ValueError``.
 
+``Bio.PDB.internal_coords.MissingAtomError`` is deprecated. The module
+documentation listed it as one of its exceptions, but nothing has raised it
+since Biopython 1.80: atoms missing from a structure are tolerated, so a
+missing backbone atom breaks the chain there and angles that need a missing
+atom are ``None``. Importing the class now gives a
+``BiopythonDeprecationWarning``; see DEPRECATED.rst.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``
