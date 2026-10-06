@@ -89,7 +89,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                 elif key == "species":
                     fields.append("SP:%s" % value)
                 elif key == "topology":
-                    assert value in ("linear", "circular")
+                    if value not in ("linear", "circular"):
+                        raise ValueError(
+                            f"Expected topology 'linear' or 'circular' for "
+                            f"target {record.id}, found {value!r}"
+                        )
                     fields.append("PP:%s" % value)
                 elif key == "URI":
                     fields.append("UR:%s" % value)
@@ -203,7 +207,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                 tCount = tEnd - tStart
                 qCount = qEnd - qStart
                 if tCount == 0:
-                    assert operation == ord("I")
+                    if operation != ord("I"):
+                        raise ValueError(
+                            "Expected operation 'I' for a step that consumes "
+                            "only the query, found '%c'" % operation
+                        )
                     cigar += "%dI" % qCount  # insertion to the reference
                     qStart = qEnd
                 elif qCount == 0:
@@ -217,7 +225,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                 else:
                     if tCount != qCount:
                         raise ValueError("Unequal step sizes in alignment")
-                    assert operation == ord("M")
+                    if operation != ord("M"):
+                        raise ValueError(
+                            "Expected operation 'M' for a step that consumes "
+                            "both target and query, found '%c'" % operation
+                        )
                     cigar += "%dM" % tCount
                     tStart = tEnd
                     qStart = qEnd
@@ -493,7 +505,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 description = None
                 for field in fields[1:]:
                     key, value = field.split(":", 1)
-                    assert len(key) == 2
+                    if len(key) != 2:
+                        raise ValueError(
+                            f"Expected a two-letter tag in @SQ header field "
+                            f"{field!r}, found {key!r}"
+                        )
                     if key == "SN":
                         rname = value
                     elif key == "LN":
@@ -511,7 +527,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     elif key == "SP":
                         annotations["species"] = value
                     elif key == "TP":
-                        assert value in ("linear", "circular")
+                        if value not in ("linear", "circular"):
+                            raise ValueError(
+                                f"Expected TP:linear or TP:circular in @SQ "
+                                f"header line, found {field!r}"
+                            )
                         annotations["topology"] = value
                     elif key == "UR":
                         annotations["URI"] = value
@@ -527,7 +547,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             else:
                 for field in fields[1:]:
                     key, value = field.split(":", 1)
-                    assert len(key) == 2
+                    if len(key) != 2:
+                        raise ValueError(
+                            f"Expected a two-letter tag in @{tag} header field "
+                            f"{field!r}, found {key!r}"
+                        )
                     values[key] = value
                 if tag == "HD":
                     self.metadata[tag] = values
@@ -570,10 +594,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             for field in fields[11:]:
                 tag, datatype, value = field.split(":", 2)
                 if tag == "AS":
-                    assert datatype == "i"
+                    if datatype != "i":
+                        raise ValueError(
+                            f"Expected type 'i' for tag AS of {qname}, "
+                            f"found {field!r}"
+                        )
                     score = int(value)
                 elif tag == "MD":
-                    assert datatype == "Z"
+                    if datatype != "Z":
+                        raise ValueError(
+                            f"Expected type 'Z' for tag MD of {qname}, "
+                            f"found {field!r}"
+                        )
                     md = value
                 else:
                     if datatype == "i":
@@ -807,7 +839,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             else:
                 sequence = Seq(query)
                 if not (flag & 0x4):  # not unmapped
-                    assert len(query) == query_pos
+                    if len(query) != query_pos:
+                        raise ValueError(
+                            f"Expected {query_pos} letters in the sequence of "
+                            f"{qname} (from CIGAR {cigar}), found {len(query)}"
+                        )
                     if strand == "-":
                         sequence = sequence.reverse_complement()
             query = SeqRecord(sequence, id=qname, description="")

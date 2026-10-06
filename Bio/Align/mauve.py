@@ -57,7 +57,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
         else:
             # sequences came from one combined file
             for number, identifier in enumerate(identifiers):
-                assert number == int(identifier)
+                if int(identifier) != number:
+                    raise ValueError(
+                        f"Expected identifier {number} (the entry number in "
+                        f"{filename}) at position {number}, found {identifier!r}"
+                    )
                 number += 1
                 line = f"#Sequence{number}File\t{filename}\n"
                 stream.write(line)
@@ -116,7 +120,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                 strand = "-"
                 start, end = end, start
             if start == end:
-                assert start == 0
+                if start != 0:
+                    raise ValueError(
+                        f"Expected an unaligned sequence ({identifier}) to have "
+                        f"start and end 0, found {start}"
+                    )
             else:
                 start += 1  # switch to 1-based counting
             sequence = alignment[i]
@@ -162,7 +170,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     value = int(value) - 1  # Switch to 0-based counting
                 seq_num = int(key[len(prefix) : -len(suffix)])
                 id_info[suffix].append(value)
-                assert seq_num == len(id_info[suffix])  # Mauve uses 1-based counting
+                if seq_num != len(id_info[suffix]):  # Mauve uses 1-based counting
+                    raise ValueError(
+                        f"Expected #{prefix}{len(id_info[suffix])}{suffix}, "
+                        f"found:\n{line}"
+                    )
             else:
                 metadata[key] = value.strip()
         else:
@@ -174,24 +186,36 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             metadata["File"] = id_info["File"][0]
             self.identifiers = [str(entry) for entry in id_info["Entry"]]
         else:
-            assert len(set(id_info["File"])) == len(id_info["File"])
+            if len(set(id_info["File"])) != len(id_info["File"]):
+                raise ValueError(
+                    f"Expected either one sequence file or a different file for "
+                    f"each sequence, found {', '.join(id_info['File'])}"
+                )
             # Separate files for each of the sequences were provided as input;
             # use the sequence file as ID
             self.identifiers = id_info["File"]
         self.metadata = metadata
 
     def _parse_description(self, line):
-        assert line.startswith(">")
+        if not line.startswith(">"):
+            raise ValueError(f"Expected a line starting with '>', found:\n{line}")
         locus, strand, comments = line[1:].split(None, 2)
         seq_num, start_end = locus.split(":")
         seq_num = int(seq_num) - 1  # python counting
         identifier = self.identifiers[seq_num]
-        assert strand in "+-"
+        if strand not in ("+", "-"):
+            raise ValueError(
+                f"Expected strand '+' or '-', found {strand!r} in:\n{line}"
+            )
         start, end = start_end.split("-")
         start = int(start)
         end = int(end)
         if start == 0:
-            assert end == 0  # unaligned sequence
+            if end != 0:  # unaligned sequence
+                raise ValueError(
+                    f"Expected end 0 for an unaligned sequence (start 0), "
+                    f"found {end} in:\n{line}"
+                )
         else:
             start -= 1  # python counting
         return (identifier, start, end, strand, comments)
@@ -221,7 +245,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 records = []
                 for index, (description, seq) in enumerate(zip(descriptions, seqs)):
                     identifier, start, end, strand, comments = description
-                    assert len(seq) == end - start
+                    if len(seq) != end - start:
+                        raise ValueError(
+                            f"Expected {end - start} letters for {identifier}, "
+                            f"as its coordinates state, found {len(seq)}"
+                        )
                     if strand == "+":
                         pass
                     elif strand == "-":

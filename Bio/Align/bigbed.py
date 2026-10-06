@@ -83,17 +83,31 @@ class AutoSQLTable(list):
     @classmethod
     def from_bytes(cls, data):
         """Return an AutoSQLTable initialized using the bytes object data."""
-        assert data.endswith(b"\0")  # NULL-terminated string
+        if not data.endswith(b"\0"):
+            raise ValueError(
+                f"Expected the AutoSQL declaration to end with a NUL byte, "
+                f"found {data[-20:]!r}"
+            )
         text = data[:-1].decode()
         word, text = text.split(None, 1)
-        assert word == "table"
+        if word != "table":
+            raise ValueError(
+                f"Expected the AutoSQL declaration to start with 'table', found {word!r}"
+            )
         name, text = text.split(None, 1)
-        assert text.startswith('"')
+        if not text.startswith('"'):
+            raise ValueError(
+                f"Expected a quoted comment after the AutoSQL table name {name}, "
+                f"found {text[:30]!r}"
+            )
         i = text.find('"', 1)
         comment = text[1:i]
         text = text[i + 1 :].strip()
-        assert text.startswith("(")
-        assert text.endswith(")")
+        if not (text.startswith("(") and text.endswith(")")):
+            raise ValueError(
+                f"Expected the AutoSQL field definitions of table {name} to be "
+                f"enclosed in parentheses, found {text!r}"
+            )
         text = text[1:-1].strip()
         fields = []
         while text:
@@ -101,14 +115,18 @@ class AutoSQLTable(list):
             j = text.index('"', i + 1)
             field_comment = text[i + 1 : j]
             definition = text[:i].strip()
-            assert definition.endswith(";")
+            if not definition.endswith(";"):
+                raise ValueError(
+                    f"Expected AutoSQL field definition {definition!r} to end "
+                    f"with ';'"
+                )
             field_type, field_name = definition[:-1].rsplit(None, 1)
             if field_type.endswith("]"):
                 i = field_type.index("[")
                 data_type = field_type[:i]
             else:
                 data_type = field_type
-            assert data_type in (
+            if data_type not in (
                 "int",
                 "uint",
                 "short",
@@ -119,7 +137,10 @@ class AutoSQLTable(list):
                 "char",
                 "string",
                 "lstring",
-            )
+            ):
+                raise ValueError(
+                    f"Unknown AutoSQL data type {data_type!r} for field {field_name}"
+                )
             field = Field(field_type, field_name, field_comment)
             fields.append(field)
             text = text[j + 1 :].strip()
@@ -468,7 +489,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                     else:
                         rezoomed += summary
             buffer.flush()
-            assert len(regions) == initialReduction["size"]
+            if len(regions) != initialReduction["size"]:
+                raise RuntimeError(
+                    f"Internal error: expected {initialReduction['size']} zoom "
+                    f"level records, wrote {len(regions)}"
+                )
             zoomList[0].reductionLevel = initialReduction["scale"]
             indexOffset = output.tell()
             zoomList[0].indexOffset = indexOffset
@@ -583,7 +608,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
             expIds = alignment.annotations["expIds"]
             expScores = alignment.annotations["expScores"]
             expCount = len(expIds)
-            assert expCount == len(expScores)
+            if expCount != len(expScores):
+                raise ValueError(
+                    f"Expected as many expScores as expIds ({expCount}) in the "
+                    f"alignment annotations, found {len(expScores)}"
+                )
             row.append(str(expCount))
             row.append(",".join(expIds))
             row.append(",".join(str(expScore) for expScore in expScores))
@@ -725,7 +754,12 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 endFileOffset,
                 self.itemsPerSlot,
             ) = formatter.unpack(data)
-            assert signature == _RTreeFormatter.signature
+            if signature != _RTreeFormatter.signature:
+                raise ValueError(
+                    f"Expected R tree signature 0x{_RTreeFormatter.signature:08X} "
+                    f"for the zoom level index at offset {indexOffset}, "
+                    f"found 0x{signature:08X}"
+                )
         self.declaration = self._read_autosql(stream, header)
         stream.seek(fullDataOffset)
         (dataCount,) = struct.unpack(byteorder + "Q", stream.read(8))
@@ -947,7 +981,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
     def _create_alignment(
         self, chromId, chromStart, chromEnd, rest, dataStart, dataEnd
     ):
-        assert rest[dataEnd - 1] == 0
+        if rest[dataEnd - 1] != 0:
+            raise ValueError(
+                f"Expected the data of the bigBed item at {chromStart}-{chromEnd} "
+                f"to end with a NUL byte, found {rest[dataEnd - 1 : dataEnd]!r}"
+            )
         rest = rest[dataStart : dataEnd - 1]
         if rest:
             words = rest.decode().split("\t")
@@ -1188,7 +1226,10 @@ class _Header:
             header.uncompressBufSize,
             header.extraIndicesOffset,
         ) = formatter.unpack(data)
-        assert version == _Header.bbiCurrentVersion
+        if version != _Header.bbiCurrentVersion:
+            raise ValueError(
+                f"Expected bigBed version {_Header.bbiCurrentVersion}, found {version}"
+            )
         definedFieldCount = header.definedFieldCount
         if definedFieldCount < 3 or definedFieldCount > 12:
             raise ValueError(
@@ -1844,7 +1885,11 @@ class _RTreeFormatter:
             endFileOffset,
             itemsPerSlot,
         ) = self.formatter_header.unpack(data)
-        assert magic == _RTreeFormatter.signature
+        if magic != _RTreeFormatter.signature:
+            raise ValueError(
+                f"Expected R tree signature 0x{_RTreeFormatter.signature:08X}, "
+                f"found 0x{magic:08X}"
+            )
 
         formatter_node = self.formatter_node
         formatter_nonleaf = self.formatter_nonleaf
@@ -1882,7 +1927,11 @@ class _RTreeFormatter:
                 while True:
                     parent = node.parent
                     if parent is None:
-                        assert itemsCounted == itemCount
+                        if itemsCounted != itemCount:
+                            raise ValueError(
+                                f"Expected {itemCount} items in the R tree index "
+                                f"(as stated in its header), found {itemsCounted}"
+                            )
                         return node
                     for index, child in enumerate(parent.children):
                         if id(node) == id(child):
@@ -2136,7 +2185,16 @@ class _BPlusTreeFormatter:
         formatter = self.formatter_header
         data = stream.read(formatter.size)
         magic, blockSize, keySize, valSize, itemCount = formatter.unpack(data)
-        assert magic == _BPlusTreeFormatter.signature
+        if magic != _BPlusTreeFormatter.signature:
+            raise ValueError(
+                f"Expected B+ tree signature 0x{_BPlusTreeFormatter.signature:08X} "
+                f"for the chromosome index, found 0x{magic:08X}"
+            )
+        if valSize != 8:
+            raise ValueError(
+                f"Expected a value size of 8 bytes (chromosome ID and size) in "
+                f"the chromosome index, found {valSize}"
+            )
 
         formatter_node = self.formatter_node
         formatter_nonleaf = struct.Struct(self.fmt_nonleaf.format(keySize=keySize))
@@ -2146,8 +2204,6 @@ class _BPlusTreeFormatter:
         # chromId    4 bytes, unsigned
         # chromSize  4 bytes, unsigned
         formatter_leaf = struct.Struct(f"{byteorder}{keySize}sII")
-        assert keySize == formatter_leaf.size - valSize
-        assert valSize == 8
 
         Node = namedtuple("Node", ["parent", "children"])
 
@@ -2161,7 +2217,11 @@ class _BPlusTreeFormatter:
                     data = stream.read(formatter_leaf.size)
                     key, chromId, chromSize = formatter_leaf.unpack(data)
                     name = key.rstrip(b"\x00").decode()
-                    assert chromId == len(targets)
+                    if chromId != len(targets):
+                        raise ValueError(
+                            f"Expected chromosome ID {len(targets)} for {name} "
+                            f"in the chromosome index, found {chromId}"
+                        )
                     sequence = Seq(None, length=chromSize)
                     record = SeqRecord(sequence, id=name)
                     targets.append(record)
@@ -2175,7 +2235,11 @@ class _BPlusTreeFormatter:
                 node = Node(parent, children)
             while True:
                 if node is None:
-                    assert len(targets) == itemCount
+                    if len(targets) != itemCount:
+                        raise ValueError(
+                            f"Expected {itemCount} chromosomes in the chromosome "
+                            f"index (as stated in its header), found {len(targets)}"
+                        )
                     return targets
                 children = node.children
                 try:

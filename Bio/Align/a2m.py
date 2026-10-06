@@ -99,12 +99,22 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 state += "I"  # Insertion state
             else:
                 raise Exception("Unexpected letter '%s' in alignment" % c)
-        for line in lines[1:]:
-            for c, m in zip(line, state):
+        for name, line in zip(names[1:], lines[1:]):
+            for column, (c, m) in enumerate(zip(line, state), 1):
                 if m == "D":  # Match/deletion state
-                    assert c == "-" or c.isupper()
+                    if not (c == "-" or c.isupper()):
+                        raise ValueError(
+                            f"Expected an upper case letter or '-' (a match or "
+                            f"deletion column) in column {column} of sequence "
+                            f"{name}, found '{c}'"
+                        )
                 elif m == "I":  # Insertion state
-                    assert c == "." or c.islower()
+                    if not (c == "." or c.islower()):
+                        raise ValueError(
+                            f"Expected a lower case letter or '.' (an insertion "
+                            f"column) in column {column} of sequence {name}, "
+                            f"found '{c}'"
+                        )
                 else:
                     raise Exception("Unexpected letter '%s' in alignment" % c)
         for i, line in enumerate(lines):

@@ -142,7 +142,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         for line in stream:
             if line.startswith(" "):
                 # Sequence consensus line...
-                assert len(ids) > 0
+                if not ids:
+                    raise ValueError(
+                        f"Expected sequence lines before the consensus line, "
+                        f"found:\n{line}"
+                    )
                 assert index is not None
                 length = len(aligned_seq)  # noqa: F821
                 consensus = line[index : index + length]
@@ -187,10 +191,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
 
         # Confirm all same length
         length = len(aligned_seqs[0])
-        for aligned_seq in aligned_seqs:
-            assert len(aligned_seq) == length
+        for seqid, aligned_seq in zip(ids, aligned_seqs):
+            if len(aligned_seq) != length:
+                raise ValueError(
+                    f"Expected {length} columns for {seqid} in the first block, "
+                    f"as for {ids[0]}, found {len(aligned_seq)}"
+                )
         if consensus:
-            assert len(consensus) == length
+            if len(consensus) != length:
+                raise ValueError(
+                    f"Expected {length} columns in the consensus line of the "
+                    f"first block, found {len(consensus)}"
+                )
 
         n = len(aligned_seqs)
         i = 0
@@ -212,7 +224,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if len(fields) < 2 or len(fields) > 3:
                     raise ValueError("Could not parse line:\n%s" % line)
 
-                assert seqid == fields[0]
+                if fields[0] != seqid:
+                    raise ValueError(
+                        f"Expected sequence {seqid} (in the order of the first "
+                        f"block), found {fields[0]} in line:\n{line}"
+                    )
                 aligned_seq = fields[1]
                 aligned_seqs[i] += aligned_seq
 

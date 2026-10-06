@@ -105,7 +105,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         for line in stream:
             line = line.rstrip()
             if not line:
-                assert i == self._number_of_seqs
+                if i != self._number_of_seqs:
+                    raise ValueError(
+                        f"Expected {self._number_of_seqs} sequence lines in each "
+                        f"block of the interleaved alignment, found {i}"
+                    )
                 i = 0
             else:
                 seq = line.replace(" ", "")

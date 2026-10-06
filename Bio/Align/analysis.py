@@ -584,7 +584,11 @@ def _count_site_YN00(codons1, codons2, pi, k, codon_table):
 
     """
     length = len(codons1)
-    assert length == len(codons2)
+    if length != len(codons2):
+        raise ValueError(
+            f"Expected the same number of aligned codons in both sequences, "
+            f"found {length} and {len(codons2)}"
+        )
     purine = ("A", "G")
     pyrimidine = ("T", "C")
     bases = ("A", "T", "C", "G")

@@ -321,7 +321,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         for line in stream:
             if line.strip():
                 if not line.startswith("#"):
-                    assert line.startswith("a")
+                    if not line.startswith("a"):
+                        raise ValueError(
+                            f"Expected an 'a' line to start the first alignment "
+                            f"block, found:\n{line}"
+                        )
                     self._aline = line
                     break
                 comment = line[1:].strip()
@@ -385,28 +389,49 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 strands.append(strand)
             elif line.startswith("i "):
                 words = line.strip().split()
-                assert len(words) == 6
-                assert words[1] == src  # from the previous "s" line
+                if len(words) != 6:
+                    raise ValueError(
+                        f"Expected 6 fields in 'i' line, found {len(words)}:\n{line}"
+                    )
+                if words[1] != src:  # from the previous "s" line
+                    raise ValueError(
+                        f"Expected 'i' line for {src} (the preceding 's' line), "
+                        f"found {words[1]}"
+                    )
                 leftStatus = words[2]
                 leftCount = int(words[3])
                 rightStatus = words[4]
                 rightCount = int(words[5])
-                assert leftStatus in AlignmentIterator.status_characters
-                assert rightStatus in AlignmentIterator.status_characters
+                for status in (leftStatus, rightStatus):
+                    if status not in AlignmentIterator.status_characters:
+                        raise ValueError(
+                            f"Expected a status character from "
+                            f"{', '.join(AlignmentIterator.status_characters)} "
+                            f"in 'i' line, found '{status}':\n{line}"
+                        )
                 record.annotations["leftStatus"] = leftStatus
                 record.annotations["leftCount"] = leftCount
                 record.annotations["rightStatus"] = rightStatus
                 record.annotations["rightCount"] = rightCount
             elif line.startswith("e"):
                 words = line[1:].split()
-                assert len(words) == 6
+                if len(words) != 6:
+                    raise ValueError(
+                        f"Expected 7 fields in 'e' line, found {len(words) + 1}:"
+                        f"\n{line}"
+                    )
                 src = words[0]
                 start = int(words[1])
                 size = int(words[2])
                 strand = words[3]
                 srcSize = int(words[4])
                 status = words[5]
-                assert status in AlignmentIterator.empty_status_characters
+                if status not in AlignmentIterator.empty_status_characters:
+                    raise ValueError(
+                        f"Expected a status character from "
+                        f"{', '.join(AlignmentIterator.empty_status_characters)} "
+                        f"in 'e' line, found '{status}':\n{line}"
+                    )
                 sequence = Seq(None, length=srcSize)
                 record = SeqRecord(sequence, id=src, name="", description="")
                 end = start + size
@@ -422,8 +447,15 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 annotation.append(empty)
             elif line.startswith("q "):
                 words = line.strip().split()
-                assert len(words) == 3
-                assert words[1] == src  # from the previous "s" line
+                if len(words) != 3:
+                    raise ValueError(
+                        f"Expected 3 fields in 'q' line, found {len(words)}:\n{line}"
+                    )
+                if words[1] != src:  # from the previous "s" line
+                    raise ValueError(
+                        f"Expected 'q' line for {src} (the preceding 's' line), "
+                        f"found {words[1]}"
+                    )
                 value = words[2].replace("-", "")
                 record.annotations["quality"] = value
             elif not line.strip():

@@ -97,13 +97,21 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 key, value = line[2:].split(" = ", 1)
             if key == "Aligned_sequences":
                 number_of_sequences = int(value.strip())
-                assert len(identifiers) == 0
+                if identifiers:
+                    raise ValueError(
+                        f"Expected one Aligned_sequences line per alignment, "
+                        f"found a second one:\n{line}"
+                    )
                 # Should now expect the record identifiers...
                 for i, line in enumerate(stream):
                     if not line.startswith("# "):
                         raise ValueError("Unexpected line: %s") % line
                     number, identifier = line[2:].split(":")
-                    assert i + 1 == int(number)
+                    if int(number) != i + 1:
+                        raise ValueError(
+                            f"Expected sequence number {i + 1}, found {number.strip()} "
+                            f"in line:\n{line}"
+                        )
                     identifiers.append(identifier.strip())
                     if len(identifiers) == number_of_sequences:
                         break
@@ -169,7 +177,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 consensus += line[21:71]
             else:
                 identifier, start = prefix.split(None, 1)
-                assert identifiers[index].startswith(identifier)
+                if not identifiers[index].startswith(identifier):
+                    raise ValueError(
+                        f"Expected sequence {identifiers[index]}, found "
+                        f"{identifier} in line:\n{line}"
+                    )
                 aligned_sequence, end = line[21:].split(None, 1)
                 start = int(start)
                 end = int(end)
@@ -178,10 +190,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if length == 0 and len(sequence) > 0:
                     if start < end:
                         start -= 1  # Python counting
-                        assert end == start + len(sequence)
+                        if end != start + len(sequence):
+                            raise ValueError(
+                                f"Expected the coordinates of {identifiers[index]} to span "
+                                f"the {len(sequence)} letters in line:\n{line}"
+                            )
                     else:
                         end -= 1  # Python counting
-                        assert end == start - len(sequence)
+                        if end != start - len(sequence):
+                            raise ValueError(
+                                f"Expected the coordinates of {identifiers[index]} to span "
+                                f"the {len(sequence)} letters in line:\n{line}"
+                            )
                     # Record the start
                     starts[index] = start
                 else:
@@ -191,29 +211,51 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                             self.metadata["Align_format"] == "srspair"
                             and len(sequence) == 0
                         ):
-                            assert start == ends[index]
-                            assert end == start
+                            if start != ends[index] or end != start:
+                                raise ValueError(
+                                    f"Expected a line without letters of "
+                                    f"{identifiers[index]} to give its previous end "
+                                    f"{ends[index]} as start and end, found:"
+                                    f"\n{line}"
+                                )
                         else:
                             start -= 1
-                            assert end == start + len(sequence)
+                            if end != start + len(sequence):
+                                raise ValueError(
+                                    f"Expected the coordinates of {identifiers[index]} to span "
+                                    f"the {len(sequence)} letters in line:\n{line}"
+                                )
                     else:
                         if (
                             self.metadata["Align_format"] == "srspair"
                             and len(sequence) == 0
                         ):
-                            assert start - 1 == ends[index]
-                            assert end == start
+                            if start - 1 != ends[index] or end != start:
+                                raise ValueError(
+                                    f"Expected a line without letters of "
+                                    f"{identifiers[index]} to give its previous end "
+                                    f"{ends[index] + 1} as start and end, found:"
+                                    f"\n{line}"
+                                )
                         else:
                             end -= 1
-                            assert end == start - len(sequence)
+                            if end != start - len(sequence):
+                                raise ValueError(
+                                    f"Expected the coordinates of {identifiers[index]} to span "
+                                    f"the {len(sequence)} letters in line:\n{line}"
+                                )
                 # Record the end
                 ends[index] = end
                 sequences[index] += sequence
                 aligned_sequences[index] += aligned_sequence
                 if index == 0:
                     column += len(aligned_sequence)
-                else:
-                    assert column == len(aligned_sequences[index])
+                elif len(aligned_sequences[index]) != column:
+                    raise ValueError(
+                        f"Expected {column} aligned columns so far for "
+                        f"{identifiers[index]}, as for {identifiers[0]}, found "
+                        f"{len(aligned_sequences[index])}"
+                    )
                 index += 1
         aligned_sequences = [
             aligned_sequence.encode() for aligned_sequence in aligned_sequences
