@@ -25,19 +25,23 @@ from .Interfaces import SequenceIterator
 
 def _check_tags(seq, tags):
     """Check a segment line's tags for inconsistencies (PRIVATE)."""
+    # A segment without sequence data is empty (GFA1) or undefined (GFA2)
+    absent = len(seq) == 0 or not seq.defined
+    length_set = False
     for tag in tags:
         if tag[:2] == "LN":
             # Sequence length
-            if len(seq) == 0:
-                # No sequence data, set the sequence length
+            if absent and not length_set:
+                # No sequence data, the first LN tag sets the sequence length
                 seq._data = _UndefinedSequenceData(int(tag[5:]))
+                length_set = True
             elif int(tag[5:]) != len(seq):
                 warnings.warn(
                     f"Segment line has incorrect length. Expected {tag[5:]} but got {len(seq)}.",
                     BiopythonWarning,
                 )
-        elif tag[:2] == "SH":
-            # SHA256 checksum
+        elif tag[:2] == "SH" and not absent:
+            # SHA256 checksum, which cannot be verified without sequence data
             checksum = hashlib.sha256(str(seq).encode()).hexdigest()
             if checksum.upper() != tag[5:]:
                 warnings.warn(
@@ -197,14 +201,18 @@ class Gfa2Iterator(SequenceIterator):
                 f"Segment line must have name, length, and sequence fields: {line}."
             )
         try:
-            int(fields[2])
+            length = int(fields[2])
         except ValueError:
             raise ValueError(
                 f"Segment line must have an integer length: {line}."
             ) from None
 
         if fields[3] == "*":
-            seq = Seq(None, length=0)
+            if length < 0:
+                raise ValueError(
+                    f"Segment line must have a non-negative length: {line}."
+                )
+            seq = Seq(None, length=length)
         else:
             seq = Seq(fields[3])
 

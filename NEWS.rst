@@ -126,6 +126,17 @@ array is copied in full on every slice. A value that cannot be deep-copied is
 shallow-copied instead, and one that cannot be copied at all, such as a
 generator, is still shared.
 
+The ``gfa2`` parser in ``Bio.SeqIO`` now keeps the length of a segment whose
+sequence is given as ``*``. A segment line with length 100 and sequence
+``*`` used to give a record of length 0, discarding the mandatory length
+field; it now gives a record of length 100 with undefined sequence, as
+the ``gfa1`` parser already did for a ``*`` segment with an ``LN:i:`` tag.
+A negative length on such a segment now raises ``ValueError`` instead of
+giving length 0. An ``LN:i:`` tag, where present, still takes precedence, and
+an ``SH:H:`` checksum on a segment without sequence is kept as an annotation
+rather than verified (in both parsers it used to raise
+``UndefinedSequenceError`` when it followed an ``LN:i:`` tag).
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
