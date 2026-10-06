@@ -59,6 +59,22 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.codonalign`` no longer keeps its own copy of the dN/dS and
+McDonald-Kreitman code in ``Bio.Align.analysis``, which had already meant
+fixing the same three bugs twice. ``Bio.codonalign.codonseq.cal_dn_ds`` and
+``Bio.codonalign.mktest`` now pass their codons to ``Bio.Align.analysis``,
+and about 1,200 duplicated lines are gone. Their arguments, return values,
+warnings and exceptions are unchanged, and so are their results on the test
+data and on several hundred random codon alignments. Private helpers such as
+``_get_pi`` and ``_G_test`` now exist only in ``Bio.Align.analysis``.
+Comparing the two copies turned up one bug in each. ``Bio.codonalign.mktest``
+raised ``KeyError`` at any codon position where some sequences had a gap and
+others did not; it now skips such positions, as ``Bio.Align.analysis.mktest``
+always did. ``Bio.Align.analysis.calculate_dn_ds`` with ``method="ML"`` and
+``cfreq="F1x4"`` raised ``KeyError`` when a base occurred in neither
+sequence; that base now gets a frequency of zero, as it already did with
+``F3x4`` and in the ``Bio.codonalign`` copy.
+
 More of ``Bio.SeqIO`` now raises ``ValueError`` instead of ``AssertionError``
 on malformed input. Twenty-six ``assert`` statements in the ABI, ACE, FASTA,
 GenBank, EMBL, PHD, PIR, SeqXML, SFF and UniProt XML parsers and writers were
