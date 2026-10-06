@@ -388,13 +388,13 @@ __all__ = [
 # --Peter
 
 import importlib
-import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from os import fspath
 from typing import Union
 
+from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.SeqRecord import SeqRecord
 
 from .Interfaces import _IOSource, _TextIOSource, SequenceIterator, SequenceWriter
@@ -455,59 +455,6 @@ def _is_pathlike(obj):
 # with the -subtype suffix
 #
 # Most alignment file formats will be handled via Bio.AlignIO
-
-
-class _LazyFormatRegistry(dict):
-    """Mapping of file format name to handler, resolved on first access.
-
-    Values are stored either as "ModuleName.attribute" strings naming a
-    module under Bio.SeqIO, or as None for alignment formats delegated to
-    Bio.AlignIO; on first access the stored value is replaced by the actual
-    class (or function), so the cost of importing a format module is only
-    paid by callers who use that format (PRIVATE).
-    """
-
-    def __init__(self, specs, alignio_factory=None):
-        """Initialize from a dict of format name to lazy value."""
-        super().__init__(specs)
-        self._alignio_factory = alignio_factory
-        self._lock = threading.Lock()
-
-    def __getitem__(self, key):
-        """Return the handler for this format, importing it if needed."""
-        value = super().__getitem__(key)
-        if isinstance(value, str):
-            module_name, _, attribute = value.partition(".")
-            module = importlib.import_module("Bio.SeqIO." + module_name)
-            resolved = getattr(module, attribute)
-        elif value is None:
-            resolved = self._alignio_factory(key)
-        else:
-            return value
-        # Resolution happens outside the lock (imports take their own locks);
-        # storing happens under it, so concurrent first accesses agree on a
-        # single resolved value - in particular a single wrapper class.
-        with self._lock:
-            value = super().__getitem__(key)
-            if isinstance(value, str) or value is None:
-                super().__setitem__(key, resolved)
-                value = resolved
-        return value
-
-    def get(self, key, default=None):
-        """Return the handler for this format, or default if unknown."""
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def values(self):
-        """Return all handlers, importing any not yet imported."""
-        return [self[key] for key in self]
-
-    def items(self):
-        """Return all (format, handler) pairs, importing as needed."""
-        return [(key, self[key]) for key in self]
 
 
 class AlignmentSequenceIterator(SequenceIterator):
@@ -598,7 +545,7 @@ def _get_alignment_sequence_writer_class(fmt):
     )
 
 
-_FormatToIterator = _LazyFormatRegistry(
+_FormatToIterator = _FormatRegistry(
     {
         "abi": "AbiIO.AbiIterator",
         "abi-trim": "AbiIO._AbiTrimIterator",
@@ -655,10 +602,11 @@ _FormatToIterator = _LazyFormatRegistry(
         "stockholm": None,
     },
     _get_alignment_sequence_iterator_class,
+    package="Bio.SeqIO",
 )
 
 # Right now used in the unit tests as proxy for all supported outputs...
-_FormatToWriter = _LazyFormatRegistry(
+_FormatToWriter = _FormatRegistry(
     {
         "fasta": "FastaIO.FastaWriter",
         "fasta-2line": "FastaIO.FastaTwoLineWriter",
@@ -692,6 +640,7 @@ _FormatToWriter = _LazyFormatRegistry(
         "stockholm": None,
     },
     _get_alignment_sequence_writer_class,
+    package="Bio.SeqIO",
 )
 
 
@@ -1174,7 +1123,7 @@ def index_db(
 
 
 # TODO? - Handling aliases explicitly would let us shorten this list:
-_converter = _LazyFormatRegistry(
+_converter = _FormatRegistry(
     {
         ("genbank", "fasta"): "InsdcIO._genbank_convert_fasta",
         ("gb", "fasta"): "InsdcIO._genbank_convert_fasta",
@@ -1234,7 +1183,8 @@ _converter = _LazyFormatRegistry(
         ("fastq-sanger", "qual"): "QualityIO._fastq_sanger_convert_qual",
         ("fastq-solexa", "qual"): "QualityIO._fastq_solexa_convert_qual",
         ("fastq-illumina", "qual"): "QualityIO._fastq_illumina_convert_qual",
-    }
+    },
+    package="Bio.SeqIO",
 )
 
 

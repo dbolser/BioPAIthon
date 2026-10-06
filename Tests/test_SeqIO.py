@@ -6182,7 +6182,7 @@ class LazyFormatRegistries(unittest.TestCase):
             time.sleep(0.01)  # widen the race window
             return type("Wrapper", (), {"fmt": fmt})
 
-        registry = SeqIO._LazyFormatRegistry({"clustal": None}, factory)
+        registry = SeqIO._FormatRegistry({"clustal": None}, factory)
         nthreads = 4
         barrier = threading.Barrier(nthreads)
         results = []
