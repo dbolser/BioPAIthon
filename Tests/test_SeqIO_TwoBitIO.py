@@ -2,6 +2,7 @@
 
 import sys
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -78,6 +79,22 @@ class Parsing(unittest.TestCase):
                         for step in steps:
                             key = slice(start, stop, step)
                             self.assertEqual(seq1[key], seq2[key], msg=key)
+
+    def test_sparse_slice_reads_only_selected_span(self):
+        """Check a sparse slice reads bytes up to its last element, not its stop."""
+        path = "TwoBit/sequence.littleendian.2bit"
+        with open(path, "rb") as stream:
+            seq = next(SeqIO.parse(stream, "twobit")).seq
+            with mock.patch.object(np, "fromfile", wraps=np.fromfile) as fromfile:
+                for key, expected in (
+                    (slice(None, None, sys.maxsize), 1),  # first base only
+                    (slice(None, None, -sys.maxsize), 1),  # last base only
+                    (slice(0, 100, 40), 21),  # bases 0, 40, 80: bytes 0-20
+                    (slice(100, 0, -40), 21),  # bases 100, 60, 20: bytes 5-25
+                ):
+                    self.assertEqual(seq[key], self.records[0].seq[key], msg=key)
+                    count = fromfile.call_args.kwargs["count"]
+                    self.assertEqual(count, expected, msg=key)
 
     def test_convert_zero_step(self):
         """Check the C helper rejects a zero step instead of dividing by it."""

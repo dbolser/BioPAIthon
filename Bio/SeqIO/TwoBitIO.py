@@ -120,6 +120,9 @@ class _TwoBitSequenceData(SequenceDataAbstractBaseClass):
             size = len(range(start, end, step))
             if size == 0:
                 return b""
+            # Stop just past the last selected base, so a sparse slice does
+            # not read and decode the bases between that base and the stop
+            end = start + (size - 1) * step + (1 if step > 0 else -1)
         else:
             if key < 0:
                 key += length
