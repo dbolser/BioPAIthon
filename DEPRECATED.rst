@@ -163,6 +163,15 @@ before release 1.88, and the source marked the method itself for removal
 or Tutorial. Code that still calls it can simply delete the call; to silence
 the warning it emitted, set the aligner's gap scores explicitly.
 
+Bio.Align.CodonAligner anchor_len argument
+------------------------------------------
+Removed without a deprecation period by upstream Biopython in its work
+towards 1.89, and so in BioPAIthon 1.88. ``CodonAligner`` accepted an
+``anchor_len`` argument (default 10) that it never used or documented.
+Passing it positionally, as in ``CodonAligner(table, 10)``, now raises
+``TypeError``. Passed by keyword, ``anchor_len=...`` is stored as a plain
+attribute and still does nothing. Either way, delete the argument.
+
 Bio.Entrez
 ----------
 The ``egquery`` function wrapping the NCBI EGQuery (Entrez Global Query)

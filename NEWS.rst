@@ -59,6 +59,24 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+BioPAIthon now includes upstream Biopython's work towards 1.89 as of
+2 October 2026. The upstream section below lists only its platform support,
+so here are the changes users may notice. ``Bio.Align`` gains the
+``global_align``, ``local_align`` and ``codon_align`` convenience functions,
+and ``PairwiseAligner`` and ``CodonAligner`` accept short mnemonic keywords
+for their scoring parameters (``m``, ``g``, ``o``, ``x`` and so on).
+``PairwiseAligner.score()`` could return a wrong score for Needleman-Wunsch
+global alignments when ``left_deletion_score`` and ``right_deletion_score``
+differed; it now agrees with ``align()``. ``molecular_weight("")`` and
+``ProteinAnalysis("").molecular_weight()`` now raise ``ValueError``; they
+used to return 18.0153, the weight of one water molecule. FASTQ and QUAL
+records with an empty title (a bare ``@`` or ``>`` line) now parse with an
+empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
+``index_db`` give them the same empty key. ``Bio.Align.hhr`` raises
+``ValueError`` instead of ``AssertionError`` on malformed files.
+``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
+positional argument now raises ``TypeError``; see DEPRECATED.rst.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
