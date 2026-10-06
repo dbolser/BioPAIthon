@@ -396,7 +396,11 @@ class StockholmIterator(AlignmentIterator):
             elif line[0] != "#":
                 # Sequence
                 # Format: "<seqname> <sequence>"
-                assert not passed_end_alignment
+                if passed_end_alignment:
+                    raise ValueError(
+                        "Expected '# STOCKHOLM 1.0' header before more"
+                        f" sequences after '//' line, found: {line!r}"
+                    )
                 parts = [x.strip() for x in line.split(" ", 1)]
                 if len(parts) != 2:
                     # This might be someone attempting to store a zero length sequence?
@@ -586,7 +590,11 @@ class StockholmIterator(AlignmentIterator):
         for feature in seq_data:
             # Note this dictionary contains lists!
             if feature == "AC":  # ACcession number
-                assert len(seq_data[feature]) == 1
+                if len(seq_data[feature]) != 1:
+                    raise ValueError(
+                        f"Expected one #=GS AC line for {identifier},"
+                        f" found {len(seq_data[feature])}: {seq_data[feature]!r}"
+                    )
                 record.annotations["accession"] = seq_data[feature][0]
             elif feature == "DE":  # DEscription
                 record.description = "\n".join(seq_data[feature])

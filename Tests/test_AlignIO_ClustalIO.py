@@ -286,6 +286,81 @@ class TestClustalIO(unittest.TestCase):
         self.assertEqual(alignment._version, "1.80.dev0")
 
 
+class TestClustalIOMalformed(unittest.TestCase):
+    """Malformed Clustal input must raise ValueError, even under python -O."""
+
+    header = "CLUSTAL W (1.83) multiple sequence alignment\n\n\n"
+
+    def parse(self, body):
+        return list(ClustalIterator(StringIO(self.header + body)))
+
+    def test_well_formed(self):
+        """The two block alignment the other tests break is itself valid."""
+        alignments = self.parse(
+            "seqA      ACGTACGTAC\n"
+            "seqB      ACGTACGTAC\n"
+            "          **********\n"
+            "\n"
+            "seqA      ACGT\n"
+            "seqB      ACGT\n"
+            "          ****\n"
+        )
+        self.assertEqual(len(alignments), 1)
+        self.assertEqual(alignments[0].get_alignment_length(), 14)
+
+    def test_first_block_sequence_out_of_column(self):
+        """Sequences in the first block must share the first line's columns."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse("seqA      ACGTACGTAC\nseqB       ACGTACGTAC\n\n")
+        self.assertIn("Expected sequence in columns 11 to 20", str(cm.exception))
+
+    def test_later_blocks_short_then_long(self):
+        """A short line in one block cannot be made up by a long one later.
+
+        Under python -O the old assert vanished and the two sequences came
+        out the same length, silently misaligned.
+        """
+        with self.assertRaises(ValueError) as cm:
+            self.parse(
+                "seqA      ACGTACGTAC\n"
+                "seqB      ACGTACGTAC\n"
+                "\n"
+                "seqA      ACGTACGTAC\n"
+                "seqB      ACGTACGT\n"
+                "\n"
+                "seqA      ACGT\n"
+                "seqB      ACGTAC\n"
+            )
+        self.assertIn(
+            "Expected 20 columns so far for seqB, found 18", str(cm.exception)
+        )
+
+    def test_consensus_text_outside_sequence_columns(self):
+        """The consensus line must only use the sequence columns."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse(
+                "seqA      ACGTACGTAC\n"
+                "seqB      ACGTACGTAC\n"
+                "          ********** 20\n"
+                "\n"
+            )
+        self.assertIn("Expected consensus only in columns 11 to 20", str(cm.exception))
+
+    def test_later_block_missing_consensus(self):
+        """Once the first block has a consensus line, every block needs one."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse(
+                "seqA      ACGTACGTAC\n"
+                "seqB      ACGTACGTAC\n"
+                "          **********\n"
+                "\n"
+                "seqA      ACGT\n"
+                "seqB      ACGT\n"
+                "\n"
+            )
+        self.assertIn("Expected consensus line", str(cm.exception))
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)

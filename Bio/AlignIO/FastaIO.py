@@ -101,8 +101,14 @@ def FastaM10Iterator(handle, seq_count=None):
     def build_hsp():
         if not query_tags and not match_tags:
             raise ValueError(f"No data for query {query_id!r}, match {match_id!r}")
-        assert query_tags, query_tags
-        assert match_tags, match_tags
+        if not query_tags:
+            raise ValueError(
+                f"No query sequence data for query {query_id!r}, match {match_id!r}"
+            )
+        if not match_tags:
+            raise ValueError(
+                f"No match sequence data for query {query_id!r}, match {match_id!r}"
+            )
         evalue = align_tags.get("fa_expect")
         tool = global_tags.get("tool", "").upper()
 
@@ -215,7 +221,12 @@ handle.name: {handle.name}
             # !! No library sequences with E() < 0.5
             # or on more recent versions,
             # No sequences with E() < 0.05
-            assert state == state_NONE
+            if state != state_NONE:
+                raise ValueError(
+                    "'No hits' line must come after a query start line and"
+                    f" before its alignments: {line!r}"
+                )
+            # In state_NONE nothing has been collected since the last reset:
             assert not header_tags
             assert not align_tags
             assert not match_tags
@@ -241,10 +252,19 @@ handle.name: {handle.name}
             cons_seq = ""
         elif line.startswith(">>>"):
             # Should be start of a match!
-            assert query_id is not None
-            assert line[3:].split(", ", 1)[0] == query_id, line
-            assert match_id is None
-            assert not header_tags
+            if query_id is None:
+                raise ValueError(
+                    f"Query header line before any query start line: {line!r}"
+                )
+            if line[3:].split(", ", 1)[0] != query_id:
+                raise ValueError(
+                    f"Expected query header line for {query_id!r}, not: {line!r}"
+                )
+            if match_id is not None or header_tags:
+                raise ValueError(
+                    f"Query header line in the middle of query {query_id!r}: {line!r}"
+                )
+            # These are only filled after a match line, which sets match_id:
             assert not align_tags
             assert not query_tags
             assert not match_tags
@@ -267,7 +287,10 @@ handle.name: {handle.name}
             state = state_ALIGN_HEADER
         elif line.startswith(">--"):
             # End of one HSP
-            assert query_id and match_id, line
+            if not (query_id and match_id):
+                raise ValueError(
+                    f"End of alignment line outside an alignment: {line!r}"
+                )
             yield build_hsp()
             # Clean up read for next HSP
             # but reuse header_tags
@@ -281,15 +304,26 @@ handle.name: {handle.name}
         elif line.startswith(">"):
             if state == state_ALIGN_HEADER:
                 # Should be start of query alignment seq...
-                assert query_id is not None, line
+                if query_id is None:
+                    raise ValueError(
+                        f"Query alignment line before any query start line: {line!r}"
+                    )
+                # Every way into state_ALIGN_HEADER sets or checks match_id:
                 assert match_id is not None, line
-                assert query_id.startswith(line[1:].split(None, 1)[0]), line
+                if not query_id.startswith(line[1:].split(None, 1)[0]):
+                    raise ValueError(
+                        f"Expected query alignment line for {query_id!r}, not: {line!r}"
+                    )
                 state = state_ALIGN_QUERY
             elif state == state_ALIGN_QUERY:
                 # Should be start of match alignment seq
+                # Checked on entering state_ALIGN_QUERY just above:
                 assert query_id is not None, line
                 assert match_id is not None, line
-                assert match_id.startswith(line[1:].split(None, 1)[0]), line
+                if not match_id.startswith(line[1:].split(None, 1)[0]):
+                    raise ValueError(
+                        f"Expected match alignment line for {match_id!r}, not: {line!r}"
+                    )
                 state = state_ALIGN_MATCH
             elif state == state_NONE:
                 # Can get > as the last line of a histogram
@@ -297,7 +331,10 @@ handle.name: {handle.name}
             else:
                 raise RuntimeError("state %i got %r" % (state, line))
         elif line.startswith("; al_cons"):
-            assert state == state_ALIGN_MATCH, line
+            if state != state_ALIGN_MATCH:
+                raise ValueError(
+                    f"Consensus line must follow a match alignment sequence: {line!r}"
+                )
             state = state_ALIGN_CONS
             # Next line(s) should be consensus seq...
         elif line.startswith("; "):

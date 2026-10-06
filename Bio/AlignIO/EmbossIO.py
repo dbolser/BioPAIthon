@@ -61,12 +61,20 @@ class EmbossIterator(AlignmentIterator):
             key = parts[0].lower().strip()
             if key == "aligned_sequences":
                 number_of_seqs = int(parts[1].strip())
-                assert len(ids) == 0
+                if ids:
+                    raise ValueError(
+                        "Expected one Aligned_sequences line per header,"
+                        f" found another: {line!r}"
+                    )
                 # Should now expect the record identifiers...
                 for i in range(number_of_seqs):
                     line = handle.readline()
                     parts = line[1:].strip().split(":", 1)
-                    assert i + 1 == int(parts[0].strip())
+                    if i + 1 != int(parts[0].strip()):
+                        raise ValueError(
+                            f"Expected identifier line for sequence {i + 1},"
+                            f" not: {line!r}"
+                        )
                     ids.append(parts[1].strip())
                 assert len(ids) == number_of_seqs
             if key == "length":
@@ -113,7 +121,7 @@ class EmbossIterator(AlignmentIterator):
                     # (an aligned seq is broken up into multiple lines)
                     id, start = id_start
                     seq, end = seq_end
-                    if start >= end:
+                    if int(start) >= int(end):
                         # Special case, either a single letter is present,
                         # or no letters at all.
                         if seq.replace("-", "") == "":
@@ -123,7 +131,11 @@ class EmbossIterator(AlignmentIterator):
                             start = int(start) - 1
                             end = int(end)
                     else:
-                        assert seq.replace("-", "") != "", repr(line)
+                        if seq.replace("-", "") == "":
+                            raise ValueError(
+                                f"Expected letters between start {start} and"
+                                f" end {end}, not: {line!r}"
+                            )
                         start = int(start) - 1  # python counting
                         end = int(end)
 
@@ -133,7 +145,11 @@ class EmbossIterator(AlignmentIterator):
                             % (index, number_of_seqs)
                         )
                     # The identifier is truncated...
-                    assert id == ids[index] or id == ids[index][: len(id)]
+                    if not ids[index].startswith(id):
+                        raise ValueError(
+                            f"Expected identifier {ids[index]!r} (perhaps"
+                            f" truncated), not: {line!r}"
+                        )
 
                     if len(seq_starts) == index:
                         # Record the start
@@ -141,7 +157,11 @@ class EmbossIterator(AlignmentIterator):
 
                     # Check the start...
                     if start >= end:
-                        assert seq.replace("-", "") == "", line
+                        if seq.replace("-", "") != "":
+                            raise ValueError(
+                                "Expected start before end on a line with"
+                                f" letters, not: {line!r}"
+                            )
                     elif start - seq_starts[index] != len(seqs[index].replace("-", "")):
                         raise ValueError(
                             "Found %i chars so far for sequence %i (%s, %r), line says start %i:\n%s"
@@ -193,7 +213,11 @@ class EmbossIterator(AlignmentIterator):
                 self._header = line
                 break
 
-        assert index == 0
+        if index != 0:
+            raise ValueError(
+                f"Expected a line for each of the {number_of_seqs} sequences in the"
+                f" last block, found {index}"
+            )
 
         if (
             self.records_per_alignment is not None

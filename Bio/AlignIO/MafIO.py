@@ -223,8 +223,11 @@ def MafIterator(handle, seq_count=None):
                 pass
             elif not line.strip():
                 # end a bundle of records
-                if seq_count is not None:
-                    assert len(records) == seq_count
+                if seq_count is not None and len(records) != seq_count:
+                    raise ValueError(
+                        f"Found {len(records)} records in this alignment,"
+                        f" told to expect {seq_count}"
+                    )
 
                 alignment = MultipleSeqAlignment(records)
                 # TODO - Introduce an annotated alignment class?

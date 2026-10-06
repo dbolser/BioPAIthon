@@ -270,7 +270,10 @@ class MsfIterator(AlignmentIterator):
                     else:
                         raise ValueError(f"Expected sequence for {name}, got: {line!r}")
                 elif words[0] == name:
-                    assert len(words) > 1, line
+                    if len(words) == 1:
+                        raise ValueError(
+                            f"Expected sequence after {name!r}, got: {line!r}"
+                        )
                     # print(i, name, repr(words))
                     seqs[idx].extend(words[1:])
                 else:

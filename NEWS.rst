@@ -59,6 +59,21 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.AlignIO`` now raises ``ValueError`` for malformed Clustal, EMBOSS,
+FASTA ``-m 10``, GCG MSF, MAF and Stockholm input that ``assert`` statements
+used to check. With asserts on, such files raised a bare ``AssertionError``;
+under ``python -O``, where asserts are removed, many parsed silently into
+wrong alignments. A Stockholm sequence after the ``//`` line joined the
+alignment that line had closed, a Clustal sequence line too short in one
+block could be made up by a long one in the next, an EMBOSS line naming the
+wrong sequence was appended to the expected one, and
+``AlignIO.parse(handle, "maf", seq_count=n)`` ignored ``seq_count``. The new
+errors say what was expected and quote the offending line. The EMBOSS parser
+also now compares a line's start and end as numbers rather than strings, so a
+gap-only line such as ``seqB  10 ----------  9`` no longer fails. The 30
+asserts that restate the parsers' own invariants, rather than check the file,
+stay as asserts.
+
 ``from Bio.Restriction import EcoRI`` is no longer a type-checking error.
 The enzyme classes are built when ``Bio.Restriction`` is imported, so mypy
 could not see them and reported ``Module "Bio.Restriction" has no attribute
