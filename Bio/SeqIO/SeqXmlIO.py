@@ -398,7 +398,12 @@ class ContentHandler(handler.ContentHandler):
             # At this point, record.annotations["molecule_type"] is either
             # "DNA", "RNA", or "protein"; property_value may be a more detailed
             # description such as "mRNA" or "genomic DNA".
-            assert record.annotations[property_name] in property_value
+            if record.annotations[property_name] not in property_value:
+                raise ValueError(
+                    f"molecule_type property {property_value!r} of entry "
+                    f"{record.id!r} does not match its "
+                    f"{record.annotations[property_name]} sequence"
+                )
             record.annotations[property_name] = property_value
         else:
             if property_name not in record.annotations:

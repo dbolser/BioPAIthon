@@ -331,9 +331,13 @@ def _sff_file_header(handle):
     # of bytes required by this set of header fields, and should be equal to
     # "31 + number_of_flows_per_read + key_length" rounded up to the next value
     # divisible by 8.
-    assert header_length % 8 == 0
     padding = header_length - number_of_flows_per_read - key_length - 31
-    assert 0 <= padding < 8, padding
+    if header_length % 8 != 0 or not 0 <= padding < 8:
+        raise ValueError(
+            "SFF header length %i does not match 31 + %i flow characters + %i key "
+            "bytes padded to a multiple of 8"
+            % (header_length, number_of_flows_per_read, key_length)
+        )
     if handle.read(padding).count(_null) != padding:
         import warnings
 
@@ -423,7 +427,12 @@ def _sff_do_slow_index(handle):
                 "padding region contained data" % padding,
                 BiopythonParserWarning,
             )
-        assert record_offset + read_header_length == handle.tell()
+        if record_offset + read_header_length != handle.tell():
+            raise ValueError(
+                "Malformed read header at offset %i, should end at offset %i "
+                "but its name and padding end at %i"
+                % (record_offset, record_offset + read_header_length, handle.tell())
+            )
         # now the flowgram values, flowgram index, bases and qualities
         size = read_flow_size + 3 * seq_len
         handle.seek(size, 1)
@@ -467,7 +476,11 @@ def _sff_find_roche_index(handle):
         flow_chars,
         key_sequence,
     ) = _sff_file_header(handle)
-    assert handle.tell() == header_length
+    if handle.tell() != header_length:
+        raise ValueError(
+            "Premature end of file? Expected an SFF header of %i bytes, "
+            "but the file ends at offset %i" % (header_length, handle.tell())
+        )
     if not index_offset or not index_length:
         raise ValueError("No index present in this SFF file")
     # Now jump to the header...
@@ -1201,8 +1214,11 @@ class SffWriter(SequenceWriter):
             self._number_of_reads = count
             self.write_header()
             self.handle.seek(offset)  # not essential?
-        else:
-            assert count == self._number_of_reads
+        elif count != self._number_of_reads:
+            raise ValueError(
+                "Wrote %i records, but len(records) was %i, so the read count "
+                "in the SFF header is wrong" % (count, self._number_of_reads)
+            )
         if self._index is not None:
             self._write_index()
         return count

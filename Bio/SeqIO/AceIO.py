@@ -96,7 +96,11 @@ class AceIterator(SequenceIterator):
         if "*" in consensus_seq_str:
             # For consistency with most other file formats, map
             # any * gaps into - gaps.
-            assert "-" not in consensus_seq_str
+            if "-" in consensus_seq_str:
+                raise ValueError(
+                    f"Consensus of contig {ace_contig.name!r} uses both '*' "
+                    "and '-' as gap characters"
+                )
             consensus_seq = Seq(consensus_seq_str.replace("*", "-"))
         else:
             consensus_seq = Seq(consensus_seq_str)
@@ -114,6 +118,12 @@ class AceIterator(SequenceIterator):
         # as * characters) in the consensus do not get a quality entry, so
         # we assign a quality of None (zero would be misleading as there may
         # be excellent support for having a gap here).
+        bases = len(consensus_seq) - consensus_seq.count("-")
+        if len(ace_contig.quality) != bases:
+            raise ValueError(
+                f"Contig {ace_contig.name!r} has {len(ace_contig.quality)} BQ "
+                f"quality values for {bases} non-gap consensus bases"
+            )
         quals = []
         i = 0
         for base in consensus_seq:
@@ -122,7 +132,6 @@ class AceIterator(SequenceIterator):
             else:
                 quals.append(ace_contig.quality[i])
                 i += 1
-        assert i == len(ace_contig.quality)
         seq_record.letter_annotations["phred_quality"] = quals
 
         return seq_record

@@ -81,8 +81,9 @@ class UniprotIterator(SequenceIterator):
                     return record
             raise StopIteration
         except ElementTree.ParseError as exception:
-            if errors.messages[exception.code] == errors.XML_ERROR_NO_ELEMENTS:
-                assert exception.position == (1, 0)  # line 1, column 0
+            message = errors.messages[exception.code]
+            # Only an empty file fails with this at line 1, column 0
+            if message == errors.XML_ERROR_NO_ELEMENTS and exception.position == (1, 0):
                 raise ValueError("Empty file.") from None
             else:
                 raise
@@ -427,7 +428,11 @@ class UniprotIterator(SequenceIterator):
             position = None
         status = element.attrib.get("status", "")
         if status == "unknown":
-            assert position is None
+            if position is not None:
+                raise ValueError(
+                    "Expected no position value with status 'unknown', "
+                    f"found position={element.attrib['position']!r}"
+                )
             return SeqFeature.UnknownPosition()
         elif not status:
             return SeqFeature.ExactPosition(position)

@@ -8,7 +8,9 @@
 """Tests for Ace module."""
 
 import unittest
+from io import StringIO
 
+from Bio import SeqIO
 from Bio.Sequencing import Ace
 
 
@@ -2172,6 +2174,68 @@ class AceTestThree(unittest.TestCase):
 
         # Make sure there are no more contigs
         self.assertRaises(StopIteration, next, contigs)
+
+
+class AceSeqIOErrors(unittest.TestCase):
+    """Malformed contigs raise ValueError via Bio.SeqIO."""
+
+    ace = """\
+AS 1 1
+
+CO Contig1 6 1 1 U
+AC*GTA
+
+BQ
+ 20 21 22 23 24
+
+AF read1 U 1
+BS 1 6 read1
+
+RD read1 6 0 0
+AC*GTA
+
+QA 1 6 1 6
+DS CHROMAT_FILE: read1 PHD_FILE: read1.phd.1 TIME: Thu Jan 1 00:00:00 2009
+
+"""
+
+    def parse(self, text):
+        return list(SeqIO.parse(StringIO(text), "ace"))
+
+    def test_valid(self):
+        """Check the minimal contig used below parses."""
+        (record,) = self.parse(self.ace)
+        self.assertEqual(record.seq, "AC-GTA")
+        self.assertEqual(
+            record.letter_annotations["phred_quality"], [20, 21, 0, 22, 23, 24]
+        )
+
+    def test_both_gap_characters(self):
+        """Check a consensus using both '*' and '-' raises ValueError."""
+        text = self.ace.replace("AC*GTA\n\nBQ", "A-*GTA\n\nBQ")
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Consensus of contig 'Contig1' uses both '\\*' and '-' as gap characters$",
+        ):
+            self.parse(text)
+
+    def test_too_many_qualities(self):
+        """Check a BQ line with an extra quality value raises ValueError."""
+        text = self.ace.replace(" 20 21 22 23 24", " 20 21 22 23 24 25")
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Contig 'Contig1' has 6 BQ quality values for 5 non-gap consensus bases$",
+        ):
+            self.parse(text)
+
+    def test_too_few_qualities(self):
+        """Check a BQ line missing a quality value raises ValueError."""
+        text = self.ace.replace(" 20 21 22 23 24", " 20 21 22 23")
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Contig 'Contig1' has 4 BQ quality values for 5 non-gap consensus bases$",
+        ):
+            self.parse(text)
 
 
 if __name__ == "__main__":

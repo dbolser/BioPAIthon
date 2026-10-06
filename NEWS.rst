@@ -59,6 +59,23 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+More of ``Bio.SeqIO`` now raises ``ValueError`` instead of ``AssertionError``
+on malformed input. Twenty-six ``assert`` statements in the ABI, ACE, FASTA,
+GenBank, EMBL, PHD, PIR, SeqXML, SFF and UniProt XML parsers and writers were
+checking file content or the records being written. Under ``python -O``,
+where asserts are removed, those checks vanished and bad input was silently
+mishandled. A sequence containing a newline was written as a corrupt FASTA or
+PIR file. A location's ``ref_db``, or all but the first value of a list
+annotation such as ``organism``, was dropped from GenBank and EMBL output.
+An ACE contig with extra ``BQ`` quality values lost them without a word. Each
+case now raises ``ValueError`` saying what was expected and what was found.
+An ACE contig with too few ``BQ`` values now also raises ``ValueError``,
+instead of ``IndexError``. A UniProt XML file cut off between entries now
+raises ``xml.etree.ElementTree.ParseError``, like other malformed XML; with
+asserts on it raised ``AssertionError``, and under ``-O`` it claimed
+``ValueError("Empty file.")``. The other asserts in ``Bio.SeqIO`` are internal
+invariants that valid use of the API cannot reach, and stay.
+
 ``Bio.Blast.parse`` and ``Bio.Blast.read`` now raise ``ValueError`` on
 malformed BLAST XML instead of ``AssertionError``. The parser used ``assert``
 to check file content — stray text between tags, HSP coordinates that disagree

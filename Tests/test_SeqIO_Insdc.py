@@ -99,6 +99,83 @@ class TestEmbl(unittest.TestCase):
             record.format("gb")
 
 
+class TestWriterErrors(unittest.TestCase):
+    """Records the INSDC writers cannot represent raise ValueError."""
+
+    def make_record(self, name="dummy", seq="ACGT"):
+        record = SeqRecord(Seq(seq), id=name, name=name)
+        record.annotations["molecule_type"] = "DNA"
+        return record
+
+    def check(self, record, msg, formats=("genbank", "embl")):
+        for fmt in formats:
+            with self.subTest(fmt=fmt):
+                with self.assertRaises(ValueError) as cm:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", BiopythonWarning)
+                        record.format(fmt)
+                self.assertEqual(str(cm.exception), msg)
+
+    def test_location_ref_db(self):
+        record = self.make_record()
+        location = SimpleLocation(0, 2, ref="X", ref_db="db")
+        record.features.append(SeqFeature(location, type="misc_feature"))
+        self.check(
+            record,
+            "Location db:X[0:2] has ref_db 'db', "
+            "which INSDC location strings cannot represent",
+        )
+
+    def test_feature_without_type(self):
+        record = self.make_record()
+        record.features.append(SeqFeature(SimpleLocation(0, 2)))
+        self.check(record, "Cannot write a feature with no type, at location [0:2]")
+
+    def test_annotation_list(self):
+        record = self.make_record()
+        record.annotations["organism"] = ["Homo sapiens", "Mus musculus"]
+        self.check(
+            record,
+            "Expected a single value for annotation 'organism', "
+            "not ['Homo sapiens', 'Mus musculus']",
+        )
+
+    def test_segment_list(self):
+        record = self.make_record()
+        record.annotations["segment"] = ["1 of 2", "2 of 2"]
+        self.check(
+            record,
+            "Expected a single value for annotation 'segment', "
+            "not ['1 of 2', '2 of 2']",
+            formats=("genbank",),
+        )
+
+    def test_locus_with_whitespace(self):
+        for name in ("dummy ", "dummy\n"):
+            with self.subTest(name=name):
+                record = self.make_record(name)
+                with self.assertRaises(ValueError) as cm:
+                    record.format("genbank")
+                self.assertTrue(
+                    str(cm.exception).startswith(
+                        f"LOCUS line does not contain the locus {name!r} and "
+                        "length 4 at the expected positions:\n"
+                    ),
+                    str(cm.exception),
+                )
+
+    def test_locus_and_length_too_long(self):
+        # 16 character name and 12 digit length leave no space between them
+        record = self.make_record("ABCDEFGHIJKLMNOP")
+        record.seq = Seq(None, 10**11)
+        self.check(
+            record,
+            "Locus name 'ABCDEFGHIJKLMNOP' and sequence length 100000000000 "
+            "do not fit in the LOCUS line",
+            formats=("genbank",),
+        )
+
+
 class TestEmblRewrite(SeqRecordTestBaseClass):
     def check_rewrite(self, filename):
         old = SeqIO.read(filename, "embl")

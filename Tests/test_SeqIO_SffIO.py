@@ -8,8 +8,10 @@
 
 import re
 import unittest
+import warnings
 from io import BytesIO
 
+from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.SeqIO.SffIO import _sff_do_slow_index
 from Bio.SeqIO.SffIO import _sff_find_roche_index
@@ -166,6 +168,60 @@ class TestErrors(unittest.TestCase):
             bad,
             "Gap of 65536 bytes after final record end 16824, "
             "before 82360 where index starts?",
+        )
+
+    def test_bad_header_length(self):
+        # 31 + 400 flow characters + 4 key bytes is 435, padded to 440
+        self.assertEqual(self.good[24:26], b"\x01\xb8")
+        for header_length in (432, 441, 448):
+            bad = self.good[:24] + header_length.to_bytes(2, "big") + self.good[26:]
+            self.check_bad_header(
+                bad,
+                f"SFF header length {header_length} does not match 31 + 400 flow "
+                "characters + 4 key bytes padded to a multiple of 8",
+            )
+
+    def test_truncated_header(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            with self.assertRaises(ValueError) as cm:
+                _sff_find_roche_index(BytesIO(self.good[:100]))
+        self.assertEqual(
+            str(cm.exception),
+            "Premature end of file? Expected an SFF header of 440 bytes, "
+            "but the file ends at offset 100",
+        )
+
+    def test_slow_index_truncated_read_header(self):
+        # File ends part way through the first read's name
+        handle = BytesIO(self.good[: 440 + 16 + 5])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            with self.assertRaises(ValueError) as cm:
+                list(_sff_do_slow_index(handle))
+        self.assertEqual(
+            str(cm.exception),
+            "Malformed read header at offset 440, should end at offset 472 "
+            "but its name and padding end at 461",
+        )
+
+    def test_write_len_mismatch(self):
+        records = list(SeqIO.parse(BytesIO(self.good), "sff"))[:3]
+
+        class Sized:
+            # A sized iterable whose len() disagrees with what it yields
+            def __len__(self):
+                return 5
+
+            def __iter__(self):
+                return iter(records)
+
+        with self.assertRaises(ValueError) as cm:
+            SffWriter(BytesIO()).write_file(Sized())
+        self.assertEqual(
+            str(cm.exception),
+            "Wrote 3 records, but len(records) was 5, so the read count "
+            "in the SFF header is wrong",
         )
 
     def test_no_index(self):

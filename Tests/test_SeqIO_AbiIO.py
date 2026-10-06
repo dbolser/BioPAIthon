@@ -5,6 +5,7 @@
 """Tests for SeqIO AbiIO module."""
 
 import unittest
+from io import BytesIO
 from os.path import basename
 from os.path import join
 
@@ -536,6 +537,22 @@ class TestAbiFake(unittest.TestCase):
             self.assertRaises(
                 ValueError, SeqIO.read, test_data_fake[trace]["handle"], "abi"
             )
+
+
+class TestAbiCorrupt(unittest.TestCase):
+    def test_data_past_end_of_file(self):
+        """Test a directory entry pointing past the end of the file."""
+        with open(join("Abi", "310.ab1"), "rb") as handle:
+            data = handle.read()
+        # Directory entry for APrN1, 13 bytes of cString data:
+        self.assertEqual(data[218599:218603], b"APrN")
+        self.assertEqual(data[218619:218623], (200160).to_bytes(4, "big"))
+        data = data[:218619] + len(data).to_bytes(4, "big") + data[218623:]
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Expected 13 bytes of data for 13 ABIF elements of type 19, found 0$",
+        ):
+            SeqIO.read(BytesIO(data), "abi")
 
 
 if __name__ == "__main__":

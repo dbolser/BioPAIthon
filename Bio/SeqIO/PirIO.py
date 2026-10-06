@@ -286,8 +286,11 @@ class PirWriter(SequenceWriter):
 
         data = _get_seq_string(record)  # Catches sequence being None
 
-        assert "\n" not in data
-        assert "\r" not in data
+        if "\n" in data or "\r" in data:
+            raise ValueError(
+                f"Sequence of record {record.id!r} contains a newline "
+                "or carriage return"
+            )
 
         if self.wrap:
             line = ""
