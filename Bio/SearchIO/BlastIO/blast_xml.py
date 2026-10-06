@@ -592,8 +592,16 @@ class BlastXmlIndexer(SearchIndexer):
                 continue
             # The following requirements are to make supporting BGZF compressed
             # BLAST XML files simpler (avoids complex offset manipulations):
-            assert line.count(qstart_mark) == 1, "XML without line breaks?"
-            assert line.lstrip().startswith(qstart_mark), line
+            if line.count(qstart_mark) != 1:
+                raise ValueError(
+                    "Expected one <Iteration> per line (XML without line breaks?)"
+                    f" at offset {start_offset}, not:\n{line!r}"
+                )
+            if not line.lstrip().startswith(qstart_mark):
+                raise ValueError(
+                    "Expected <Iteration> at the start of the line"
+                    f" at offset {start_offset}, not:\n{line!r}"
+                )
             if qend_mark in line:
                 # Should cope with <Iteration>...</Iteration> on one long line
                 block = line
@@ -602,12 +610,29 @@ class BlastXmlIndexer(SearchIndexer):
                 block = [line]
                 while line and qend_mark not in line:
                     line = handle.readline()
-                    assert qstart_mark not in line, line
+                    if qstart_mark in line:
+                        raise ValueError(
+                            "Found <Iteration> before the </Iteration> closing"
+                            f" the one at offset {start_offset}:\n{line!r}"
+                        )
                     block.append(line)
-                assert line.rstrip().endswith(qend_mark), line
+                if not line:
+                    raise ValueError(
+                        "File ended before the </Iteration> closing the"
+                        f" <Iteration> at offset {start_offset}"
+                    )
+                if not line.rstrip().endswith(qend_mark):
+                    raise ValueError(
+                        "Expected </Iteration> at the end of a line closing the"
+                        f" <Iteration> at offset {start_offset}, not:\n{line!r}"
+                    )
                 block = b"".join(block)
             assert block.count(qstart_mark) == 1, "XML without line breaks? %r" % block
-            assert block.count(qend_mark) == 1, "XML without line breaks? %r" % block
+            if block.count(qend_mark) != 1:
+                raise ValueError(
+                    "Expected one </Iteration> closing the <Iteration> at offset"
+                    f" {start_offset} (XML without line breaks?), not:\n{line!r}"
+                )
             # Now we have a full <Iteration>...</Iteration> block, find the ID
             regx = re.search(re_desc, block)
             try:
@@ -615,7 +640,11 @@ class BlastXmlIndexer(SearchIndexer):
                 qstart_id = regx.group(1)
             except AttributeError:
                 # use the fallback values
-                assert re.search(re_desc_end, block)
+                if not re.search(re_desc_end, block):
+                    raise ValueError(
+                        "Expected <Iteration_query-def> in the <Iteration> at"
+                        f" offset {start_offset}; cannot index BLAST XML without it"
+                    ) from None
                 qstart_desc = self._fallback["description"].encode()
                 qstart_id = self._fallback["id"].encode()
             if qstart_id.startswith(blast_id_mark):
@@ -640,11 +669,22 @@ class BlastXmlIndexer(SearchIndexer):
         handle.seek(offset)
 
         qresult_raw = handle.readline()
-        assert qresult_raw.lstrip().startswith(self.qstart_mark)
+        if not qresult_raw.lstrip().startswith(self.qstart_mark):
+            raise ValueError(
+                f"Expected <Iteration> at offset {offset}, not:\n{qresult_raw!r}"
+            )
         while qend_mark not in qresult_raw:
             qresult_raw += handle.readline()
-        assert qresult_raw.rstrip().endswith(qend_mark)
-        assert qresult_raw.count(qend_mark) == 1
+        if not qresult_raw.rstrip().endswith(qend_mark):
+            raise ValueError(
+                f"Expected the <Iteration> at offset {offset} to end with"
+                f" </Iteration>, not:\n{qresult_raw[-200:]!r}"
+            )
+        if qresult_raw.count(qend_mark) != 1:
+            raise ValueError(
+                "Expected one </Iteration> closing the <Iteration> at offset"
+                f" {offset}, found {qresult_raw.count(qend_mark)}"
+            )
         # Note this will include any leading and trailing whitespace, in
         # general expecting "    <Iteration>\n...\n    </Iteration>\n"
         return qresult_raw

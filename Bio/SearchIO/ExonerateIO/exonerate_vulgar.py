@@ -9,6 +9,7 @@ import re
 
 from ._base import _BaseExonerateIndexer
 from ._base import _BaseExonerateParser
+from ._base import _check_header_matches
 from ._base import _STRAND_MAP
 
 __all__ = ("ExonerateVulgarParser", "ExonerateVulgarIndexer")
@@ -59,7 +60,11 @@ def parse_vulgar_comp(hsp, vulgar_comp):
     for idx, match in enumerate(vcomps):
         label, qstep, hstep = match[0], int(match[1]), int(match[2])
         # check for label, must be recognized
-        assert label in "MCGF53INS", "Unexpected vulgar label: %r" % label
+        if label not in "MCGF53INS":
+            raise ValueError(
+                f"Unexpected vulgar label {label!r}, expected one of MCGF53INS,"
+                f" in:\n{vulgar_comp!r}"
+            )
         # match, codon, or gaps
         if label in "MCGS":
             # if the previous comp is not an MCGS block, it's the
@@ -135,15 +140,7 @@ class ExonerateVulgarParser(_BaseExonerateParser):
         # if the file has c4 alignments
         # check if vulgar values match our previously parsed header values
         if self.has_c4_alignment:
-            assert qresult["id"] == vulgars.group(1)
-            assert hsp["query_start"] == vulgars.group(2)
-            assert hsp["query_end"] == vulgars.group(3)
-            assert hsp["query_strand"] == vulgars.group(4)
-            assert hit["id"] == vulgars.group(5)
-            assert hsp["hit_start"] == vulgars.group(6)
-            assert hsp["hit_end"] == vulgars.group(7)
-            assert hsp["hit_strand"] == vulgars.group(8)
-            assert hsp["score"] == vulgars.group(9)
+            _check_header_matches(header, vulgars, self.line)
         else:
             qresult["id"] = vulgars.group(1)
             hsp["query_start"] = vulgars.group(2)

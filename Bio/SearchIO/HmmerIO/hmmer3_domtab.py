@@ -38,7 +38,11 @@ class Hmmer3DomtabParser(Hmmer3TabParser):
             cols[22] = " ".join(cols[22:])
         elif len(cols) < 23:
             cols.append("")
-            assert len(cols) == 23
+            if len(cols) != 23:
+                raise ValueError(
+                    "Expected at least 22 space-separated columns, found"
+                    f" {len(cols) - 1}:\n{self.line!r}"
+                )
 
         # assign parsed column data into qresult, hit, and hsp dicts
         qresult = {}

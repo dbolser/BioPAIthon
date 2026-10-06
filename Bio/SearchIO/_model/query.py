@@ -454,7 +454,8 @@ class QueryResult(_BaseSearchObject):
         try:
             self.append(hit)
         except ValueError:
-            assert hit.id in self
+            if hit.id not in self:
+                raise
             for hsp in hit:
                 self[hit.id].append(hsp)
 

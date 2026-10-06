@@ -203,10 +203,19 @@ def _set_hsp_seqs(hsp, parsed, program):
         # end part
         hsp.aln_annotation["similarity"] = hsp.aln_annotation["similarity"][start:]
         # hit or query works equally well here
-        assert len(hsp.aln_annotation["similarity"]) == len(parsed["hit"]["seq"])
+        if len(hsp.aln_annotation["similarity"]) != len(parsed["hit"]["seq"]):
+            raise ValueError(
+                "Length mismatch between the al_cons line and the aligned"
+                f" sequences: {len(hsp.aln_annotation['similarity'])}"
+                f" vs {len(parsed['hit']['seq'])}"
+            )
 
     # query and hit sequence types must be the same
-    assert parsed["query"]["_type"] == parsed["hit"]["_type"]
+    if parsed["query"]["_type"] != parsed["hit"]["_type"]:
+        raise ValueError(
+            f"Query sequence type {parsed['query']['_type']!r} does not match"
+            f" hit sequence type {parsed['hit']['_type']!r}"
+        )
     type_val = parsed["query"]["_type"]  # hit works fine too
     molecule_type = "DNA" if type_val == "D" else "protein"
     setattr(hsp.fragment, "molecule_type", molecule_type)
@@ -374,7 +383,11 @@ class FastaM10Parser:
                     line = self.handle.readline()
 
                 elif qres_state == state_QRES_CONTENT:
-                    assert line[3:].startswith(qresult.id), line
+                    if not line[3:].startswith(qresult.id):
+                        raise ValueError(
+                            f"Expected '>>>{qresult.id}' for the current query,"
+                            f" found:\n{line!r}"
+                        )
                     for hit, strand in self._parse_hit(query_id):
                         # HACK: re-set desc, for hsp hit and query description
                         hit.description = hit.description
@@ -474,7 +487,11 @@ class FastaM10Parser:
                     parsed_hsp["query"]["seq"] = ""
                 elif state == _STATE_QUERY_BLOCK:
                     # make sure it's the correct hit
-                    assert hit_id.startswith(line[1:].split(" ")[0])
+                    if not hit_id.startswith(line[1:].split(" ")[0]):
+                        raise ValueError(
+                            f"Expected the aligned sequence of hit {hit_id!r},"
+                            f" found:\n{line!r}"
+                        )
                     state = _STATE_HIT_BLOCK
                     parsed_hsp["hit"]["seq"] = ""
             # check for conservation block
@@ -511,7 +528,10 @@ class FastaM10Parser:
                     raise ValueError("Unexpected line: %r" % line)
             # otherwise, it must be lines containing the sequences
             else:
-                assert ">" not in line
+                if ">" in line:
+                    raise ValueError(
+                        f"Expected an aligned sequence line, found:\n{line!r}"
+                    )
                 # if we're in hit, parse into hsp.hit
                 if state == _STATE_HIT_BLOCK:
                     parsed_hsp["hit"]["seq"] += line.strip()

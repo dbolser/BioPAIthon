@@ -154,6 +154,24 @@ of a too-short ``alignment.operations``). One check in the bigBed writer's zoom
 levels can be hit by valid input, so it is a writer bug, not bad input; it now
 raises ``RuntimeError`` like the writer's other internal checks.
 
+``Bio.SearchIO`` now raises ``ValueError`` for malformed input it used to
+reject with ``assert``, and the checks now also run under ``python -O``, which
+strips asserts. Under ``-O`` the input was misread without complaint: a BLAT
+row whose ``qStart`` disagreed with its blocks, an Exonerate vulgar or cigar
+line whose score or IDs disagreed with the alignment header above it, an
+unknown vulgar label, a HMMER 3 domain alignment numbered out of order, a FASTA
+``-m 10`` alignment between a DNA query and a protein hit, and two BLAST XML
+``<Iteration>`` blocks sharing a line (the second query vanished from the
+index) were all accepted. The checks cover the BLAST XML indexer and the BLAT,
+Exonerate, FASTA, HMMER 2 and 3, and Infernal parsers, and each error says what
+was expected and what was found. The ``HSPFragment`` coordinate setters raise
+``TypeError`` for a coordinate that is not an ``int`` and ``ValueError`` for a
+start after its end, and ``QueryResult.absorb`` re-raises the ``ValueError``
+explaining why a ``Hit`` was refused rather than an ``AssertionError``. The
+``exonerate-text`` parser also used an ``assert`` to choose a code path, so
+under ``-O`` it failed with ``IndexError`` on ``cdna2genome`` and
+``genome2genome`` output; it now parses them.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``

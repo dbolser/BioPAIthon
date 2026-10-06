@@ -818,7 +818,12 @@ class HSPFragment(_BaseHSP):
             # the resulting annotation
             obj.aln_annotation = {}
             for key, value in self.aln_annotation.items():
-                assert len(value[idx]) == len(obj)
+                if len(value[idx]) != len(obj):
+                    raise ValueError(
+                        f"Expected the sliced alignment annotation {key!r} to"
+                        f" have length {len(obj)}, like the sliced alignment,"
+                        f" not {len(value[idx])}"
+                    )
                 obj.aln_annotation[key] = value[idx]
             return obj
         else:
@@ -1107,7 +1112,8 @@ class HSPFragment(_BaseHSP):
         # coord must either be None or int
         if coord is None:
             return coord
-        assert isinstance(coord, int)
+        if not isinstance(coord, int):
+            raise TypeError(f"Coordinate must be an int or None, not {coord!r}")
         # try to get opposite coordinate, if it's not present, return
         try:
             opp_coord = getattr(self, opp_coord_name)
@@ -1117,8 +1123,11 @@ class HSPFragment(_BaseHSP):
         if opp_coord is None:
             return coord
         # otherwise compare it to coord ('>=' or '<=')
-        else:
-            assert op(coord, opp_coord)
+        elif not op(coord, opp_coord):
+            raise ValueError(
+                f"Coordinate {coord} must be {'<=' if op is le else '>='}"
+                f" {opp_coord_name} {opp_coord}"
+            )
         return coord
 
     def _hit_start_get(self):

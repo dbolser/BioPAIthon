@@ -343,6 +343,35 @@ def _get_strand_from_desc(desc, is_protein, modify_desc=True):
     return "-", desc
 
 
+def _check_header_matches(header, match, line):
+    """Check a vulgar or cigar line agrees with the C4 alignment header (PRIVATE).
+
+    ``match`` is the line's regular expression match, whose first nine groups
+    are the query ID, start, end and strand, the hit ID, start, end and
+    strand, and the score.
+    """
+    qresult, hit, hsp = header["qresult"], header["hit"], header["hsp"]
+    for group, (name, value) in enumerate(
+        (
+            ("query ID", qresult["id"]),
+            ("query start", hsp["query_start"]),
+            ("query end", hsp["query_end"]),
+            ("query strand", hsp["query_strand"]),
+            ("hit ID", hit["id"]),
+            ("hit start", hsp["hit_start"]),
+            ("hit end", hsp["hit_end"]),
+            ("hit strand", hsp["hit_strand"]),
+            ("score", hsp["score"]),
+        ),
+        start=1,
+    ):
+        if match.group(group) != value:
+            raise ValueError(
+                f"Expected {name} {value!r} from the alignment header,"
+                f" found {match.group(group)!r} in line:\n{line!r}"
+            )
+
+
 class _BaseExonerateParser(ABC):
     """Abstract base class iterator for exonerate format."""
 
