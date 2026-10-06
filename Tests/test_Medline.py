@@ -362,6 +362,17 @@ class TestMedline(unittest.TestCase):
             ],
         )
 
+    def test_read_no_records(self):
+        with self.assertRaisesRegex(ValueError, "^No records found in handle$"):
+            Medline.read([])
+
+    def test_read_more_than_one_record(self):
+        with open("Medline/pubmed_result2.txt") as handle:
+            with self.assertRaisesRegex(
+                ValueError, "^More than one record found in handle$"
+            ):
+                Medline.read(handle)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

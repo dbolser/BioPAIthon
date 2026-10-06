@@ -203,7 +203,9 @@ def read(handle):
     """Read a single Medline record from the handle.
 
     The handle is either is a Medline file, a file-like object, or a list
-    of lines describing a Medline record.
+    of lines describing a Medline record. The handle must contain exactly
+    one record; a ValueError is raised if it contains none or more than one.
+    Use Bio.Medline.parse(handle) to read multiple records.
 
     Typical usage:
 
@@ -216,7 +218,15 @@ def read(handle):
 
     """
     records = parse(handle)
-    return next(records)
+    try:
+        record = next(records)
+    except StopIteration:
+        raise ValueError("No records found in handle") from None
+    try:
+        next(records)
+    except StopIteration:
+        return record
+    raise ValueError("More than one record found in handle")
 
 
 if __name__ == "__main__":
