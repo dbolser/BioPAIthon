@@ -351,10 +351,17 @@ jobs:
   test_windows:
     timeout-minutes: 15
     needs: [style, build]
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ["3.10", "3.14"]
+        os: [windows-2022, windows-11-arm]
+        python-version: ["3.14"]
+        include:
+          - os: windows-2022
+            python-version: "3.10"
+          # setup-python does not have a Windows ARM64 build before 3.11
+          - os: windows-11-arm
+            python-version: "3.11"
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -388,7 +395,7 @@ jobs:
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v6.0.2
       with:
-        name: Windows GitHub Actions ${{ matrix.python-version }}
+        name: ${{ matrix.os }} GitHub Actions ${{ matrix.python-version }}
         disable_search: true
         files: Tests/coverage.xml
       env:

@@ -56,7 +56,26 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 ================================================
 
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
-recorded below. They are not part of any upstream Biopython release.
+and the upstream development towards Biopython 1.89 recorded below. They are
+not part of any upstream Biopython release.
+
+BioPAIthon now includes upstream Biopython's work towards 1.89 as of
+2 October 2026. The upstream section below lists only its platform support,
+so here are the changes users may notice. ``Bio.Align`` gains the
+``global_align``, ``local_align`` and ``codon_align`` convenience functions,
+and ``PairwiseAligner`` and ``CodonAligner`` accept short mnemonic keywords
+for their scoring parameters (``m``, ``g``, ``o``, ``x`` and so on).
+``PairwiseAligner.score()`` could return a wrong score for Needleman-Wunsch
+global alignments when ``left_deletion_score`` and ``right_deletion_score``
+differed; it now agrees with ``align()``. ``molecular_weight("")`` and
+``ProteinAnalysis("").molecular_weight()`` now raise ``ValueError``; they
+used to return 18.0153, the weight of one water molecule. FASTQ and QUAL
+records with an empty title (a bare ``@`` or ``>`` line) now parse with an
+empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
+``index_db`` give them the same empty key. ``Bio.Align.hhr`` raises
+``ValueError`` instead of ``AssertionError`` on malformed files.
+``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
+positional argument now raises ``TypeError``; see DEPRECATED.rst.
 
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
@@ -753,6 +772,14 @@ reads it with ``Bio.PDB.binary_cif``; mmCIF files can be read with
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
 
+(In progress, not yet released): Biopython 1.89
+===============================================
+
+This release of Biopython supports Python 3.10, 3.11, 3.12, 3.13, 3.14 and the
+Python 3.15 release candidate. It has also been tested on PyPy3.10 v7.3.19, as
+well as Python 3.11+ on Windows for ARM64. Python 3.10 is approaching end of
+life, our support for it is now deprecated.
+
 6 August 2026: Biopython 1.88
 =============================
 
@@ -765,6 +792,9 @@ Python's built-in function `eval` following a report by email from independent
 security researcher Anand Patil. This demonstrated arbitrary code execution
 via the `Bio.Nexus` NEXUS parser.
 
+Additionally, a number of small bugs and typos have been fixed with additions
+to the test suite and type annotations.
+
 Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 
@@ -773,6 +803,7 @@ possible, especially the following contributors:
 - Marcus Campbell (first contribution)
 - Michiel de Hoon
 - Peter Cock
+- Stanley C. (first contribution)
 
 30 March 2026: Biopython 1.87
 =============================
@@ -907,11 +938,11 @@ Our main documentation, the Biopython Tutorial and Cookbook, has been
 converted from LaTeX to reStructuredText, and combined with the existing API
 documentation, into a single more modern and navigable HTML output.
 
-``Bio.Blast``` contains a new parser for BLAST XML output as a replacement for
-the old parser in ``Bio.Blast.NCBIXML```. The main differences between the
+``Bio.Blast`` contains a new parser for BLAST XML output as a replacement for
+the old parser in ``Bio.Blast.NCBIXML``. The main differences between the
 parsers is as follows:
 
-* The old parser stores information in a ``Bio.Blast.NCBIXML.Blast``` object,
+* The old parser stores information in a ``Bio.Blast.NCBIXML.Blast`` object,
   with attribute names based on plain-text Blast output. The new parser stores
   information in a Bio.Blast.Record object. This class follows the DTD that
   describes the XML in terms of attribute names and dictionary key names,
@@ -922,9 +953,9 @@ parsers is as follows:
   the alignment information as a Bio.Align.Alignment object, which can then be
   used to e.g. print the alignment in a different format.
 
-Bio.Blast also contains a new qblast function as a replacement for the old
-qblast function in Bio.Blast.NCBIWWW. The main difference is that the old
-qblast function in Bio.Blast.NCBIWWW returns the BLAST search results as Python
+``Bio.Blast`` also contains a new ``qblast`` function as a replacement for the old
+``qblast`` function in ``Bio.Blast.NCBIWWW``. The main difference is that the old
+qblast function in ``Bio.Blast.NCBIWWW`` returns the BLAST search results as Python
 strings, while the new qblast returns bytes objects. Note that in Python, to
 parse an XML file it should be opened in binary mode, as the string encoding is
 specified in the XML data itself. The object returned by the new qblast

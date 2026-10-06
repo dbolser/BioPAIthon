@@ -85,15 +85,17 @@ Biopython modules, methods, functions
 
 Bio.Blast.NCBIWWW and Bio.Blast.NCBIXML
 ---------------------------------------
-**This deprecation is BioPAIthon's own; Biopython has not deprecated these
-modules.** Deprecated in BioPAIthon 1.88; the modules themselves have not been
-removed. Both are superseded by ``Bio.Blast`` itself: ``Bio.Blast.qblast``
-accepts all the arguments of ``Bio.Blast.NCBIWWW.qblast`` but returns a stream
-of ``bytes`` rather than text, and ``Bio.Blast.read`` and ``Bio.Blast.parse``
-parse the same BLAST XML output (opened in binary mode) that
-``Bio.Blast.NCBIXML`` did. See the "Migrating from the older BLAST modules"
-section of the Tutorial's BLAST chapter for how the old record attributes map
-onto the new classes.
+**This deprecation is BioPAIthon's own.** Biopython has not deprecated these
+modules, though since Biopython 1.89 it declares ``Bio.Blast.NCBIXML``
+obsolete (discouraged, but importing it raises no warning). Deprecated in
+BioPAIthon 1.88; the modules themselves have not been removed. Both are
+superseded by ``Bio.Blast`` itself: ``Bio.Blast.qblast`` accepts all the
+arguments of ``Bio.Blast.NCBIWWW.qblast`` but returns a stream of ``bytes``
+rather than text, and ``Bio.Blast.read`` and ``Bio.Blast.parse`` parse the
+same BLAST XML output (opened in binary mode) that ``Bio.Blast.NCBIXML`` did,
+storing the alignments as ``Bio.Align.Alignment`` objects. See the "Migrating
+from the older BLAST modules" section of the Tutorial's BLAST chapter for how
+the old record attributes map onto the new classes.
 
 Bio.PDB.mmtf
 ------------
@@ -160,6 +162,15 @@ before release 1.88, and the source marked the method itself for removal
 "once release 1.87 is out". It was never documented in the API documentation
 or Tutorial. Code that still calls it can simply delete the call; to silence
 the warning it emitted, set the aligner's gap scores explicitly.
+
+Bio.Align.CodonAligner anchor_len argument
+------------------------------------------
+Removed without a deprecation period by upstream Biopython in its work
+towards 1.89, and so in BioPAIthon 1.88. ``CodonAligner`` accepted an
+``anchor_len`` argument (default 10) that it never used or documented.
+Passing it positionally, as in ``CodonAligner(table, 10)``, now raises
+``TypeError``. Passed by keyword, ``anchor_len=...`` is stored as a plain
+attribute and still does nothing. Either way, delete the argument.
 
 Bio.Entrez
 ----------
@@ -816,6 +827,10 @@ In particular, ``Bio.pairwise2`` used a default gap score of 0, while the
 default gap score of ``PairwiseAligner`` has been -1 since Release 1.86 (see
 the ``Bio.Align`` entry above), so the two can rank alignments differently
 unless the match, mismatch and gap scores are all set explicitly.
+Upstream Biopython 1.89 adds, and BioPAIthon includes, the ``Bio.Align``
+convenience functions ``global_align`` and ``local_align``, with largely the
+same functionality and similar usage as the alignment functions provided in
+``Bio.pairwise2``.
 
 Bio.Wise
 --------

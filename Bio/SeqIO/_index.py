@@ -632,7 +632,11 @@ class FastqRandomAccess(SeqFileRandomAccess):
         while line:
             # assert line[0]=="@"
             # This record seems OK (so far)
-            id = line[1:].rstrip().split(None, 1)[0]
+            try:
+                id = line[1:].rstrip().split(None, 1)[0]
+            except IndexError:
+                # Empty title line (a bare "@"), matching the FASTQ parser.
+                id = b""
             # Find the seq line(s)
             seq_len = 0
             length = len(line)

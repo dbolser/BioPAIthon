@@ -1093,7 +1093,11 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
             self.line = None
 
         descr = title_line
-        id = descr.split()[0]
+        try:
+            id = descr.split(None, 1)[0]
+        except IndexError:
+            # Empty title line (a bare ">"), matching FastaIO behaviour.
+            id = ""
         name = id
 
         if not quality_string.isascii():
@@ -1477,11 +1481,14 @@ class QualPhredIterator(SequenceIterator):
         """Return the record id given the raw ``>`` title line (bytes) (PRIVATE).
 
         The same rule ``__next__`` applies to the title line: the first
-        word.  Used by the Bio.SeqIO indexing code so that index keys
-        match ``record.id``.
+        word, or an empty string for a bare ``>`` line.  Used by the
+        Bio.SeqIO indexing code so that index keys match ``record.id``.
         """
         descr = line[1:].rstrip()
-        return descr.split()[0].decode()
+        try:
+            return descr.split(None, 1)[0].decode()
+        except IndexError:
+            return ""
 
     def __init__(
         self,
@@ -1560,7 +1567,11 @@ class QualPhredIterator(SequenceIterator):
             raise StopIteration
         while True:
             descr = line[1:].rstrip()
-            id = descr.split()[0]
+            try:
+                id = descr.split(None, 1)[0]
+            except IndexError:
+                # Empty title line (a bare ">"), matching FastaIO behaviour.
+                id = ""
             name = id
 
             qualities: list[int] = []
