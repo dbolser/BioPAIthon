@@ -10,6 +10,7 @@
 from typing import Optional
 import warnings
 
+from Bio import BiopythonDeprecationWarning
 from Bio.Align import Alignment, MultipleSeqAlignment, PairwiseAligner
 from Bio.Data import PDBData
 from Bio.PDB import Selection
@@ -61,12 +62,12 @@ class StructureAlignment:
                 m1, m2
             )  # MultipleSeqAlignment
         else:
-            # if fasta_align is explicitly provided, raise DeprecationWarning letting user
-            # know that fasta_align is no longer required
+            # if fasta_align is explicitly provided, raise BiopythonDeprecationWarning
+            # letting user know that fasta_align is no longer required
             warnings.warn(
                 "fasta_align is no longer a required argument (will be automatically computed "
                 "if not provided), and the function signature will change in a future release",
-                DeprecationWarning,
+                BiopythonDeprecationWarning,
                 stacklevel=2,
             )
 

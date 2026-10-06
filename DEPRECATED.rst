@@ -141,6 +141,22 @@ The function ``as_tab`` in ``Bio.SeqIO.TabIO`` was deprecated in release 1.86,
 and removed in BioPAIthon 1.88 (upstream Biopython 1.88 still ships it,
 deprecated). Please use ``format(record, "tab")`` instead.
 
+Bio.PDB.StructureAlignment
+--------------------------
+Passing a precomputed sequence alignment as the ``fasta_align`` argument of
+``StructureAlignment`` was deprecated in Biopython 1.86, when that argument
+became optional: if it is left out, the alignment is computed from the two
+models with ``PairwiseAligner`` using BLASTP defaults. The warning says the
+signature ``StructureAlignment(fasta_align, m1, m2)`` will change in a future
+release, without saying how. Passing the models by keyword and leaving out
+``fasta_align``, as in ``StructureAlignment(m1=model1, m2=model2)``, raises no
+warning; passing ``fasta_align`` still works, by position or by keyword, but
+warns either way. Biopython 1.86 used the built-in ``DeprecationWarning``,
+which Python by default shows only for calls made from ``__main__``.
+BioPAIthon 1.88 raises ``BiopythonDeprecationWarning`` instead, so the
+warning is shown wherever the call is made; upstream Biopython still raises
+``DeprecationWarning``.
+
 Bio.SeqIO.UniprotIO
 -------------------
 The ability to parse a UniProt XML file opened in text mode (if the file was
