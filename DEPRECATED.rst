@@ -184,6 +184,13 @@ The ``search`` function was deprecated in Release 1.84, and removed in Release
 1.86.  The CGI API this wrapped is no longer available since SCOP moved to the
 EBI website.
 
+Changed in BioPAIthon 1.88 without a deprecation period: when the HIE file
+names a sunid missing from the DES file, ``Bio.SCOP.Scop`` now raises a
+``ValueError`` naming the sunid, the same exception it already raised for a
+missing parent or child. It used to print the sunid to stdout and then raise
+a bare ``KeyError``; code catching ``KeyError`` for this case should catch
+``ValueError`` instead.
+
 Bio.AlignInfo
 -------------
 The ``pos_specific_score_matrix`` method of the ``SummaryInfo`` class and the

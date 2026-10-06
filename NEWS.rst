@@ -77,6 +77,12 @@ empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
 ``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
 positional argument now raises ``TypeError``; see DEPRECATED.rst.
 
+``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
+that the DES file lacks. It used to print the bare sunid and then fail on the
+same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``
+naming the sunid, the same exception the neighbouring checks already raise
+for a missing parent or child.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

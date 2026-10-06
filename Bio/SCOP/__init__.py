@@ -263,7 +263,9 @@ class Scop:
                 records = Hie.parse(hie_handle)
                 for record in records:
                     if record.sunid not in sunidDict:
-                        print(record.sunid)
+                        raise ValueError(
+                            f"Incomplete data? sunid {record.sunid} in HIE file is missing from DES file"
+                        )
 
                     n = sunidDict[record.sunid]
 
