@@ -19,7 +19,6 @@ test cannot see history.
 
 import configparser
 import os
-import re
 import unittest
 
 MYPY_INI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".mypy.ini")
@@ -47,14 +46,11 @@ def _blocks(text):
     """Return the section names of the baseline and allowlist blocks."""
     baseline_start = text.index(BASELINE_BANNER)
     allowlist_start = text.index(ALLOWLIST_BANNER)
-    baseline = []
-    allowlist = []
-    for match in re.finditer(r"^\[(.+)\]", text, re.MULTILINE):
-        if match.start() > allowlist_start:
-            allowlist.append(match.group(1))
-        elif match.start() > baseline_start:
-            baseline.append(match.group(1))
-    return baseline, allowlist
+    # Each block starts at its banner comment, so it parses on its own, and
+    # the parser, not a hand-rolled pattern, decides what is a section.
+    baseline = _parse(text[baseline_start:allowlist_start], strict=False)
+    allowlist = _parse(text[allowlist_start:], strict=False)
+    return baseline.sections(), allowlist.sections()
 
 
 @unittest.skipUnless(os.path.isfile(MYPY_INI), ".mypy.ini is not in the sdist")

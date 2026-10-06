@@ -183,7 +183,7 @@ type checker.
   `git diff main -- .mypy.ini` removes no allowlist line.
 - **The hooks.** The `mypy` hook checks the whole tree, exactly as a bare
   `mypy` does, whenever `Bio/`, `BioSQL/` or `.mypy.ini` changes. That takes
-  roughly 20 seconds cold, under 10 with mypy's cache warm. The
+  about 10 seconds cold on a CI runner, less with mypy's cache warm. The
   `mypy-downstream` hook runs `mypy --strict` over `Tests/downstream_typing/`
   whenever `Bio/`, `BioSQL/` or that directory changes. Its files are
   type-checked but never run: `assert_type` pins what users see, and a line
