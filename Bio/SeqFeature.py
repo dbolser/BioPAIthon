@@ -61,6 +61,7 @@ Exceptions:
 
 """
 
+import copy
 import functools
 import re
 import warnings
@@ -157,6 +158,29 @@ _re_location_category = re.compile(
         _solo_location,
     )
 )
+
+
+_SCALAR_TYPES = frozenset((str, int, float, type(None)))
+
+
+def _copy_qualifier_value(value):
+    """Return an independent copy of one qualifier value (PRIVATE).
+
+    The common case, a list of strings as every flat-file parser produces, is
+    copied with ``list()``, which is fast. Anything else - such as UniProt's
+    ``ligands``, a list of dictionaries - is deep-copied. A value that cannot
+    be deep-copied falls back to a shallow copy, and one that cannot be copied
+    at all (an open handle, a generator) is shared, as it always was.
+    """
+    if type(value) is list and _SCALAR_TYPES.issuperset(map(type, value)):
+        return list(value)
+    try:
+        return copy.deepcopy(value)
+    except Exception:
+        try:
+            return copy.copy(value)
+        except Exception:
+            return value
 
 
 class LocationParserError(ValueError):
@@ -271,13 +295,17 @@ class SeqFeature:
     def _shift(self, offset):
         """Return a copy of the feature with its location shifted (PRIVATE).
 
-        The annotation qualifiers are copied.
+        The annotation qualifiers and their values are copied, so editing a
+        qualifier on the copy leaves this feature's alone.
         """
         return SeqFeature(
             location=self.location._shift(offset),
             type=self.type,
             id=self.id,
-            qualifiers=self.qualifiers.copy(),
+            qualifiers={
+                key: _copy_qualifier_value(value)
+                for key, value in self.qualifiers.items()
+            },
         )
 
     def _flip(self, length):
@@ -288,13 +316,17 @@ class SeqFeature:
         after flipping 10..30 (-1 strand). Strandless (None) or unknown
         strand (0) remain like that - just their end points are changed.
 
-        The annotation qualifiers are copied.
+        The annotation qualifiers and their values are copied, so editing a
+        qualifier on the copy leaves this feature's alone.
         """
         return SeqFeature(
             location=self.location._flip(length),
             type=self.type,
             id=self.id,
-            qualifiers=self.qualifiers.copy(),
+            qualifiers={
+                key: _copy_qualifier_value(value)
+                for key, value in self.qualifiers.items()
+            },
         )
 
     def extract(self, parent_sequence, references=None):

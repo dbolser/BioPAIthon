@@ -112,6 +112,20 @@ instead of silently returning the first, and an empty handle raises
 ``StopIteration``. Code that used ``read()`` to take the first of several
 records should use ``next(Bio.Medline.parse(handle))``.
 
+Features on a sliced or reverse-complemented ``SeqRecord``, and the right-hand
+record's features in ``record + other``, no longer share their qualifier
+values with the original's features. ``SeqFeature._shift`` and ``_flip``
+copied the qualifiers dictionary but not its values, so appending to a
+``note`` list on a feature of ``record[2:8]`` also changed the parent's
+feature. A flat list of strings, numbers or ``None``, which is what the
+flat-file parsers produce, is now copied with ``list()``. Any other value,
+such as UniProt's ``ligands`` list of dictionaries, is deep-copied. So an
+object stored as a qualifier value, a ``SeqRecord`` for example, comes back
+as a copy rather than the same object, and a large value such as a NumPy
+array is copied in full on every slice. A value that cannot be deep-copied is
+shallow-copied instead, and one that cannot be copied at all, such as a
+generator, is still shared.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

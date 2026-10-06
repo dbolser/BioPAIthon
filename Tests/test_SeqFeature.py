@@ -360,6 +360,58 @@ class TestSeqFeature(unittest.TestCase):
         with self.assertRaises(TranslationError):
             f.translate(seq)
 
+    def _assert_qualifiers_isolated(self, derive):
+        """Editing a derived record's qualifier list must not reach the parent."""
+        record = SeqRecord.SeqRecord(
+            Seq.Seq("ACGTACGTAC"),
+            features=[
+                SeqFeature(
+                    SimpleLocation(3, 6, 1), type="gene", qualifiers={"note": ["a"]}
+                )
+            ],
+        )
+        derived = derive(record)
+        derived.features[0].qualifiers["note"].append("EVIL")
+        self.assertEqual(record.features[0].qualifiers["note"], ["a"])
+
+    def test_slice_isolates_qualifier_values(self):
+        self._assert_qualifiers_isolated(lambda record: record[2:8])
+
+    def test_reverse_complement_isolates_qualifier_values(self):
+        self._assert_qualifiers_isolated(
+            lambda record: record.reverse_complement(features=True)
+        )
+
+    def test_slice_isolates_nested_qualifier_values(self):
+        """UniProt stores ligands as a list of dicts; those must not be shared."""
+        record = SeqIO.read(
+            path.join(path.dirname(__file__), "SwissProt", "P62330.xml"),
+            "uniprot-xml",
+        )
+        index = next(
+            i for i, f in enumerate(record.features) if "ligands" in f.qualifiers
+        )
+        derived = record[:]
+        derived.features[index].qualifiers["ligands"][0]["name"] = "EVIL"
+        self.assertEqual(record.features[index].qualifiers["ligands"][0]["name"], "GTP")
+
+    def test_uncopyable_qualifier_value_is_shared(self):
+        """A value that cannot be copied is shared; the feature is kept."""
+        generator = (x for x in "abc")
+        record = SeqRecord.SeqRecord(
+            Seq.Seq("ACGTACGTAC"),
+            features=[
+                SeqFeature(
+                    SimpleLocation(3, 6, 1),
+                    type="gene",
+                    qualifiers={"note": generator},
+                )
+            ],
+        )
+        for derived in (record[2:8], record.reverse_complement(features=True)):
+            self.assertEqual(len(derived.features), 1)
+            self.assertIs(derived.features[0].qualifiers["note"], generator)
+
 
 class TestHashing(unittest.TestCase):
     """Tests that the value objects defining __eq__ are usable in sets."""
