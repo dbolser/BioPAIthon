@@ -349,7 +349,7 @@ class PDBIO(StructureIO):
             handle.seek(truncate_to)
             handle.truncate()
         else:
-            raise Exception("One of 'truncate_to' or 'delete_file' must be provided")
+            raise ValueError("One of 'truncate_to' or 'delete_file' must be provided")
 
     # Public methods
     def save(self, file, select=_select, write_end=True, preserve_atom_numbering=False):

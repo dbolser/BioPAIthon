@@ -660,6 +660,21 @@ class Rebuild(unittest.TestCase):
         assert Dihedron.angle_avg(np.array([90.0, -90.0])) == 0.0
         assert Dihedron.angle_avg(np.array([91.0, -91.0])) == 180.0
 
+    def test_atomkey_init_errors(self):
+        """Test AtomKey rejects misordered or unrecognised arguments."""
+        structure = self.PDB_parser.get_structure("1A8O", "PDB/1A8O.pdb")
+        residue = structure[0]["A"][152]
+        ric = IC_Residue(residue)
+        atom = residue["CA"]
+        with self.assertRaisesRegex(ValueError, "full key not first argument"):
+            AtomKey("A", "1_G_CA")
+        with self.assertRaisesRegex(ValueError, "Residue not first argument"):
+            AtomKey("A", ric)
+        with self.assertRaisesRegex(ValueError, "Atom before Residue info"):
+            AtomKey(atom)
+        with self.assertRaisesRegex(TypeError, "Atom Key init not recognised"):
+            AtomKey(1.5)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

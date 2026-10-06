@@ -31,7 +31,7 @@ class GenericPositionMatrix(dict):
             if self.length is None:
                 self.length = len(values[letter])
             elif self.length != len(values[letter]):
-                raise Exception("data has inconsistent lengths")
+                raise ValueError("data has inconsistent lengths")
             # Cast any numpy floats into Python floats:
             self[letter] = [float(_) for _ in values[letter]]
         self.alphabet = alphabet

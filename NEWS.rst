@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+Several parsers and functions that rejected bad input with a bare
+``Exception`` now raise ``ValueError``, so ``except ValueError`` catches
+them: the A2M, tabular BLAST/FASTA and bigBed alignment parsers, the Prosite,
+Prodoc and MAST parsers, ``Bio.motifs`` position matrices given rows of
+unequal length (such as a malformed ``pfm`` file), ``SVDSuperimposer.set()``,
+``NeighborSearch.search()``, ``PDBList.retrieve_assembly_file()``, and
+``AtomKey`` in ``Bio.PDB.internal_coords``, which raises ``TypeError``
+instead for an argument of a type it does not recognise. Code that catches
+``Exception`` is unaffected, since both are subclasses of it.
+
 ``Bio.codonalign`` no longer keeps its own copy of the dN/dS and
 McDonald-Kreitman code in ``Bio.Align.analysis``, which had already meant
 fixing the same three bugs twice. ``Bio.codonalign.codonseq.cal_dn_ds`` and

@@ -118,7 +118,7 @@ def __read_reference_line(record, line):
         else:
             reference.citation += line[5:]
         return True
-    raise Exception(f"I don't understand the reference line\n{line}")
+    raise ValueError(f"I don't understand the reference line\n{line}")
 
 
 def __read_copyright_line(record, line):

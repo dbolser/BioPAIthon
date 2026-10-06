@@ -98,7 +98,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             elif c == "." or c.islower():
                 state += "I"  # Insertion state
             else:
-                raise Exception("Unexpected letter '%s' in alignment" % c)
+                raise ValueError("Unexpected letter '%s' in alignment" % c)
         for name, line in zip(names[1:], lines[1:]):
             for column, (c, m) in enumerate(zip(line, state), 1):
                 if m == "D":  # Match/deletion state
@@ -116,7 +116,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                             f"found '{c}'"
                         )
                 else:
-                    raise Exception("Unexpected letter '%s' in alignment" % c)
+                    raise ValueError("Unexpected letter '%s' in alignment" % c)
         for i, line in enumerate(lines):
             lines[i] = line.upper().replace(".", "-").encode()
         seqdata, coordinates = Alignment.parse_printed_alignment(lines)

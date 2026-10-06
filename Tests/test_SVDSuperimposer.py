@@ -54,6 +54,12 @@ class SVDSuperimposerTest(unittest.TestCase):
         self.assertIsNone(self.sup.init_rms)
         self.assertAlmostEqual(self.sup.get_init_rms(), 0.8049844719)
 
+    def test_set_shape_mismatch(self):
+        with self.assertRaisesRegex(ValueError, "Coordinate number/dimension mismatch"):
+            self.sup.set(self.x, self.y[:3])
+        with self.assertRaisesRegex(ValueError, "Coordinate number/dimension mismatch"):
+            self.sup.set(self.x[:, :2], self.y[:, :2])
+
     def test_oldTest(self):
         self.assertTrue(
             array_equal(

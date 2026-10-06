@@ -66,6 +66,17 @@ class NeighborTest(unittest.TestCase):
         self.assertEqual([], ns.search(x, 5.0, "M"))
         self.assertEqual([], ns.search(x, 5.0, "S"))
 
+    def test_search_center_not_3d(self):
+        """NeighborSearch: A center that is not a 3D point raises ValueError."""
+
+        class FixedAtom:
+            def get_coord(self):
+                return array([0.0, 0.0, 0.0])
+
+        ns = NeighborSearch([FixedAtom(), FixedAtom()])
+        with self.assertRaisesRegex(ValueError, "Expected a 3-dimensional NumPy array"):
+            ns.search(array([0.0, 0.0]), 5.0)
+
 
 class KDTreeTest(unittest.TestCase):
     nr_points = 5000  # number of points used in test

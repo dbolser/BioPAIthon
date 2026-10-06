@@ -215,7 +215,9 @@ def __read(handle):
                 elif qual in ["/TOTAL", "/POSITIVE", "/UNKNOWN", "/FALSE_POS"]:
                     m = re.match(r"(\d+)\((\d+)\)", data)
                     if not m:
-                        raise Exception(f"Broken data {data} in comment line\n{line!r}")
+                        raise ValueError(
+                            f"Broken data {data} in comment line\n{line!r}"
+                        )
                     hits = tuple(map(int, m.groups()))
                     if qual == "/TOTAL":
                         record.nr_total = hits
