@@ -84,37 +84,55 @@ Call ``get_structure`` with the path to the BinaryCIF file:
    >>> parser.get_structure("1GBT", "1gbt.bcif.gz")
    <Structure id=1GBT>
 
-Reading files in the MMTF format
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Reading files in the MMTF format (deprecated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use the direct MMTFParser to read a structure from a file:
+The ``Bio.PDB.mmtf`` module is deprecated, and we intend to remove it in a
+future release; importing it issues a ``BiopythonDeprecationWarning``. The
+RCSB PDB retired the MMTF format in July 2024 and switched off the server
+MMTF files were downloaded from, so structures can no longer be fetched in
+this format. Use mmCIF or BinaryCIF files instead, as described above.
+
+Until the module is removed, ``MMTFParser`` can still read an MMTF file you
+already have:
 
 .. code:: pycon
 
    >>> from Bio.PDB.mmtf import MMTFParser
    >>> structure = MMTFParser.get_structure("PDB/4CUP.mmtf")
 
-Or you can use the same class to get a structure by its PDB ID:
+This gives you a Structure object as if read from a PDB or mmCIF file. To
+keep it once ``Bio.PDB.mmtf`` is gone, save it as an mmCIF file with
+``MMCIFIO`` (see "Writing mmCIF files" below):
 
 .. code:: pycon
 
-   >>> structure = MMTFParser.get_structure_from_url("4CUP")
+   >>> from Bio.PDB.mmcifio import MMCIFIO
+   >>> io = MMCIFIO()
+   >>> io.set_structure(structure)
+   >>> io.save("4CUP.cif")
 
-This gives you a Structure object as if read from a PDB or mmCIF file.
-
-You can also have access to the underlying data using the external MMTF
-library which Biopython is using internally:
-
-.. code:: pycon
-
-   >>> from mmtf import fetch
-   >>> decoded_data = fetch("4CUP")
-
-For example you can access just the X-coordinate.
+``MMTFParser.get_structure_from_url`` and the external ``mmtf`` library's
+``fetch`` function both downloaded from the retired server, and no longer
+work. To get a structure by its PDB ID instead, download it as an mmCIF
+file with ``PDBList`` (see "Accessing the Protein Data Bank" below) and
+parse it with ``MMCIFParser``:
 
 .. code:: pycon
 
-   >>> print(decoded_data.x_coord_list)
+   >>> from Bio.PDB import PDBList
+   >>> from Bio.PDB.MMCIFParser import MMCIFParser
+   >>> filename = PDBList().retrieve_pdb_file("4CUP", file_format="mmCif")
+   >>> structure = MMCIFParser().get_structure("4CUP", filename)
+
+For direct access to the underlying data, such as the X coordinates, use
+``MMCIF2Dict`` on the same file:
+
+.. code:: pycon
+
+   >>> from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+   >>> mmcif_dict = MMCIF2Dict(filename)
+   >>> x_list = mmcif_dict["_atom_site.Cartn_x"]
 
 Reading a PDB file
 ~~~~~~~~~~~~~~~~~~
@@ -314,8 +332,14 @@ Example: writing a PQR file
    >>> io.set_structure(s)
    >>> io.save("out.pdb")
 
-Writing MMTF files
-~~~~~~~~~~~~~~~~~~
+Writing MMTF files (deprecated)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``MMTFIO`` is part of the deprecated ``Bio.PDB.mmtf`` module (see "Reading
+files in the MMTF format" above), and the RCSB PDB no longer distributes
+MMTF files. Unless you need MMTF output for a tool that cannot read
+anything else, write mmCIF files with ``MMCIFIO`` instead (see "Writing
+mmCIF files" above).
 
 To write structures to the MMTF file format:
 

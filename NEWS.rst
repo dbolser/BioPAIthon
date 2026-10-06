@@ -773,7 +773,10 @@ no longer exists in DNS, so ``MMTFParser.get_structure_from_url`` cannot fetch
 anything, and the ``mmtf-python`` package the module depends on last saw a
 release in 2022. BinaryCIF is RCSB's designated successor, and BioPAIthon
 reads it with ``Bio.PDB.binary_cif``; mmCIF files can be read with
-``Bio.PDB.MMCIFParser``. See ``DEPRECATED.rst``.
+``Bio.PDB.MMCIFParser``. The Tutorial's PDB chapter marks its MMTF sections
+as deprecated, no longer teaches fetching MMTF files by PDB ID, and shows
+how to fetch and read the same structure as mmCIF instead. See
+``DEPRECATED.rst``.
 
 Additionally, a number of small bugs and typos have been fixed with additions
 to the test suite and type annotations.
