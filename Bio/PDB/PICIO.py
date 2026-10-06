@@ -86,7 +86,67 @@ def read_PIC(
         supplied, **OR** None on parse fail (silent unless verbose=True)
 
     """
-    proton = "H" in IC_Residue.accept_atoms
+    return _PICParser(file, verbose, quick, defaults).parse()
+
+
+def _link_residues(ppr: list[Residue], pr: list[Residue]) -> None:
+    """Set next and prev links between i-1 and i-2 residues."""
+    for p_r in pr:
+        pric = p_r.internal_coord
+        for p_p_r in ppr:
+            ppric = p_p_r.internal_coord
+            if p_r.id[0] == " ":  # not heteroatoms
+                if pric not in ppric.rnext:
+                    ppric.rnext.append(pric)
+            if p_p_r.id[0] == " ":
+                if ppric not in pric.rprev:
+                    pric.rprev.append(ppric)
+
+
+def _ake_recurse(akList: list) -> list:
+    """Build combinatorics of AtomKey lists."""
+    car = akList[0]
+    if len(akList) > 1:
+        retList = []
+        for ak in car:
+            cdr = akList[1:]
+            rslt = _ake_recurse(cdr)
+            for r in rslt:
+                r.insert(0, ak)
+                retList.append(r)
+        return retList
+    else:
+        if len(car) == 1:
+            return [list(car)]
+        else:
+            retList = [[ak] for ak in car]
+            return retList
+
+
+def _ak_expand(eLst: list) -> list:
+    """Expand AtomKey list with altlocs, all combinatorics."""
+    retList = []
+    for edron in eLst:
+        newList = []
+        for ak in edron:
+            rslt = ak.ric.split_akl([ak])
+            rlst = [r[0] for r in rslt]
+            if rlst != []:
+                newList.append(rlst)
+            else:
+                newList.append([ak])
+        rslt = _ake_recurse(newList)
+        for r in rslt:
+            retList.append(r)
+    return retList
+
+
+class _PICParser:
+    """Parser state and line handlers behind :func:`read_PIC`.
+
+    One instance reads one PIC file; :meth:`parse` returns the Structure, or
+    None on parse fail.
+    """
 
     pdb_hdr_re = re.compile(
         r"^HEADER\s{4}(?P<cf>.{1,40})"
@@ -130,62 +190,63 @@ def read_PIC(
         r"\s*([^\s]+\s+[\-\d\.]+)?"
     )
     bfac2_re = re.compile(r"([^\s]+)\s+([\-\d\.]+)")
-    struct_builder = StructureBuilder()
 
-    # init empty header dict
-    # - could use to parse HEADER and TITLE lines except
-    #   deposition_date format changed from original PDB header
-    header_dict = _parse_pdb_header_list([])
+    def __init__(
+        self, file: TextIO, verbose: bool, quick: bool, defaults: bool
+    ) -> None:
+        """Set up empty parser state; arguments as for :func:`read_PIC`."""
+        self.file = file
+        self.verbose = verbose
+        self.quick = quick
+        self.defaults = defaults
 
-    curr_SMCS = [None, None, None, None]  # struct model chain seg
-    SMCS_init = [
-        struct_builder.init_structure,
-        struct_builder.init_model,
-        struct_builder.init_chain,
-        struct_builder.init_seg,
-    ]
+        self.proton = "H" in IC_Residue.accept_atoms
 
-    sb_res = None
-    rkl = None
-    sb_chain = None
-    sbcic = None
-    sbric = None
+        self.struct_builder = StructureBuilder()
 
-    akc = {}
-    hl12 = {}
-    ha = {}
-    hl23 = {}
-    da = {}
-    bfacs = {}
+        # init empty header dict
+        # - could use to parse HEADER and TITLE lines except
+        #   deposition_date format changed from original PDB header
+        self.header_dict = _parse_pdb_header_list([])
 
-    orphan_aks = set()  # []
+        self.curr_SMCS = [None, None, None, None]  # struct model chain seg
+        self.SMCS_init = [
+            self.struct_builder.init_structure,
+            self.struct_builder.init_model,
+            self.struct_builder.init_chain,
+            self.struct_builder.init_seg,
+        ]
 
-    tr = []  # this residue
-    pr = []  # previous residue
+        self.sb_res = None
+        self.sbcic = None
 
-    def akcache(akstr: str) -> AtomKey:
+        self._new_chain_data()
+
+        self.orphan_aks = set()  # []
+
+        self.tr = []  # this residue
+        self.pr = []  # previous residue
+
+    def _new_chain_data(self) -> None:
+        """Start empty per-chain di/hedra data dicts."""
+        self.akc = {}  # atomkey cache, used by _akcache()
+        self.hl12 = {}  # hedra key -> len12
+        self.ha = {}  # -> hedra angle
+        self.hl23 = {}  # -> len23
+        self.da = {}  # dihedra key -> angle value
+        self.bfacs = {}  # atomkey string -> b-factor
+
+    def _akcache(self, akstr: str) -> AtomKey:
         """Maintain dictionary of AtomKeys seen while reading this PIC file."""
         # akstr: full AtomKey string read from .pic file, includes residue info
         try:
-            return akc[akstr]
+            return self.akc[akstr]
         except KeyError:
-            ak = akc[akstr] = AtomKey(akstr)
+            ak = self.akc[akstr] = AtomKey(akstr)
             return ak
 
-    def link_residues(ppr: list[Residue], pr: list[Residue]) -> None:
-        """Set next and prev links between i-1 and i-2 residues."""
-        for p_r in pr:
-            pric = p_r.internal_coord
-            for p_p_r in ppr:
-                ppric = p_p_r.internal_coord
-                if p_r.id[0] == " ":  # not heteroatoms
-                    if pric not in ppric.rnext:
-                        ppric.rnext.append(pric)
-                if p_p_r.id[0] == " ":
-                    if ppric not in pric.rprev:
-                        pric.rprev.append(ppric)
-
-    def process_hedron(
+    def _process_hedron(
+        self,
         a1: str,
         a2: str,
         a3: str,
@@ -195,20 +256,20 @@ def read_PIC(
         ric: IC_Residue,
     ) -> tuple:
         """Create Hedron on current (sbcic) Chain.internal_coord."""
-        ek = (akcache(a1), akcache(a2), akcache(a3))
+        ek = (self._akcache(a1), self._akcache(a2), self._akcache(a3))
         atmNdx = AtomKey.fields.atm
         accept = IC_Residue.accept_atoms
         if not all(ek[i].akl[atmNdx] in accept for i in range(3)):
             return
-        hl12[ek] = float(l12)
-        ha[ek] = float(ang)
-        hl23[ek] = float(l23)
-        sbcic.hedra[ek] = ric.hedra[ek] = h = Hedron(ek)
-        h.cic = sbcic
-        ak_add(ek, ric)
+        self.hl12[ek] = float(l12)
+        self.ha[ek] = float(ang)
+        self.hl23[ek] = float(l23)
+        self.sbcic.hedra[ek] = ric.hedra[ek] = h = Hedron(ek)
+        h.cic = self.sbcic
+        self._ak_add(ek, ric)
         return ek
 
-    def default_hedron(ek: tuple, ric: IC_Residue) -> None:
+    def _default_hedron(self, ek: tuple, ric: IC_Residue) -> None:
         """Create Hedron based on same re_class hedra in ref database.
 
         Adds Hedron to current Chain.internal_coord, see ic_data for default
@@ -252,7 +313,7 @@ def read_PIC(
             rhcl = [atomkeys[i][resNdx] + atomkeys[i][atmNdx] for i in range(2, -1, -1)]
             dflts = hedra_defaults["".join(rhcl)][0]
 
-        process_hedron(
+        self._process_hedron(
             str(hkey[0]),
             str(hkey[1]),
             str(hkey[2]),
@@ -262,31 +323,31 @@ def read_PIC(
             ric,
         )
 
-        if verbose:
+        if self.verbose:
             print(f" default for {ek}")
 
-    def hedra_check(dk: tuple, ric: IC_Residue) -> None:
+    def _hedra_check(self, dk: tuple, ric: IC_Residue) -> None:
         """Confirm both hedra present for dihedron key, use default if set."""
-        if dk[0:3] not in sbcic.hedra and dk[2::-1] not in sbcic.hedra:
-            if defaults:
-                default_hedron(dk[0:3], ric)
+        if dk[0:3] not in self.sbcic.hedra and dk[2::-1] not in self.sbcic.hedra:
+            if self.defaults:
+                self._default_hedron(dk[0:3], ric)
             else:
                 print(f"{dk} missing h1")
-        if dk[1:4] not in sbcic.hedra and dk[3:0:-1] not in sbcic.hedra:
-            if defaults:
-                default_hedron(dk[1:4], ric)
+        if dk[1:4] not in self.sbcic.hedra and dk[3:0:-1] not in self.sbcic.hedra:
+            if self.defaults:
+                self._default_hedron(dk[1:4], ric)
             else:
                 print(f"{dk} missing h2")
 
-    def process_dihedron(
-        a1: str, a2: str, a3: str, a4: str, dangle: str, ric: IC_Residue
+    def _process_dihedron(
+        self, a1: str, a2: str, a3: str, a4: str, dangle: str, ric: IC_Residue
     ) -> set:
         """Create Dihedron on current Chain.internal_coord."""
         ek = (
-            akcache(a1),
-            akcache(a2),
-            akcache(a3),
-            akcache(a4),
+            self._akcache(a1),
+            self._akcache(a2),
+            self._akcache(a3),
+            self._akcache(a4),
         )
         atmNdx = AtomKey.fields.atm
         accept = IC_Residue.accept_atoms
@@ -295,15 +356,15 @@ def read_PIC(
         dangle = float(dangle)
         dangle = dangle if (dangle <= 180.0) else dangle - 360.0
         dangle = dangle if (dangle >= -180.0) else dangle + 360.0
-        da[ek] = float(dangle)
-        sbcic.dihedra[ek] = ric.dihedra[ek] = d = Dihedron(ek)
-        d.cic = sbcic
-        if not quick:
-            hedra_check(ek, ric)
-        ak_add(ek, ric)
+        self.da[ek] = float(dangle)
+        self.sbcic.dihedra[ek] = ric.dihedra[ek] = d = Dihedron(ek)
+        d.cic = self.sbcic
+        if not self.quick:
+            self._hedra_check(ek, ric)
+        self._ak_add(ek, ric)
         return ek
 
-    def default_dihedron(ek: list, ric: IC_Residue) -> None:
+    def _default_dihedron(self, ek: list, ric: IC_Residue) -> None:
         """Create Dihedron based on same residue class dihedra in ref database.
 
         Adds Dihedron to current Chain.internal_coord, see ic_data for default
@@ -325,7 +386,7 @@ def read_PIC(
         elif dclass == "CNCAC":
             rdclass = "XC" + rdclass[2:]
         if rdclass in dihedra_primary_defaults:
-            process_dihedron(
+            self._process_dihedron(
                 str(ek[0]),
                 str(ek[1]),
                 str(ek[2]),
@@ -334,7 +395,7 @@ def read_PIC(
                 ric,
             )
 
-            if verbose:
+            if self.verbose:
                 print(f" default for {ek}")
 
         elif rdclass in dihedra_secondary_defaults:
@@ -362,8 +423,8 @@ def read_PIC(
                 )
                 paKey = tuple(paKey)
             elif primAngle == ("CA", "C", "N", "CA"):
-                prname = pr.akl[0][resNdx]
-                prnum = pr.akl[0][resPos]
+                prname = self.pr.akl[0][resNdx]
+                prnum = self.pr.akl[0][resPos]
                 paKey = [
                     AtomKey(prnum, None, prname, primAngle[x], None, None)
                     for x in range(2)
@@ -380,9 +441,9 @@ def read_PIC(
                     AtomKey((rnum, None, rname, atm, None, None)) for atm in primAngle
                 )
 
-            if paKey in da:
-                angl = da[paKey] + dihedra_secondary_defaults[rdclass][1]
-                process_dihedron(
+            if paKey in self.da:
+                angl = self.da[paKey] + dihedra_secondary_defaults[rdclass][1]
+                self._process_dihedron(
                     str(ek[0]),
                     str(ek[1]),
                     str(ek[2]),
@@ -391,15 +452,15 @@ def read_PIC(
                     ric,
                 )
 
-                if verbose:
+                if self.verbose:
                     print(f" secondary default for {ek}")
 
             elif rdclass in dihedra_secondary_xoxt_defaults:
                 if primAngle == ("C", "N", "CA", "C"):  # primary for alt cb
                     # no way to trigger alt cb with default=True
                     # because will generate default N-CA-C-O
-                    prname = pr.akl[0][resNdx]
-                    prnum = pr.akl[0][resPos]
+                    prname = self.pr.akl[0][resNdx]
+                    prnum = self.pr.akl[0][resPos]
                     paKey = [AtomKey(prnum, None, prname, primAngle[0], None, None)]
                     paKey.add(
                         [
@@ -417,9 +478,9 @@ def read_PIC(
                         for atm in primAngle
                     )
 
-                if paKey in da:
-                    angl = da[paKey] + offset
-                    process_dihedron(
+                if paKey in self.da:
+                    angl = self.da[paKey] + offset
+                    self._process_dihedron(
                         str(ek[0]),
                         str(ek[1]),
                         str(ek[2]),
@@ -428,7 +489,7 @@ def read_PIC(
                         ric,
                     )
 
-                    if verbose:
+                    if self.verbose:
                         print(f" oxt default for {ek}")
 
                 else:
@@ -442,48 +503,9 @@ def read_PIC(
                 " secondary defaults"
             )
 
-    def dihedra_check(ric: IC_Residue) -> None:
+    def _dihedra_check(self, ric: IC_Residue) -> None:
         """Look for required dihedra in residue, generate defaults if set."""
-        # This method has some internal functions
-
         # rnext should be set
-        def ake_recurse(akList: list) -> list:
-            """Build combinatorics of AtomKey lists."""
-            car = akList[0]
-            if len(akList) > 1:
-                retList = []
-                for ak in car:
-                    cdr = akList[1:]
-                    rslt = ake_recurse(cdr)
-                    for r in rslt:
-                        r.insert(0, ak)
-                        retList.append(r)
-                return retList
-            else:
-                if len(car) == 1:
-                    return [list(car)]
-                else:
-                    retList = [[ak] for ak in car]
-                    return retList
-
-        def ak_expand(eLst: list) -> list:
-            """Expand AtomKey list with altlocs, all combinatorics."""
-            retList = []
-            for edron in eLst:
-                newList = []
-                for ak in edron:
-                    rslt = ak.ric.split_akl([ak])
-                    rlst = [r[0] for r in rslt]
-                    if rlst != []:
-                        newList.append(rlst)
-                    else:
-                        newList.append([ak])
-                rslt = ake_recurse(newList)
-                for r in rslt:
-                    retList.append(r)
-            return retList
-
-        # dihedra_check processing starts here
         # generate the list of dihedra this residue should have
         chkLst = []
         sN, sCA, sC = AtomKey(ric, "N"), AtomKey(ric, "CA"), AtomKey(ric, "C")
@@ -508,7 +530,7 @@ def read_PIC(
             chkLst.append((sO, sC, sCA, sCB))  # locate CB
             if ric.lc == "A":
                 chkLst.append((sN, sCA, sCB))  # missed for generate from seq
-        if ric.rprev != [] and ric.lc != "P" and proton:
+        if ric.rprev != [] and ric.lc != "P" and self.proton:
             chkLst.append((sC, sCA, sN, sH))  # amide proton
 
         try:
@@ -521,7 +543,7 @@ def read_PIC(
             pass
 
         # now compare generated list to ric.dihedra, get defaults if set.
-        chkLst = ak_expand(chkLst)
+        chkLst = _ak_expand(chkLst)
         altloc_ndx = AtomKey.fields.altloc
 
         for dk in chkLst:
@@ -530,20 +552,20 @@ def read_PIC(
             elif sH in dk:
                 pass  # ignore missing hydrogens
             elif all(atm.akl[altloc_ndx] is None for atm in dk):
-                if defaults:
+                if self.defaults:
                     if len(dk) != 3:
-                        default_dihedron(dk, ric)
+                        self._default_dihedron(dk, ric)
                     else:
-                        default_hedron(dk, ric)  # add ALA N-Ca-Cb
+                        self._default_hedron(dk, ric)  # add ALA N-Ca-Cb
                 else:
-                    if verbose:
+                    if self.verbose:
                         print(f"{ric}-{rn} missing {dk}")
             else:
                 # print(f"skip {ek}")
                 pass  # ignore missing combinatoric of altloc atoms
                 # need more here?
 
-    def ak_add(ek: tuple, ric: IC_Residue) -> None:
+    def _ak_add(self, ek: tuple, ric: IC_Residue) -> None:
         """Allocate edron key AtomKeys to current residue as appropriate.
 
         A hedron or dihedron may span a backbone amide bond, this routine
@@ -561,258 +583,285 @@ def read_PIC(
         )
         for ak in ek:
             if ak.ric is None:
-                sbcic.akset.add(ak)
+                self.sbcic.akset.add(ak)
                 if ak.akl[0:3] == reskl:
                     ak.ric = ric
                     ric.ak_set.add(ak)
                 else:
-                    orphan_aks.add(ak)
+                    self.orphan_aks.add(ak)
 
-    def finish_chain() -> None:
+    def _finish_chain(self) -> None:
         """Do last rnext, rprev links and process chain edra data."""
-        link_residues(pr, tr)
+        _link_residues(self.pr, self.tr)
         # check/confirm completeness
-        if not quick:
-            for r in pr:
-                dihedra_check(r.internal_coord)
-            for r in tr:
-                dihedra_check(r.internal_coord)
+        if not self.quick:
+            for r in self.pr:
+                self._dihedra_check(r.internal_coord)
+            for r in self.tr:
+                self._dihedra_check(r.internal_coord)
 
-        if ha != {}:
-            sha = {k: ha[k] for k in sorted(ha)}
-            shl12 = {k: hl12[k] for k in sorted(hl12)}
-            shl23 = {k: hl23[k] for k in sorted(hl23)}
+        if self.ha != {}:
+            sha = {k: self.ha[k] for k in sorted(self.ha)}
+            shl12 = {k: self.hl12[k] for k in sorted(self.hl12)}
+            shl23 = {k: self.hl23[k] for k in sorted(self.hl23)}
             # da not in order if generated from seq
-            sda = {k: da[k] for k in sorted(da)}
-            sbcic._hedraDict2chain(shl12, sha, shl23, sda, bfacs)
+            sda = {k: self.da[k] for k in sorted(self.da)}
+            self.sbcic._hedraDict2chain(shl12, sha, shl23, sda, self.bfacs)
 
-    # read_PIC processing starts here:
-    with as_handle(file, mode="r") as handle:
-        for line in handle.readlines():
-            if line.startswith("#"):
-                pass  # skip comment lines
-            elif line.startswith("HEADER "):
-                m = pdb_hdr_re.match(line)
-                if m:
-                    header_dict["head"] = m.group("cf")  # classification
-                    header_dict["idcode"] = m.group("id")
-                    header_dict["deposition_date"] = m.group("dd")
-                elif verbose:
-                    print("Reading pic file", file, "HEADER parse fail: ", line)
-            elif line.startswith("TITLE "):
-                m = pdb_ttl_re.match(line)
-                if m:
-                    header_dict["name"] = m.group("ttl").strip()
-                    # print('TTL: ', m.group('ttl').strip())
-                elif verbose:
-                    print("Reading pic file", file, "TITLE parse fail:, ", line)
-            elif line.startswith("("):  # Biopython ID line for Residue
-                m = biop_id_re.match(line)
-                if m:
-                    # check SMCS = Structure, Model, Chain, SegID
-                    segid = m.group(9)
-                    if segid is None:
-                        segid = "    "
-                    this_SMCS = [
-                        m.group(1),
-                        int(m.group(2)),
-                        m.group(3),
-                        segid,
-                    ]
-                    if curr_SMCS != this_SMCS:
-                        if curr_SMCS[:3] != this_SMCS[:3] and ha != {}:
-                            # chain change so process current chain data
-                            finish_chain()
-
-                            akc = {}  # atomkey cache, used by akcache()
-                            hl12 = {}  # hedra key -> len12
-                            ha = {}  # -> hedra angle
-                            hl23 = {}  # -> len23
-                            da = {}  # dihedra key -> angle value
-                            bfacs = {}  # atomkey string -> b-factor
-                        # init new Biopython SMCS level as needed
-                        for i in range(4):
-                            if curr_SMCS[i] != this_SMCS[i]:
-                                SMCS_init[i](this_SMCS[i])
-                                curr_SMCS[i] = this_SMCS[i]
-                                if i == 0:
-                                    # 0 = init structure so add header
-                                    struct_builder.set_header(header_dict)
-                                elif i == 1:
-                                    # new model means new chain and new segid
-                                    curr_SMCS[2] = curr_SMCS[3] = None
-                                elif i == 2:
-                                    # new chain so init internal_coord
-                                    sb_chain = struct_builder.chain
-                                    sbcic = sb_chain.internal_coord = IC_Chain(sb_chain)
-
-                    struct_builder.init_residue(
-                        m.group("res"),
-                        m.group("het"),
-                        int(m.group("pos")),
-                        m.group("icode"),
-                    )
-
-                    sb_res = struct_builder.residue
-                    if sb_res.id[0] != " ":  # skip hetatm
-                        continue
-                    if 2 == sb_res.is_disordered():
-                        for r in sb_res.child_dict.values():
-                            if not r.internal_coord:
-                                sb_res = r
-                                break
-                        # added to disordered res
-                        tr.append(sb_res)
-                    else:
-                        # new res so fix up previous residue as feasible
-                        link_residues(pr, tr)
-
-                        if not quick:
-                            for r in pr:
-                                # create di/hedra if default for residue i-1
-                                # just linked
-                                dihedra_check(r.internal_coord)
-
-                        pr = tr
-                        tr = [sb_res]
-
-                    sbric = sb_res.internal_coord = IC_Residue(
-                        sb_res
-                    )  # no atoms so no rak
-                    sbric.cic = sbcic
-                    rkl = (
-                        str(sb_res.id[1]),
-                        (None if sb_res.id[2] == " " else sb_res.id[2]),
-                        sbric.lc,
-                    )
-                    sbcic.ordered_aa_ic_list.append(sbric)
-
-                    # update AtomKeys w/o IC_Residue references, in case
-                    # chain ends before di/hedra sees them (2XHE test case)
-                    for ak in orphan_aks:
-                        if ak.akl[0:3] == rkl:
-                            ak.ric = sbric
-                            sbric.ak_set.add(ak)
-                            # may need altoc support here
-                    orphan_aks = set(filter(lambda ak: ak.ric is None, orphan_aks))
-
-                else:
-                    if verbose:
-                        print(
-                            "Reading pic file",
-                            file,
-                            "residue ID parse fail: ",
-                            line,
-                        )
+    def parse(self) -> Structure | None:
+        """Read the PIC file; return the Structure, or None on parse fail."""
+        with as_handle(self.file, mode="r") as handle:
+            for line in handle.readlines():
+                if not self._parse_line(line):
                     return None
-            elif line.startswith("ATOM "):
-                m = pdb_atm_re.match(line)
-                if not m:
-                    m = pdbx_atm_re.match(line)
-                if m:
-                    if sb_res is None:
-                        # ATOM without res spec already loaded, not a pic file
-                        if verbose:
-                            print(
-                                "Reading pic file",
-                                file,
-                                "ATOM without residue configured:, ",
-                                line,
-                            )
-                        return None
-                    if sb_res.resname != m.group("res") or sb_res.id[1] != int(
-                        m.group("pos")
-                    ):
-                        if verbose:
-                            print(
-                                "Reading pic file",
-                                file,
-                                "ATOM not in configured residue (",
-                                sb_res.resname,
-                                str(sb_res.id),
-                                "):",
-                                line,
-                            )
-                        return None
-                    coord = np.array(
-                        (
-                            float(m.group("x")),
-                            float(m.group("y")),
-                            float(m.group("z")),
-                        ),
-                        "f",
-                    )
-                    struct_builder.init_atom(
-                        m.group("atm").strip(),
-                        coord,
-                        float(m.group("tfac")),
-                        float(m.group("occ")),
-                        m.group("alc"),
-                        m.group("atm"),
-                        int(m.group("ser")),
-                        m.group("elm").strip(),
-                    )
 
-                    # reset because prev does not link to this residue
-                    # (chainBreak)
-                    pr = []
+        # reached end of input
+        self._finish_chain()
 
-            elif line.startswith("BFAC: "):
-                m = bfac_re.match(line)
-                if m:
-                    for bfac_pair in m.groups():
-                        if bfac_pair is not None:
-                            m2 = bfac2_re.match(bfac_pair)
-                            bfacs[m2.group(1)] = float(m2.group(2))
-                # else:
-                #    print f"Reading pic file {file} B-factor fail: {line}"
-            else:
-                m = Edron.edron_re.match(line)
-                if m and sb_res is not None:
-                    if m["a4"] is None:
-                        process_hedron(
-                            m["a1"],
-                            m["a2"],
-                            m["a3"],
-                            m["len12"],
-                            m["angle"],
-                            m["len23"],
-                            sb_res.internal_coord,
-                        )
-                    else:
-                        process_dihedron(
-                            m["a1"],
-                            m["a2"],
-                            m["a3"],
-                            m["a4"],
-                            m["dihedral"],
-                            sb_res.internal_coord,
-                        )
+        # print(report_PIC(struct_builder.get_structure()))
+        return self.struct_builder.get_structure()
 
-                elif m:
+    def _parse_line(self, line: str) -> bool:
+        """Dispatch one line on its record type; False on parse fail."""
+        if line.startswith("#"):
+            pass  # skip comment lines
+        elif line.startswith("HEADER "):
+            self._parse_header(line)
+        elif line.startswith("TITLE "):
+            self._parse_title(line)
+        elif line.startswith("("):  # Biopython ID line for Residue
+            return self._parse_residue(line)
+        elif line.startswith("ATOM "):
+            return self._parse_atom(line)
+        elif line.startswith("BFAC: "):
+            self._parse_bfac(line)
+        else:
+            return self._parse_edron(line)
+        return True
+
+    def _parse_header(self, line: str) -> None:
+        """Read PDB HEADER record into header dict."""
+        m = self.pdb_hdr_re.match(line)
+        if m:
+            self.header_dict["head"] = m.group("cf")  # classification
+            self.header_dict["idcode"] = m.group("id")
+            self.header_dict["deposition_date"] = m.group("dd")
+        elif self.verbose:
+            print("Reading pic file", self.file, "HEADER parse fail: ", line)
+
+    def _parse_title(self, line: str) -> None:
+        """Read PDB TITLE record into header dict."""
+        m = self.pdb_ttl_re.match(line)
+        if m:
+            self.header_dict["name"] = m.group("ttl").strip()
+            # print('TTL: ', m.group('ttl').strip())
+        elif self.verbose:
+            print("Reading pic file", self.file, "TITLE parse fail:, ", line)
+
+    def _parse_residue(self, line: str) -> bool:
+        """Read Biopython residue ID line, start new residue (and S/M/C/S)."""
+        m = self.biop_id_re.match(line)
+        if not m:
+            if self.verbose:
+                print(
+                    "Reading pic file",
+                    self.file,
+                    "residue ID parse fail: ",
+                    line,
+                )
+            return False
+
+        # check SMCS = Structure, Model, Chain, SegID
+        segid = m.group(9)
+        if segid is None:
+            segid = "    "
+        this_SMCS = [
+            m.group(1),
+            int(m.group(2)),
+            m.group(3),
+            segid,
+        ]
+        if self.curr_SMCS != this_SMCS:
+            self._update_SMCS(this_SMCS)
+
+        self.struct_builder.init_residue(
+            m.group("res"),
+            m.group("het"),
+            int(m.group("pos")),
+            m.group("icode"),
+        )
+
+        sb_res = self.sb_res = self.struct_builder.residue
+        if sb_res.id[0] != " ":  # skip hetatm
+            return True
+        if 2 == sb_res.is_disordered():
+            for r in sb_res.child_dict.values():
+                if not r.internal_coord:
+                    sb_res = self.sb_res = r
+                    break
+            # added to disordered res
+            self.tr.append(sb_res)
+        else:
+            # new res so fix up previous residue as feasible
+            _link_residues(self.pr, self.tr)
+
+            if not self.quick:
+                for r in self.pr:
+                    # create di/hedra if default for residue i-1
+                    # just linked
+                    self._dihedra_check(r.internal_coord)
+
+            self.pr = self.tr
+            self.tr = [sb_res]
+
+        sbric = sb_res.internal_coord = IC_Residue(sb_res)  # no atoms so no rak
+        sbric.cic = self.sbcic
+        rkl = (
+            str(sb_res.id[1]),
+            (None if sb_res.id[2] == " " else sb_res.id[2]),
+            sbric.lc,
+        )
+        self.sbcic.ordered_aa_ic_list.append(sbric)
+
+        # update AtomKeys w/o IC_Residue references, in case
+        # chain ends before di/hedra sees them (2XHE test case)
+        for ak in self.orphan_aks:
+            if ak.akl[0:3] == rkl:
+                ak.ric = sbric
+                sbric.ak_set.add(ak)
+                # may need altoc support here
+        self.orphan_aks = set(filter(lambda ak: ak.ric is None, self.orphan_aks))
+        return True
+
+    def _update_SMCS(self, this_SMCS: list) -> None:
+        """Init new Structure, Model, Chain, SegID levels as needed."""
+        if self.curr_SMCS[:3] != this_SMCS[:3] and self.ha != {}:
+            # chain change so process current chain data
+            self._finish_chain()
+            self._new_chain_data()
+        # init new Biopython SMCS level as needed
+        for i in range(4):
+            if self.curr_SMCS[i] != this_SMCS[i]:
+                self.SMCS_init[i](this_SMCS[i])
+                self.curr_SMCS[i] = this_SMCS[i]
+                if i == 0:
+                    # 0 = init structure so add header
+                    self.struct_builder.set_header(self.header_dict)
+                elif i == 1:
+                    # new model means new chain and new segid
+                    self.curr_SMCS[2] = self.curr_SMCS[3] = None
+                elif i == 2:
+                    # new chain so init internal_coord
+                    sb_chain = self.struct_builder.chain
+                    self.sbcic = sb_chain.internal_coord = IC_Chain(sb_chain)
+
+    def _parse_atom(self, line: str) -> bool:
+        """Read ATOM record (chain start or break) into current residue."""
+        m = self.pdb_atm_re.match(line)
+        if not m:
+            m = self.pdbx_atm_re.match(line)
+        if m:
+            sb_res = self.sb_res
+            if sb_res is None:
+                # ATOM without res spec already loaded, not a pic file
+                if self.verbose:
                     print(
-                        "PIC file: ",
-                        file,
-                        " error: no residue info before reading (di/h)edron: ",
+                        "Reading pic file",
+                        self.file,
+                        "ATOM without residue configured:, ",
                         line,
                     )
-                    return None
-                elif line.strip():
-                    if verbose:
-                        print(
-                            "Reading PIC file",
-                            file,
-                            "parse fail on: .",
-                            line,
-                            ".",
-                        )
-                    return None
+                return False
+            if sb_res.resname != m.group("res") or sb_res.id[1] != int(m.group("pos")):
+                if self.verbose:
+                    print(
+                        "Reading pic file",
+                        self.file,
+                        "ATOM not in configured residue (",
+                        sb_res.resname,
+                        str(sb_res.id),
+                        "):",
+                        line,
+                    )
+                return False
+            coord = np.array(
+                (
+                    float(m.group("x")),
+                    float(m.group("y")),
+                    float(m.group("z")),
+                ),
+                "f",
+            )
+            self.struct_builder.init_atom(
+                m.group("atm").strip(),
+                coord,
+                float(m.group("tfac")),
+                float(m.group("occ")),
+                m.group("alc"),
+                m.group("atm"),
+                int(m.group("ser")),
+                m.group("elm").strip(),
+            )
 
-    # reached end of input
-    finish_chain()
+            # reset because prev does not link to this residue
+            # (chainBreak)
+            self.pr = []
+        return True
 
-    # print(report_PIC(struct_builder.get_structure()))
-    return struct_builder.get_structure()
+    def _parse_bfac(self, line: str) -> None:
+        """Read BFAC record of AtomKey, b-factor pairs."""
+        m = self.bfac_re.match(line)
+        if m:
+            for bfac_pair in m.groups():
+                if bfac_pair is not None:
+                    m2 = self.bfac2_re.match(bfac_pair)
+                    self.bfacs[m2.group(1)] = float(m2.group(2))
+        # else:
+        #    print f"Reading pic file {file} B-factor fail: {line}"
+
+    def _parse_edron(self, line: str) -> bool:
+        """Read hedron or dihedron line; anything else non-blank fails."""
+        m = Edron.edron_re.match(line)
+        if m and self.sb_res is not None:
+            if m["a4"] is None:
+                self._process_hedron(
+                    m["a1"],
+                    m["a2"],
+                    m["a3"],
+                    m["len12"],
+                    m["angle"],
+                    m["len23"],
+                    self.sb_res.internal_coord,
+                )
+            else:
+                self._process_dihedron(
+                    m["a1"],
+                    m["a2"],
+                    m["a3"],
+                    m["a4"],
+                    m["dihedral"],
+                    self.sb_res.internal_coord,
+                )
+
+        elif m:
+            print(
+                "PIC file: ",
+                self.file,
+                " error: no residue info before reading (di/h)edron: ",
+                line,
+            )
+            return False
+        elif line.strip():
+            if self.verbose:
+                print(
+                    "Reading PIC file",
+                    self.file,
+                    "parse fail on: .",
+                    line,
+                    ".",
+                )
+            return False
+        return True
 
 
 def read_PIC_seq(
