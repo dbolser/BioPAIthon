@@ -31,11 +31,15 @@ source code, from our repository on GitHub
 https://github.com/dbolser/BioPAIthon
 
 Upstream's user-centric documentation, `The Biopython Tutorial and Cookbook,
-and API documentation <https://biopython.org/docs/latest/>`_, still describes
-this fork accurately.
+and API documentation <https://biopython.org/docs/latest/>`_, describes most
+of this fork too, but not all of it. Here, for example, ``Bio.pairwise2`` has
+been removed, ``Bio.PDB.mmtf`` is deprecated, and a GenBank or EMBL record
+whose sequence does not match its declared length is an error rather than a
+warning.
 
-The `NEWS <NEWS.rst>`_ file summarises the changes in each release, alongside
-the `DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
+The `NEWS <NEWS.rst>`_ file summarises the changes in each release, including
+where this fork differs from upstream, alongside the
+`DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
 
 This package is open source software made available under generous terms.
 Please see the `LICENSE <LICENSE.rst>`_ file for further details.
@@ -111,11 +115,11 @@ Python Requirements
 
 We currently recommend using Python 3.13 from https://www.python.org
 
-Biopython is currently supported and tested on the following Python
+BioPAIthon is currently supported and tested on the following Python
 implementations:
 
-- Python 3.10, 3.11, 3.12, 3.13, 3.14 and the release candidate for 3.15. See
-  https://www.python.org
+- Python 3.10, 3.11, 3.12, 3.13 and 3.14 -- see https://www.python.org. CI
+  tests all five on Linux, and a subset of them on macOS and Windows.
 
 - PyPy3.10 v7.3.17 -- or later, see https://www.pypy.org
 
@@ -128,7 +132,20 @@ automatically if you install Biopython with pip (see below for compiling
 Biopython yourself).
 
 Depending on which parts of Biopython you plan to use, there are a number of
-other optional Python dependencies, which can be installed later if needed:
+other optional Python dependencies, which can be installed later if needed.
+Most are grouped into extras, so pip can install a whole stack by name::
+
+    pip install --pre "biopaithon[graphics]"
+
+- ``graphics`` -- ReportLab and Pillow, for ``Bio.Graphics``.
+- ``phylo`` -- matplotlib, networkx, igraph and rdflib, for ``Bio.Phylo``.
+- ``structure`` -- msgpack, for reading BinaryCIF with ``Bio.PDB``.
+- ``biosql`` -- mysqlclient, the default MySQL driver for ``BioSQL``.
+- ``all`` -- all of the above, plus SciPy for ``Bio.phenotype``,
+  ``Bio.codonalign`` and ``Bio.Align.analysis``.
+- ``test`` -- what the offline test suite exercises (see Testing below).
+
+The individual packages, including alternatives no extra installs, are:
 
 - ReportLab, see https://www.reportlab.com/opensource/ (optional)
   This package is only used in ``Bio.Graphics``, so if you do not need this
@@ -185,7 +202,7 @@ compile BioPAIthon yourself, the following are required at compile time:
 Then either download and decompress our source code, or fetch it using git.
 Now change directory to the Biopython source code folder and run::
 
-    pip install -e . --group dev
+    pip install -e ".[test]"
     cd Tests
     python run_tests.py
 
@@ -205,9 +222,13 @@ Biopython includes a suite of regression tests to check if everything is
 running correctly. To run the tests, go to the biopython source code
 directory and type::
 
-    pip install -e . --group dev
+    pip install -e ".[test]"
     cd Tests
     python run_tests.py
+
+The ``test`` extra installs the optional packages the suite exercises. A plain
+``pip install -e .`` also works, but then every test needing one of those
+packages, all of ``Bio.Graphics`` included, is skipped rather than run.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
