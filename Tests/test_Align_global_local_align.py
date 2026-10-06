@@ -153,7 +153,9 @@ query             0 zA-Bz 4
             o=-11,  # open_gap_score
             x=-1,  # extend_gap_score
         )
-        self.assertEqual(len(alignments1), len(alignments2))
+        # pairwise2.align.localds gave one alignment in each direction.
+        self.assertEqual(len(alignments1), 1)
+        self.assertEqual(len(alignments2), 1)
 
     def test_localxs_generic(self):
         """Test the generic method with local alignments."""

@@ -53,6 +53,13 @@ class TestPrintedAlignmentParser(unittest.TestCase):
         parser = _aligncore.PrintedAlignmentParser()
         self.assertEqual(parser.feed(b"ACGT", 4), (0, b""))
 
+    def test_feed_eol(self):
+        """Parsing stops at the end-of-line character, with or without offset."""
+        parser = _aligncore.PrintedAlignmentParser(b";")
+        self.assertEqual(parser.feed(b"AC-GT;"), (5, b"ACGT"))
+        parser = _aligncore.PrintedAlignmentParser(b";")
+        self.assertEqual(parser.feed(b"XXAC-GT;", 2), (5, b"ACGT"))
+
     def test_feed_offset_out_of_bounds(self):
         for offset in (-1, 5, 100):
             with self.subTest(offset=offset):
