@@ -12,6 +12,7 @@
 """Tests for Nexus module."""
 
 import os.path
+import platform
 import subprocess
 import sys
 import tempfile
@@ -1612,6 +1613,11 @@ end;
 @unittest.skipUnless(
     sys.platform.startswith("linux") and sys.maxsize > 2**32,
     "needs RLIMIT_AS to be enforced (Linux, 64-bit)",
+)
+@unittest.skipUnless(
+    platform.python_implementation() == "CPython",
+    "PyPy's cpyext copies the input string, so it runs out of memory "
+    "before scanfile's own allocation is reached",
 )
 class TestCnexusAllocationFailure(unittest.TestCase):
     """cnexus.scanfile must raise MemoryError when it cannot allocate."""
