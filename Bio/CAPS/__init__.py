@@ -53,7 +53,7 @@ class DifferentialCutsite:
         self.blocked_in = kwds["blocked_in"]
 
 
-class AlignmentHasDifferentLengthsError(Exception):
+class AlignmentHasDifferentLengthsError(ValueError):
     """Exception where sequences in alignment have different lengths."""
 
 

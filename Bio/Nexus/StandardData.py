@@ -10,7 +10,7 @@
 """Objects to represent NEXUS standard data type matrix coding."""
 
 
-class NexusError(Exception):
+class NexusError(ValueError):
     """Provision for the management of Nexus exceptions."""
 
 

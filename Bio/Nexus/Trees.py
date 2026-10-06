@@ -29,7 +29,7 @@ _re_block_delimiters = re.compile(
 )
 
 
-class TreeError(Exception):
+class TreeError(ValueError):
     """Provision for the management of Tree exceptions."""
 
 

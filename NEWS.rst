@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The exceptions that report malformed input but subclassed ``Exception``
+directly now subclass ``ValueError``, like most of the library's parse errors
+already did: ``Bio.Data.CodonTable.TranslationError``, ``Bio.Nexus``'s
+``NexusError`` and ``TreeError``, ``Bio.Phylo``'s ``NewickError``,
+``PhyloXMLError`` and ``NeXMLError``, ``Bio.PDB``'s
+``PDBConstructionException`` and ``Bio.CAPS.AlignmentHasDifferentLengthsError``.
+Code that catches these classes by name is unaffected. The visible change is
+that ``except ValueError`` now catches them too, for example around
+``Seq.translate()`` or a NEXUS, Newick or PDB parse.
+
 BioPAIthon now includes upstream Biopython's work towards 1.89 as of
 2 October 2026. The upstream section below lists only its platform support,
 so here are the changes users may notice. ``Bio.Align`` gains the

@@ -42,7 +42,7 @@ standard_rna_table = None
 # back_table lookups!
 
 
-class TranslationError(Exception):
+class TranslationError(ValueError):
     """Container for translation specific exceptions."""
 
 

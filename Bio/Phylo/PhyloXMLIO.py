@@ -36,7 +36,7 @@ for prefix, uri in NAMESPACES.items():
 DEFAULT_ENCODING = "unicode"
 
 
-class PhyloXMLError(Exception):
+class PhyloXMLError(ValueError):
     """Exception raised when PhyloXML object construction cannot continue.
 
     XML syntax errors will be found and raised by the underlying ElementTree
