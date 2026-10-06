@@ -133,8 +133,9 @@ class _TwoBitSequenceData(SequenceDataAbstractBaseClass):
             byteStart = start // 4
             byteEnd = (end + 3) // 4
         else:
+            # For a negative step, convert decodes positions end + 1 to start + 1
             byteStart = (end + 1) // 4
-            byteEnd = (start + 1 + 3) // 4
+            byteEnd = (start + 4) // 4
         byteSize = byteEnd - byteStart
         stream = self.stream
         try:
