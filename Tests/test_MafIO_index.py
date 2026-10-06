@@ -11,11 +11,13 @@ except ImportError:
     # skip most tests if sqlite is not available
     sqlite3 = None
 
+import gc
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+import warnings
 
 from seq_tests_common import SeqRecordTestBaseClass
 
@@ -163,6 +165,22 @@ if sqlite3:
             idx = MafIndex(self.tmpfile, "MAF/ucsc_mm9_chr10_big.maf", "mm9.chr10")
             self.assertEqual(len(idx), 983)
             idx.close()
+
+        def test_close_releases_maf_handle(self):
+            """close() must close the MAF file, not just the SQLite index."""
+            idx = MafIndex(self.tmpfile, "MAF/ucsc_mm9_chr10.maf", "mm9.chr10")
+            idx.close()
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", ResourceWarning)
+                del idx
+                gc.collect()
+            leaks = [
+                w
+                for w in caught
+                if issubclass(w.category, ResourceWarning)
+                and "ucsc_mm9_chr10.maf" in str(w.message)
+            ]
+            self.assertEqual(leaks, [])
 
         def test_bundle_without_target(self):
             self.assertRaises(
