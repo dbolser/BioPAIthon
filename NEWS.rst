@@ -142,6 +142,13 @@ with no A, C, G or T to count, such as an empty sequence or a run of ``N``;
 the overall G+C is now zero, as each codon position already was. This matches
 ``gc_fraction``, which returns zero for an empty sequence.
 
+``Bio.Nexus`` now has a single ``NexusError`` exception class.
+``Bio.Nexus.StandardData`` defined its own, unrelated class of the same name,
+so a malformed standard-datatype matrix read through ``Bio.Nexus.Nexus``
+raised an error that ``except Nexus.NexusError`` did not catch.
+``Bio.Nexus.Nexus.NexusError`` and ``Bio.Nexus.StandardData.NexusError`` are
+now the same class, so both import paths keep working.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

@@ -22,6 +22,7 @@ from functools import reduce
 from Bio import BiopythonWarning
 from Bio import File
 from Bio.Data import IUPACData
+from Bio.Nexus.StandardData import NexusError
 from Bio.Nexus.StandardData import StandardData
 from Bio.Nexus.Trees import Tree
 from Bio.Seq import Seq
@@ -56,10 +57,6 @@ CODONPOSITIONS = "codonpositions"
 DEFAULTNEXUS = (
     "#NEXUS\nbegin data; dimensions ntax=0 nchar=0; format datatype=dna; end; "
 )
-
-
-class NexusError(Exception):
-    """Provision for the management of Nexus exceptions."""
 
 
 class CharBuffer:
