@@ -592,6 +592,14 @@ class GC123Tests(unittest.TestCase):
         # A C N: the third position has no countable base at all.
         self.assertEqual(GC123("ACN"), (50.0, 0.0, 100.0, 0.0))
 
+    def test_sequence_without_any_nucleotide(self):
+        """A sequence with nothing countable scores zero, not an error."""
+        for seq in ("", "NNN", "-", Seq("")):
+            with self.subTest(seq=seq):
+                result = GC123(seq)
+                self.assertEqual(result, (0.0, 0.0, 0.0, 0.0))
+                self.assertIsInstance(result[0], float)
+
     def test_incomplete_final_codon(self):
         """A trailing partial codon is padded rather than dropped."""
         # ACT G: the G is a first codon position.

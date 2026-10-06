@@ -137,6 +137,11 @@ an ``SH:H:`` checksum on a segment without sequence is kept as an annotation
 rather than verified (in both parsers it used to raise
 ``UndefinedSequenceError`` when it followed an ``LN:i:`` tag).
 
+``Bio.SeqUtils.GC123`` no longer raises ``ZeroDivisionError`` for a sequence
+with no A, C, G or T to count, such as an empty sequence or a run of ``N``;
+the overall G+C is now zero, as each codon position already was. This matches
+``gc_fraction``, which returns zero for an empty sequence.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
