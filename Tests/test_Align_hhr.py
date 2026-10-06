@@ -3,11 +3,12 @@
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for Bio.Align.hhr module."""
-import os
 import unittest
 from tempfile import NamedTemporaryFile
 
 import numpy as np
+
+import support
 
 from Bio import Align
 from Bio.Align import substitution_matrices
@@ -16,7 +17,7 @@ substitution_matrix = substitution_matrices.load("BLOSUM62")
 
 
 class Align_hhr_2uvo_hhblits(unittest.TestCase):
-    path = os.path.join("HHsuite", "2uvo_hhblits.hhr")
+    path = support.DATA / "HHsuite" / "2uvo_hhblits.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -4426,7 +4427,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_2uvo_hhsearch(unittest.TestCase):
-    path = os.path.join("HHsuite", "2uvo_hhsearch.hhr")
+    path = support.DATA / "HHsuite" / "2uvo_hhsearch.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -8852,7 +8853,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_allx(unittest.TestCase):
-    path = os.path.join("HHsuite", "allx.hhr")
+    path = support.DATA / "HHsuite" / "allx.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -9987,7 +9988,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_allx_badtotal_q(unittest.TestCase):
-    path = os.path.join("HHsuite", "allx_badtotal_q.hhr")
+    path = support.DATA / "HHsuite" / "allx_badtotal_q.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -9997,7 +9998,7 @@ class Align_hhr_allx_badtotal_q(unittest.TestCase):
 
 
 class Align_hhr_allx_badtotal_qconsensus(unittest.TestCase):
-    path = os.path.join("HHsuite", "allx_badtotal_qconsensus.hhr")
+    path = support.DATA / "HHsuite" / "allx_badtotal_qconsensus.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -10007,7 +10008,7 @@ class Align_hhr_allx_badtotal_qconsensus(unittest.TestCase):
 
 
 class Align_hhr_allx_badtotal_t(unittest.TestCase):
-    path = os.path.join("HHsuite", "allx_badtotal_t.hhr")
+    path = support.DATA / "HHsuite" / "allx_badtotal_t.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -10017,7 +10018,7 @@ class Align_hhr_allx_badtotal_t(unittest.TestCase):
 
 
 class Align_hhr_allx_badtotal_tconsensus(unittest.TestCase):
-    path = os.path.join("HHsuite", "allx_badtotal_tconsensus.hhr")
+    path = support.DATA / "HHsuite" / "allx_badtotal_tconsensus.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -10027,7 +10028,7 @@ class Align_hhr_allx_badtotal_tconsensus(unittest.TestCase):
 
 
 class Align_hhr_4p79_hhsearch_server_NOssm(unittest.TestCase):
-    path = os.path.join("HHsuite", "4p79_hhsearch_server_NOssm.hhr")
+    path = support.DATA / "HHsuite" / "4p79_hhsearch_server_NOssm.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -11406,7 +11407,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_4y9h_hhsearch_server_NOssm(unittest.TestCase):
-    path = os.path.join("HHsuite", "4y9h_hhsearch_server_NOssm.hhr")
+    path = support.DATA / "HHsuite" / "4y9h_hhsearch_server_NOssm.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -16520,7 +16521,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_hhpred_9590198(unittest.TestCase):
-    path = os.path.join("HHsuite", "hhpred_9590198.hhr")
+    path = support.DATA / "HHsuite" / "hhpred_9590198.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -21302,7 +21303,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_hhsearch_q9bsu1_uniclust_w_ss_pfamA_30(unittest.TestCase):
-    path = os.path.join("HHsuite", "hhsearch_q9bsu1_uniclust_w_ss_pfamA_30.hhr")
+    path = support.DATA / "HHsuite" / "hhsearch_q9bsu1_uniclust_w_ss_pfamA_30.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -23540,7 +23541,7 @@ AlignmentCounts object with
 
 
 class Align_hhr_2uvo_hhblits_emptytable(unittest.TestCase):
-    path = os.path.join("HHsuite", "2uvo_hhblits_emptytable.hhr")
+    path = support.DATA / "HHsuite" / "2uvo_hhblits_emptytable.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:
@@ -23564,7 +23565,7 @@ class Align_hhr_2uvo_hhblits_emptytable(unittest.TestCase):
 
 
 class Align_hhr_2uvo_hhblits_onlyheader(unittest.TestCase):
-    path = os.path.join("HHsuite", "2uvo_hhblits_onlyheader.hhr")
+    path = support.DATA / "HHsuite" / "2uvo_hhblits_onlyheader.hhr"
 
     def test_reading(self):
         with self.assertRaises(ValueError) as cm:
@@ -23574,7 +23575,7 @@ class Align_hhr_2uvo_hhblits_onlyheader(unittest.TestCase):
 
 
 class Align_hhr_7rbx_A_hhsearch_trunc(unittest.TestCase):
-    path = os.path.join("HHsuite", "7rbx_A_hhsearch_trunc.hhr")
+    path = support.DATA / "HHsuite" / "7rbx_A_hhsearch_trunc.hhr"
 
     def test_reading(self):
         with Align.parse(self.path, "hhr") as alignments:

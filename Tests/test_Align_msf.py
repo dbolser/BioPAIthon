@@ -9,6 +9,8 @@ import unittest
 import warnings
 from io import StringIO
 
+import support
+
 from Bio import BiopythonParserWarning
 from Bio import Align
 from Bio.Align import substitution_matrices
@@ -27,7 +29,7 @@ except ImportError:
 
 class TestMSF(unittest.TestCase):
     def test_protein1(self):
-        path = "msf/W_prot.msf"
+        path = support.DATA / "msf" / "W_prot.msf"
         with Align.parse(path, "msf") as alignments:
             self.check_alignments(alignments)
             alignments = iter(alignments)
@@ -213,7 +215,7 @@ W*05:01          60 SKPTCREGGRSGSAKSLRMGRRGCSAQNPKDSHDPPPHL 99
             next(alignments)
 
     def test_protein2(self):
-        path = "msf/DOA_prot.msf"
+        path = support.DATA / "msf" / "DOA_prot.msf"
 
         with Align.parse(path, "msf") as alignments:
             with warnings.catch_warnings(record=True) as caught:

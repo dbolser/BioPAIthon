@@ -9,6 +9,8 @@ from tempfile import NamedTemporaryFile
 
 import numpy as np
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 
@@ -38,7 +40,7 @@ class TestClustalReadingWriting(unittest.TestCase):
             self.assertEqual(alignment[i], saved_alignment[i])
 
     def test_clustalw(self):
-        path = "Clustalw/clustalw.aln"
+        path = support.DATA / "Clustalw" / "clustalw.aln"
         # includes the sequence length on the right hand side of each line
         with open(path) as stream:
             alignments = Align.parse(stream, "clustal")
@@ -254,7 +256,7 @@ AlignmentCounts object with
         self.assertEqual(counts.positives, 126)
 
     def test_msaprobs(self):
-        path = "Clustalw/msaprobs.aln"
+        path = support.DATA / "Clustalw" / "msaprobs.aln"
         # This example was obtained from
         # http://virgil.ruc.dk/kurser/Sekvens/Treedraw.htm
         with open(path) as stream:
@@ -528,7 +530,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_muscle(self):
-        path = "Clustalw/muscle.aln"
+        path = support.DATA / "Clustalw" / "muscle.aln"
         # includes the sequence length on the right hand side of each line
         with open(path) as stream:
             alignments = Align.parse(stream, "clustal")
@@ -757,7 +759,7 @@ AlignmentCounts object with
 
     def test_kalign(self):
         """Make sure we can parse the Kalign header."""
-        path = "Clustalw/kalign.aln"
+        path = support.DATA / "Clustalw" / "kalign.aln"
         with open(path) as stream:
             alignments = Align.parse(stream, "clustal")
             self.assertEqual(alignments.metadata["Program"], "Kalign")
@@ -860,7 +862,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_probcons(self):
-        path = "Clustalw/probcons.aln"
+        path = support.DATA / "Clustalw" / "probcons.aln"
         # example taken from the PROBCONS documentation
         with open(path) as stream:
             with Align.parse(stream, "clustal") as alignments:

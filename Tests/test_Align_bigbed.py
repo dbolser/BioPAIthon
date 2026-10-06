@@ -3,11 +3,12 @@
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for Align.bigbed module."""
-import os
 import sys
 import tempfile
 import unittest
 from io import StringIO
+
+import support
 
 from Bio import Align
 from Bio import SeqIO
@@ -40,11 +41,11 @@ class TestAlign_dna_rna(unittest.TestCase):
     # twoBitInfo hg38.2bit hg38.chrom.sizes
     # bedToBigBed dna_rna.sorted.bed hg38.chrom.sizes dna_rna.bb
 
-    path = "Blat/dna_rna.bb"
+    path = support.DATA / "Blat" / "dna_rna.bb"
 
     def setUp(self):
         data = {}
-        with SeqIO.parse("Blat/dna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "dna.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 assert name == "chr3"
@@ -55,12 +56,12 @@ class TestAlign_dna_rna(unittest.TestCase):
                 assert len(sequence) == end - start
                 data[start] = sequence
         self.dna = Seq(data, length=198295559)  # hg38 chr3
-        with SeqIO.parse("Blat/rna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "rna.fa", "fasta") as records:
             self.rna = {record.id: record.seq for record in records}
 
     def test_reading(self):
         """Test parsing dna_rna.bb."""
-        path = "Blat/dna_rna.bb"
+        path = support.DATA / "Blat" / "dna_rna.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.check_alignments(alignments)
             alignments = iter(alignments)
@@ -2026,13 +2027,13 @@ AlignmentCounts object with
 
     def test_reading_psl_34_001(self):
         """Test reading psl_34_001.bb."""
-        path = "Blat/psl_34_001.bb"
+        path = support.DATA / "Blat" / "psl_34_001.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.check_alignments_psl_34_001(alignments)
 
     def test_writing_psl_34_001(self):
         """Test writing psl_34_001.bb."""
-        path = "Blat/psl_34_001.bb"
+        path = support.DATA / "Blat" / "psl_34_001.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigbed") as alignments:
                 Align.write(alignments, output, "bigbed")
@@ -2282,13 +2283,13 @@ AlignmentCounts object with
 
     def test_reading_psl_34_003(self):
         """Test reading psl_34_003.bb."""
-        path = "Blat/psl_34_003.bb"
+        path = support.DATA / "Blat" / "psl_34_003.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.check_alignments_psl_34_003(alignments)
 
     def test_writing_psl_34_003(self):
         """Test writing psl_34_003.bb."""
-        path = "Blat/psl_34_003.bb"
+        path = support.DATA / "Blat" / "psl_34_003.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigbed") as alignments:
                 Align.write(alignments, output, "bigbed")
@@ -3656,13 +3657,13 @@ AlignmentCounts object with
 
     def test_reading_psl_34_004(self):
         """Test reading psl_34_004.bb."""
-        path = "Blat/psl_34_004.bb"
+        path = support.DATA / "Blat" / "psl_34_004.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.check_alignments_psl_34_004(alignments)
 
     def test_writing_psl_34_004(self):
         """Test writing psl_34_004.bb."""
-        path = "Blat/psl_34_004.bb"
+        path = support.DATA / "Blat" / "psl_34_004.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigbed") as alignments:
                 Align.write(alignments, output, "bigbed")
@@ -5237,13 +5238,13 @@ AlignmentCounts object with
 
     def test_reading_psl_34_005(self):
         """Test reading psl_34_005.bb."""
-        path = "Blat/psl_34_005.bb"
+        path = support.DATA / "Blat" / "psl_34_005.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.check_alignments_psl_34_005(alignments)
 
     def test_writing_psl_34_005(self):
         """Test writing psl_34_005.bb."""
-        path = "Blat/psl_34_005.bb"
+        path = support.DATA / "Blat" / "psl_34_005.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigbed") as alignments:
                 Align.write(alignments, output, "bigbed")
@@ -5259,7 +5260,7 @@ class TestAlign_dnax_prot(unittest.TestCase):
     # twoBitInfo hg38.2bit hg38.chrom.sizes
     # bedToBigBed psl_35_001.sorted.bed hg38.chrom.sizes psl_35_001.bb
 
-    path = "Blat/psl_35_001.bb"
+    path = support.DATA / "Blat" / "psl_35_001.bb"
 
     def check_alignments(self, alignments):
         self.assertEqual(
@@ -6120,7 +6121,7 @@ table bed
         """Test parsing alignments in file formats BED3 through BED12."""
         for bedN in (3, 4, 5, 6, 7, 8, 9, 12):
             filename = "bed%d.bb" % bedN
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             msg = "bed%d" % bedN
             with Align.parse(path, "bigbed") as alignments:
                 self.check_autosql(alignments.declaration, bedN, msg)
@@ -6130,7 +6131,7 @@ table bed
         """Test Writing alignments in file formats BED3 through BED12."""
         for bedN in (3, 4, 5, 6, 7, 8, 9, 12):
             filename = "bed%d.bb" % bedN
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             with tempfile.TemporaryFile() as output:
                 with Align.parse(path, "bigbed") as alignments:
                     Align.write(alignments, output, "bigbed", bedN=bedN)
@@ -6162,11 +6163,11 @@ class TestAlign_extended_bed(unittest.TestCase):
 
     def test_reading(self):
         """Test parsing bigbed_extended.bb."""
-        path = "Blat/bigbed_extended.littleendian.bb"
+        path = support.DATA / "Blat" / "bigbed_extended.littleendian.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.assertEqual(alignments.byteorder, "<")
             self.check_alignments(alignments)
-        path = "Blat/bigbed_extended.bigendian.bb"
+        path = support.DATA / "Blat" / "bigbed_extended.bigendian.bb"
         with Align.parse(path, "bigbed") as alignments:
             self.assertEqual(alignments.byteorder, ">")
             self.check_alignments(alignments)
@@ -6898,10 +6899,10 @@ AlignmentCounts object with
     def test_writing(self):
         """Test writing bigbed_extended.bb."""
         byteorder = sys.byteorder  # "little" or "big"
-        path = f"Blat/bigbed_extended.{byteorder}endian.bb"
+        path = support.DATA / "Blat" / f"bigbed_extended.{byteorder}endian.bb"
         with open(path, "rb") as stream:
             correct = stream.read()
-        with open("Blat/bedExample2.as") as stream:
+        with open(support.DATA / "Blat" / "bedExample2.as") as stream:
             autosql_data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(autosql_data)
         with tempfile.TemporaryFile() as output:
@@ -6937,7 +6938,7 @@ AlignmentCounts object with
 
 
 class TestAlign_searching(unittest.TestCase):
-    path = "Blat/bigbedtest.bb"
+    path = support.DATA / "Blat" / "bigbedtest.bb"
 
     # The bigBed file bigbedtest.bb contains the following data:
     # chr1     10     100     name1   1       +
@@ -7619,7 +7620,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # grep -E -v 'fix|alt' Blat/ucsc.bed > ucsc.clean.bed
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # bedToBigBed -as=Blat/bed12.as ucsc.clean.bed Align/hg38.chrom.sizes ucsc.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7640,7 +7641,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # grep -E -v 'fix|alt' Blat/ucsc.bed > ucsc.clean.bed
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # bedToBigBed -as=Blat/bed12.as -unc ucsc.clean.bed Align/hg38.chrom.sizes ucsc.unc.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7663,7 +7664,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-3 ucsc.clean.bed > ucsc.bed3.bed
         # bedToBigBed -as=Blat/bed3.as -type=bed3 ucsc.bed3.bed Align/hg38.chrom.sizes ucsc.bed3.bb
-        with open("Blat/bed3.as") as stream:
+        with open(support.DATA / "Blat" / "bed3.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7687,7 +7688,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-4 ucsc.clean.bed > ucsc.bed4.bed
         # bedToBigBed -as=Blat/bed4.as -type=bed4 ucsc.bed4.bed Align/hg38.chrom.sizes ucsc.bed4.bb
-        with open("Blat/bed4.as") as stream:
+        with open(support.DATA / "Blat" / "bed4.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7711,7 +7712,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-5 ucsc.clean.bed > ucsc.bed5.bed
         # bedToBigBed -as=Blat/bed5.as -type=bed5 ucsc.bed5.bed Align/hg38.chrom.sizes ucsc.bed5.bb
-        with open("Blat/bed5.as") as stream:
+        with open(support.DATA / "Blat" / "bed5.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7735,7 +7736,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-6 ucsc.clean.bed > ucsc.bed6.bed
         # bedToBigBed -as=Blat/bed6.as -type=bed6 ucsc.bed6.bed Align/hg38.chrom.sizes ucsc.bed6.bb
-        with open("Blat/bed6.as") as stream:
+        with open(support.DATA / "Blat" / "bed6.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7759,7 +7760,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-7 ucsc.clean.bed > ucsc.bed7.bed
         # bedToBigBed -as=Blat/bed7.as -type=bed7 ucsc.bed7.bed Align/hg38.chrom.sizes ucsc.bed7.bb
-        with open("Blat/bed7.as") as stream:
+        with open(support.DATA / "Blat" / "bed7.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7783,7 +7784,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-8 ucsc.clean.bed > ucsc.bed8.bed
         # bedToBigBed -as=Blat/bed8.as -type=bed8 ucsc.bed8.bed Align/hg38.chrom.sizes ucsc.bed8.bb
-        with open("Blat/bed8.as") as stream:
+        with open(support.DATA / "Blat" / "bed8.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7807,7 +7808,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # sort -k1,1 -k2,2n ucsc.clean.bed -o ucsc.clean.bed
         # cut -f 1-9 ucsc.clean.bed > ucsc.bed9.bed
         # bedToBigBed -as=Blat/bed9.as -type=bed9 ucsc.bed9.bed Align/hg38.chrom.sizes ucsc.bed9.bb
-        with open("Blat/bed9.as") as stream:
+        with open(support.DATA / "Blat" / "bed9.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.bb"
@@ -7837,7 +7838,7 @@ class TestAlign_big(BinaryTestBaseClass):
         # grep -E -v 'fix|alt' Blat/ucsc.bed > ucsc.clean.bed
         # sort -u -k4,4 ucsc.clean.bed | sort -k1,1 -k2,2n > ucsc.unique.bed
         # bedToBigBed -as=Blat/bed12.as -extraIndex=name ucsc.unique.bed Align/hg38.chrom.sizes ucsc.indexed.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ucsc.indexed.bb"
@@ -7857,7 +7858,7 @@ class TestAlign_big(BinaryTestBaseClass):
     def test_k_anogam(self):
         # sort -k1,1 -k2,2n Blat/anoGam3.bed -o anoGam3.bed
         # bedToBigBed -as=Blat/bed12.as anoGam3.bed Blat/anoGam3.chrom.sizes anoGam3.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "anoGam3.bb"
@@ -7877,7 +7878,7 @@ class TestAlign_big(BinaryTestBaseClass):
     def test_l_ailmel(self):
         # sort -k1,1 -k2,2n Blat/ailMel1.bed -o ailMel1.bed
         # bedToBigBed -as=Blat/bed12.as ailMel1.bed Blat/ailMel1.chrom.sizes ailMel1.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "ailMel1.bb"
@@ -7897,7 +7898,7 @@ class TestAlign_big(BinaryTestBaseClass):
     def test_m_bisbis(self):
         # sort -k1,1 -k2,2n bisBis1.bed -o bisBis1.bed
         # bedToBigBed -as=Blat/bed12.as bisBis1.bed Blat/bisBis1.chrom.sizes bisBis1.bb
-        with open("Blat/bed12.as") as stream:
+        with open(support.DATA / "Blat" / "bed12.as") as stream:
             data = stream.read()
         declaration = bigbed.AutoSQLTable.from_string(data)
         bigBedFileName = "bisBis1.bb"
@@ -7919,7 +7920,7 @@ class TestDeclarations(unittest.TestCase):
     def test_declarations(self):
         for length in (3, 4, 5, 6, 7, 8, 9, 12):
             filename = "bed%d.as" % length
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             with open(path) as stream:
                 data = stream.read()
             declaration = bigbed.AutoSQLTable.from_string(data)

@@ -8,13 +8,15 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio.AlignIO.PhylipIO import PhylipIterator
 from Bio.AlignIO.PhylipIO import PhylipWriter
 
 
 class TestPhylipIO(unittest.TestCase):
     def test_one(self):
-        input_file = "Phylip/one.dat"
+        input_file = support.DATA / "Phylip" / "one.dat"
         with open(input_file) as handle:
             ids = []
             for alignment in PhylipIterator(handle):
@@ -48,14 +50,14 @@ class TestPhylipIO(unittest.TestCase):
         self.assertEqual(str(record.seq).replace("-", ""), expected)
 
     def test_two_and_three(self):
-        path = "Phylip/two.dat"
+        path = support.DATA / "Phylip" / "two.dat"
         # derived from http://atgc.lirmm.fr/phyml/usersguide.html
         with open(path) as handle:
             list2 = list(PhylipIterator(handle))
         self.assertEqual(len(list2), 1)
         self.assertEqual(len(list2[0]), 5)
 
-        path = "Phylip/three.dat"
+        path = support.DATA / "Phylip" / "three.dat"
         with open(path) as handle:
             list3 = list(PhylipIterator(handle))
         self.assertEqual(len(list3), 1)
@@ -66,7 +68,7 @@ class TestPhylipIO(unittest.TestCase):
             self.assertEqual(list2[0][i].seq, list3[0][i].seq)
 
     def test_four(self):
-        path = "Phylip/four.dat"
+        path = support.DATA / "Phylip" / "four.dat"
         # File derived from here:
         # http://evolution.genetics.washington.edu/phylip/doc/sequence.html
         # Note the lack of any white space between names 2 and 3 and their seqs.
@@ -78,26 +80,26 @@ class TestPhylipIO(unittest.TestCase):
     def test_five(self):
         # File derived rom here:
         # http://evolution.genetics.washington.edu/phylip/doc/sequence.html
-        path = "Phylip/five.dat"
+        path = support.DATA / "Phylip" / "five.dat"
         with open(path) as handle:
             self.assertRaises(ValueError, list, PhylipIterator(handle))
 
     def test_six(self):
         # File derived rom here:
         # http://evolution.genetics.washington.edu/phylip/doc/sequence.html
-        path = "Phylip/six.dat"
+        path = support.DATA / "Phylip" / "six.dat"
         with open(path) as handle:
             list5 = list(PhylipIterator(handle))
         self.assertEqual(len(list5), 1)
 
     def test_concatenation(self):
-        path = "Phylip/one.dat"
+        path = support.DATA / "Phylip" / "one.dat"
         with open(path) as handle:
             phylip_text = handle.read()
-        path = "Phylip/three.dat"
+        path = support.DATA / "Phylip" / "three.dat"
         with open(path) as handle:
             phylip_text3 = handle.read()
-        path = "Phylip/four.dat"
+        path = support.DATA / "Phylip" / "four.dat"
         with open(path) as handle:
             phylip_text4 = handle.read()
         handle = StringIO(phylip_text4 + "\n" + phylip_text4)
@@ -107,7 +109,7 @@ class TestPhylipIO(unittest.TestCase):
         self.assertEqual(len(list(PhylipIterator(handle))), 3)
 
     def test_write_read(self):
-        path = "Phylip/six.dat"
+        path = support.DATA / "Phylip" / "six.dat"
         with open(path) as handle:
             list5 = list(PhylipIterator(handle))
 

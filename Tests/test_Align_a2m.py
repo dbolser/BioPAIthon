@@ -9,6 +9,8 @@ from io import StringIO
 
 import numpy as np
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 
@@ -37,7 +39,7 @@ class TestA2MReadingWriting(unittest.TestCase):
             self.assertEqual(alignment[i], saved_alignment[i])
 
     def test_clustalw(self):
-        path = "Clustalw/clustalw.a2m"
+        path = support.DATA / "Clustalw" / "clustalw.a2m"
         with open(path) as stream:
             alignments = Align.parse(stream, "a2m")
             alignment = next(alignments)
@@ -202,7 +204,7 @@ AlignmentCounts object with
         self.assertEqual(counts.positives, 126)
 
     def test_msaprobs(self):
-        path = "Clustalw/msaprobs.a2m"
+        path = support.DATA / "Clustalw" / "msaprobs.a2m"
         # This example was obtained from
         # http://virgil.ruc.dk/kurser/Sekvens/Treedraw.htm
         # and converted to A2M format.
@@ -430,7 +432,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_muscle(self):
-        path = "Clustalw/muscle.a2m"
+        path = support.DATA / "Clustalw" / "muscle.a2m"
         with open(path) as stream:
             alignments = Align.parse(stream, "a2m")
             alignment = next(alignments)
@@ -590,7 +592,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_kalign(self):
-        path = "Clustalw/kalign.a2m"
+        path = support.DATA / "Clustalw" / "kalign.a2m"
         with open(path) as stream:
             alignments = Align.parse(stream, "a2m")
             alignment = next(alignments)
@@ -695,7 +697,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_probcons(self):
-        path = "Clustalw/probcons.a2m"
+        path = support.DATA / "Clustalw" / "probcons.a2m"
         # example taken from the PROBCONS documentation,
         # and converted to aligned A2M format.
         with open(path) as stream:

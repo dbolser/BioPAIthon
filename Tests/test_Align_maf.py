@@ -7,6 +7,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 
 try:
@@ -22,7 +24,7 @@ except ImportError:
 class TestAlign_reading(unittest.TestCase):
     def test_reading_bundle_without_target(self):
         """Test parsing bundle_without_target.maf."""
-        path = "MAF/bundle_without_target.maf"
+        path = support.DATA / "MAF" / "bundle_without_target.maf"
         with Align.parse(path, "maf") as alignments:
             self.check_reading_bundle_without_target(alignments)
 
@@ -13403,7 +13405,7 @@ AlignmentCounts object with
 
     def test_reading_ucsc_mm9_chr10(self):
         """Test parsing MAF file ucsc_mm9_chr10.maf."""
-        path = "MAF/ucsc_mm9_chr10.maf"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10.maf"
         with Align.parse(path, "maf") as alignments:
             self.check_reading_ucsc_mm9_chr10(alignments)
             self.assertRaises(StopIteration, next, alignments)
@@ -13422,7 +13424,7 @@ AlignmentCounts object with
 
     def test_reading_missing_signature(self):
         """Test parsing MAF file ucsc_mm9_chr10_big.maf with missing signature."""
-        path = "MAF/ucsc_mm9_chr10_big.maf"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10_big.maf"
         with self.assertRaises(ValueError) as cm:
             with Align.parse(path, "maf") as alignments:
                 pass
@@ -13430,7 +13432,7 @@ AlignmentCounts object with
 
     def test_reading_ucsc_mm9_chr10_bad(self):
         """Test parsing MAF file ucsc_mm9_chr10_bad.maf with incorrect sequence size."""
-        path = "MAF/ucsc_mm9_chr10_bad.maf"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10_bad.maf"
         with Align.parse(path, "maf") as alignments:
             self.assertEqual(alignments.metadata["MAF Version"], "1")
             self.assertEqual(alignments.metadata["Scoring"], "autoMZ.v1")
@@ -13448,7 +13450,7 @@ AlignmentCounts object with
 
     def test_reading_length_coords_mismatch(self):
         """Test parsing inconsistent MAF file length_coords_mismatch.maf."""
-        path = "MAF/length_coords_mismatch.maf"
+        path = support.DATA / "MAF" / "length_coords_mismatch.maf"
         with Align.parse(path, "maf") as alignments:
             self.check_reading_length_coords_mismatch(alignments)
 
@@ -13573,14 +13575,14 @@ AlignmentCounts object with
 
     def test_reading_bug2453(self):
         """Test parsing bug2453.maf."""
-        path = "MAF/bug2453.maf"
+        path = support.DATA / "MAF" / "bug2453.maf"
         with Align.parse(path, "maf") as alignments:
             self.assertEqual(len(alignments.metadata), 3)
             self.check_alignments(alignments)
 
     def test_reading_ucsc_test(self):
         """Test parsing ucsc_test.maf."""
-        path = "MAF/ucsc_test.maf"
+        path = support.DATA / "MAF" / "ucsc_test.maf"
         with Align.parse(path, "maf") as alignments:
             self.check_header(alignments)
             self.check_alignments(alignments)
@@ -14033,7 +14035,7 @@ AlignmentCounts object with
 class TestAlign_writing(unittest.TestCase):
     def test_writing_ucsc_test(self):
         """Test reading and writing ucsc_test.maf."""
-        path = "MAF/ucsc_test.maf"
+        path = support.DATA / "MAF" / "ucsc_test.maf"
         output = StringIO()
         with Align.parse(path, "maf") as alignments:
             n = Align.write(alignments, output, "maf")
@@ -14060,7 +14062,7 @@ class TestAlign_writing(unittest.TestCase):
 
     def test_writing_bug2453(self):
         """Test reading and writing bug2453.maf."""
-        path = "MAF/bug2453.maf"
+        path = support.DATA / "MAF" / "bug2453.maf"
         output = StringIO()
         with Align.parse(path, "maf") as alignments:
             n = Align.write(alignments, output, "maf")
@@ -14078,7 +14080,7 @@ class TestAlign_writing(unittest.TestCase):
 
     def test_writing_bundle_without_target(self):
         """Test reading and writing bundle_without_target.maf."""
-        path = "MAF/bundle_without_target.maf"
+        path = support.DATA / "MAF" / "bundle_without_target.maf"
         output = StringIO()
         with Align.parse(path, "maf") as alignments:
             n = Align.write(alignments, output, "maf")
@@ -14090,7 +14092,7 @@ class TestAlign_writing(unittest.TestCase):
 
     def test_writing_ucsc_mm9_chr10(self):
         """Test reading and writing ucsc_mm9_chr10.maf."""
-        path = "MAF/ucsc_mm9_chr10.maf"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10.maf"
         output = StringIO()
         with Align.parse(path, "maf") as alignments:
             n = Align.write(alignments, output, "maf")

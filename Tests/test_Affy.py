@@ -18,14 +18,16 @@ except ImportError:
         "Install NumPy if you want to use Bio.Affy.CelFile"
     ) from None
 
+import support
+
 from Bio.Affy import CelFile
 
 
 class AffyTest(unittest.TestCase):
     def setUp(self):
-        self.affy3 = "Affy/affy_v3_example.CEL"
-        self.affy4 = "Affy/affy_v4_example.CEL"
-        self.affy4Bad = "Affy/affy_v4_bad_example.CEL"
+        self.affy3 = support.DATA / "Affy" / "affy_v3_example.CEL"
+        self.affy4 = support.DATA / "Affy" / "affy_v4_example.CEL"
+        self.affy4Bad = support.DATA / "Affy" / "affy_v4_bad_example.CEL"
         with open(self.affy4Bad, "wb") as f:
             self.writeExampleV4(f, bad=True)
 

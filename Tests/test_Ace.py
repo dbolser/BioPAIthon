@@ -10,13 +10,15 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import SeqIO
 from Bio.Sequencing import Ace
 
 
 class AceTestOne(unittest.TestCase):
     def setUp(self):
-        self.handle = open("Ace/contig1.ace")
+        self.handle = open(support.DATA / "Ace" / "contig1.ace")
 
     def tearDown(self):
         self.handle.close()
@@ -1206,7 +1208,7 @@ class AceTestTwo(unittest.TestCase):
     """
 
     def setUp(self):
-        self.handle = open("Ace/seq.cap.ace")
+        self.handle = open(support.DATA / "Ace" / "seq.cap.ace")
 
     def tearDown(self):
         self.handle.close()
@@ -1598,7 +1600,7 @@ class AceTestThree(unittest.TestCase):
     """
 
     def setUp(self):
-        self.handle = open("Ace/consed_sample.ace")
+        self.handle = open(support.DATA / "Ace" / "consed_sample.ace")
 
     def tearDown(self):
         self.handle.close()

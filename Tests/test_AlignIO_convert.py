@@ -7,6 +7,8 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import AlignIO
 
 
@@ -50,15 +52,15 @@ class ConvertTests(unittest.TestCase):
 
     def test_convert(self):
         tests = [
-            ("Clustalw/hedgehog.aln", "clustal", None),
-            ("Nexus/test_Nexus_input.nex", "nexus", None),
-            ("Stockholm/simple.sth", "stockholm", None),
-            ("GFF/multi.fna", "fasta", "DNA"),
-            ("Quality/example.fastq", "fastq", None),
-            ("Quality/example.fastq", "fastq-sanger", "DNA"),
-            ("Fasta/output001.m10", "fasta-m10", None),
-            ("IntelliGenetics/VIF_mase-pro.txt", "ig", "protein"),
-            ("NBRF/clustalw.pir", "pir", None),
+            (support.DATA / "Clustalw" / "hedgehog.aln", "clustal", None),
+            (support.DATA / "Nexus" / "test_Nexus_input.nex", "nexus", None),
+            (support.DATA / "Stockholm" / "simple.sth", "stockholm", None),
+            (support.DATA / "GFF" / "multi.fna", "fasta", "DNA"),
+            (support.DATA / "Quality" / "example.fastq", "fastq", None),
+            (support.DATA / "Quality" / "example.fastq", "fastq-sanger", "DNA"),
+            (support.DATA / "Fasta" / "output001.m10", "fasta-m10", None),
+            (support.DATA / "IntelliGenetics" / "VIF_mase-pro.txt", "ig", "protein"),
+            (support.DATA / "NBRF" / "clustalw.pir", "pir", None),
         ]
         output_formats = ["fasta"] + sorted(AlignIO._FormatToWriter)
         for filename, in_format, mol_type in tests:
@@ -71,7 +73,7 @@ class ConvertTests(unittest.TestCase):
         self.assertRaises(
             ValueError,
             AlignIO.convert,
-            "Clustalw/protein.aln",
+            support.DATA / "Clustalw" / "protein.aln",
             "clustal",
             handle,
             "nexus",
@@ -83,7 +85,11 @@ class ConvertTests(unittest.TestCase):
         self.assertEqual(
             1,
             AlignIO.convert(
-                "Clustalw/protein.aln", "clustal", handle, "nexus", "protein"
+                support.DATA / "Clustalw" / "protein.aln",
+                "clustal",
+                handle,
+                "nexus",
+                "protein",
             ),
         )
         self.assertIn(" datatype=protein ", handle.getvalue())

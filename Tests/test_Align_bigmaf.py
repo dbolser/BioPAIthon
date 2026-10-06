@@ -9,18 +9,20 @@ from io import StringIO
 
 import numpy as np
 
+import support
+
 from Bio import Align
 
 
 class TestAlign_declaration(unittest.TestCase):
     def test_declaration(self):
-        with open("MAF/bigMaf.as") as stream:
+        with open(support.DATA / "MAF" / "bigMaf.as") as stream:
             declaration = stream.read()
         self.assertEqual(str(Align.bigmaf.declaration), declaration)
 
 
 class TestAlign_ucsc_test(unittest.TestCase):
-    path = "MAF/ucsc_test.bb"
+    path = support.DATA / "MAF" / "ucsc_test.bb"
 
     def test_reading(self):
         """Test reading ucsc_test.bb."""
@@ -444,7 +446,7 @@ AlignmentCounts object with
 
 
 class TestAlign_bundle_without_target(unittest.TestCase):
-    path = "MAF/bundle_without_target.bb"
+    path = support.DATA / "MAF" / "bundle_without_target.bb"
 
     def test_reading(self):
         """Test parsing bundle_without_target.bb."""
@@ -639,7 +641,7 @@ AlignmentCounts object with
 
 
 class TestAlign_ucsc_mm9_chr10(unittest.TestCase):
-    path = "MAF/ucsc_mm9_chr10.bb"
+    path = support.DATA / "MAF" / "ucsc_mm9_chr10.bb"
 
     def test_reading(self):
         """Test parsing file ucsc_mm9_chr10.bb."""
@@ -12560,7 +12562,7 @@ AlignmentCounts object with
 
 class TestAlign_searching(unittest.TestCase):
     def test_search_chromosome(self):
-        path = "MAF/ucsc_test.bb"
+        path = support.DATA / "MAF" / "ucsc_test.bb"
         with Align.parse(path, "bigmaf") as alignments:
             selected_alignments = alignments.search("hg16.chr7")
             alignment = next(selected_alignments)
@@ -12619,7 +12621,7 @@ np.array([['g', 'c', 'a', 'g', 'c', 't', 'g', 'a', 'a', 'a', 'a', 'c', 'a'],
             self.assertRaises(StopIteration, next, selected_alignments)
 
     def test_search_region(self):
-        path = "MAF/ucsc_mm9_chr10.bb"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10.bb"
         with Align.parse(path, "bigmaf") as alignments:
             self.check_search_region(alignments)
 
@@ -12823,7 +12825,7 @@ ornAna1.c  40046122 -------------  40046122
         self.assertRaises(StopIteration, next, selected_alignments)
 
     def test_search_position(self):
-        path = "MAF/ucsc_mm9_chr10.bb"
+        path = support.DATA / "MAF" / "ucsc_mm9_chr10.bb"
         with Align.parse(path, "bigmaf") as alignments:
             self.check_search_position(alignments)
 

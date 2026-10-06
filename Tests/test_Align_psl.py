@@ -8,6 +8,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 from Bio.Align import Alignment
@@ -38,7 +40,7 @@ class TestAlign_dna_rna(unittest.TestCase):
 
     def setUp(self):
         data = {}
-        with SeqIO.parse("Blat/dna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "dna.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 assert name == "chr3"
@@ -49,12 +51,12 @@ class TestAlign_dna_rna(unittest.TestCase):
                 assert len(sequence) == end - start
                 data[start] = sequence
         self.dna = data
-        with SeqIO.parse("Blat/rna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "rna.fa", "fasta") as records:
             self.rna = {record.id: record.seq for record in records}
 
     def test_reading(self):
         """Test parsing dna_rna.psl."""
-        path = "Blat/dna_rna.psl"
+        path = support.DATA / "Blat" / "dna_rna.psl"
         with Align.parse(path, "psl") as alignments:
             self.check_alignments(alignments)
             alignments = iter(alignments)
@@ -1501,7 +1503,7 @@ AlignmentCounts object with
 
     def test_writing(self):
         """Test writing the alignments in dna_rna.psl."""
-        path = "Blat/dna_rna.psl"
+        path = support.DATA / "Blat" / "dna_rna.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -1540,13 +1542,13 @@ AlignmentCounts object with
 
 class TestAlign_dna(unittest.TestCase):
 
-    with SeqIO.parse("Blat/fasta_34.fa", "fasta") as records:
+    with SeqIO.parse(support.DATA / "Blat" / "fasta_34.fa", "fasta") as records:
         queries = {record.id: str(record.seq) for record in records}
 
     def test_reading_psl_34_001(self):
         """Test parsing psl_34_001.psl and pslx_34_001.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_34_001.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_34_001.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_34_001(alignments, fmt)
 
@@ -4926,7 +4928,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_001(self):
         """Test writing the alignments in psl_34_001.psl."""
-        path = "Blat/psl_34_001.psl"
+        path = support.DATA / "Blat" / "psl_34_001.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -4941,7 +4943,7 @@ AlignmentCounts object with
     def test_reading_psl_34_002(self):
         """Test parsing psl_34_002.psl and pslx_34_002.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_34_002.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_34_002.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_34_002(alignments)
 
@@ -4952,7 +4954,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_002(self):
         """Test writing the alignments in psl_34_002.psl."""
-        path = "Blat/psl_34_002.psl"
+        path = support.DATA / "Blat" / "psl_34_002.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -4967,7 +4969,7 @@ AlignmentCounts object with
     def test_reading_psl_34_003(self):
         """Test parsing psl_34_003.psl and pslx_34_003.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_34_003.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_34_003.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_34_003(alignments, fmt)
 
@@ -5432,7 +5434,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_003(self):
         """Test writing the alignments in psl_34_003.psl."""
-        path = "Blat/psl_34_003.psl"
+        path = support.DATA / "Blat" / "psl_34_003.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -5447,7 +5449,7 @@ AlignmentCounts object with
     def test_reading_psl_34_004(self):
         """Test parsing psl_34_004.psl and pslx_34_004.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_34_004.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_34_004.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_34_004(alignments, fmt)
 
@@ -8373,7 +8375,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_004(self):
         """Test writing the alignments in psl_34_004.psl."""
-        path = "Blat/psl_34_004.psl"
+        path = support.DATA / "Blat" / "psl_34_004.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -8388,7 +8390,7 @@ AlignmentCounts object with
     def test_reading_psl_34_005(self):
         """Test parsing psl_34_005.psl and pslx_34_005.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_34_005.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_34_005.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_34_005(alignments, fmt)
 
@@ -11767,7 +11769,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_005(self):
         """Test writing the alignments in psl_34_005.psl."""
-        path = "Blat/psl_34_005.psl"
+        path = support.DATA / "Blat" / "psl_34_005.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -11783,7 +11785,7 @@ AlignmentCounts object with
 class TestAlign_dnax_prot(unittest.TestCase):
     @classmethod
     def read_dna(cls, assembly, sequence):
-        path = "Blat/%s.fa" % assembly
+        path = support.DATA / "Blat" / ("%s.fa" % assembly)
         with SeqIO.parse(path, "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
@@ -11802,7 +11804,7 @@ class TestAlign_dnax_prot(unittest.TestCase):
     def test_reading_psl_35_001(self):
         """Test parsing psl_35_001.psl and pslx_35_001.pslx."""
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_35_001.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_35_001.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_35_001(alignments, fmt)
 
@@ -12917,7 +12919,7 @@ AlignmentCounts object with
 
     def test_writing_psl_35_001(self):
         """Test writing the alignments in psl_35_001.psl."""
-        path = "Blat/psl_35_001.psl"
+        path = support.DATA / "Blat" / "psl_35_001.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -12945,7 +12947,7 @@ AlignmentCounts object with
         # file below, and create partially defined Seq objects.
         #
         # Load the protein sequence:
-        protein = SeqIO.read("Blat/CAG33136.1.fasta", "fasta")
+        protein = SeqIO.read(support.DATA / "Blat" / "CAG33136.1.fasta", "fasta")
         protein_alignments = []
         with Align.parse(path, "psl") as alignments:
             for i, alignment in enumerate(alignments):
@@ -13080,7 +13082,7 @@ CAG33136.        60 YEL 63
         # See below for a description of the file balAcu1.fa.
         # We use this file here so we can check the SeqFeatures.
         self.dna = {}
-        with SeqIO.parse("Blat/balAcu1.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "balAcu1.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 start, end = start_end.split("-")
@@ -13089,7 +13091,7 @@ CAG33136.        60 YEL 63
                 sequence = str(record.seq)
                 self.dna[name] = Seq({start: sequence}, length=end)
         for fmt in ("psl", "pslx"):
-            path = f"Blat/{fmt}_35_002.{fmt}"
+            path = support.DATA / "Blat" / f"{fmt}_35_002.{fmt}"
             with Align.parse(path, "psl") as alignments:
                 self.check_reading_psl_35_002(alignments, fmt)
 
@@ -13563,7 +13565,7 @@ AlignmentCounts object with
 
     def test_writing_psl_35_002(self):
         """Test writing the alignments in psl_35_002.psl."""
-        path = "Blat/psl_35_002.psl"
+        path = support.DATA / "Blat" / "psl_35_002.psl"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -13592,7 +13594,7 @@ AlignmentCounts object with
         # file below, and create partially defined Seq objects.
         #
         # Load the protein sequence:
-        protein = SeqIO.read("Blat/CAG33136.1.fasta", "fasta")
+        protein = SeqIO.read(support.DATA / "Blat" / "CAG33136.1.fasta", "fasta")
         protein_alignments = []
         with Align.parse(path, "psl") as alignments:
             for i, alignment in enumerate(alignments):

@@ -8,6 +8,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 
@@ -48,7 +50,7 @@ class TestPhylipReading(unittest.TestCase):
         )
 
     def test_one(self):
-        path = "Phylip/one.dat"
+        path = support.DATA / "Phylip" / "one.dat"
         with open(path) as stream:
             alignments = Align.parse(stream, "phylip")
             self.check_one(alignments)
@@ -320,7 +322,10 @@ AlignmentCounts object with
         self.assertEqual(counts.positives, 3674)
 
     def test_two_and_three(self):
-        paths = ("Phylip/two.dat", "Phylip/three.dat")
+        paths = (
+            support.DATA / "Phylip" / "two.dat",
+            support.DATA / "Phylip" / "three.dat",
+        )
         # derived from http://atgc.lirmm.fr/phyml/usersguide.html
         for path in paths:
             with open(path) as stream:
@@ -466,7 +471,7 @@ AlignmentCounts object with
             self.assertEqual(counts.mismatches, 65)
 
     def test_four(self):
-        path = "Phylip/four.dat"
+        path = support.DATA / "Phylip" / "four.dat"
         # File derived from here:
         # http://evolution.genetics.washington.edu/phylip/doc/sequence.html
         # Note the lack of any white space between names 2 and 3 and their seqs.
@@ -614,7 +619,10 @@ AlignmentCounts object with
         self.assertEqual(counts.mismatches, 190)
 
     def test_five_and_six(self):
-        paths = ("Phylip/five.dat", "Phylip/six.dat")
+        paths = (
+            support.DATA / "Phylip" / "five.dat",
+            support.DATA / "Phylip" / "six.dat",
+        )
         # http://evolution.genetics.washington.edu/phylip/doc/sequence.html
         for path in paths:
             with open(path) as stream:
@@ -734,7 +742,7 @@ AlignmentCounts object with
             self.assertEqual(counts.mismatches, 190)
 
     def test_interlaced(self):
-        path = "Phylip/interlaced.phy"
+        path = support.DATA / "Phylip" / "interlaced.phy"
         with open(path) as stream:
             alignments = Align.parse(stream, "phylip")
             self.check_sequential_interlaced(alignments)
@@ -751,7 +759,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_sequential(self):
-        path = "Phylip/sequential.phy"
+        path = support.DATA / "Phylip" / "sequential.phy"
         with open(path) as stream:
             alignments = Align.parse(stream, "phylip")
             self.check_sequential_interlaced(alignments)
@@ -918,7 +926,7 @@ AlignmentCounts object with
         self.assertEqual(counts.positives, 563)
 
     def test_interlaced2(self):
-        path = "Phylip/interlaced2.phy"
+        path = support.DATA / "Phylip" / "interlaced2.phy"
         with open(path) as stream:
             alignments = Align.parse(stream, "phylip")
             self.check_sequential_interlaced2(alignments)
@@ -935,7 +943,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_sequential2(self):
-        path = "Phylip/sequential2.phy"
+        path = support.DATA / "Phylip" / "sequential2.phy"
         with open(path) as stream:
             alignments = Align.parse(stream, "phylip")
             self.check_sequential_interlaced2(alignments)
