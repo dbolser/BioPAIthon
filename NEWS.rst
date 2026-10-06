@@ -599,6 +599,13 @@ Relatedly, a failed concatenation of per-letter annotations in ``__add__`` now
 raises a ``TypeError`` naming the offending key and the two incompatible types,
 instead of printing to stdout and re-raising a message with no detail.
 
+``SeqRecord.upper()`` and ``SeqRecord.lower()`` no longer share per-letter
+annotation values with the original. They copied the ``letter_annotations``
+dictionary shallowly, so editing the derived record's ``phred_quality`` list
+also changed the parent's. Each value is now copied with ``copy.copy``, which
+isolates lists and arrays. A ``memoryview``, which cannot be copied, and a
+``MutableSeq``, whose copy reuses its buffer, are still shared.
+
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
 ignores the byte order a buffer declares, so on a big-endian machine the
