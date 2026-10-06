@@ -833,6 +833,36 @@ class IndexDictTests(SeqRecordTestBaseClass, SeqIOTestBaseClass):
                         )
                 records.close()
 
+    def test_fastq_empty_identifier(self):
+        """Index a FASTQ record whose title is empty."""
+        data = b"@named description\nAC\n+\nII\n@\nGT\n+\n#I\n"
+        keys = ["named", ""]
+        sequences = {"named": "AC", "": "GT"}
+        raw_records = {
+            "named": b"@named description\nAC\n+\nII\n",
+            "": b"@\nGT\n+\n#I\n",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            filename = Path(temp_dir) / "empty_identifier.fastq"
+            filename.write_bytes(data)
+
+            self.assertEqual(
+                [record.id for record in SeqIO.parse(filename, "fastq")], keys
+            )
+            indexes = [SeqIO.index(filename, "fastq")]
+            if sqlite3:
+                index_filename = Path(temp_dir) / "empty_identifier.idx"
+                indexes.append(SeqIO.index_db(index_filename, [filename], "fastq"))
+
+            for records in indexes:
+                with self.subTest(index_type=type(records)):
+                    self.assertEqual(list(records), keys)
+                    for key in keys:
+                        self.assertEqual(str(records[key].seq), sequences[key])
+                        self.assertEqual(records.get_raw(key), raw_records[key])
+                records.close()
+
     def test_pir_empty_identifier(self):
         """Index a PIR record whose identifier is empty."""
         data = b">P1;named\ndescription\nAC*\n>P1;\ndescription\nGT*\n"
