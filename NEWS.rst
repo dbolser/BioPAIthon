@@ -197,6 +197,15 @@ under ``-O`` it failed with ``IndexError`` on ``cdna2genome`` and
 now reads ``--noali`` output listing a hit with no description, which used to
 fail with ``IndexError``.
 
+``Bio.PopGen.GenePop.FileParser.FileRecord`` gains a ``close()`` method and
+works as a context manager, so ``with FileParser.read(filename) as record:``
+closes the file on leaving the block. The record holds its file open while
+you read it, and there was no public way to close it. Its ``remove_*``
+methods, which read a second copy of the file, now close that copy, and a
+file that fails to parse is closed before the ``ValueError`` is raised. Both
+used to leave the file open until garbage collection, with a
+``ResourceWarning``.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``
