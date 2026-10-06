@@ -59,6 +59,12 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.PopGen.GenePop.LargeFileParser`` is deprecated and now emits a
+``BiopythonDeprecationWarning`` on import; we intend to remove it in a later
+release. Nothing in BioPAIthon uses it and it had no tests. Use
+``Bio.PopGen.GenePop.read``, or ``Bio.PopGen.GenePop.FileParser`` for files
+too large to load into memory. See DEPRECATED.rst.
+
 ``Bio.Graphics.GenomeDiagram``'s UK spelling aliases now raise a
 ``BiopythonDeprecationWarning``. They were deprecated in Biopython 1.55, in
 2010, but never warned. They are the ``colour`` and ``altcolour`` arguments
