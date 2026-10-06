@@ -7,6 +7,7 @@
 import io
 import os
 import unittest
+from unittest import mock
 
 import numpy as np
 
@@ -15160,6 +15161,190 @@ class TestBlastErrors(unittest.TestCase):
         with self.assertRaises(Blast.CorruptedXMLError) as cm:
             record = Blast.read(path)
         self.assertEqual(str(cm.exception), message)
+
+
+class TestBlastMalformedInput(unittest.TestCase):
+    """Malformed input raises ValueError, also under python -O."""
+
+    def check_parse_error(self, filename, old, new, message):
+        """Parse a test file with old replaced by new, and check the error."""
+        path = os.path.join("Blast", filename)
+        with open(path, "rb") as stream:
+            data = stream.read()
+        self.assertIn(old, data)
+        stream = io.BytesIO(data.replace(old, new, 1))
+        with self.assertRaises(ValueError) as cm:
+            list(Blast.parse(stream))
+        self.assertEqual(str(cm.exception), message)
+
+    def test_text_between_tags(self):
+        """Text where only whitespace may appear between tags."""
+        self.check_parse_error(
+            "xml_2226_blastn_002.xml",
+            b"  <BlastOutput_query-ID>",
+            b"junk\n  <BlastOutput_query-ID>",
+            "unexpected text 'junk' before tag BlastOutput_query-ID: line 9, column 2",
+        )
+
+    def test_wrong_public_identifier(self):
+        """DOCTYPE with an unexpected public identifier."""
+        self.check_parse_error(
+            "xml_2226_blastn_002.xml",
+            b'"-//NCBI//NCBI BlastOutput/EN"',
+            b'"-//NCBI//NCBI BlastOutput/XX"',
+            "expected public identifier '-//NCBI//NCBI BlastOutput/EN' for the "
+            "BLAST DTD, found '-//NCBI//NCBI BlastOutput/XX'",
+        )
+
+    def test_external_general_entity(self):
+        """External entity referenced from the content, not the DOCTYPE."""
+        # The DTD is loaded once per process, and only after that does the
+        # entity handler stay installed past the DOCTYPE; parse a file first.
+        path = os.path.join("Blast", "xml_2226_blastn_002.xml")
+        with Blast.parse(path) as records:
+            list(records)
+        self.check_parse_error(
+            "xml_2226_blastn_002.xml",
+            b'NCBI_BlastOutput.dtd">\n<BlastOutput>',
+            b'NCBI_BlastOutput.dtd" [<!ENTITY ext SYSTEM "NCBI_BlastOutput.dtd">]>\n'
+            b"<BlastOutput>&ext;",
+            "unexpected reference to external entity 'NCBI_BlastOutput.dtd' "
+            "outside the DOCTYPE declaration: line 3",
+        )
+
+    def test_xml2_wrong_namespace(self):
+        """XML2 root element in an unexpected namespace."""
+        self.check_parse_error(
+            "xml2_21500_blastn_001.xml",
+            b'xmlns="http://www.ncbi.nlm.nih.gov"',
+            b'xmlns="http://example.org"',
+            "expected root element BlastXML2 or BlastOutput2 in namespace "
+            "'http://www.ncbi.nlm.nih.gov', found 'BlastXML2' in namespace "
+            "'http://example.org'",
+        )
+
+    def test_query_seq_length(self):
+        """Query sequence that does not match the query length."""
+        self.check_parse_error(
+            "xml_2226_blastn_002.xml",
+            b"<BlastOutput_query-len>128</BlastOutput_query-len>",
+            b"<BlastOutput_query-len>128</BlastOutput_query-len>\n"
+            b"  <BlastOutput_query-seq>ACGT</BlastOutput_query-seq>",
+            "expected a query sequence of length 128 (the query length), "
+            "found 4: line 11",
+        )
+
+    def test_xml2_query_strand(self):
+        """XML2 query-strand other than Plus."""
+        self.check_parse_error(
+            "xml2_21500_blastn_001.xml",
+            b"<query-strand>Plus</query-strand>",
+            b"<query-strand>Minus</query-strand>",
+            "unexpected value 'Minus' in tag <query-strand> (expected 'Plus')",
+        )
+
+    def test_xml2_hit_strand(self):
+        """XML2 hit-strand other than Plus or Minus."""
+        self.check_parse_error(
+            "xml2_21500_blastn_001.xml",
+            b"<hit-strand>Minus</hit-strand>",
+            b"<hit-strand>minus</hit-strand>",
+            "unexpected value 'minus' in tag <hit-strand> (expected 'Plus' or 'Minus')",
+        )
+
+    def test_align_len(self):
+        """HSP whose align-len does not match its aligned sequences."""
+        self.check_parse_error(
+            "xml_2226_blastp_004.xml",
+            b"<Hsp_align-len>98</Hsp_align-len>",
+            b"<Hsp_align-len>97</Hsp_align-len>",
+            "expected qseq and hseq of length 97 (the align-len), "
+            "found lengths 98 and 98: line 52",
+        )
+
+    def test_query_span(self):
+        """HSP whose query-from and query-to do not match its qseq."""
+        self.check_parse_error(
+            "xml_2226_blastp_004.xml",
+            b"<Hsp_query-to>98</Hsp_query-to>",
+            b"<Hsp_query-to>99</Hsp_query-to>",
+            "query-from 1 and query-to 99 span 99 residues, expected 98 to "
+            "match qseq: line 52",
+        )
+
+    def test_blastx_query_frame(self):
+        """blastx HSP whose query-frame does not match its query-from."""
+        self.check_parse_error(
+            "xml_2900_blastx_001.xml",
+            b"<Hsp_query-frame>2</Hsp_query-frame>",
+            b"<Hsp_query-frame>3</Hsp_query-frame>",
+            "query-from 20 implies query-frame 2, found 3: line 52",
+        )
+
+    def test_tblastn_hit_span(self):
+        """tblastn HSP whose hit-from and hit-to do not match its hseq."""
+        self.check_parse_error(
+            "xml_2900_tblastn_001.xml",
+            b"<Hsp_hit-to>326503</Hsp_hit-to>",
+            b"<Hsp_hit-to>326506</Hsp_hit-to>",
+            "hit-from 325802 and hit-to 326506 span 705 nucleotides, expected "
+            "702 to code for the 234 residues in hseq: line 52",
+        )
+
+    def test_tblastn_negative_hit_frame(self):
+        """tblastn HSP whose negative hit-frame does not match its hit-to."""
+        self.check_parse_error(
+            "xml_2900_tblastn_001.xml",
+            b"<Hsp_hit-frame>-2</Hsp_hit-frame>",
+            b"<Hsp_hit-frame>-1</Hsp_hit-frame>",
+            "hit-to 1330869 on a hit of length 1603093 implies hit-frame -2, "
+            "found -1: line 136",
+        )
+
+    def test_xml2_psiblast_sequence_without_align_len(self):
+        """PSI-BLAST XML2 HSP with an aligned sequence but no align-len."""
+        self.check_parse_error(
+            "xml2_21500_psiblast_001.xml",
+            b"<qseq></qseq>",
+            b"<qseq>MKV</qseq>",
+            "expected empty qseq and hseq in an HSP without align-len, "
+            "found lengths 3 and 0: line 80",
+        )
+
+    def test_write_unbalanced_coded_by(self):
+        """Writing an HSP whose coded_by qualifier lacks its closing bracket."""
+        path = os.path.join("Blast", "xml_2900_tblastn_001.xml")
+        with open(path, "rb") as stream:
+            records = Blast.parse(stream)
+            records = records[:]
+        for hit in records[0]:
+            for hsp in hit:
+                qualifiers = hsp.target.features[0].qualifiers
+                if qualifiers["coded_by"].startswith("complement("):
+                    qualifiers["coded_by"] = qualifiers["coded_by"][:-1]
+        stream = io.BytesIO()
+        with self.assertRaises(ValueError) as cm:
+            Blast.write(records, stream)
+        self.assertEqual(
+            str(cm.exception),
+            "expected coded_by qualifier "
+            "'complement(gi|1559948212|dbj|AP017633.1|:1330168..1330869' "
+            "to end with ')'",
+        )
+
+    def test_qblast_unexpected_answer(self):
+        """NCBI answering a qblast request with something other than XML."""
+        ref_page = io.BytesIO(b"RID = ABC123\nRTOE = 11\n")
+        answer = io.BufferedReader(io.BytesIO(b"Error: database not found\n"))
+        with mock.patch.object(Blast, "urlopen", side_effect=[ref_page, answer]):
+            with mock.patch.object(Blast.time, "sleep"):
+                with self.assertRaises(ValueError) as cm:
+                    Blast.qblast("blastn", "nt", "ACGT")
+        self.assertEqual(
+            str(cm.exception),
+            "expected XML output from the BLAST server starting with "
+            "b'<?xml ', found b'Error: database not found\\n'",
+        )
 
 
 if __name__ == "__main__":

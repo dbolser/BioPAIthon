@@ -59,6 +59,20 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Blast.parse`` and ``Bio.Blast.read`` now raise ``ValueError`` on
+malformed BLAST XML instead of ``AssertionError``. The parser used ``assert``
+to check file content — stray text between tags, HSP coordinates that disagree
+with the aligned sequences or the reading frame, a strand other than ``Plus``
+or ``Minus``, an unexpected DOCTYPE or XML2 root element — so under
+``python -O``, where asserts are removed, such files parsed into silently wrong
+records; an XML2 ``hit-strand`` of ``minus``, for example, gave an HSP with no
+target sequence and unshifted coordinates. The new errors say what was
+expected, what was found, and on which line. ``Bio.Blast.write`` likewise
+raises ``ValueError`` for a ``coded_by`` qualifier missing its closing
+bracket, which under ``-O`` wrote a truncated ``Hsp_hit-to``, and
+``Bio.Blast.qblast`` raises it when NCBI's answer does not start the way the
+requested format should. The deprecated ``Bio.Blast.NCBIXML`` is unchanged.
+
 ``Bio.codonalign`` is no longer experimental. Since it arrived (as
 ``Bio.CodonAlign``) in Biopython 1.64 in 2014, importing it has emitted a
 ``BiopythonExperimentalWarning`` saying it "may undergo significant changes
