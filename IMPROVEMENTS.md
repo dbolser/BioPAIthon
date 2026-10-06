@@ -492,7 +492,153 @@ deleting that module resolves it too.
 Large, high-leverage changes. Each removes a whole category of future bug rather
 than one instance.
 
-### 1.1 `Bio.AlignIO` and `Bio.Align` are two complete parser stacks for the same formats
+### 1.1 `Bio.AlignIO` and `Bio.Align` are two complete parser stacks for the same formats **[re-scoped — shim declined]**
+
+> **Status: re-scoped on 2026-10-06. The shim is declined. The new goal is
+> that `Bio.Align` reads every file `AlignIO` reads.** `Bio.AlignIO` is not
+> rewritten; it takes only small fixes, such as PR #116's. This fork will not
+> rebuild it as a shim over `Bio.Align`, delete its format modules, port
+> `MafIndex`, add `Bio.Align.convert()`, or migrate the internal consumers.
+> All numbers below were measured on 2026-10-06 on `main` and on upstream
+> `master` `372c71069`, which is also the merge-base. Line numbers were
+> re-checked on 2026-10-07, after PR #149. The commands that reproduce them
+> are in PR #142.
+>
+> **Why the shim is declined:**
+>
+> - **It fails its own acceptance gate.** A prototype backed `AlignIO`'s ten
+>   reader names with `Bio.Align`, with adaptors for every mechanical
+>   difference (name and description defaults, MAF and Mauve start and strand
+>   annotations, EMBOSS annotation keys, empty input). It fails 34 of 50 tests
+>   in `test_AlignIO` and 17 of 31 in `test_AlignIO_MsfIO`. That comes from a
+>   throwaway harness and is a lower bound: the Clustal, EMBOSS and Mauve test
+>   modules call the iterator classes directly, so they were not exercised.
+> - **Two differences destroy information, so no adaptor can recover them.**
+>   An `Alignment` cannot hold an all-gap column:
+>   `Alignment(*Alignment.parse_printed_alignment([b"A-C", b"A-C"])).shape` is
+>   `(2, 2)`. So `Tests/Nexus/test_Nexus_input.nex` is 9×48 in `AlignIO`
+>   (pinned by `test_reading_alignments_nexus1`) and 9×46 in `Bio.Align`. And in
+>   MAF, `Bio.Align` reads `.` as a gap where `AlignIO` puts in the reference
+>   letter (`Bio/AlignIO/MafIO.py:181-194`, deliberate since `9470216c4` in
+>   2011, pinned by `test_reading_alignments_maf1`).
+> - **The writers have to stay anyway.** Only nexus output is byte-identical
+>   between the stacks. The eight `Bio/AlignIO` format modules hold 3,326
+>   lines: 634 are writers and 614 are `MafIndex`. At most the 1,556 lines of
+>   readers could go, and they encode exactly the behaviour the tests pin.
+> - **`Bio.SeqIO` goes through `AlignIO`.** It reads 11 alignment format
+>   names and writes 8 with `AlignIO`'s classes
+>   (`Bio/SeqIO/__init__.py:473-558`), so a shim would change SeqIO output
+>   too.
+> - **The sync cost runs the wrong way.** `Bio/AlignIO` has had 0 upstream
+>   commits since the merge-base (`git rev-list --count
+>   372c71069..upstream/master -- Bio/AlignIO`), but upstream sweeps still
+>   touch it (open
+>   [#5354](https://github.com/biopython/biopython/pull/5354) and
+>   [#5219](https://github.com/biopython/biopython/pull/5219)), and
+>   upstream still fixes its bugs
+>   ([#5355](https://github.com/biopython/biopython/issues/5355)). Rewritten
+>   modules would turn each of those into a conflict. Closing the shim's
+>   gaps would also mean editing `Bio/Align/__init__.py`, upstream's
+>   most-edited file: 66 upstream commits since 2023 (`git rev-list --count
+>   --since=2023-01-01 upstream/master -- Bio/Align/__init__.py`).
+> - **Deleting the modules would break this fork's own rule** — "Nothing has
+>   been removed here that upstream still ships" (see "Where this fork
+>   differs from upstream" below). The submodules are also in public use.
+>   GitHub code search, with the method of "How much is any of this used?":
+>   `from Bio.AlignIO.Interfaces import` 143 files, `MafIO.MafIndex` 116,
+>   `from Bio.AlignIO.MafIO import` 28, `from Bio.AlignIO.PhylipIO import`
+>   23, `from Bio.AlignIO.ClustalIO import` 14.
+> - **Upstream keeps both stacks.** Its Tutorial calls
+>   `MultipleSeqAlignment` and `AlignIO` "older"
+>   (`Doc/Tutorial/chapter_msa.rst:6`), and mdehoon called
+>   `MultipleSeqAlignment` "essentially obsolete"
+>   ([#5051](https://github.com/biopython/biopython/pull/5051)). But nothing
+>   is deprecated, and no issue proposes rebuilding `AlignIO` on
+>   `Bio.Align`. The maintainers also disagree on how strict the parsers
+>   should be ([#3747](https://github.com/biopython/biopython/issues/3747));
+>   a shim would have to settle that alone.
+>
+> **The rest of the old plan:**
+>
+> - **`MafIndex` stays in `AlignIO`**, where PR #116 fixed its `close()`.
+>   `AlignIO` keeps its own copy, so a port would add a third copy rather
+>   than remove one. `Bio.Align`'s route to indexed MAF is bigMaf with
+>   `search()`: `Tests/MAF/ucsc_mm9_chr10.maf` converts to a 50 KB bigMaf,
+>   and searching mm9.chr10 3,014,000–3,015,000 returns 7 alignments. But
+>   it is not a drop-in replacement. The bigMaf writer needs every
+>   alignment in memory and `.targets` set by hand (it ignores its
+>   `targets=` argument, `Bio/Align/bigmaf.py:130`), so it does not suit
+>   the genome-scale bgzipped MAF that `MafIndex` is for.
+> - **No `Bio.Align.convert()`.** `Align.write(Align.parse(a, f), b, g)` is
+>   the whole function, and it would have to live in upstream's most-edited
+>   file.
+> - **No consumer migration.** "21 internal consumers" was stale.
+>   `git grep -n AlignIO -- 'Bio/*.py' ':!Bio/AlignIO'` finds 2 functional
+>   consumers: SeqIO's alignment-format bridge
+>   (`Bio/SeqIO/__init__.py:473-558`) and `MultipleSeqAlignment.__format__`
+>   (`Bio/Align/__init__.py:383-386`). Both are `AlignIO` by definition. The
+>   rest is 6 doc examples (`Bio/Align/__init__.py:94,528`,
+>   `Bio/Phylo/TreeConstruction.py:384,605,1177`, `Bio/Phylo/_utils.py:306`)
+>   and prose.
+>
+> **New scope: `Bio.Align` reads what `AlignIO` reads.** Users who take
+> upstream's advice and move to `Bio.Align` should not lose files. Only gaps
+> measured on real inputs get closed. Five PRs are planned; none has merged
+> yet:
+>
+> 1. `align-parse-nonseekable` — `Bio.Align.parse` reads stdin, pipes and
+>    other non-seekable streams.
+> 2. `align-stockholm-gr` — per-residue `#=GR` annotations drop each row's
+>    gap columns, instead of every `.`.
+> 3. `align-stockholm-blocks` — interleaved (multi-block) Stockholm. After 2.
+> 4. `align-phylip-multi` — PHYLIP files holding several alignments
+>    (seqboot output).
+> 5. `align-phylip-relaxed` — `phylip-relaxed` in `Bio.Align`. A name with a
+>    hyphen used to be impossible, because `Bio.Align` imported
+>    `Bio.Align.<name>`. §1.2's registry core (PR #149) removed that:
+>    `Bio.Align._load` now looks names up in a registry
+>    (`Bio/Align/__init__.py:5319`), so a format name no longer has to be a
+>    module name. What is left is one registry entry. It waits on §1.2's
+>    public `register_format` contract, still open in PR #146, which decides
+>    what a `Bio.Align` entry may be.
+>
+> **Rules the code PRs follow:**
+>
+> - Seekable streams keep today's behaviour, including handles positioned
+>   part-way into a file and `next()` followed by `for`.
+> - `len()` of a non-seekable stream raises `TypeError`, so `list()` falls
+>   back to plain iteration.
+> - `#=GR` lines must span the alignment, as `#=GC` lines already must.
+> - Repeated Stockholm names must form whole blocks: each block lists every
+>   sequence once. Anything else raises `ValueError`.
+> - `Bio.Align` gets no `phylip-sequential` name. Its reader already detects
+>   the layout, and its writer, one line per sequence, already writes valid
+>   sequential PHYLIP.
+>
+> **Where the two stacks differ.** "Upstream row" means a row in the Queued
+> table of `UPSTREAM.md`. "Planned" means a PR from the list above.
+>
+> | format | difference | outcome |
+> |---|---|---|
+> | all | Record defaults. `AlignIO` copies the id into `name`, `description` or both; `Bio.Align` leaves the defaults. MSF is the same in both. | kept |
+> | Stockholm, EMBOSS, MAF, Mauve | Annotation key names. Stockholm `secondary_structure` and `GS:`/`GC:` prefixes against `secondary structure` and no prefix; EMBOSS `identity` against `Identity`. For MAF and Mauve, `AlignIO` keeps start, size and strand in each record's `annotations`, `Bio.Align` in `coordinates`. | kept |
+> | Nexus, Stockholm | All-gap columns. `Alignment` cannot hold one, so `Bio.Align` drops them: `test_Nexus_input.nex` has 48 columns in `AlignIO` and 46 in `Bio.Align`. | kept |
+> | MAF | `.` in an `s` line. `AlignIO` reads it as the reference letter, `Bio.Align` as a gap. `AlignIO`'s reading contradicts the line's size: in `Tests/MAF/humor.maf`, mm3 has size 3,424 but `AlignIO`'s row has 5,166 residues (`Bio.Align`'s has 3,424). | kept; reported upstream as a behaviour choice (upstream row 27) |
+> | MAF | Size check. `Bio.Align` raises when an `s` line's size does not match its sequence (`Bio/Align/maf.py:440-444`); `AlignIO` does not check. | kept |
+> | MAF | `Bio.Align` needs the `##maf` header line (`Bio/Align/maf.py:305-306`). `Tests/MAF/ucsc_mm9_chr10_big.maf` has none: 983 alignments in `AlignIO`, `ValueError` in `Bio.Align`. | out of scope (rare input) |
+> | Mauve | Different id model. `AlignIO` ids are `1/0-5670` (sequence number and range); `Bio.Align` ids are `0`, `1`, with the file name in the description. `Bio.Align` also checks each sequence against its stated range, so `simple_short.xmfa`, whose sequences are cut short, hits an `assert` there and reads in `AlignIO`. | kept |
+> | EMBOSS | Reverse strand (`-sreverse`). `AlignIO` raises on `Tests/Emboss/water_reverse1-4.txt` ([#1376](https://github.com/biopython/biopython/issues/1376), open since 2017); `Bio.Align` reads them. | out of scope (an `AlignIO` fix) |
+> | MSF | Strictness and error messages differ. `Tests/msf/DOA_prot.msf`, whose header says length 62 where the sequences have 250, reads only in `Bio.Align` (with a warning). | kept |
+> | Clustal | Several alignments in one file. `AlignIO` reads them; `Bio.Align` raises at the second header. | out of scope (rare input) |
+> | PHYLIP | Several alignments in one file, such as seqboot output or `Align.write` given several alignments. `AlignIO` reads them; `Bio.Align` raises. | fixed by `align-phylip-multi` (planned); upstream row 26 |
+> | PHYLIP | Relaxed PHYLIP. `Bio.Align` has no `phylip-relaxed`. | fixed by `align-phylip-relaxed` (planned, after PR #146) |
+> | PHYLIP | `AlignIO` ignores the header's length (`Bio/AlignIO/PhylipIO.py:206`), so `phylip` and `phylip-relaxed` can misread silently: relaxed short names read under `phylip` give rows of 3 residues with ids `s1 AAAAAAA`, and names repeated in a later block end up inside the sequence. `Bio.Align` raises on both. Every silent misread found was `AlignIO`'s, so `Bio.Align`'s auto-detection is not changed to match. | reported upstream, not fixed here (upstream row 29) |
+> | PHYLIP | Interleaved without blank lines between blocks. `AlignIO` reads it; `Bio.Align` raises (it does not misread). | out of scope |
+> | Stockholm | Interleaved blocks. `Bio.Align` makes one row per sequence line: `simple.sth` raises, an equal-width two-block file silently reads as 4×5 instead of 2×10, and duplicate names become extra rows. | fixed by `align-stockholm-blocks` (planned); upstream row 25 |
+> | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:295`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed by `align-stockholm-gr` (planned); upstream row 28 |
+> | Stockholm | `#=GF SQ` must match the number of sequences in `Bio.Align` (`Bio/Align/stockholm.py:233`), so `funny.sth` raises; `AlignIO` ignores it. Deliberate ([#3747](https://github.com/biopython/biopython/issues/3747)). | kept |
+> | all | Non-seekable streams. `Bio.Align.parse` seeks, so stdin and pipes raise `io.UnsupportedOperation`; `AlignIO` reads them. | fixed by `align-parse-nonseekable` (planned); upstream row 24 |
+> | writers | Only nexus output is byte-identical. Clustal, PHYLIP, Stockholm, MAF and Mauve output differ, and `AlignIO` cannot write EMBOSS or MSF. | kept: both sets of writers stay |
 
 Eight formats implemented twice — ~3,300 lines in `Bio/AlignIO/` duplicating
 ~2,450 in `Bio/Align/`: clustal, emboss, msf, nexus, phylip, stockholm, maf,
@@ -1712,8 +1858,12 @@ Two defects were found while surveying and belong to no pull request:
    unlock parallelism and per-test reporting, which makes every later item
    cheaper to verify.
 9. **§1.1, §1.2 and §1.4** are the L-effort structural items. Do §1.4 first —
-   it is the smallest, and it fixes §0.7 properly. *(§1.4 is done; §1.1 and
-   §1.2 remain.)*
+   it is the smallest, and it fixes §0.7 properly. *(§1.4 is done. §1.1 is
+   re-scoped: the shim is declined, and what is left is five planned
+   `Bio.Align` reader PRs. §1.2 is partly done: its registry core is in
+   (PR #149), and its public `register_format` contract is still open in
+   PR #146. The last §1.1 PR, `align-phylip-relaxed`, waits on that
+   contract.)*
 10. **§1.9 then §1.10** — releasing the GIL is what makes the free-threading
     work worthwhile, but §1.10's static-state cleanup is a prerequisite for
     doing §1.9 safely under a free-threaded build. *(The aligner and kdtrees
