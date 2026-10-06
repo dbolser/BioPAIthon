@@ -516,25 +516,91 @@ points in the ecosystem. Existing `Tests/test_AlignIO_*.py` passing unchanged is
 the acceptance gate.
 **Effort L · Impact high**
 
-### 1.2 Five incompatible format-registration mechanisms, none extensible
+### 1.2 Five incompatible format-registration mechanisms, none extensible **[public API decided, not yet built]**
 
-`Bio/SeqIO/__init__.py:414-475` and `Bio/AlignIO/__init__.py:153-176` use dicts
-of eagerly imported classes; `Bio/Align/__init__.py:4839-4849` derives a module
-path from the format string via `importlib`; `Bio/SearchIO/_utils.py:34-63` uses
-lazy `(module, class)` string tuples.
+> **Status: the public contract is decided; no code has landed.** The
+> "Decided API" list below is the contract that the implementing PRs follow.
+> If the contract changes, this list changes first. The NumPy consequence
+> this section first reported is gone. PR #73 made SeqIO's format tables
+> lazy, so `import Bio.SeqIO` loads no format module, and none of NumPy,
+> `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses
+> with NumPy uninstalled (re-checked on 2026-10-06), and
+> `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` guards it.
+
+`Bio/SeqIO/__init__.py:601-695` holds lazy `"Module.Class"` strings, resolved
+on first use by a private `_LazyFormatRegistry` (PR #73).
+`Bio/AlignIO/__init__.py:162-185` uses dicts of eagerly imported classes.
+`Bio/Align/__init__.py:5320-5331` derives a module path from the format string
+via `importlib`. `Bio/SearchIO/_utils.py:34-63` uses lazy `(module, class)`
+string tuples. `Bio/Phylo/_io.py:21-33` is a dict of eagerly imported modules.
 
 Consequences: `Bio.Align` format names must be valid Python module names, which
 is *why* it cannot offer `phylip-relaxed` (§1.1) and why it says `tabular` where
 SeqIO says `fasta-m10`. Case handling differs — `Align.read(f, "FASTA")` works,
 `SeqIO.parse(f, "FASTA")` raises. There is no registration hook at all, so a
-downstream package must mutate private dicts. And the eager imports mean
-`import Bio.SeqIO` pulls in `Bio.AlignIO` → `Bio.Align` → NumPy: **you cannot
-parse a FASTA file without NumPy installed.**
+downstream package must mutate private dicts. hybran, LMAT, recentrifuge and
+psico assign into `SeqIO._FormatToIterator`, and tfbayes into AlignIO's table.
+Until PR #73 the eager imports also made NumPy a requirement for parsing FASTA
+(see the status note). `import Bio.AlignIO` still pulls in `Bio.Align` and
+NumPy.
 
-**Plan:** one `Bio/_io_registry.py` with lazy `format_name → "module:Class"`
-entries, keyed on an explicit name so subtype names stay free-form. All four
-packages resolve through it. Add `register_format()` plus an
-`importlib.metadata` entry-point group so plugins work.
+**Plan:** one private, lazy `FormatRegistry`, a `dict` subclass generalising
+SeqIO's `_LazyFormatRegistry`. It holds `"package.module"` or
+`"package.module:attr"` specs, the form entry points use, keyed on an explicit
+name so subtype names stay free-form. SeqIO and `Bio.Align`
+resolve through it, and `Bio.Phylo` optionally. Each keeps its existing private
+table name, case rules and error messages. AlignIO and SearchIO are
+deliberately left as they are. §1.1 will replace AlignIO's tables with a shim,
+and SearchIO is already lazy, with no known downstream use of its maps. Add a
+public `register_format()` for SeqIO and `Bio.Align`, plus `importlib.metadata`
+entry-point groups so plugins work.
+
+**Decided API:**
+
+1. **Entry-point groups:** `biopaithon.seqio.iterators`,
+   `biopaithon.seqio.writers` and `biopaithon.align`, after this fork's
+   distribution name. They claim nothing in upstream's namespace. Adding
+   `biopython.*` groups later would break nothing, while starting with them
+   and then retreating would break plugins.
+2. **Signatures:** `Bio.SeqIO.register_format(name, iterator=None, writer=None,
+   *, replace=False)` and `Bio.Align.register_format(name, module, *,
+   replace=False)`. AlignIO and SearchIO get no public hook.
+3. **Name rules follow each package's own lookup.** A SeqIO name must pass
+   `SeqIO.parse`'s checks, and fails with the same `TypeError` or `ValueError`
+   message. A `Bio.Align` name is any non-empty string, stored lowercased
+   because `Bio.Align` lowercases on lookup; a non-string name raises
+   `TypeError`. Entry-point names follow the same rules: an invalid SeqIO name
+   is skipped with a warning, and an Align name is lowercased.
+4. **Precedence comes from where a name came from, not when:** built-in, then
+   `register_format`, then entry point. `replace=True` is needed to replace a
+   built-in or another `register_format` call's entry. Registering the same
+   value again is a no-op. A SeqIO call that sets both iterator and writer is
+   all-or-nothing. `register_format` overrides an entry-point plugin without
+   `replace=True`. A plugin naming a built-in is skipped with a warning. If two
+   installed distributions offer one name with different targets, neither is
+   registered and one warning names both.
+5. **`replace=True` in SeqIO** drops the `SeqIO.convert` fast paths that use
+   the replaced role, so `convert` cannot silently ignore the override. It
+   keeps a built-in name's index proxy: the proxy still finds record
+   boundaries and keys, and the replacement parses each record. That is what
+   assigning into the private dict does today.
+6. **`SeqIO.index` for a new name** works when the iterator is a
+   `SequenceIterator` subclass with `"t"` in its `modes`, sets
+   `record_start_marker`, and overrides `parse_id_from_header`. Built-in names
+   with no index proxy stay unsupported, and the proxy classes stay private.
+7. **`Bio.Align.formats` lists built-in names only,** and stays unchanged.
+   Registered and plugin names never appear in it.
+8. **Discovery is lazy and runs once per process.** Entry points are scanned
+   on a table's first miss or first listing (iteration, `keys()`, `len()`,
+   `values()`, `items()`), never on a hit, so `import Bio.SeqIO` still does not
+   import `importlib.metadata`. There is no rescan after a package is installed
+   into a running process. A failed scan warns once and means "no plugins"; a
+   plugin's own import error is not caught.
+9. **Registration is per process.** Register at module top level, or use an
+   entry point. Multiprocessing's spawn and forkserver workers re-run module
+   top-level code and rediscover entry points, but they never see a
+   registration made inside `if __name__ == "__main__":` or a notebook cell.
+
 **Effort L · Impact high**
 
 ### 1.3 The typing story is worse than having no types at all
