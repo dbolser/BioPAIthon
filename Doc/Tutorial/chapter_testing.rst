@@ -64,8 +64,10 @@ online component by adding ``--offline``, e.g.
 By default, ``run_tests.py`` runs all tests, including the docstring
 tests.
 
-If an individual test is failing, you can also try running it directly,
-which may give you more information.
+If an individual test is failing, you can also try running it directly
+(e.g. ``python test_SeqIO.py``), which may give you more information.
+Do this from inside the ``Tests`` directory, as many of the older test
+scripts find their input files relative to the current directory.
 
 Tests based on Python’s standard ``unittest`` framework will
 ``import unittest`` and then define ``unittest.TestCase`` classes, each
@@ -92,7 +94,7 @@ If you are interested in using Tox, you could start with the example
 .. code:: text
 
    [tox]
-   envlist = pypy,py38,py39
+   envlist = pypy3,py312,py313
 
    [testenv]
    changedir = Tests
@@ -102,8 +104,8 @@ If you are interested in using Tox, you could start with the example
        reportlab
 
 Using the template above, executing ``tox`` will test your Biopython
-code against PyPy, Python 3.8 and 3.9. It assumes that those Pythons’
-executables are named “python3.8“ for Python 3.8, and so on.
+code against PyPy, Python 3.12 and 3.13. It assumes that those Pythons’
+executables are named “python3.12“ for Python 3.12, and so on.
 
 Writing tests
 -------------
@@ -124,6 +126,22 @@ optionally a directory with input files used by the test:
    clogging up the main Tests directory. In general, use a temporary
    file/folder.
 
+Build the paths to your input files from ``DATA`` in
+``Tests/support.py``, which is the ``Tests`` directory itself, rather
+than relative to the current directory:
+
+.. code:: python
+
+   import support
+
+   with open(support.DATA / "Biospam" / "example.txt") as handle:
+       ...
+
+That way your test passes however it is run, not only from inside
+``Tests``. Many older tests still use relative paths such as
+``"GenBank/cor6_6.gb"``; those work only because ``run_tests.py``
+changes into the ``Tests`` directory before running each test.
+
 Any script with a ``test_`` prefix in the ``Tests`` directory will be
 found and run by ``run_tests.py``. Below, we show an example test script
 ``test_Biospam.py``. If you put this script in the Biopython ``Tests``
@@ -132,17 +150,22 @@ contained in it:
 
 .. code:: console
 
-   $ python run_tests.py
+   $ python run_tests.py --offline
+   Skipping any tests requiring internet access
+   Python version: 3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]
+   Operating system: posix linux
    test_Ace ... ok
+   test_Affy ... ok
    test_AlignIO ... ok
-   test_BioSQL ... ok
-   test_BioSQL_SeqIO ... ok
+   ...
+   test_BioSQL_sqlite3 ... ok
+   test_BioSQL_sqlite3_online ... skipping. internet not available
    test_Biospam ... ok
-   test_CAPS ... ok
-   test_Clustalw ... ok
+   ...
+   Bio.Seq docstring test ... ok
    ...
    ----------------------------------------------------------------------
-   Ran 107 tests in 86.127 seconds
+   Ran 520 modules (3774 cases) in 345.621 seconds, 54 skipped, 0 failed
 
 Writing a test using ``unittest``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,11 +247,11 @@ These are the key points of ``unittest``-based tests:
 
    .. code:: console
 
-      $ python test_BiospamMyModule.py
-      test_addition1 (__main__.TestAddition) ... ok
-      test_addition2 (__main__.TestAddition) ... ok
-      test_division1 (__main__.TestDivision) ... ok
-      test_division2 (__main__.TestDivision) ... ok
+      $ python test_Biospam.py
+      test_addition1 (__main__.BiospamTestAddition.test_addition1) ... ok
+      test_addition2 (__main__.BiospamTestAddition.test_addition2) ... ok
+      test_division1 (__main__.BiospamTestDivision.test_division1) ... ok
+      test_division2 (__main__.BiospamTestDivision.test_division2) ... ok
 
       ----------------------------------------------------------------------
       Ran 4 tests in 0.059s
@@ -277,10 +300,14 @@ These are the key points of ``unittest``-based tests:
 
    .. code:: console
 
-      $ python test_BiospamMyModule.py
+      $ python test_Biospam.py
+      test_addition1 (__main__.BiospamTestAddition.test_addition1)
       An addition test ... ok
+      test_addition2 (__main__.BiospamTestAddition.test_addition2)
       A second addition test ... ok
+      test_division1 (__main__.BiospamTestDivision.test_division1)
       Now let's check division ... ok
+      test_division2 (__main__.BiospamTestDivision.test_division2)
       A second division test ... ok
 
       ----------------------------------------------------------------------
@@ -290,7 +317,8 @@ These are the key points of ``unittest``-based tests:
 
 If your module contains docstring tests (see section
 :ref:`sec:doctest`), you *may* want to include those in the tests to
-be run. You can do so as follows by modifying the code under
+be run. You can do so as follows by adding ``import doctest`` and
+``import sys`` to the imports and modifying the code under
 ``if __name__ == "__main__":`` to look like this:
 
 .. code:: python
@@ -306,8 +334,8 @@ This is only relevant if you want to run the docstring tests when you
 execute ``python test_Biospam.py`` if it has some complex run-time
 dependency checking.
 
-In general instead include the docstring tests by adding them to the
-``run_tests.py`` as explained below.
+In general you do not need this, as ``run_tests.py`` runs the docstring
+tests of every Biopython module itself, as explained below.
 
 .. _`sec:doctest`:
 
@@ -321,41 +349,29 @@ with Python) allows the developer to embed working examples in the
 docstrings, and have these examples automatically tested.
 
 Currently only part of Biopython includes doctests. The ``run_tests.py``
-script takes care of running the doctests. For this purpose, at the top
-of the ``run_tests.py`` script is a manually compiled list of modules to
-skip, important where optional external dependencies which may not be
-installed (e.g. the Reportlab and NumPy libraries). So, if you’ve added
-some doctests to the docstrings in a Biopython module, in order to have
-them excluded in the Biopython test suite, you must update
-``run_tests.py`` to include your module. Currently, the relevant part of
-``run_tests.py`` looks as follows:
+script takes care of running them: it imports every module in the
+``Bio`` and ``BioSQL`` packages and runs whatever doctests it finds. So,
+if you’ve added some doctests to the docstrings in a Biopython module,
+they will be run without any change to ``run_tests.py``.
 
-.. code:: python
+The exceptions are named in two lists near the top of ``run_tests.py``.
+``EXCLUDE_DOCTEST_MODULES`` holds modules whose doctests are never run,
+such as the stubs left behind for modules removed from Biopython, which
+deliberately raise an ``ImportError`` naming their replacement.
+``ONLINE_DOCTEST_MODULES`` holds modules whose doctests need internet
+access, such as ``Bio.Entrez``. These are only left out when you use
+``--offline``, so add your module there if its doctests go online.
 
-   # Following modules have historic failures. If you fix one of these
-   # please remove here!
-   EXCLUDE_DOCTEST_MODULES = [
-       "Bio.PDB",
-       "Bio.PDB.AbstractPropertyMap",
-       "Bio.Phylo.Applications._Fasttree",
-       "Bio.Phylo._io",
-       "Bio.Phylo.TreeConstruction",
-       "Bio.Phylo._utils",
-   ]
-
-   # Exclude modules with online activity
-   # They are not excluded by default, use --offline to exclude them
-   ONLINE_DOCTEST_MODULES = ["Bio.Entrez", "Bio.ExPASy", "Bio.TogoWS"]
-
-   # Silently ignore any doctests for modules requiring numpy!
-   if numpy is None:
-       EXCLUDE_DOCTEST_MODULES.extend(
-           [
-               "Bio.Affy.CelFile",
-               "Bio.Cluster",
-               # ...
-           ]
-       )
+Modules needing an optional dependency, such as ReportLab for
+``Bio.Graphics``, are not listed. Instead such a module raises
+``MissingPythonDependencyError`` (from ``Bio``) when it is imported
+without the dependency, and ``run_tests.py`` reports it as skipped
+rather than failed. A ``test_XXX.py`` script can skip itself the same
+way, by raising ``MissingExternalDependencyError`` while it is being
+imported. The file ``Tests/expected_skips.txt`` lists the modules which
+may skip, and ``python run_tests.py --check-skips`` fails if any other
+module skips, so add a line there if your module has a legitimate new
+reason to skip.
 
 Note that we regard doctests primarily as documentation, so you should
 stick to typical usage. Generally complicated examples dealing with
