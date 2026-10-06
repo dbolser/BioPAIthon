@@ -562,6 +562,42 @@ def _replace_parenthesized_ambigs(seq, rev_ambig_values):
     return seq
 
 
+def _split_tree_command(options):
+    """Split the options of a TREE command into its parts (PRIVATE).
+
+    Returns the tree name, weight, rooted flag and the Newick tree text. The
+    weight and rooted flag come from [&W ...], [&R] and [&U] comments before
+    the tree text; other [&...] comments there are ignored.
+    """
+    opts = CharBuffer(options)
+    if opts.peek_nonwhitespace() == "*":
+        # a star can be used to make it the default tree in some software packages
+        dummy = opts.next_nonwhitespace()
+    name = opts.next_word()
+    if opts.next_nonwhitespace() != "=":
+        raise NexusError(f"Syntax error in tree description: {options[:50]}")
+    rooted = False
+    weight = 1.0
+    while opts.peek_nonwhitespace() == "[":
+        opts.next_nonwhitespace()  # discard opening bracket
+        symbol = next(opts)
+        if symbol != "&":
+            raise NexusError(
+                "Illegal special comment [%s...] in tree description: %s"
+                % (symbol, options[:50])
+            )
+        special = next(opts)
+        value = opts.next_until("]")
+        next(opts)  # discard closing bracket
+        if special == "R":
+            rooted = True
+        elif special == "U":
+            rooted = False
+        elif special == "W":
+            weight = float(value)
+    return name, weight, rooted, opts.rest().strip()
+
+
 class Commandline:
     """Represent a commandline as command and options."""
 
@@ -1124,33 +1160,8 @@ class Nexus:
         self._tree(options)
 
     def _tree(self, options):
-        opts = CharBuffer(options)
-        if opts.peek_nonwhitespace() == "*":
-            # a star can be used to make it the default tree in some software packages
-            dummy = opts.next_nonwhitespace()
-        name = opts.next_word()
-        if opts.next_nonwhitespace() != "=":
-            raise NexusError(f"Syntax error in tree description: {options[:50]}")
-        rooted = False
-        weight = 1.0
-        while opts.peek_nonwhitespace() == "[":
-            opts.next_nonwhitespace()  # discard opening bracket
-            symbol = next(opts)
-            if symbol != "&":
-                raise NexusError(
-                    "Illegal special comment [%s...] in tree description: %s"
-                    % (symbol, options[:50])
-                )
-            special = next(opts)
-            value = opts.next_until("]")
-            next(opts)  # discard closing bracket
-            if special == "R":
-                rooted = True
-            elif special == "U":
-                rooted = False
-            elif special == "W":
-                weight = float(value)
-        tree = Tree(name=name, weight=weight, rooted=rooted, tree=opts.rest().strip())
+        name, weight, rooted, newick = _split_tree_command(options)
+        tree = Tree(name=name, weight=weight, rooted=rooted, tree=newick)
         # if there's an active translation table, translate
         if self.translate:
             for n in tree.get_terminals():

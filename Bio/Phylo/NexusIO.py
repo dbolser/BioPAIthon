@@ -10,6 +10,7 @@
 from itertools import chain
 
 from Bio.Nexus import Nexus
+from Bio.Nexus.StandardData import NexusError
 from Bio.Phylo import Newick
 from Bio.Phylo import NewickIO
 
@@ -29,34 +30,71 @@ End;
 TREE_TEMPLATE = "Tree tree%(index)d=%(tree)s"
 
 
+class _NexusWithNewickTrees(Nexus.Nexus):
+    """Nexus reader that parses each tree with NewickIO (PRIVATE).
+
+    ``Bio.Nexus.Nexus`` builds a ``Bio.Nexus.Trees.Tree`` for every tree, and
+    that parser recurses once per level of nesting, so deep trees raise
+    RecursionError. ``NewickIO.Parser`` does not recurse. Everything else in
+    the file is still read by ``Bio.Nexus``.
+    """
+
+    def _tree(self, options):
+        name, weight, rooted, newick = Nexus._split_tree_command(options)
+        parsed = next(NewickIO.Parser.from_string(newick).parse(), None)
+        # An empty tree description gives a tree of one empty clade, as before
+        root = Newick.Clade() if parsed is None else parsed.root
+        _match_bio_nexus_trees(root, self.translate)
+        self.trees.append(
+            Newick.Tree(root=root, rooted=rooted, name=name, weight=weight)
+        )
+
+
+def _match_bio_nexus_trees(root, translate):
+    """Give NewickIO's clades the values Bio.Nexus.Trees gave them (PRIVATE).
+
+    Nexus trees used to be parsed by ``Bio.Nexus.Trees``, and callers see
+    these differences from plain Newick parsing:
+
+    - a missing branch length is 0.0, not None;
+    - a bare number after a clade, with no branch length, is the branch
+      length, not the confidence;
+    - confidences are floats;
+    - comments keep their square brackets, e.g. "[&rate=1.0]";
+    - terminal names come from the TRANSLATE table, if any, quoted by
+      ``Bio.Nexus.Nexus.safename``.
+
+    Walks the tree with a list rather than by recursion, so deep trees work.
+    """
+    stack = [root]
+    while stack:
+        clade = stack.pop()
+        stack.extend(clade.clades)
+        if clade.branch_length is None:
+            clade.branch_length = float(clade.confidence or 0)
+            clade.confidence = None
+        elif clade.confidence is not None:
+            clade.confidence = float(clade.confidence)
+        if clade.comment is not None:
+            clade.comment = f"[{clade.comment}]"
+        if translate and not clade.clades:
+            try:
+                clade.name = Nexus.safename(translate[int(clade.name)])
+            except (TypeError, ValueError, KeyError):
+                raise NexusError(
+                    f"Unable to substitute {clade.name} using 'translate' data."
+                ) from None
+
+
 def parse(handle):
     """Parse the trees in a Nexus file.
 
-    Uses the old Nexus.Trees parser to extract the trees, converts them back to
-    plain Newick trees, and feeds those strings through the new Newick parser.
-    This way we don't have to modify the Nexus module yet. (Perhaps we'll
-    eventually change Nexus to use the new NewickIO parser directly.)
+    ``Bio.Nexus`` reads the file, including any TRANSLATE table, and
+    ``NewickIO`` parses each tree description. The values are those the older
+    ``Bio.Nexus.Trees`` parser gave: for example, a missing branch length is
+    0.0 rather than None, and comments keep their square brackets.
     """
-    nex = Nexus.Nexus(handle)
-
-    # NB: Once Nexus.Trees is modified to use Tree.Newick objects, do this:
-    # return iter(nex.trees)
-    # Until then, convert the Nexus.Trees.Tree object hierarchy:
-    def node2clade(nxtree, node):
-        subclades = [node2clade(nxtree, nxtree.node(n)) for n in node.succ]
-        return Newick.Clade(
-            branch_length=node.data.branchlength,
-            name=node.data.taxon,
-            clades=subclades,
-            confidence=node.data.support,
-            comment=node.data.comment,
-        )
-
-    for nxtree in nex.trees:
-        newroot = node2clade(nxtree, nxtree.node(nxtree.root))
-        yield Newick.Tree(
-            root=newroot, rooted=nxtree.rooted, name=nxtree.name, weight=nxtree.weight
-        )
+    yield from _NexusWithNewickTrees(handle).trees
 
 
 def write(obj, handle, **kwargs):

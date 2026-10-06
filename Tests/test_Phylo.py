@@ -68,6 +68,56 @@ class IOTests(unittest.TestCase):
         for tree in trees:
             self.assertEqual(len(tree.get_terminals()), 9)
 
+    def test_nexus_read_deep_tree(self):
+        """Read a Nexus tree nested deeper than the recursion limit."""
+        depth = 5000
+        newick = "t1"
+        for i in range(2, depth + 1):
+            newick = f"({newick},t{i})"
+        handle = StringIO(f"#NEXUS\nbegin trees;\ntree deep = {newick};\nend;\n")
+        tree = Phylo.read(handle, "nexus")
+        # Walk down the spine with a loop: BaseTree's traversals recurse too
+        clade = tree.root
+        for level in range(depth - 1):
+            self.assertEqual(len(clade.clades), 2)
+            self.assertEqual(clade.clades[1].name, f"t{depth - level}")
+            clade = clade.clades[0]
+        self.assertEqual(clade.clades, [])
+        self.assertEqual(clade.name, "t1")
+
+    def test_nexus_read_values(self):
+        """Nexus trees keep the values Bio.Nexus.Trees gave them."""
+        handle = StringIO(
+            "#NEXUS\nbegin trees;\n"
+            "translate 1 'Homo sapiens', 2 Pan, 3 Gorilla;\n"
+            "tree t = [&R] [&W 0.5] ((1:0.1[&rate=1.5],2)95:0.3,3)80;\n"
+            "end;\n"
+        )
+        tree = Phylo.read(handle, "nexus")
+        self.assertEqual(tree.name, "t")
+        self.assertTrue(tree.rooted)
+        self.assertEqual(tree.weight, 0.5)
+        inner, gorilla = tree.root.clades
+        human, pan = inner.clades
+        # Names from the translate table are NEXUS-quoted
+        self.assertEqual(
+            [c.name for c in (human, pan, gorilla)],
+            ["'Homo sapiens'", "Pan", "Gorilla"],
+        )
+        # Confidences are floats
+        self.assertIsInstance(inner.confidence, float)
+        self.assertEqual(inner.confidence, 95.0)
+        self.assertEqual(inner.branch_length, 0.3)
+        # A bare number after a clade is its branch length
+        self.assertEqual(tree.root.branch_length, 80.0)
+        self.assertIsNone(tree.root.confidence)
+        # A missing branch length is 0.0
+        self.assertEqual(pan.branch_length, 0.0)
+        self.assertEqual(gorilla.branch_length, 0.0)
+        # Comments keep their brackets
+        self.assertEqual(human.comment, "[&rate=1.5]")
+        self.assertEqual(human.branch_length, 0.1)
+
     def test_newick_write(self):
         """Parse a Nexus file with multiple trees."""
         # Tree with internal node labels

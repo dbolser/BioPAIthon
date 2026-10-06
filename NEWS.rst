@@ -229,6 +229,24 @@ file that fails to parse is closed before the ``ValueError`` is raised. Both
 used to leave the file open until garbage collection, with a
 ``ResourceWarning``.
 
+``Bio.Phylo`` now reads NEXUS trees of any depth. ``Phylo.read`` and
+``Phylo.parse`` with format ``"nexus"`` parsed each tree with the older
+``Bio.Nexus.Trees`` parser, which recurses once per level of nesting, so a
+tree more than about 990 levels deep, such as a long caterpillar, raised
+``RecursionError``. The tree text now goes through ``NewickIO``, the parser
+used for Newick files, and the trees keep the values the old parser gave: a
+missing branch length is 0.0, a bare number after a clade is its branch
+length, confidences are floats, comments keep their square brackets, and
+names from a TRANSLATE table are quoted as before. Reading is also faster,
+about 3.5 times for the 658-taxon tree in the test suite. A few inputs read
+differently. A label quoted in the tree itself loses its quotes, as in
+Newick: ``'Homo sapiens'`` becomes ``Homo sapiens``. A clade with two
+comments, as in MrBayes 3.2 consensus trees, keeps the last one; the old
+parser gave it a branch length that was a string, or raised
+``AssertionError``. An unquoted label containing a space, which NEXUS does
+not allow, keeps only its last word, as in Newick. Malformed tree text raises
+``NewickError`` instead of ``TreeError``.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``
