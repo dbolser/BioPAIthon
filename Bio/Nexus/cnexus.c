@@ -32,7 +32,7 @@ static PyObject * cnexus_scanfile(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &input))
         return NULL;
     if (!(scanned=PyMem_RawMalloc(strlen(input)+1)))
-        PyErr_NoMemory();
+        return PyErr_NoMemory();
     scanned_start=scanned;
     for(t=*input;(t=*input);input++)
     {

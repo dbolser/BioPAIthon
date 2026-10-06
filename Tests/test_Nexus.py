@@ -12,6 +12,8 @@
 """Tests for Nexus module."""
 
 import os.path
+import platform
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -28,6 +30,11 @@ from Bio.Nexus import Nexus
 from Bio.Nexus import Trees
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+try:
+    from Bio.Nexus import cnexus
+except ImportError:
+    cnexus = None
 
 
 class OldSelfTests(unittest.TestCase):
@@ -1610,6 +1617,66 @@ end;
         handle = StringIO()
         with self.assertRaises(ValueError):
             NexusWriter(handle).write_file([a, a])
+
+
+@unittest.skipIf(cnexus is None, "C extension Bio.Nexus.cnexus not available")
+@unittest.skipUnless(
+    sys.platform.startswith("linux") and sys.maxsize > 2**32,
+    "needs RLIMIT_AS to be enforced (Linux, 64-bit)",
+)
+@unittest.skipUnless(
+    platform.python_implementation() == "CPython",
+    "PyPy's cpyext copies the input string, so it runs out of memory "
+    "before scanfile's own allocation is reached",
+)
+class TestCnexusAllocationFailure(unittest.TestCase):
+    """cnexus.scanfile must raise MemoryError when it cannot allocate."""
+
+    def test_scanfile_out_of_memory(self):
+        # Regression test: scanfile set MemoryError when its working buffer
+        # could not be allocated, but then carried on and wrote through the
+        # NULL pointer (segfault). Cap the child's address space so that a
+        # 64 MB input fits but a second 64 MB buffer does not.
+        code = """
+import resource
+import sys
+from Bio.Nexus import cnexus
+text = "A" * (64 * 1024 * 1024)
+cnexus.scanfile("warm up;")
+try:
+    with open("/proc/self/status") as handle:
+        vmsize = next(
+            int(line.split()[1]) * 1024
+            for line in handle
+            if line.startswith("VmSize:")
+        )
+    limit = vmsize + 16 * 1024 * 1024
+    resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+except (OSError, StopIteration, ValueError) as err:
+    print("SKIP", repr(err))
+    sys.exit()
+try:
+    cnexus.scanfile(text)
+except MemoryError:
+    print("MemoryError")
+"""
+        # CI runs the suite with AddressSanitizer preloaded, whose allocator
+        # aborts on failure by default; ask it to return NULL like malloc.
+        env = os.environ.copy()
+        asan_options = env.get("ASAN_OPTIONS")
+        env["ASAN_OPTIONS"] = ":".join(
+            filter(None, [asan_options, "allocator_may_return_null=1"])
+        )
+        result = subprocess.run(
+            [sys.executable, "-W", "ignore", "-c", code],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        if result.stdout.startswith("SKIP"):
+            self.skipTest(f"cannot cap the address space: {result.stdout.strip()}")
+        self.assertEqual(result.stdout.strip(), "MemoryError")
 
 
 if __name__ == "__main__":
