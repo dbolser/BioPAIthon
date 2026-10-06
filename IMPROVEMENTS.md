@@ -522,17 +522,19 @@ the acceptance gate.
 > "Decided API" list below is the contract that the implementing PRs follow.
 > If the contract changes, this list changes first. The NumPy consequence
 > this section first reported is gone. PR #73 made SeqIO's format tables
-> lazy, so `import Bio.SeqIO` loads no format module, and none of NumPy,
-> `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses
+> lazy, so `import Bio.SeqIO` loads no format module. Nor does it load
+> NumPy, `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses
 > with NumPy uninstalled (re-checked on 2026-10-06), and
 > `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` guards it.
 
 `Bio/SeqIO/__init__.py:601-695` holds lazy `"Module.Class"` strings, resolved
 on first use by a private `_LazyFormatRegistry` (PR #73).
 `Bio/AlignIO/__init__.py:162-185` uses dicts of eagerly imported classes.
-`Bio/Align/__init__.py:5320-5331` derives a module path from the format string
-via `importlib`. `Bio/SearchIO/_utils.py:34-63` uses lazy `(module, class)`
-string tuples. `Bio/Phylo/_io.py:21-33` is a dict of eagerly imported modules.
+`Bio/Align/__init__.py:5320-5330` derives a module path from the format string
+via `importlib`. `Bio/SearchIO/__init__.py:210-261` holds lazy
+`(module, class)` string tuples, which `get_processor`
+(`Bio/SearchIO/_utils.py:35-64`) imports on use. `Bio/Phylo/_io.py:21-33` is a
+dict of eagerly imported modules.
 
 Consequences: `Bio.Align` format names must be valid Python module names, which
 is *why* it cannot offer `phylip-relaxed` (§1.1) and why it says `tabular` where
@@ -550,8 +552,10 @@ SeqIO's `_LazyFormatRegistry`. It holds `"package.module"` or
 name so subtype names stay free-form. SeqIO and `Bio.Align`
 resolve through it, and `Bio.Phylo` optionally. Each keeps its existing private
 table name, case rules and error messages. AlignIO and SearchIO are
-deliberately left as they are. §1.1 will replace AlignIO's tables with a shim,
-and SearchIO is already lazy, with no known downstream use of its maps. Add a
+deliberately left as they are. Lazy AlignIO tables would save little: most of
+`import Bio.AlignIO` is `Bio.Align` and NumPy, pulled in by its module-level
+`MultipleSeqAlignment` import, and its format modules add a few milliseconds.
+SearchIO is already lazy, with no known downstream use of its maps. Add a
 public `register_format()` for SeqIO and `Bio.Align`, plus `importlib.metadata`
 entry-point groups so plugins work.
 
@@ -564,7 +568,11 @@ entry-point groups so plugins work.
    and then retreating would break plugins.
 2. **Signatures:** `Bio.SeqIO.register_format(name, iterator=None, writer=None,
    *, replace=False)` and `Bio.Align.register_format(name, module, *,
-   replace=False)`. AlignIO and SearchIO get no public hook.
+   replace=False)`. A SeqIO `iterator` or `writer` is a callable or a
+   `"package.module:attr"` string, and at least one must be given. The Align
+   `module` is a module, an object with an `AlignmentIterator` attribute
+   (`AlignmentWriter` is optional), or a `"package.module"` or
+   `"package.module:attr"` string. AlignIO and SearchIO get no public hook.
 3. **Name rules follow each package's own lookup.** A SeqIO name must pass
    `SeqIO.parse`'s checks, and fails with the same `TypeError` or `ValueError`
    message. A `Bio.Align` name is any non-empty string, stored lowercased
@@ -585,9 +593,10 @@ entry-point groups so plugins work.
    boundaries and keys, and the replacement parses each record. That is what
    assigning into the private dict does today.
 6. **`SeqIO.index` for a new name** works when the iterator is a
-   `SequenceIterator` subclass with `"t"` in its `modes`, sets
-   `record_start_marker`, and overrides `parse_id_from_header`. Built-in names
-   with no index proxy stay unsupported, and the proxy classes stay private.
+   `SequenceIterator` subclass that has `"t"` in its `modes`, sets
+   `record_start_marker`, and overrides `parse_id_from_header` (public once
+   PR #133 lands). Built-in names with no index proxy stay unsupported, and
+   the proxy classes stay private.
 7. **`Bio.Align.formats` lists built-in names only,** and stays unchanged.
    Registered and plugin names never appear in it.
 8. **Discovery is lazy and runs once per process.** Entry points are scanned
