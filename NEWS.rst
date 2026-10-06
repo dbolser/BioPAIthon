@@ -149,6 +149,13 @@ raised an error that ``except Nexus.NexusError`` did not catch.
 ``Bio.Nexus.Nexus.NexusError`` and ``Bio.Nexus.StandardData.NexusError`` are
 now the same class, so both import paths keep working.
 
+Sequences read from twoBit (``.2bit``) files now slice and index like any
+other ``Seq``. Extended slices such as ``record.seq[0::3]`` no longer drop
+the final base when the step does not divide the slice length, reversed
+slices such as ``record.seq[::-1]`` no longer raise ``RuntimeError``, and an
+index past the end now raises ``IndexError`` instead of returning a base
+decoded from the next record's data.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are

@@ -120,17 +120,25 @@ class _TwoBitSequenceData(SequenceDataAbstractBaseClass):
             size = len(range(start, end, step))
             if size == 0:
                 return b""
+            # Stop just past the last selected base, so a sparse slice does
+            # not read and decode the bases between that base and the stop
+            end = start + (size - 1) * step + (1 if step > 0 else -1)
         else:
             if key < 0:
                 key += length
-                if key < 0:
-                    raise IndexError("index out of range")
+            if not 0 <= key < length:
+                raise IndexError("index out of range")
             start = key
             end = key + 1
             step = 1
             size = 1
-        byteStart = start // 4
-        byteEnd = (end + 3) // 4
+        if step > 0:
+            byteStart = start // 4
+            byteEnd = (end + 3) // 4
+        else:
+            # For a negative step, convert decodes positions end + 1 to start + 1
+            byteStart = (end + 1) // 4
+            byteEnd = (start + 4) // 4
         byteSize = byteEnd - byteStart
         stream = self.stream
         try:
