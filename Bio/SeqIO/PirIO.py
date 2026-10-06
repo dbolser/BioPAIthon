@@ -117,11 +117,12 @@ class PirIterator(SequenceIterator):
 
     @classmethod
     def parse_id_from_header(cls, line):
-        """Return the record id given the raw ``>XX;`` title line (bytes) (PRIVATE).
+        """Return the record id given the raw ``>XX;`` title line (bytes).
 
-        The same rule ``__next__`` applies: everything after the ``>XX;``
-        prefix, stripped of whitespace.  Used by the Bio.SeqIO indexing
-        code so that index keys match ``record.id``.
+        The id is everything after the ``>XX;`` prefix, stripped of
+        surrounding whitespace, which is the rule ``__next__`` applies.  See
+        SequenceIterator.parse_id_from_header in Bio.SeqIO.Interfaces for
+        the contract this implements.
         """
         return line[4:].strip().decode()
 

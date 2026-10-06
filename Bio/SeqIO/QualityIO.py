@@ -1478,11 +1478,12 @@ class QualPhredIterator(SequenceIterator):
 
     @classmethod
     def parse_id_from_header(cls, line):
-        """Return the record id given the raw ``>`` title line (bytes) (PRIVATE).
+        """Return the record id given the raw ``>`` title line (bytes).
 
-        The same rule ``__next__`` applies to the title line: the first
-        word, or an empty string for a bare ``>`` line.  Used by the
-        Bio.SeqIO indexing code so that index keys match ``record.id``.
+        The id is the first word of the title, or an empty string for a
+        bare ``>`` line, which is the rule ``__next__`` applies.  See
+        SequenceIterator.parse_id_from_header in Bio.SeqIO.Interfaces for
+        the contract this implements.
         """
         descr = line[1:].rstrip()
         try:

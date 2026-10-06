@@ -13,6 +13,7 @@ except ImportError:
 import glob
 import gzip
 import os
+import re
 import shutil
 import struct
 import tempfile
@@ -31,6 +32,7 @@ from test_SeqIO import SeqIOTestBaseClass
 from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.SeqIO._index import _FormatToRandomAccess
+from Bio.SeqIO.Interfaces import SequenceIterator
 from Bio.SeqRecord import SeqRecord
 
 
@@ -1432,6 +1434,65 @@ class IndexParseKeyAgreementTests(unittest.TestCase):
                 finally:
                     index.close()
         return 1
+
+
+class ParseIdFromHeaderContractTests(unittest.TestCase):
+    """Every parse_id_from_header implementation must honour its contract.
+
+    SequenceIterator.parse_id_from_header (see Bio.SeqIO.Interfaces) is a
+    public hook for format authors: given a record's raw header line as
+    bytes, it returns the record.id which parsing assigns to that record.
+    This checks the hook directly, rather than through SeqIO.index, for
+    every parser class which implements it, on each fixture file of its
+    format which the parser accepts.
+    """
+
+    # The formats implementing the hook when it was made public.  Any later
+    # implementation is found and checked too, but needs fixture files
+    # listed in IndexParseKeyAgreementTests.corpus.
+    implemented_by = {"ace", "fasta", "phd", "pir", "qual"}
+
+    def test_hook_gives_parsed_ids(self):
+        """parse_id_from_header(header line) == record.id, record by record."""
+        default = SequenceIterator.parse_id_from_header.__func__
+        implementations = {
+            fmt: iterator
+            for fmt, iterator in SeqIO._FormatToIterator.items()
+            if isinstance(iterator, type)
+            and iterator.parse_id_from_header.__func__ is not default
+        }
+        self.assertLessEqual(self.implemented_by, set(implementations))
+        for fmt, iterator in sorted(implementations.items()):
+            self.assertIn(fmt, IndexParseKeyAgreementTests.corpus)
+            filenames = set()
+            for pattern in IndexParseKeyAgreementTests.corpus[fmt]:
+                filenames.update(glob.glob(pattern))
+            checked = 0
+            for filename in sorted(filenames):
+                with self.subTest(format=fmt, filename=filename):
+                    checked += self.check_one(filename, fmt, iterator)
+            self.assertTrue(checked, msg=f"No {fmt} records were checked")
+
+    def check_one(self, filename, fmt, iterator):
+        """Compare the hook's ids with parsed ids; return how many records."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonParserWarning)
+            try:
+                ids = [record.id for record in SeqIO.parse(filename, fmt)]
+            except Exception:
+                # The parser rejects this file, so there are no record ids
+                # for the hook to agree with.
+                return 0
+        marker_re = re.compile(b"^" + iterator.record_start_marker)
+        with open(filename, "rb") as handle:
+            headers = [line for line in handle if marker_re.match(line)]
+        # The header line is passed exactly as read, so its line terminator
+        # may be Unix or Windows style, or absent at the end of the file.
+        for ending in (b"\n", b"\r\n", b""):
+            lines = [line.rstrip(b"\r\n") + ending for line in headers]
+            hook_ids = [iterator.parse_id_from_header(line) for line in lines]
+            self.assertEqual(hook_ids, ids, msg=f"line ending {ending!r}")
+        return len(ids)
 
 
 if __name__ == "__main__":

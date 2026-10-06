@@ -144,11 +144,12 @@ class FastaIterator(SequenceIterator):
 
     @classmethod
     def parse_id_from_header(cls, line):
-        """Return the record id given the raw ``>`` title line (bytes) (PRIVATE).
+        """Return the record id given the raw ``>`` title line (bytes).
 
-        This is the same rule ``__next__`` applies to the title: the first
-        word, or an empty string for a bare ``>`` line.  It is used by the
-        Bio.SeqIO indexing code so that index keys match ``record.id``.
+        The id is the first word of the title, or an empty string for a
+        bare ``>`` line, which is the rule ``__next__`` applies.  See
+        SequenceIterator.parse_id_from_header in Bio.SeqIO.Interfaces for
+        the contract this implements.
         """
         title = line[1:].rstrip()
         try:

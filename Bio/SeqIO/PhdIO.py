@@ -72,12 +72,13 @@ class PhdIterator(SequenceIterator):
 
     @classmethod
     def parse_id_from_header(cls, line):
-        """Return the record id given the raw BEGIN_SEQUENCE line (bytes) (PRIVATE).
+        """Return the record id given the raw ``BEGIN_SEQUENCE`` line (bytes).
 
-        Mirrors Bio.Sequencing.Phd._read (``file_name = line[15:].rstrip()``)
-        combined with the rule in ``__next__`` (the first word of the file
-        name).  Used by the Bio.SeqIO indexing code so that index keys
-        match ``record.id``.
+        The id is the first word of the file name on this line, which is
+        the rule ``__next__`` applies to the file name read by
+        Bio.Sequencing.Phd._read (``file_name = line[15:].rstrip()``).  See
+        SequenceIterator.parse_id_from_header in Bio.SeqIO.Interfaces for
+        the contract this implements.
         """
         return line[15:].rstrip().split(None, 1)[0].decode()
 
