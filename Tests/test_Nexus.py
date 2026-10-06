@@ -62,7 +62,7 @@ class OldSelfTests(unittest.TestCase):
         """Taxa and chr blocks, over 9 codings, 2 character without states."""
         nexus6 = Nexus.Nexus()
         # TODO: Implement continuous datatype:
-        # Bio.Nexus.Nexus.NexusError: Unsupported datatype: continuous
+        # Bio.Nexus.StandardData.NexusError: Unsupported datatype: continuous
         self.assertRaises(
             Nexus.NexusError,
             nexus6.read,
