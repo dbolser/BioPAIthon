@@ -83,6 +83,11 @@ same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``
 naming the sunid, the same exception the neighbouring checks already raise
 for a missing parent or child.
 
+``Bio.motifs.Motif`` now raises ``ValueError`` when given both ``counts``
+and ``alignment``. A typo, ``raise Exception(ValueError, "...")``, made it
+raise a plain ``Exception`` carrying the ``ValueError`` class as its first
+argument, so ``except ValueError`` did not catch it.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
