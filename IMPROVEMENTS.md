@@ -95,12 +95,9 @@ gap=g)` across a matrix of gap characters.
 > `TypeError` naming the key and the two types. `DerivedRecordIsolation` in
 > `Tests/test_SeqRecord.py` covers all six methods and fails against the old
 > shallow copy. **The features half is deliberately not done here:** `_flip`
-> and `_shift` return new features with their own qualifier dictionaries, so
-> slicing, `reverse_complement` and the shifted half of `__add__` do not share
-> the features themselves. They did share the qualifier *values* (addendum
-> A.3), until both methods were changed to copy each value one level deep.
-> `features[:]` in `upper`, `lower` and the other `__add__` paths still shares
-> whole features. Deep-copying features is far more
+> and `_shift` already return new features, so `reverse_complement` and the
+> shifted half of `__add__` do not share, but `features[:]` in `upper`, `lower`
+> and the other `__add__` paths does. Deep-copying features is far more
 > expensive than annotations (measured ~675 µs for 41 features versus ~34 µs
 > for a whole annotations dict, and it scales with feature count on a genome
 > record), so it belongs in its own change with its own benchmark rather than

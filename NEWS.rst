@@ -58,6 +58,20 @@ The distribution name on PyPI would be ``biopaithon`` rather than
 These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 recorded below. They are not part of any upstream Biopython release.
 
+Features on a sliced or reverse-complemented ``SeqRecord``, and the right-hand
+record's features in ``record + other``, no longer share their qualifier
+values with the original's features. ``SeqFeature._shift`` and ``_flip``
+copied the qualifiers dictionary but not its values, so appending to a
+``note`` list on a feature of ``record[2:8]`` also changed the parent's
+feature. A flat list of strings, numbers or ``None``, which is what the
+flat-file parsers produce, is now copied with ``list()``. Any other value,
+such as UniProt's ``ligands`` list of dictionaries, is deep-copied. So an
+object stored as a qualifier value, a ``SeqRecord`` for example, comes back
+as a copy rather than the same object, and a large value such as a NumPy
+array is copied in full on every slice. A value that cannot be deep-copied is
+shallow-copied instead, and one that cannot be copied at all, such as a
+generator, is still shared.
+
 The ``__all__`` declarations added to the re-exporting packages no longer
 list names the packages merely import: 45 standard-library and NumPy
 functions (``urlopen``, ``deepcopy``, ``sqrt``, ``ABC`` and friends) are
@@ -500,14 +514,6 @@ unaffected, so records that share features remain to be addressed separately.
 Relatedly, a failed concatenation of per-letter annotations in ``__add__`` now
 raises a ``TypeError`` naming the offending key and the two incompatible types,
 instead of printing to stdout and re-raising a message with no detail.
-
-Features on a sliced or reverse-complemented ``SeqRecord`` no longer share
-their qualifier values with the original's features. ``SeqFeature._shift``
-and ``_flip`` copied the qualifiers dictionary but not its values, so
-appending to a ``note`` list on a feature of ``record[2:8]`` or
-``record.reverse_complement(features=True)`` also changed the parent's
-feature. Each value is now copied one level deep, which covers the lists of
-strings the parsers produce.
 
 ``Bio.PDB.binary_cif`` now handles buffer byte order explicitly. The
 ``integer_unpack`` helper reads and writes through native-width pointers and
