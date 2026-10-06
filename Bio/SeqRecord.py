@@ -133,10 +133,10 @@ def _copy_letter_annotation_value(value: Sequence[Any]) -> Sequence[Any]:
     """Return a one-level copy of one per-letter annotation value (PRIVATE).
 
     Per-letter values are flat sequences of scores or characters, so a shallow
-    copy isolates them; deep-copying a million quality scores would cost about
-    40 times as much for no extra protection. As in ``_copy_annotation_value``,
-    a value that cannot be copied (a ``memoryview``, say) is shared rather than
-    raised over, which is what the old shallow dictionary copy did.
+    copy isolates lists and arrays; a deep copy would be far slower on long
+    reads and add no protection. As in ``_copy_annotation_value``, a value that
+    cannot be copied (a ``memoryview``, say) is shared rather than raised over,
+    which is what the old shallow dictionary copy did.
     """
     try:
         return copy.copy(value)
