@@ -27,12 +27,14 @@ def _check_tags(seq, tags):
     """Check a segment line's tags for inconsistencies (PRIVATE)."""
     # A segment without sequence data is empty (GFA1) or undefined (GFA2)
     absent = len(seq) == 0 or not seq.defined
+    length_set = False
     for tag in tags:
         if tag[:2] == "LN":
             # Sequence length
-            if absent:
-                # No sequence data, set the sequence length
+            if absent and not length_set:
+                # No sequence data, the first LN tag sets the sequence length
                 seq._data = _UndefinedSequenceData(int(tag[5:]))
+                length_set = True
             elif int(tag[5:]) != len(seq):
                 warnings.warn(
                     f"Segment line has incorrect length. Expected {tag[5:]} but got {len(seq)}.",
@@ -206,6 +208,10 @@ class Gfa2Iterator(SequenceIterator):
             ) from None
 
         if fields[3] == "*":
+            if length < 0:
+                raise ValueError(
+                    f"Segment line must have a non-negative length: {line}."
+                )
             seq = Seq(None, length=length)
         else:
             seq = Seq(fields[3])

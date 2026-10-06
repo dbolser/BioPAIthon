@@ -82,6 +82,22 @@ class TestCorrupt(unittest.TestCase):
         with self.assertWarns(BiopythonWarning):
             list(SeqIO.parse("GFA/corrupt_len.gfa", "gfa1"))
 
+    def test_corrupt_repeated_len(self):
+        """Check only the first LN tag sets the length of a segment without sequence."""
+        for fmt, line in (
+            ("gfa1", "S\ts1\t*\tLN:i:5\tLN:i:6\n"),
+            ("gfa2", "S\ts1\t100\t*\tLN:i:5\tLN:i:6\n"),
+        ):
+            with self.subTest(fmt=fmt):
+                with self.assertWarnsRegex(BiopythonWarning, "incorrect length"):
+                    record = SeqIO.read(StringIO(line), fmt)
+                self.assertEqual(len(record), 5)
+
+    def test_corrupt_negative_len_gfa2(self):
+        """Check a GFA 2.0 segment without sequence cannot have a negative length."""
+        with self.assertRaisesRegex(ValueError, "non-negative length: S\ts1\t-5\t\\*"):
+            SeqIO.read(StringIO("S\ts1\t-5\t*\n"), "gfa2")
+
     def test_corrupt_checksum(self):
         """Check a GFA file with an incorrect checksum."""
         with self.assertWarns(BiopythonWarning):
