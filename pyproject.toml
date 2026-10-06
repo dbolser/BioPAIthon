@@ -100,7 +100,6 @@ Tracker = "https://github.com/dbolser/BioPAIthon/issues"
 
 [tool.setuptools]
 include-package-data = true
-zip-safe = false
 
 [tool.setuptools.packages.find]
 include = ["Bio", "Bio.*", "BioSQL", "BioSQL.*"]
