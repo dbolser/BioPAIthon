@@ -143,9 +143,10 @@ Most are grouped into extras, so pip can install a whole stack by name::
 - ``biosql`` -- mysqlclient, the default MySQL driver for ``BioSQL``.
 - ``all`` -- all of the above, plus SciPy for ``Bio.phenotype``,
   ``Bio.codonalign`` and ``Bio.Align.analysis``.
-- ``test`` -- what the offline test suite exercises (see Testing below).
+- ``test`` -- what the Linux CI jobs install to run the offline test suite
+  (see Testing below).
 
-The individual packages, including alternatives no extra installs, are:
+The individual packages, including alternatives that no extra installs, are:
 
 - ReportLab, see https://www.reportlab.com/opensource/ (optional)
   This package is only used in ``Bio.Graphics``, so if you do not need this
@@ -226,9 +227,10 @@ directory and type::
     cd Tests
     python run_tests.py
 
-The ``test`` extra installs the optional packages the suite exercises. A plain
-``pip install -e .`` also works, but then every test needing one of those
-packages, all of ``Bio.Graphics`` included, is skipped rather than run.
+The ``test`` extra installs the optional packages the Linux CI jobs test
+with. A plain ``pip install -e .`` also works, but then every test needing
+one of those packages, all of ``Bio.Graphics`` included, is skipped rather
+than run.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
