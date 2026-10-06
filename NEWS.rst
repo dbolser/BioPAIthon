@@ -77,6 +77,12 @@ empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
 ``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
 positional argument now raises ``TypeError``; see DEPRECATED.rst.
 
+``Bio.Align.read``'s docstring now names its first argument ``handle``, as
+the signature always has. It said ``source``, the name ``Bio.Align.parse``
+uses, so following the documentation with ``Align.read(source=...)`` raised
+``TypeError``. Documentation only; no behaviour changes, and the keyword
+stays ``handle`` to match upstream Biopython.
+
 The ``gfa1`` and ``gfa2`` parsers in ``Bio.SeqIO`` now issue their warnings
 about malformed input (a wrong ``LN`` length or ``SH`` checksum, a bad tag
 name or type, a blank line) as ``BiopythonParserWarning``, like the other
