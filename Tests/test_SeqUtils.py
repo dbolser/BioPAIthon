@@ -590,7 +590,9 @@ class GC123Tests(unittest.TestCase):
         """A sequence with nothing countable scores zero, not an error."""
         for seq in ("", "NNN", "-", Seq("")):
             with self.subTest(seq=seq):
-                self.assertEqual(GC123(seq), (0.0, 0.0, 0.0, 0.0))
+                result = GC123(seq)
+                self.assertEqual(result, (0.0, 0.0, 0.0, 0.0))
+                self.assertIsInstance(result[0], float)
 
     def test_incomplete_final_codon(self):
         """A trailing partial codon is padded rather than dropped."""
