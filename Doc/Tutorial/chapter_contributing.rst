@@ -15,10 +15,8 @@ the `Biopython mailing list <http://biopython.org/wiki/Mailing_lists>`__
 and issues or pull requests on GitHub.
 
 Additionally, if you think you’ve found a new bug, you can submit it to
-our issue tracker at https://github.com/biopython/biopython/issues (this
-replaced the older Open Bioinformatics Foundation hosted RedMine
-tracker). This way, it won’t get buried in anyone’s Inbox and forgotten
-about.
+our issue tracker at https://github.com/dbolser/BioPAIthon/issues. This
+way, it won’t get buried in anyone’s Inbox and forgotten about.
 
 Mailing lists and helping newcomers
 -----------------------------------
@@ -127,7 +125,8 @@ to jump right in and start coding!
 The main Biopython release tries to be fairly uniform and interworkable,
 to make it easier for users. You can read about some of (fairly
 informal) coding style guidelines we try to use in Biopython in the
-contributing documentation at http://biopython.org/wiki/Contributing. We
+contributing documentation at
+https://github.com/dbolser/BioPAIthon/blob/main/CONTRIBUTING.rst. We
 also try to add code to the distribution along with tests (see
 Chapter :ref:`chapter:testing` for more info on the
 regression testing framework) and documentation, so that everything can
