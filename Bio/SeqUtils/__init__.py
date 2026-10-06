@@ -178,6 +178,9 @@ def GC123(seq):
 
     Copes with mixed case sequences, but does NOT deal with ambiguous
     nucleotides.
+
+    A value is zero when there is no A, C, G or T to count, so an empty
+    sequence gives zero throughout.
     """
     d = {}
     for nt in ["A", "T", "G", "C"]:
@@ -204,7 +207,7 @@ def GC123(seq):
         gcall = gcall + d["G"][i] + d["C"][i]
         nall = nall + n
 
-    gcall = 100.0 * gcall / nall
+    gcall = 100.0 * gcall / nall if nall else 0.0
     return gcall, gc[0], gc[1], gc[2]
 
 
