@@ -257,6 +257,10 @@ _bgzf_magic = b"\x1f\x8b\x08\x04"
 _bgzf_header = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00\x42\x43\x02\x00"
 _bgzf_eof = b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\x06\x00BC\x02\x00\x1b\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 _bytes_BC = b"BC"
+# Uncompressed data per block written, as BGZF_BLOCK_SIZE in htslib. A block
+# holds at most 65536 bytes in total, of which 26 are header and footer, and
+# 0xff00 is small enough that even incompressible data always fits.
+_bgzf_block_size = 0xFF00
 
 
 def open(filename, mode="rb"):
@@ -831,9 +835,10 @@ class BgzfWriter:
         )
         compressed = c.compress(block) + c.flush()
         del c
-        if len(compressed) > 65536:
-            raise RuntimeError(
-                "TODO - Didn't compress enough, try less data in this block"
+        if len(compressed) + 25 > 65535:
+            raise ValueError(
+                f"{len(block)} bytes compressed to {len(compressed)} bytes, "
+                "too large for a BGZF block"
             )
         crc = zlib.crc32(block)
         # Should cope with a mix of Python platforms...
@@ -865,23 +870,22 @@ class BgzfWriter:
             # On output we could probably allow any encoding, as we
             # don't care about splitting unicode characters between blocks
             data = data.encode("latin-1")
-        # block_size = 2**16 = 65536
         data_len = len(data)
-        if len(self._buffer) + data_len < 65536:
+        if len(self._buffer) + data_len < _bgzf_block_size:
             # print("Cached %r" % data)
             self._buffer += data
         else:
             # print("Got %r, writing out some data..." % data)
             self._buffer += data
-            while len(self._buffer) >= 65536:
-                self._write_block(self._buffer[:65536])
-                self._buffer = self._buffer[65536:]
+            while len(self._buffer) >= _bgzf_block_size:
+                self._write_block(self._buffer[:_bgzf_block_size])
+                self._buffer = self._buffer[_bgzf_block_size:]
 
     def flush(self):
         """Flush data explicitally."""
-        while len(self._buffer) >= 65536:
-            self._write_block(self._buffer[:65535])
-            self._buffer = self._buffer[65535:]
+        while len(self._buffer) >= _bgzf_block_size:
+            self._write_block(self._buffer[:_bgzf_block_size])
+            self._buffer = self._buffer[_bgzf_block_size:]
         self._write_block(self._buffer)
         self._buffer = b""
         self._handle.flush()
