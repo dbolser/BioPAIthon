@@ -13,7 +13,7 @@ import hashlib
 import re
 import warnings
 
-from Bio import BiopythonWarning
+from Bio import BiopythonParserWarning
 from Bio.Seq import _UndefinedSequenceData
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -38,7 +38,7 @@ def _check_tags(seq, tags):
             elif int(tag[5:]) != len(seq):
                 warnings.warn(
                     f"Segment line has incorrect length. Expected {tag[5:]} but got {len(seq)}.",
-                    BiopythonWarning,
+                    BiopythonParserWarning,
                 )
         elif tag[:2] == "SH" and not absent:
             # SHA256 checksum, which cannot be verified without sequence data
@@ -46,7 +46,7 @@ def _check_tags(seq, tags):
             if checksum.upper() != tag[5:]:
                 warnings.warn(
                     f"Segment line has incorrect checksum. Expected {tag[5:]} but got {checksum}.",
-                    BiopythonWarning,
+                    BiopythonParserWarning,
                 )
 
 
@@ -60,7 +60,7 @@ def _tags_to_annotations(tags):
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9]", parts[0]) is None:
             warnings.warn(
                 f"Tag has invalid name: {parts[0]}. Are they tab delimited?",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         parts[2] = ":".join(parts[2:])  # tag value may contain : characters
         annotations[parts[0]] = (parts[1], parts[2])
@@ -68,16 +68,16 @@ def _tags_to_annotations(tags):
         # Check type of the tag and raise warning on a mismatch. These RegExs
         # are part of the 1.0 standard.
         if parts[1] not in "AifZJHB":
-            warnings.warn(f"Tag has invalid type: {parts[1]}", BiopythonWarning)
+            warnings.warn(f"Tag has invalid type: {parts[1]}", BiopythonParserWarning)
         elif parts[1] == "A" and re.fullmatch(r"[!-~]", parts[2]) is None:
             warnings.warn(
                 f"Tag has incorrect type. Expected printable character, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif parts[1] == "i" and re.fullmatch(r"[-+]?[0-9]+", parts[2]) is None:
             warnings.warn(
                 f"Tag has incorrect type. Expected signed integer, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif (
             parts[1] == "f"
@@ -86,22 +86,22 @@ def _tags_to_annotations(tags):
         ):
             warnings.warn(
                 f"Tag has incorrect type. Expected float, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif parts[1] == "Z" and re.fullmatch(r"[ !-~]+", parts[2]) is None:
             warnings.warn(
                 f"Tag has incorrect type. Expected printable string, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif parts[1] == "J" and re.fullmatch(r"[ !-~]+", parts[2]) is None:
             warnings.warn(
                 f"Tag has incorrect type. Expected JSON excluding new-line and tab characters, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif parts[1] == "H" and re.fullmatch(r"[0-9A-F]+", parts[2]) is None:
             warnings.warn(
                 f"Tag has incorrect type. Expected byte array in hex format, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
         elif (
             parts[1] == "B"
@@ -112,7 +112,7 @@ def _tags_to_annotations(tags):
         ):
             warnings.warn(
                 f"Tag has incorrect type. Expected array of integers or floats, got {parts[2]}.",
-                BiopythonWarning,
+                BiopythonParserWarning,
             )
     return annotations
 
@@ -140,7 +140,7 @@ class Gfa1Iterator(SequenceIterator):
         """Return the next SeqRecord from the GFA 1.0 stream."""
         for line in self.stream:
             if line == "\n":
-                warnings.warn("GFA data has a blank line.", BiopythonWarning)
+                warnings.warn("GFA data has a blank line.", BiopythonParserWarning)
                 continue
 
             fields = line.strip("\n").split("\t")
@@ -188,7 +188,7 @@ class Gfa2Iterator(SequenceIterator):
         """Return the next SeqRecord from the GFA 2.0 stream."""
         for line in self.stream:
             if line == "\n":
-                warnings.warn("GFA data has a blank line.", BiopythonWarning)
+                warnings.warn("GFA data has a blank line.", BiopythonParserWarning)
                 continue
 
             fields = line.strip("\n").split("\t")

@@ -4,6 +4,7 @@ import unittest
 import warnings
 from io import StringIO
 
+from Bio import BiopythonParserWarning
 from Bio import BiopythonWarning
 from Bio import SeqIO
 
@@ -79,7 +80,7 @@ class TestCorrupt(unittest.TestCase):
 
     def test_corrupt_len(self):
         """Check a GFA file with an incorrect length."""
-        with self.assertWarns(BiopythonWarning):
+        with self.assertWarns(BiopythonParserWarning):
             list(SeqIO.parse("GFA/corrupt_len.gfa", "gfa1"))
 
     def test_corrupt_repeated_len(self):
@@ -100,18 +101,50 @@ class TestCorrupt(unittest.TestCase):
 
     def test_corrupt_checksum(self):
         """Check a GFA file with an incorrect checksum."""
-        with self.assertWarns(BiopythonWarning):
+        with self.assertWarns(BiopythonParserWarning):
             list(SeqIO.parse("GFA/corrupt_checksum.gfa", "gfa1"))
 
     def test_corrupt_tag_name(self):
         """Check a GFA file with an invalid tag name."""
-        with self.assertWarns(BiopythonWarning):
+        with self.assertWarns(BiopythonParserWarning):
             list(SeqIO.parse("GFA/corrupt_tag_name.gfa", "gfa1"))
 
     def test_corrupt_tag_type(self):
         """Check a GFA file with an incorrect tag type."""
-        with self.assertWarns(BiopythonWarning):
+        with self.assertWarns(BiopythonParserWarning):
             list(SeqIO.parse("GFA/corrupt_tag_type.gfa", "gfa1"))
+
+    def test_parser_warnings(self):
+        """Check each malformed-input warning is a BiopythonParserWarning."""
+        for fmt, data, message in (
+            ("gfa1", "\nS\ts1\tAAA\n", "blank line"),
+            ("gfa2", "\nS\ts1\t3\tAAA\n", "blank line"),
+            ("gfa1", "S\ts1\tAAA\tLN:i:5\n", "incorrect length"),
+            ("gfa1", f"S\ts1\tAAA\tSH:H:{'0' * 64}\n", "incorrect checksum"),
+            ("gfa1", "S\ts1\tAAA\t~~:i:0\n", "invalid name"),
+            ("gfa1", "S\ts1\tAAA\tAB:X:0\n", "invalid type"),
+            ("gfa1", "S\ts1\tAAA\tAB:A:ab\n", "printable character"),
+            ("gfa1", "S\ts1\tAAA\tAB:i:C\n", "signed integer"),
+            ("gfa1", "S\ts1\tAAA\tAB:f:C\n", "float"),
+            ("gfa1", "S\ts1\tAAA\tAB:Z:\u00e9\n", "printable string"),
+            ("gfa1", "S\ts1\tAAA\tAB:J:\u00e9\n", "JSON"),
+            ("gfa1", "S\ts1\tAAA\tAB:H:ab\n", "hex"),
+            ("gfa1", "S\ts1\tAAA\tAB:B:C\n", "integers or floats"),
+        ):
+            with self.subTest(fmt=fmt, data=data):
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always")
+                    SeqIO.read(StringIO(data), fmt)
+                self.assertEqual(len(caught), 1)
+                self.assertIs(caught[0].category, BiopythonParserWarning)
+                self.assertIn(message, str(caught[0].message))
+
+    def test_parser_warnings_filter(self):
+        """Check a filter on BiopythonWarning still applies to GFA warnings."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonWarning)
+            with self.assertRaises(BiopythonParserWarning):
+                SeqIO.read(StringIO("S\ts1\tAAA\tLN:i:5\n"), "gfa1")
 
 
 if __name__ == "__main__":
