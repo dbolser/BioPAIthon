@@ -156,7 +156,7 @@ rather than fail.
 - **black**, targeting Python 3.10.
 - **ruff** with `--extend-select=B,C4,D,ISC,UP`, and **flake8** with
   `flake8-rst-docstrings`.
-- **mypy** over `Bio` and `BioSQL`.
+- **mypy** over `Bio` and `BioSQL`; see [Typing](#typing).
 - Docstrings are reStructuredText and follow PEP257.
 - Line length (E501) is not enforced; see `.flake8` for the full ignore list.
 - Module names are not all lowercase. This is a deliberate historical
@@ -165,6 +165,90 @@ rather than fail.
 ```bash
 pre-commit run --all-files
 ```
+
+### Typing
+
+`Bio` ships `py.typed`, so its annotations are a promise to every downstream
+type checker.
+
+- **Two ratchets in `.mypy.ini`.** The `check_untyped_defs` baseline lists
+  modules not yet clean; entries only ever leave it. The
+  `disallow_untyped_defs` allowlist lists fully annotated modules; entries
+  only ever join it, in sorted order, each holding exactly
+  `disallow_untyped_defs = True`. A module joins once fully annotated, in the
+  PR that deletes its baseline entry if it has one.
+  `Tests/test_mypy_config.py` checks the shape of both, and that the file
+  has no duplicate section: given one, mypy ignores the whole file and exits
+  0. A test cannot see history, so reviewers check that
+  `git diff main -- .mypy.ini` removes no allowlist line.
+- **The hooks.** The `mypy` hook checks the whole tree, exactly as a bare
+  `mypy` does, whenever `Bio/`, `BioSQL/` or `.mypy.ini` changes. That takes
+  roughly 20 seconds cold, under 10 with mypy's cache warm. The
+  `mypy-downstream` hook runs `mypy --strict` over `Tests/downstream_typing/`
+  whenever `Bio/`, `BioSQL/` or that directory changes. Its files are
+  type-checked but never run: `assert_type` pins what users see, and a line
+  that must stay an error carries `# type: ignore[code]`, which fails once it
+  is unused. Both hooks have the id `mypy`, so `pre-commit run mypy` runs
+  both. Both pin `numpy==2.2.6`, the last release supporting Python 3.10,
+  which the CI style job uses, so local and CI results agree; bump it
+  deliberately. Under Python 3.14 the first hook install builds that numpy
+  from source, which takes several minutes, once.
+- **Conventions.** PEP 604 unions (`X | None`). No
+  `from __future__ import annotations`, as upstream evaluates annotations
+  eagerly: quote forward references and import them under
+  `if TYPE_CHECKING:`, as `Bio/SeqRecord.py` does for `SeqFeature`. A method
+  returning its own class uses a bound `TypeVar`, as `Bio/PDB/Entity.py`
+  does, not `typing.Self` (Python 3.11+); `typing_extensions` is not a
+  runtime dependency. An attribute that is `None` only on a blank object
+  still being built is typed `X | Any`, typeshed's trick, so users need not
+  narrow it; the constructor parameter stays honestly `X | None`. Overloads
+  follow the return types measured at runtime, function by function, not a
+  blanket rule.
+- **Annotating does not change the public API.** Dump the signatures on
+  `main` and on your branch, from each checkout, and diff them. Any
+  difference must be intended and named in the PR. The dump covers each
+  public name a module defines, and the public and dunder members of its
+  public classes, inherited ones included:
+
+  ```python
+  import importlib
+  import inspect
+  import json
+  import sys
+
+
+  def params(obj):
+      obj = getattr(obj, "__func__", obj)  # classmethod, staticmethod
+      obj = getattr(obj, "fget", obj)  # property
+      try:
+          parameters = inspect.signature(obj).parameters.values()
+      except (TypeError, ValueError):  # not callable, or no signature
+          return None
+      return [(p.name, p.kind.name, repr(p.default)) for p in parameters]
+
+
+  dump = {}
+  for name in sys.argv[1:]:
+      module = importlib.import_module(name)
+      for key, value in vars(module).items():
+          if key.startswith("_") or getattr(value, "__module__", None) != name:
+              continue
+          dump[f"{name}.{key}"] = params(value)
+          if inspect.isclass(value):
+              for attr in dir(value):
+                  if not attr.startswith("_") or attr.endswith("__"):
+                      member = inspect.getattr_static(value, attr)
+                      dump[f"{name}.{key}.{attr}"] = params(member)
+  json.dump(dump, sys.stdout, indent=1, sort_keys=True)
+  ```
+
+  Save it outside the checkout, then for example
+  `PYTHONPATH=. python /tmp/sigdump.py Bio.Seq Bio.SeqRecord > /tmp/branch.json`.
+- **Docstrings.** Keep the house list format: an `Arguments:` heading (or
+  `Keyword arguments:`), then ` - name - description` items. Types reach the
+  docs through the signatures, but do not strip type words from the
+  descriptions. Convert `:param:` or numpydoc sections only in a module you
+  are annotating anyway.
 
 ## Pull requests
 

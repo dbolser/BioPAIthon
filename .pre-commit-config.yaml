@@ -44,10 +44,36 @@ repos:
 -   repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.16.1
     hooks:
+    # Both hooks check their whole target, not just the changed files, so
+    # the result is exactly what the same mypy command prints by hand; files
+    # and types_or only decide when they run, and verbose prints mypy's
+    # summary even on success. numpy is pinned to the last release supporting
+    # Python 3.10, which the CI style job uses, so local and CI results
+    # agree; bump it deliberately. Both hooks have the id "mypy", so
+    # "pre-commit run mypy" runs both. See "Typing" in AGENTS.md.
     -   id: mypy
-        # equivalent to "files" in .mypy.ini
-        files: '^(Bio|BioSQL)/'
-        additional_dependencies: [numpy]
+        # Bio and BioSQL, the "files" in .mypy.ini, as a bare "mypy" does.
+        # The empty args drop the mirror's default --ignore-missing-imports.
+        args: []
+        pass_filenames: false
+        files: '^(Bio|BioSQL)/|^\.mypy\.ini$'
+        types_or: [python, pyi, ini]
+        verbose: true
+        additional_dependencies: [numpy==2.2.6]
+    -   id: mypy
+        # What a downstream "mypy --strict" user sees; see its config file.
+        alias: mypy-downstream
+        name: mypy (downstream)
+        args: [
+            --config-file, Tests/downstream_typing/mypy.ini,
+            --cache-dir, .mypy_cache_downstream,
+            Tests/downstream_typing,
+        ]
+        pass_filenames: false
+        files: '^(Bio|BioSQL)/|^Tests/downstream_typing/'
+        types_or: [python, pyi, ini]
+        verbose: true
+        additional_dependencies: [numpy==2.2.6]
 -   repo: https://github.com/asottile/blacken-docs
     rev: 1.20.0
     hooks:
