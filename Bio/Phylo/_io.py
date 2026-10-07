@@ -11,26 +11,26 @@ This API follows the same semantics as Biopython's ``SeqIO`` and
 ``AlignIO``.
 """
 
+from importlib.util import find_spec
+
 from Bio import File
+from Bio._io_registry import FormatRegistry
 from Bio.Phylo import BaseTree
-from Bio.Phylo import NewickIO
-from Bio.Phylo import NeXMLIO
-from Bio.Phylo import NexusIO
-from Bio.Phylo import PhyloXMLIO
 
-supported_formats = {
-    "newick": NewickIO,
-    "nexus": NexusIO,
-    "phyloxml": PhyloXMLIO,
-    "nexml": NeXMLIO,
-}
+# Each format module is imported the first time its format is used.
+supported_formats = FormatRegistry(
+    {
+        "newick": "Bio.Phylo.NewickIO",
+        "nexus": "Bio.Phylo.NexusIO",
+        "phyloxml": "Bio.Phylo.PhyloXMLIO",
+        "nexml": "Bio.Phylo.NeXMLIO",
+    }
+)
 
-try:
-    from Bio.Phylo import CDAOIO
-
-    supported_formats["cdao"] = CDAOIO
-except ImportError:
-    pass
+# CDAO support needs rdflib, so the format is offered only if rdflib is
+# installed; checking for it does not import it.
+if find_spec("rdflib") is not None:
+    supported_formats["cdao"] = "Bio.Phylo.CDAOIO"
 
 
 def parse(file, format, **kwargs):
