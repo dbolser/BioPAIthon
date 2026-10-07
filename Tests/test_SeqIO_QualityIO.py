@@ -4,7 +4,9 @@
 # as part of this package.
 """Additional unit tests for Bio.SeqIO.QualityIO (covering FASTQ and QUAL)."""
 
+import array
 import os
+import pickle
 import unittest
 import warnings
 from io import BytesIO
@@ -115,6 +117,209 @@ class TestFastqQualityDecoding(unittest.TestCase):
                         SeqIO.read(StringIO(fastq), fmt)
                     self.assertEqual(cm.exception.full_string, qualities)
                     self.assertEqual(cm.exception.index, 0)
+
+
+class TestFastqCompactQualities(unittest.TestCase):
+    """Test the opt-in compact=True array backing of FASTQ qualities."""
+
+    iterators = {
+        "fastq": QualityIO.FastqPhredIterator,
+        "fastq-sanger": QualityIO.FastqPhredIterator,
+        "fastq-illumina": QualityIO.FastqIlluminaIterator,
+        "fastq-solexa": QualityIO.FastqSolexaIterator,
+    }
+    files = [
+        ("Quality/example.fastq", "fastq", "phred_quality"),
+        ("Quality/longreads_original_sanger.fastq", "fastq", "phred_quality"),
+        (
+            "Quality/sanger_full_range_original_sanger.fastq",
+            "fastq-sanger",
+            "phred_quality",
+        ),
+        (
+            "Quality/illumina_full_range_original_illumina.fastq",
+            "fastq-illumina",
+            "phred_quality",
+        ),
+        (
+            "Quality/solexa_full_range_original_solexa.fastq",
+            "fastq-solexa",
+            "solexa_quality",
+        ),
+    ]
+
+    def parse_both(self, path, fmt):
+        """Parse a file twice, returning list-backed and array-backed records."""
+        iterator = self.iterators[fmt]
+        return list(iterator(path)), list(iterator(path, compact=True))
+
+    def test_default_unchanged(self):
+        for path, fmt, key in self.files:
+            with self.subTest(path=path):
+                for record in SeqIO.parse(path, fmt):
+                    self.assertIs(type(record.letter_annotations[key]), list)
+                for record in self.iterators[fmt](path):
+                    self.assertIs(type(record.letter_annotations[key]), list)
+
+    def test_valid_quality_ranges(self):
+        tests = [
+            ("fastq-sanger", "phred_quality", range(94), 33),
+            ("fastq-illumina", "phred_quality", range(63), 64),
+            ("fastq-solexa", "solexa_quality", range(-5, 63), 64),
+        ]
+        for fmt, key, expected_range, offset in tests:
+            with self.subTest(fmt=fmt):
+                expected = list(expected_range)
+                qualities = "".join(chr(score + offset) for score in expected)
+                fastq = f"@test\n{'N' * len(expected)}\n+\n{qualities}\n"
+                iterator = self.iterators[fmt](StringIO(fastq), compact=True)
+                decoded = next(iterator).letter_annotations[key]
+                self.assertIs(type(decoded), array.array)
+                self.assertEqual(decoded.typecode, "b")
+                self.assertEqual(decoded.tolist(), expected)
+
+    def test_invalid_still_rejected(self):
+        for fmt in ("fastq-sanger", "fastq-illumina", "fastq-solexa"):
+            with self.subTest(fmt=fmt):
+                iterator = self.iterators[fmt](
+                    StringIO("@test\nNN\n+\n\x7f!\n"), compact=True
+                )
+                with self.assertRaises(QualityIO.InvalidCharError):
+                    next(iterator)
+
+    def test_same_values_as_list(self):
+        for path, fmt, key in self.files:
+            with self.subTest(path=path):
+                lists, arrays = self.parse_both(path, fmt)
+                self.assertEqual(len(lists), len(arrays))
+                for old, new in zip(lists, arrays):
+                    self.assertEqual(old.id, new.id)
+                    self.assertEqual(old.seq, new.seq)
+                    self.assertEqual(
+                        old.letter_annotations[key], list(new.letter_annotations[key])
+                    )
+
+    def test_write(self):
+        formats = [
+            "fastq",
+            "fastq-sanger",
+            "fastq-illumina",
+            "fastq-solexa",
+            "qual",
+            "fasta",
+        ]
+        for path, fmt, key in self.files:
+            lists, arrays = self.parse_both(path, fmt)
+            for out_fmt in formats:
+                with self.subTest(path=path, out_fmt=out_fmt):
+                    outputs = []
+                    for records in (lists, arrays):
+                        handle = StringIO()
+                        # Writing the full ranges to a narrower variant warns
+                        # about truncation; both backings should warn alike.
+                        with warnings.catch_warnings(record=True) as caught:
+                            warnings.simplefilter("always")
+                            SeqIO.write(records, handle, out_fmt)
+                        messages = [str(w.message) for w in caught]
+                        outputs.append((handle.getvalue(), messages))
+                    self.assertEqual(outputs[0], outputs[1])
+
+    def test_slicing(self):
+        for path, fmt, key in self.files:
+            with self.subTest(path=path):
+                lists, arrays = self.parse_both(path, fmt)
+                old, new = lists[0], arrays[0]
+                for index in (
+                    slice(3, 10),
+                    slice(None, None, 2),
+                    slice(None, None, -1),
+                ):
+                    sliced = new[index].letter_annotations[key]
+                    self.assertIs(type(sliced), array.array)
+                    self.assertEqual(list(sliced), old[index].letter_annotations[key])
+
+    def test_reverse_complement(self):
+        for path, fmt, key in self.files:
+            with self.subTest(path=path):
+                lists, arrays = self.parse_both(path, fmt)
+                old, new = lists[0], arrays[0]
+                rc = new.reverse_complement()
+                self.assertIs(type(rc.letter_annotations[key]), array.array)
+                self.assertEqual(
+                    list(rc.letter_annotations[key]),
+                    old.reverse_complement().letter_annotations[key],
+                )
+                # The parent is left alone:
+                self.assertEqual(
+                    list(new.letter_annotations[key]), old.letter_annotations[key]
+                )
+
+    def test_add(self):
+        lists, arrays = self.parse_both("Quality/example.fastq", "fastq")
+        combined = arrays[0] + arrays[1]
+        qualities = combined.letter_annotations["phred_quality"]
+        self.assertIs(type(qualities), array.array)
+        self.assertEqual(
+            list(qualities),
+            lists[0].letter_annotations["phred_quality"]
+            + lists[1].letter_annotations["phred_quality"],
+        )
+        # Mixing the two backings cannot concatenate, and says why:
+        with self.assertRaisesRegex(TypeError, r"\(array and list\)"):
+            arrays[0] + lists[1]
+
+    def test_upper_lower(self):
+        record = next(
+            QualityIO.FastqPhredIterator("Quality/example.fastq", compact=True)
+        )
+        before = list(record.letter_annotations["phred_quality"])
+        for method in ("upper", "lower"):
+            with self.subTest(method=method):
+                derived = getattr(record, method)()
+                qualities = derived.letter_annotations["phred_quality"]
+                self.assertIs(type(qualities), array.array)
+                self.assertEqual(list(qualities), before)
+                # An independent copy, as for a list:
+                qualities[0] = 0
+                self.assertEqual(
+                    list(record.letter_annotations["phred_quality"]), before
+                )
+
+    def test_letter_annotations_validation(self):
+        record = next(
+            QualityIO.FastqPhredIterator("Quality/example.fastq", compact=True)
+        )
+        with self.assertRaises(TypeError):
+            record.letter_annotations["phred_quality"] = array.array("b", [1, 2])
+        record.letter_annotations["phred_quality"] = array.array(
+            "b", range(len(record))
+        )
+        self.assertEqual(
+            list(record.letter_annotations["phred_quality"]), list(range(len(record)))
+        )
+
+    def test_pickle(self):
+        record = next(
+            QualityIO.FastqSolexaIterator("Quality/solexa_faked.fastq", compact=True)
+        )
+        clone = pickle.loads(pickle.dumps(record))
+        self.assertEqual(clone.letter_annotations, record.letter_annotations)
+        self.assertIs(type(clone.letter_annotations["solexa_quality"]), array.array)
+
+    def test_index_get_raw(self):
+        for path, fmt, key in self.files:
+            index = SeqIO.index(path, fmt)
+            self.addCleanup(index.close)
+            with self.subTest(path=path):
+                for name in index:
+                    # SeqIO.index takes no parser options, so it stays list-backed,
+                    # but get_raw hands back text the compact parser reads:
+                    expected = index[name].letter_annotations[key]
+                    self.assertIs(type(expected), list)
+                    raw = index.get_raw(name).decode()
+                    record = next(self.iterators[fmt](StringIO(raw), compact=True))
+                    self.assertEqual(record.id, name)
+                    self.assertEqual(list(record.letter_annotations[key]), expected)
 
 
 class TestFastqErrors(unittest.TestCase):

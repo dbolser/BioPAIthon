@@ -1016,24 +1016,31 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
         """Key name (string) of the quality values in record.letter_annotations."""
         pass
 
-    def __init__(self, source):
+    def __init__(self, source: _TextIOSource, *, compact: bool = False):
         """Iterate over FASTQ records as SeqRecord objects.
 
         Arguments:
          - source - input stream opened in text mode, or a path to a file
+         - compact - if True, store the qualities as a signed byte array,
+           ``array.array("b")``, rather than as a list of integers.
 
         The quality values are stored in the `letter_annotations` dictionary
         attribute under the key `q_key`.
         """
         super().__init__(source, fmt="Fastq")
         self.line = None
+        self.compact = compact
 
     def _decode_quality(self, byte_scores):
         """Decode translated quality bytes as unsigned integers.
 
-        Subclasses whose quality mapping emits negative scores must override
-        this method, as :class:`FastqSolexaIterator` does below.
+        Returns a list, or a signed byte array if the iterator was created
+        with ``compact=True``. Subclasses whose quality mapping emits negative
+        scores must override this method, as :class:`FastqSolexaIterator`
+        does below.
         """
+        if self.compact:
+            return array.array("b", byte_scores)
         return list(byte_scores)
 
     def __next__(self) -> SeqRecord:
@@ -1161,12 +1168,16 @@ class FastqPhredIterator(FastqIteratorAbstractBaseClass):
         self,
         source: _TextIOSource,
         alphabet: None = None,
+        *,
+        compact: bool = False,
     ):
         """Iterate over FASTQ records as SeqRecord objects.
 
         Arguments:
          - source - input stream opened in text mode, or a path to a file
          - alphabet - optional alphabet, no longer used. Leave as None.
+         - compact - if True, store the qualities as a signed byte array,
+           ``array.array("b")``, rather than as a list of integers.
 
         For each sequence in a (Sanger style) FASTQ file there is a matching string
         encoding the PHRED qualities (integers between 0 and about 90) using ASCII
@@ -1217,6 +1228,20 @@ class FastqPhredIterator(FastqIteratorAbstractBaseClass):
         >>> print(record.letter_annotations["phred_quality"])
         [26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 24, 26, 22, 26, 26, 13, 22, 26, 18, 24, 18, 18, 18, 18]
 
+        A list costs a pointer (eight bytes on a 64-bit build) per base, which
+        adds up when you hold many reads in memory. Pass ``compact=True`` to get
+        a signed byte array instead, at one byte per base:
+
+        >>> with open("Quality/example.fastq") as handle:
+        ...     compact_records = list(FastqPhredIterator(handle, compact=True))
+        >>> compact_records[-1].letter_annotations["phred_quality"]
+        array('b', [26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 24, 26, 22, 26, 26, 13, 22, 26, 18, 24, 18, 18, 18, 18])
+
+        The array slices, reverses, concatenates and writes out like the list,
+        but it only holds integers from -128 to 127, it never compares equal
+        to a list (convert it with ``list()`` first), and adding two records
+        together needs both to hold arrays.
+
         To modify the records returned by the parser, you can use a generator
         function. For example, to store the mean PHRED quality in the record
         description, use
@@ -1238,7 +1263,7 @@ class FastqPhredIterator(FastqIteratorAbstractBaseClass):
         """
         if alphabet is not None:
             raise ValueError("The alphabet argument is no longer supported")
-        super().__init__(source)
+        super().__init__(source, compact=compact)
 
 
 class FastqSolexaIterator(FastqIteratorAbstractBaseClass):
@@ -1261,18 +1286,25 @@ class FastqSolexaIterator(FastqIteratorAbstractBaseClass):
 
     def _decode_quality(self, byte_scores):
         """Decode translated quality bytes as signed integers."""
-        return array.array("b", byte_scores).tolist()
+        scores = array.array("b", byte_scores)
+        if self.compact:
+            return scores
+        return scores.tolist()
 
     def __init__(
         self,
         source: _TextIOSource,
         alphabet: None = None,
+        *,
+        compact: bool = False,
     ):
         r"""Iterate over FASTQ records as SeqRecord objects.
 
         Arguments:
          - source - input stream opened in text mode, or a path to a file
          - alphabet - optional alphabet, no longer used. Leave as None.
+         - compact - if True, store the qualities as a signed byte array,
+           ``array.array("b")``, rather than as a list of integers.
 
         For each sequence in Solexa/Illumina FASTQ files there is a matching
         string encoding the Solexa integer qualities using ASCII values with an
@@ -1407,7 +1439,7 @@ class FastqSolexaIterator(FastqIteratorAbstractBaseClass):
         """
         if alphabet is not None:
             raise ValueError("The alphabet argument is no longer supported")
-        super().__init__(source)
+        super().__init__(source, compact=compact)
 
 
 class FastqIlluminaIterator(FastqIteratorAbstractBaseClass):
@@ -1431,12 +1463,16 @@ class FastqIlluminaIterator(FastqIteratorAbstractBaseClass):
         self,
         source: _TextIOSource,
         alphabet: None = None,
+        *,
+        compact: bool = False,
     ):
         """Iterate over FASTQ records as SeqRecord objects.
 
         Arguments:
          - source - input stream opened in text mode, or a path to a file
          - alphabet - optional alphabet, no longer used. Leave as None.
+         - compact - if True, store the qualities as a signed byte array,
+           ``array.array("b")``, rather than as a list of integers.
 
         For each sequence in Illumina 1.3+ FASTQ files there is a matching
         string encoding PHRED integer qualities using ASCII values with an
@@ -1467,7 +1503,7 @@ class FastqIlluminaIterator(FastqIteratorAbstractBaseClass):
         """
         if alphabet is not None:
             raise ValueError("The alphabet argument is no longer supported")
-        super().__init__(source)
+        super().__init__(source, compact=compact)
 
 
 class QualPhredIterator(SequenceIterator):
