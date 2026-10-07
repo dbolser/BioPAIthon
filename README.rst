@@ -17,9 +17,9 @@ from any capable contributor - human, computational intelligence, AI, or chimp
 - and judges each patch on its merits rather than on the nature of its author.
 See `AGENTS.md <AGENTS.md>`__ for what that means in practice.
 
-Everything else is Biopython. The ``Bio`` package, the public API, the test
-suite and the licence are all unchanged, ``import Bio`` works exactly as it
-did, and we intend to keep tracking upstream.
+Everything else is Biopython. ``import Bio`` works exactly as it did, the
+licence is unchanged, the public API differs from upstream's only where noted
+below, and we intend to keep tracking upstream.
 
 Credit for essentially all of the code here belongs to the Biopython
 contributors; the original copyright notices and licence remain in place.
@@ -31,11 +31,15 @@ source code, from our repository on GitHub
 https://github.com/dbolser/BioPAIthon
 
 Upstream's user-centric documentation, `The Biopython Tutorial and Cookbook,
-and API documentation <https://biopython.org/docs/latest/>`_, still describes
-this fork accurately.
+and API documentation <https://biopython.org/docs/latest/>`_, describes most
+of this fork too, but not all of it. Here, for example, ``Bio.pairwise2`` has
+been removed, ``Bio.PDB.mmtf`` is deprecated, and a GenBank or EMBL record
+whose sequence does not match its declared length is an error rather than a
+warning.
 
-The `NEWS <NEWS.rst>`_ file summarises the changes in each release, alongside
-the `DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
+The `NEWS <NEWS.rst>`_ file summarises the changes in each release, including
+where this fork differs from upstream, alongside the
+`DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
 
 This package is open source software made available under generous terms.
 Please see the `LICENSE <LICENSE.rst>`_ file for further details.
@@ -111,11 +115,11 @@ Python Requirements
 
 We currently recommend using Python 3.13 from https://www.python.org
 
-Biopython is currently supported and tested on the following Python
+BioPAIthon is currently supported and tested on the following Python
 implementations:
 
-- Python 3.10, 3.11, 3.12, 3.13, 3.14 and the release candidate for 3.15. See
-  https://www.python.org
+- Python 3.10, 3.11, 3.12, 3.13 and 3.14 -- see https://www.python.org. CI
+  tests all five on Linux, and a subset of them on macOS and Windows.
 
 - PyPy3.10 v7.3.17 -- or later, see https://www.pypy.org
 
@@ -128,7 +132,21 @@ automatically if you install Biopython with pip (see below for compiling
 Biopython yourself).
 
 Depending on which parts of Biopython you plan to use, there are a number of
-other optional Python dependencies, which can be installed later if needed:
+other optional Python dependencies, which can be installed later if needed.
+Most are grouped into extras, so pip can install a whole stack by name::
+
+    pip install --pre "biopaithon[graphics]"
+
+- ``graphics`` -- ReportLab and Pillow, for ``Bio.Graphics``.
+- ``phylo`` -- matplotlib, networkx, igraph and rdflib, for ``Bio.Phylo``.
+- ``structure`` -- msgpack, for reading BinaryCIF with ``Bio.PDB``.
+- ``biosql`` -- mysqlclient, the default MySQL driver for ``BioSQL``.
+- ``all`` -- all of the above, plus SciPy for ``Bio.phenotype``,
+  ``Bio.codonalign`` and ``Bio.Align.analysis``.
+- ``test`` -- what the Linux CI jobs install to run the offline test suite
+  (see Testing below).
+
+Notes on individual packages, including alternatives that no extra installs:
 
 - ReportLab, see https://www.reportlab.com/opensource/ (optional)
   This package is only used in ``Bio.Graphics``, so if you do not need this
@@ -185,12 +203,14 @@ compile BioPAIthon yourself, the following are required at compile time:
 Then either download and decompress our source code, or fetch it using git.
 Now change directory to the Biopython source code folder and run::
 
-    pip install -e . --group dev
+    pip install -e ".[test]"
     cd Tests
     python run_tests.py
 
 Substitute ``python`` with your specific version if required, for example
-``python3``, or ``pypy3``.
+``python3``, or ``pypy3``. On PyPy, use a plain ``pip install -e .`` instead:
+the ``test`` extra needs SciPy, which has no PyPy wheels and needs OpenBLAS to
+build from source.
 
 To exclude tests that require an internet connection (and which may take a
 long time), use the ``--offline`` option::
@@ -205,9 +225,14 @@ Biopython includes a suite of regression tests to check if everything is
 running correctly. To run the tests, go to the biopython source code
 directory and type::
 
-    pip install -e . --group dev
+    pip install -e ".[test]"
     cd Tests
     python run_tests.py
+
+The ``test`` extra installs the optional packages the Linux CI jobs test
+with. A plain ``pip install -e .`` also works, and is what to use on PyPy
+(see above), but then every test needing one of those packages, all of
+``Bio.Graphics`` included, is skipped rather than run.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
