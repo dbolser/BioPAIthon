@@ -58,29 +58,20 @@ if not requires_internet.check.available:
         """Mimic an NCBI qblast response."""
         # Each use of NCBIWWW.qblast makes two urlopen calls with different responses:
         # a. the 'wait' page, and b. the result.
-        wait = [
-            support.DATA / "Blast" / "mock_wait.html"
-        ]  # This mimics the 'wait' page
+        blast = support.DATA / "Blast"
+        wait = [blast / "mock_wait.html"]  # This mimics the 'wait' page
 
         # These mimic the results. Add new mock files here, if you add more tests.
         # Note: The test are run in alphabetical order, so place new files at the
         # correct position.
         response_list = [
-            support.DATA
-            / "Blast"
-            / "mock_actin.xml",  # result for test_blastp_nr_actin
-            support.DATA / "Blast" / "mock_disco.xml",  # result for test_discomegalast
-            support.DATA / "Blast" / "mock_orchid.xml",  # result for test_orchid_est
-            support.DATA / "Blast" / "mock_pcr.xml",  # result for test_pcr_primers
-            support.DATA
-            / "Blast"
-            / "mock_short_empty.xml",  # result for test_short_query # 1
-            support.DATA
-            / "Blast"
-            / "mock_short_result.xml",  # result for test_short_query # 2
-            support.DATA
-            / "Blast"
-            / "mock_short_result.xml",  # result for test_short_query # 3
+            blast / "mock_actin.xml",  # result for test_blastp_nr_actin
+            blast / "mock_disco.xml",  # result for test_discomegalast
+            blast / "mock_orchid.xml",  # result for test_orchid_est
+            blast / "mock_pcr.xml",  # result for test_pcr_primers
+            blast / "mock_short_empty.xml",  # result for test_short_query # 1
+            blast / "mock_short_result.xml",  # result for test_short_query # 2
+            blast / "mock_short_result.xml",  # result for test_short_query # 3
         ]
 
         # Generate a list of responses with the structure wait|result|wait|result...

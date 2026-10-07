@@ -491,7 +491,8 @@ class SQLiteIndexTests(unittest.TestCase):
 
 def open_descriptors(path):
     """Return how many of this process's descriptors point at the given file."""
-    target = os.path.abspath(path)
+    # The /proc/self/fd links hold fully resolved paths, symlinks included
+    target = os.path.realpath(path)
     count = 0
     for name in os.listdir("/proc/self/fd"):
         try:
