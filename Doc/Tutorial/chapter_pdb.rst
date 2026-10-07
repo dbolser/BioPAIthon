@@ -84,6 +84,8 @@ Call ``get_structure`` with the path to the BinaryCIF file:
    >>> parser.get_structure("1GBT", "1gbt.bcif.gz")
    <Structure id=1GBT>
 
+.. _`sec:mmtf_reading`:
+
 Reading files in the MMTF format (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -91,7 +93,7 @@ The ``Bio.PDB.mmtf`` module is deprecated, and we intend to remove it in a
 future release; importing it issues a ``BiopythonDeprecationWarning``. The
 RCSB PDB retired the MMTF format in July 2024 and switched off the server
 MMTF files were downloaded from, so structures can no longer be fetched in
-this format. Use mmCIF or BinaryCIF files instead, as described above.
+this format. Use mmCIF files instead; the examples below show how.
 
 Until the module is removed, ``MMTFParser`` can still read an MMTF file you
 already have:
@@ -103,7 +105,7 @@ already have:
 
 This gives you a Structure object as if read from a PDB or mmCIF file. To
 keep it once ``Bio.PDB.mmtf`` is gone, save it as an mmCIF file with
-``MMCIFIO`` (see "Writing mmCIF files" below):
+``MMCIFIO`` (see section :ref:`sec:mmcif_writing`):
 
 .. code:: pycon
 
@@ -112,11 +114,16 @@ keep it once ``Bio.PDB.mmtf`` is gone, save it as an mmCIF file with
    >>> io.set_structure(structure)
    >>> io.save("4CUP.cif")
 
+The saved file holds only what the Structure object holds: the atoms. The
+bonds, secondary structure, entity grouping and header data in the MMTF
+file are not kept. For an entry in the PDB, download its mmCIF file
+instead, as shown next.
+
 ``MMTFParser.get_structure_from_url`` and the external ``mmtf`` library's
 ``fetch`` function both downloaded from the retired server, and no longer
 work. To get a structure by its PDB ID instead, download it as an mmCIF
-file with ``PDBList`` (see "Accessing the Protein Data Bank" below) and
-parse it with ``MMCIFParser``:
+file with ``PDBList`` (see section :ref:`sec:pdb_download`) and parse it
+with ``MMCIFParser``:
 
 .. code:: pycon
 
@@ -248,6 +255,8 @@ Call ``get_structure`` with a file path or file object containing the PDB struct
 
    >>> structure = pdbml_parser.get_structure("1GBT.xml")
 
+.. _`sec:mmcif_writing`:
+
 Writing mmCIF files
 ~~~~~~~~~~~~~~~~~~~
 
@@ -335,11 +344,11 @@ Example: writing a PQR file
 Writing MMTF files (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``MMTFIO`` is part of the deprecated ``Bio.PDB.mmtf`` module (see "Reading
-files in the MMTF format" above), and the RCSB PDB no longer distributes
-MMTF files. Unless you need MMTF output for a tool that cannot read
-anything else, write mmCIF files with ``MMCIFIO`` instead (see "Writing
-mmCIF files" above).
+``MMTFIO`` is part of the deprecated ``Bio.PDB.mmtf`` module (see section
+:ref:`sec:mmtf_reading`), and the RCSB PDB no longer distributes MMTF
+files. Unless you need MMTF output for a tool that cannot read anything
+else, write mmCIF files with ``MMCIFIO`` instead (see section
+:ref:`sec:mmcif_writing`).
 
 To write structures to the MMTF file format:
 
@@ -2114,6 +2123,8 @@ and an exception is generated.
 
 Accessing the Protein Data Bank
 -------------------------------
+
+.. _`sec:pdb_download`:
 
 Downloading structures from the Protein Data Bank
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
