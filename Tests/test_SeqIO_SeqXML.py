@@ -119,6 +119,20 @@ class TestDetailedRead(unittest.TestCase):
             SeqRecord(id="", seq=Seq("")).description,
         )
 
+    def test_molecule_type_without_value(self):
+        """Check a molecule_type property without a value keeps the type."""
+        data = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<seqXML seqXMLversion="0.4">
+  <entry id="X1" source="test">
+    <DNAseq>ACGT</DNAseq>
+    <property name="molecule_type"/>
+  </entry>
+</seqXML>
+"""
+        record = SeqIO.read(BytesIO(data), "seqxml")
+        self.assertEqual(record.annotations["molecule_type"], "DNA")
+
 
 class TestReadHeader(unittest.TestCase):
     def test_check_dna_header(self):

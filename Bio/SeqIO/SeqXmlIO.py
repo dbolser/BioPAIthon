@@ -397,14 +397,16 @@ class ContentHandler(handler.ContentHandler):
         if property_name == "molecule_type":
             # At this point, record.annotations["molecule_type"] is either
             # "DNA", "RNA", or "protein"; property_value may be a more detailed
-            # description such as "mRNA" or "genomic DNA".
-            if record.annotations[property_name] not in property_value:
-                raise ValueError(
-                    f"molecule_type property {property_value!r} of entry "
-                    f"{record.id!r} does not match its "
-                    f"{record.annotations[property_name]} sequence"
-                )
-            record.annotations[property_name] = property_value
+            # description such as "mRNA" or "genomic DNA". The schema makes
+            # the value optional; without one, keep the sequence's type.
+            if property_value is not None:
+                if record.annotations[property_name] not in property_value:
+                    raise ValueError(
+                        f"molecule_type property {property_value!r} of entry "
+                        f"{record.id!r} does not match its "
+                        f"{record.annotations[property_name]} sequence"
+                    )
+                record.annotations[property_name] = property_value
         else:
             if property_name not in record.annotations:
                 record.annotations[property_name] = []
