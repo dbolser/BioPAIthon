@@ -230,6 +230,19 @@ class FileParserTest(unittest.TestCase):
 
         self.assertNoLeak(fname, read_bad_file)
 
+    def test_binary_file_closes(self):
+        """A file that cannot be decoded is closed before the error is raised."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, "binary.gen")
+            with open(fname, "wb") as handle:
+                handle.write(bytes(range(256)))
+
+            def read_binary_file():
+                # UnicodeDecodeError, from readline(), is a ValueError subclass
+                self.assertRaises(ValueError, FileParser.read, fname)
+
+            self.assertNoLeak(fname, read_binary_file)
+
     def test_remove_features_close_copy(self):
         """The remove_* methods close the copy of the file they read."""
         fname = self.files[0]
