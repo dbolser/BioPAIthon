@@ -39,10 +39,8 @@ __all__ = [
 ]
 
 import copy
-import importlib
 import numbers
 import sys
-import types
 import warnings
 from abc import ABC
 from abc import abstractmethod
@@ -58,6 +56,7 @@ except ImportError:
     ) from None
 
 from Bio import BiopythonDeprecationWarning
+from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.Align import _aligncore  # type: ignore
 from Bio.Align import _codonaligner  # type: ignore
 from Bio.Align import _pairwisealigner  # type: ignore
@@ -5314,20 +5313,18 @@ formats = (
 )
 # fmt: on
 
-_modules: dict[str, types.ModuleType] = {}
+# Format name (in lower case) to the module that reads and writes it, imported
+# on first use.  Any object with the same AlignmentIterator and (optionally)
+# AlignmentWriter attributes can stand in for a module.
+_registry = _FormatRegistry({fmt: f"Bio.Align.{fmt}" for fmt in formats})
 
 
-def _load(fmt: str) -> types.ModuleType:
+def _load(fmt):
+    """Return the module handling this file format, importing it if needed (PRIVATE)."""
     fmt = fmt.lower()
-    try:
-        return _modules[fmt]
-    except KeyError:
-        pass
-    if fmt not in formats:
+    if fmt not in _registry:
         raise ValueError("Unknown file format %s" % fmt)
-    module = importlib.import_module(f"Bio.Align.{fmt}")
-    _modules[fmt] = module
-    return module
+    return _registry[fmt]
 
 
 def write(alignments, target, fmt, *args, **kwargs):
