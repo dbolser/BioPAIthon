@@ -17,6 +17,16 @@ import itertools
 import os
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Callable
+from collections.abc import Iterable
+from collections.abc import Iterator
+from io import BufferedReader
+from typing import Any
+from typing import Generic
+from typing import overload
+from typing import Protocol
+from typing import TYPE_CHECKING
+from typing import TypeVar
 
 try:
     import sqlite3
@@ -24,9 +34,12 @@ except ImportError:
     # May be missing if Python was compiled from source without its dependencies
     sqlite3 = None  # type: ignore
 
+if TYPE_CHECKING:
+    from Bio.bgzf import BgzfReader
+
 
 @contextlib.contextmanager
-def as_handle(handleish, mode="r", **kwargs):
+def as_handle(handleish: Any, mode: str = "r", **kwargs: Any) -> Iterator[Any]:
     r"""Context manager to ensure we are using a handle.
 
     Context manager for arguments that can be passed to SeqIO and AlignIO read, write,
@@ -79,7 +92,9 @@ def as_handle(handleish, mode="r", **kwargs):
             yield fp
 
 
-def _open_for_random_access(filename):
+def _open_for_random_access(
+    filename: int | str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> "BufferedReader | BgzfReader":
     """Open a file in binary mode, spot if it is BGZF format etc (PRIVATE).
 
     This functionality is used by the Bio.SeqIO and Bio.SearchIO index
@@ -114,7 +129,21 @@ def _open_for_random_access(filename):
 # for indexing
 
 
-class _IndexedSeqFileProxy(ABC):
+class _HasId(Protocol):
+    """What an index needs of a record: its identifier (PRIVATE)."""
+
+    # str | Any, not str: a SeqRecord's id is typed str | None, as a blank
+    # record may have none, but every record read from a file has one.
+    @property
+    def id(self) -> str | Any: ...
+
+
+# The record type an index gives: SeqRecord in Bio.SeqIO, QueryResult in
+# Bio.SearchIO. Covariant, like a Mapping's values, as records only come out.
+_RecordT_co = TypeVar("_RecordT_co", bound=_HasId, covariant=True)
+
+
+class _IndexedSeqFileProxy(ABC, Generic[_RecordT_co]):
     """Abstract base class for file format specific random access (PRIVATE).
 
     This is subclasses in both Bio.SeqIO for indexing as SeqRecord
@@ -124,8 +153,11 @@ class _IndexedSeqFileProxy(ABC):
     and optionally 'get_raw' methods.
     """
 
+    # Each subclass opens its file with _open_for_random_access.
+    _handle: "BufferedReader | BgzfReader"
+
     @abstractmethod
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[str, int, int]]:
         """Return (identifier, offset, length in bytes) tuples.
 
         The length can be zero where it is not implemented or not
@@ -134,13 +166,13 @@ class _IndexedSeqFileProxy(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, offset):
+    def get(self, offset: int) -> _RecordT_co:
         """Return parsed object for this entry."""
         # Most file formats with self contained records can be handled by
         # parsing StringIO(self.get_raw(offset).decode())
         raise NotImplementedError
 
-    def get_raw(self, offset):
+    def get_raw(self, offset: int) -> bytes:
         """Return the raw record from the file as a bytes string (if implemented).
 
         If the key is not found, a KeyError exception is raised.
@@ -151,7 +183,7 @@ class _IndexedSeqFileProxy(ABC):
         raise NotImplementedError("Not available for this file format.")
 
 
-class _IndexedSeqFileDict(collections.abc.Mapping):
+class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
     """Read only dictionary interface to a sequential record file.
 
     This code is used in both Bio.SeqIO for indexing as SeqRecord
@@ -176,14 +208,22 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
     add or change values, pop values, nor clear the dictionary.
     """
 
-    def __init__(self, random_access_proxy, key_function, repr, obj_repr):
+    def __init__(
+        self,
+        random_access_proxy: _IndexedSeqFileProxy[_RecordT_co],
+        key_function: Callable[[str], str] | None,
+        repr: str,
+        obj_repr: str,
+    ) -> None:
         """Initialize the class."""
         # Use key_function=None for default value
         self._proxy = random_access_proxy
         self._key_function = key_function
         self._repr = repr
         self._obj_repr = obj_repr
+        self._cached_prev_record: tuple[str | None, _RecordT_co | None]
         self._cached_prev_record = (None, None)  # (key, record)
+        offset_iter: Iterable[tuple[str, int, int]]
         if key_function:
             offset_iter = (
                 (key_function(key), offset, length)
@@ -191,7 +231,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
             )
         else:
             offset_iter = random_access_proxy
-        offsets = {}
+        offsets: dict[str, int] = {}
         for key, offset, length in offset_iter:
             # Note - we don't store the length because I want to minimise the
             # memory requirements. With the SQLite backend the length is kept
@@ -209,11 +249,11 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
                 offsets[key] = offset
         self._offsets = offsets
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a string representation of the File object."""
         return self._repr
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Create a string representation of the File object."""
         # TODO - How best to handle the __str__ for SeqIO and SearchIO?
         if self:
@@ -221,15 +261,15 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
         else:
             return "{}"
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of records."""
         return len(self._offsets)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Iterate over the keys."""
         return iter(self._offsets)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> _RecordT_co:
         """Return record for the specified key.
 
         As an optimization when repeatedly asked to look up the same record,
@@ -237,7 +277,9 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
         requested next time, it can be returned without going to disk.
         """
         if key == self._cached_prev_record[0]:
-            return self._cached_prev_record[1]
+            # The cached record is None only while the cached key is, and a
+            # str key never equals None.
+            return self._cached_prev_record[1]  # type: ignore[return-value]
         # Pass the offset to the proxy
         record = self._proxy.get(self._offsets[key])
         if self._key_function:
@@ -249,7 +291,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
         self._cached_prev_record = (key, record)
         return record
 
-    def get_raw(self, key):
+    def get_raw(self, key: str) -> bytes:
         """Return the raw record from the file as a bytes string.
 
         If the key is not found, a KeyError exception is raised.
@@ -257,7 +299,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
         # Pass the offset to the proxy
         return self._proxy.get_raw(self._offsets[key])
 
-    def close(self):
+    def close(self) -> None:
         """Close the file handle being used to read the data.
 
         Once called, further use of the index won't work. The sole purpose
@@ -268,7 +310,26 @@ class _IndexedSeqFileDict(collections.abc.Mapping):
         self._proxy._handle.close()
 
 
-class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
+class _ProxyFactory(Protocol[_RecordT_co]):
+    """Say if a format is supported, or make a proxy for one file (PRIVATE).
+
+    Given just a format, return whether it is supported; given a filename
+    too, return a random access proxy for that file in that format.
+    """
+
+    @overload
+    def __call__(self, fmt: str, /) -> bool: ...
+
+    @overload
+    def __call__(
+        self,
+        fmt: str,
+        filename: str | os.PathLike[str],
+        /,
+    ) -> _IndexedSeqFileProxy[_RecordT_co]: ...
+
+
+class _SQLiteManySeqFilesDict(_IndexedSeqFileDict[_RecordT_co]):
     """Read only dictionary interface to many sequential record files.
 
     This code is used in both Bio.SeqIO for indexing as SeqRecord
@@ -285,15 +346,15 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
 
     def __init__(
         self,
-        index_filename,
-        filenames,
-        proxy_factory,
-        fmt,
-        key_function,
-        repr,
-        obj_repr,
-        max_open=10,
-    ):
+        index_filename: str | os.PathLike[str],
+        filenames: Iterable[str | os.PathLike[str]] | None,
+        proxy_factory: _ProxyFactory[_RecordT_co],
+        fmt: str | None,
+        key_function: Callable[[str], str] | None,
+        repr: str,
+        obj_repr: str,
+        max_open: int = 10,
+    ) -> None:
         """Initialize the class."""
         # TODO? - Don't keep filename list in memory (just in DB)?
         # Should save a chunk of memory if dealing with 1000s of files.
@@ -310,16 +371,18 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
         if filenames is not None:
             filenames = list(filenames)  # In case it was a generator
 
-        # Cache the arguments as private variables
+        # Cache the arguments as private variables. The filenames and format
+        # can be None only until _load_index or _build_index sets them, so
+        # they are typed "| Any", not "| None", and later uses need not check.
         self._index_filename = index_filename
-        self._filenames = filenames
-        self._format = fmt
+        self._filenames: list[str | os.PathLike[str]] | Any = filenames
+        self._format: str | Any = fmt
         self._key_function = key_function
         self._proxy_factory = proxy_factory
         self._repr = repr
         self._obj_repr = obj_repr
         self._max_open = max_open
-        self._proxies = {}
+        self._proxies: dict[int, _IndexedSeqFileProxy[_RecordT_co]] = {}
 
         # Note if using SQLite :memory: trick index filename, this will
         # give $PWD as the relative path (which is fine).
@@ -330,7 +393,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
         else:
             self._build_index()
 
-    def _load_index(self):
+    def _load_index(self) -> None:
         """Call from __init__ to reuse an existing index (PRIVATE)."""
         index_filename = self._index_filename
         relative_path = self._relative_path
@@ -378,17 +441,18 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
             except TypeError:
                 # Original behaviour, assume if meta_data missing
                 filenames_relative_to_index = False
-            self._filenames = [
+            indexed_filenames: list[str] = [
                 row[0]
                 for row in con.execute(
                     "SELECT name FROM file_data ORDER BY file_number;"
                 ).fetchall()
             ]
+            self._filenames = indexed_filenames
             if filenames_relative_to_index:
                 # Not implicitly relative to $PWD, explicitly relative to index file
                 relative_path = os.path.abspath(os.path.dirname(index_filename))
                 tmp = []
-                for f in self._filenames:
+                for f in indexed_filenames:
                     if os.path.isabs(f):
                         tmp.append(f)
                     else:
@@ -432,7 +496,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
             con.close()
             raise ValueError(f"Unsupported format '{self._format}'")
 
-    def _build_index(self):
+    def _build_index(self) -> None:
         """Call from __init__ to create a new index (PRIVATE)."""
         index_filename = self._index_filename
         relative_path = self._relative_path
@@ -538,29 +602,29 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
         con.commit()
         # print("Index created")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self._repr
 
-    def __contains__(self, key):
+    def __contains__(self, key: object) -> bool:
         return bool(
             self._con.execute(
                 "SELECT key FROM offset_data WHERE key=?;", (key,)
             ).fetchone()
         )
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the number of records indexed."""
         return self._length
         # return self._con.execute("SELECT COUNT(key) FROM offset_data;").fetchone()[0]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Iterate over the keys."""
         for row in self._con.execute(
             "SELECT key FROM offset_data ORDER BY file_number, offset;"
         ):
             yield str(row[0])
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> _RecordT_co:
         """Return record for the specified key."""
         # Pass the offset to the proxy
         row = self._con.execute(
@@ -588,7 +652,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
             raise ValueError(f"Key did not match ({key} vs {key2})")
         return record
 
-    def get_raw(self, key):
+    def get_raw(self, key: str) -> bytes:
         """Return the raw record from the file as a bytes string.
 
         If the key is not found, a KeyError exception is raised.
@@ -625,7 +689,7 @@ class _SQLiteManySeqFilesDict(_IndexedSeqFileDict):
             else:
                 return proxy.get_raw(offset)
 
-    def close(self):
+    def close(self) -> None:
         """Close any open file handles."""
         proxies = self._proxies
         while proxies:
