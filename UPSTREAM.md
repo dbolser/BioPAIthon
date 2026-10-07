@@ -152,7 +152,8 @@ on `biopython/biopython` about it.**
   upstream wanted a hook, shared `biopython.*` group names would let one plugin
   package serve both projects. The fork could read those groups as well
   without breaking its own plugins.
-- **Related upstream threads, all open.**
+- **Related upstream threads.** #3614, #3926 and #894 are open; #4627 is
+  merged.
   [#3614](https://github.com/biopython/biopython/issues/3614): the "Unknown
   format" error should list the formats.
   [#3926](https://github.com/biopython/biopython/pull/3926): a stalled 2022 WIP
