@@ -59,6 +59,14 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align`` now ships type stubs for its five C extensions. Type checkers
+such as mypy therefore see the attributes ``PairwiseAligner`` and
+``CodonAligner`` inherit from them, such as ``mode``, ``match_score`` and the
+gap scores, where before they saw ``Any``. Type-checked code may get new,
+correct errors: assigning a number to ``aligner.mode``, say, or using
+``aligner.match_score`` without allowing for ``None``, which it is while a
+substitution matrix is set. Nothing changes at run time.
+
 ``PairwiseAligner.score()`` and ``align()`` no longer overwrite the caller's
 sequence array. Given a NumPy ``int32`` array of letter codes and a
 substitution matrix with an alphabet, such as ``scoring="blastp"``, they

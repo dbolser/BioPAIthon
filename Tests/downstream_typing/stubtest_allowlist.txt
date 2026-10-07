@@ -1,0 +1,26 @@
+# Allowlist for mypy's stubtest over the .pyi stubs of Bio's C extensions.
+# Each entry is a regular expression for an object path, preceded by the
+# reason the stub is right and the runtime signature is not. stubtest fails
+# on an entry that stops matching an error, so the list cannot go stale.
+#
+# From the repository root, with the extensions built in place:
+#
+#   PYTHONPATH=. python -m mypy.stubtest \
+#       --allowlist Tests/downstream_typing/stubtest_allowlist.txt \
+#       Bio.Align._aligncore Bio.Align._alignmentcounts \
+#       Bio.Align._codonaligner Bio.Align._pairwisealigner \
+#       Bio.Align.substitution_matrices._arraycore
+#
+# The CI job "typing" runs it against the installed package, over every
+# extension in pyproject.toml that has a stub.
+
+# tp_init accepts and ignores any arguments. The stubs declare none, as the
+# Python subclasses in Bio.Align call super().__init__() without any.
+Bio\.Align\._codonaligner\.CodonAligner\.__init__
+Bio\.Align\._pairwisealigner\.PairwiseAligner\.__init__
+
+# The docstrings' text signatures, "feed(self, line, offset=0)" and
+# "fill(self, arr)", suggest keyword arguments, but both are METH_VARARGS
+# and raise TypeError when given one.
+Bio\.Align\._aligncore\.PrintedAlignmentParser\.feed
+Bio\.Align\._aligncore\.PrintedAlignmentParser\.fill
