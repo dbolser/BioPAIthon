@@ -231,7 +231,7 @@ class StructureAlignTests(unittest.TestCase):
 
         Biopython 1.86 raised the built-in DeprecationWarning here, which Python
         hides by default unless the caller is __main__, so calls made from an
-        imported module never showed it.
+        imported module did not show it.
         """
         p = PDBParser(QUIET=1)
 

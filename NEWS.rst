@@ -90,10 +90,11 @@ still called as before.
 ``Bio.PDB.StructureAlignment`` now raises ``BiopythonDeprecationWarning``,
 rather than the built-in ``DeprecationWarning``, when it is given a
 precomputed alignment as ``fasta_align``. Biopython 1.86 deprecated that
-usage, but by default Python hides a ``DeprecationWarning`` unless the call
-comes from ``__main__``, so code calling ``StructureAlignment`` from an
-imported module never saw it. Code that filters or catches the warning by
-class should use ``BiopythonDeprecationWarning``; see DEPRECATED.rst.
+usage, but Python's default warning filters show a ``DeprecationWarning`` only
+when the call comes from ``__main__``, so by default code calling
+``StructureAlignment`` from an imported module did not see it. Code that
+filters or catches the warning by class should use
+``BiopythonDeprecationWarning``; see DEPRECATED.rst.
 
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
