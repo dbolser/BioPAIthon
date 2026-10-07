@@ -118,8 +118,9 @@ Doc/api/*.rst
 #Ignore vscode directory
 .vscode
 
-#Ignore mypy cache directory
+#Ignore mypy cache directories (the second is the mypy-downstream hook's)
 .mypy_cache
+.mypy_cache_downstream
 
 #Ignore virtual environments
 .env
