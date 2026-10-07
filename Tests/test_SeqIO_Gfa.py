@@ -90,7 +90,7 @@ class TestCorrupt(unittest.TestCase):
             ("gfa2", "S\ts1\t100\t*\tLN:i:5\tLN:i:6\n"),
         ):
             with self.subTest(fmt=fmt):
-                with self.assertWarnsRegex(BiopythonWarning, "incorrect length"):
+                with self.assertWarnsRegex(BiopythonParserWarning, "incorrect length"):
                     record = SeqIO.read(StringIO(line), fmt)
                 self.assertEqual(len(record), 5)
 
@@ -125,7 +125,7 @@ class TestCorrupt(unittest.TestCase):
             ("gfa1", "S\ts1\tAAA\tAB:X:0\n", "invalid type"),
             ("gfa1", "S\ts1\tAAA\tAB:A:ab\n", "printable character"),
             ("gfa1", "S\ts1\tAAA\tAB:i:C\n", "signed integer"),
-            ("gfa1", "S\ts1\tAAA\tAB:f:C\n", "float"),
+            ("gfa1", "S\ts1\tAAA\tAB:f:C\n", "Expected float"),
             ("gfa1", "S\ts1\tAAA\tAB:Z:\u00e9\n", "printable string"),
             ("gfa1", "S\ts1\tAAA\tAB:J:\u00e9\n", "JSON"),
             ("gfa1", "S\ts1\tAAA\tAB:H:ab\n", "hex"),
