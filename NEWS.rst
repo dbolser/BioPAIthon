@@ -77,6 +77,16 @@ empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
 ``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
 positional argument now raises ``TypeError``; see DEPRECATED.rst.
 
+The ``Bio.Seq`` functions ``complement``, ``complement_rna`` and
+``reverse_complement_rna`` now raise a ``TypeError`` when given a
+``SeqRecord``, naming ``record.seq.complement()`` (or the RNA equivalent)
+and ``record.reverse_complement()`` as the alternatives. Their docstrings
+promised a new ``SeqRecord``, but ``SeqRecord`` has none of those methods, so
+since Biopython 1.80 they have raised an unexplained ``AttributeError``
+instead. ``reverse_complement`` is unchanged and still returns a
+``SeqRecord``, and a ``SeqRecord`` subclass that defines the method is
+still called as before.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``

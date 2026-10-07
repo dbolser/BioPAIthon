@@ -897,6 +897,42 @@ class TestComplement(unittest.TestCase):
             Seq.complement_rna("ACGT", inplace=True)
         self.assertEqual(str(cm.exception), "strings are immutable")
 
+    def test_seqrecord_rejected(self):
+        """Test complement functions reject a SeqRecord with a TypeError."""
+        from Bio.SeqRecord import SeqRecord
+
+        r = SeqRecord(Seq.Seq("ACGT"))
+        with self.assertRaises(TypeError) as cm:
+            Seq.complement(r)
+        self.assertIn("complement() does not accept a SeqRecord", str(cm.exception))
+        self.assertIn("record.seq.complement()", str(cm.exception))
+        with self.assertRaises(TypeError) as cm:
+            Seq.complement_rna(r)
+        self.assertIn("complement_rna() does not accept a SeqRecord", str(cm.exception))
+        self.assertIn("record.seq.complement_rna()", str(cm.exception))
+
+    def test_seqrecord_subclass_dispatch(self):
+        """Test complement functions still call a SeqRecord subclass's method."""
+        from Bio.SeqRecord import SeqRecord
+
+        class Record(SeqRecord):
+            def complement(self):
+                return "complement"
+
+            def complement_rna(self):
+                return "complement_rna"
+
+            def reverse_complement_rna(self):
+                return "reverse_complement_rna"
+
+        r = Record(Seq.Seq("ACGT"))
+        self.assertEqual(Seq.complement(r), "complement")
+        self.assertEqual(Seq.complement_rna(r), "complement_rna")
+        self.assertEqual(Seq.reverse_complement_rna(r), "reverse_complement_rna")
+        with self.assertRaises(TypeError) as cm:
+            Seq.complement(r, inplace=True)
+        self.assertEqual(str(cm.exception), "SeqRecords are immutable")
+
 
 class TestReverseComplement(unittest.TestCase):
     def test_reverse_complement(self):
@@ -971,6 +1007,19 @@ class TestReverseComplement(unittest.TestCase):
         with self.assertRaises(TypeError) as cm:
             Seq.reverse_complement_rna("ACGT", inplace=True)
         self.assertEqual(str(cm.exception), "strings are immutable")
+
+    def test_seqrecord(self):
+        """Test reverse_complement accepts a SeqRecord, the RNA variant not."""
+        from Bio.SeqRecord import SeqRecord
+
+        r = SeqRecord(Seq.Seq("AACG"))
+        self.assertEqual(Seq.reverse_complement(r).seq, "CGTT")
+        with self.assertRaises(TypeError) as cm:
+            Seq.reverse_complement_rna(r)
+        self.assertIn(
+            "reverse_complement_rna() does not accept a SeqRecord", str(cm.exception)
+        )
+        self.assertIn("record.seq.reverse_complement_rna()", str(cm.exception))
 
 
 class TestDoubleReverseComplement(unittest.TestCase):
