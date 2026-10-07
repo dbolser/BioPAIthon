@@ -20,6 +20,7 @@ from io import StringIO
 import support
 
 from Bio import Align
+from Bio import MissingPythonDependencyError
 from Bio import Phylo
 from Bio import SeqIO
 from Bio._io_registry import _resolve
@@ -279,13 +280,17 @@ class BuiltinTables(unittest.TestCase):
             "phyloxml": "PhyloXMLIO",
             "nexml": "NeXMLIO",
         }
-        # cdao is offered only where rdflib is installed.
+        # cdao is offered wherever rdflib is installed, even an rdflib that
+        # CDAOIO cannot use; using it then raises MissingPythonDependencyError.
         if importlib.util.find_spec("rdflib") is not None:
             expected["cdao"] = "CDAOIO"
         self.assertEqual(list(table), list(expected))
         for fmt, name in expected.items():
             with self.subTest(fmt=fmt):
-                module = table[fmt]
+                try:
+                    module = table[fmt]
+                except MissingPythonDependencyError as err:
+                    self.skipTest(str(err))
                 self.assertIs(module, importlib.import_module(f"Bio.Phylo.{name}"))
                 self.assertTrue(callable(module.parse))
                 self.assertTrue(callable(module.write))
@@ -364,6 +369,15 @@ class PhyloImportsFormatsOnDemand(unittest.TestCase):
             "    pass\n"
             "else:\n"
             "    raise AssertionError('imported CDAOIO without rdflib')\n"
+        )
+
+    def test_rdflib_imported_without_spec(self):
+        """An rdflib already in sys.modules without a __spec__ counts as present."""
+        self.run_python(
+            "import sys, types\n"
+            "sys.modules['rdflib'] = types.ModuleType('rdflib')  # no __spec__\n"
+            "import Bio.Phylo\n"
+            "assert 'cdao' in Bio.Phylo._io.supported_formats\n"
         )
 
 
