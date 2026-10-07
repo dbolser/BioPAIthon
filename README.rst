@@ -17,9 +17,9 @@ from any capable contributor - human, computational intelligence, AI, or chimp
 - and judges each patch on its merits rather than on the nature of its author.
 See `AGENTS.md <AGENTS.md>`__ for what that means in practice.
 
-Everything else is Biopython. The ``Bio`` package, the public API, the test
-suite and the licence are all unchanged, ``import Bio`` works exactly as it
-did, and we intend to keep tracking upstream.
+Everything else is Biopython. ``import Bio`` works exactly as it did, the
+licence is unchanged, the public API differs from upstream's only where noted
+below, and we intend to keep tracking upstream.
 
 Credit for essentially all of the code here belongs to the Biopython
 contributors; the original copyright notices and licence remain in place.
@@ -146,7 +146,7 @@ Most are grouped into extras, so pip can install a whole stack by name::
 - ``test`` -- what the Linux CI jobs install to run the offline test suite
   (see Testing below).
 
-The individual packages, including alternatives that no extra installs, are:
+Notes on individual packages, including alternatives that no extra installs:
 
 - ReportLab, see https://www.reportlab.com/opensource/ (optional)
   This package is only used in ``Bio.Graphics``, so if you do not need this
@@ -208,7 +208,9 @@ Now change directory to the Biopython source code folder and run::
     python run_tests.py
 
 Substitute ``python`` with your specific version if required, for example
-``python3``, or ``pypy3``.
+``python3``, or ``pypy3``. On PyPy, use a plain ``pip install -e .`` instead:
+the ``test`` extra needs SciPy, which has no PyPy wheels and needs OpenBLAS to
+build from source.
 
 To exclude tests that require an internet connection (and which may take a
 long time), use the ``--offline`` option::
@@ -228,9 +230,9 @@ directory and type::
     python run_tests.py
 
 The ``test`` extra installs the optional packages the Linux CI jobs test
-with. A plain ``pip install -e .`` also works, but then every test needing
-one of those packages, all of ``Bio.Graphics`` included, is skipped rather
-than run.
+with. A plain ``pip install -e .`` also works, and is what to use on PyPy
+(see above), but then every test needing one of those packages, all of
+``Bio.Graphics`` included, is skipped rather than run.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
