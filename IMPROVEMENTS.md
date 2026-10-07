@@ -595,11 +595,12 @@ entry-point groups so plugins work.
      holds. `SeqIO.index` and `index_db` then refuse those names.
    - It keeps every other built-in index proxy, as assigning into the
      private dict does today. The proxy finds record boundaries and keys, and
-     the replacement parses each record. So the replacement must give each
-     record the id the proxy's key rule gives, or a lookup raises
-     `ValueError` ("Key did not match"). For ace, fasta, phd, pir and qual
-     that rule is the replacement's `parse_id_from_header`; every other kept
-     proxy uses its own built-in rule.
+     the replacement parses each record from a text handle. So the
+     replacement must read text, and give each record the id the proxy's key
+     rule gives, or a lookup raises `ValueError` (`StreamModeError` or "Key
+     did not match"). For ace, fasta, phd, pir and qual that rule is the
+     replacement's `parse_id_from_header`; every other kept proxy uses its
+     own built-in rule.
    - The proxies that find records by a start marker (ace, embl, fasta, gb,
      genbank, imgt, phd, pir, qual, swiss) read `record_start_marker` from
      the replacement. A subclass of the built-in iterator inherits it;

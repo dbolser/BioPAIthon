@@ -141,12 +141,12 @@ on `biopython/biopython` about it.**
   entry-point plugins in the groups `biopaithon.seqio.iterators`,
   `biopaithon.seqio.writers` and `biopaithon.align`. The contract is decided in
   `IMPROVEMENTS.md` §1.2. No code has landed yet.
-- **Why upstream may care.** Upstream has no format registry, no registration
-  hook and no entry points, and no open issue or pull request proposes one
-  (searched 2026-10-06, `master` at `372c71069`, 1.89.dev0). Downstream code
-  assigns into the private `SeqIO._FormatToIterator` and `_FormatToWriter`
-  instead: hybran, LMAT, recentrifuge and psico do, and tfbayes does the same
-  to AlignIO's table.
+- **Why upstream may care.** Upstream's format tables are private. It has no
+  public registration hook and no entry points, and no open issue or pull
+  request proposes one (searched 2026-10-06, `master` at `372c71069`,
+  1.89.dev0). Downstream code assigns into the private
+  `SeqIO._FormatToIterator` and `_FormatToWriter` instead: hybran, LMAT,
+  recentrifuge and psico do, and tfbayes does the same to AlignIO's table.
 - **The question worth asking is the group names.** The fork uses its own
   `biopaithon.*` groups so that it claims nothing in upstream's namespace. If
   upstream wanted a hook, shared `biopython.*` group names would let one plugin
