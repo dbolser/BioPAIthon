@@ -218,6 +218,21 @@ missing parent or child. It used to print the sunid to stdout and then raise
 a bare ``KeyError``; code catching ``KeyError`` for this case should catch
 ``ValueError`` instead.
 
+Exceptions for malformed input
+------------------------------
+Changed in BioPAIthon 1.88 without a deprecation period. These exception
+classes now subclass ``ValueError`` rather than ``Exception`` directly:
+``Bio.Data.CodonTable.TranslationError``, ``Bio.Nexus.Nexus.NexusError``,
+``Bio.Nexus.Trees.TreeError``, ``Bio.Phylo.NewickIO.NewickError``,
+``Bio.Phylo.PhyloXMLIO.PhyloXMLError``, ``Bio.Phylo.NeXMLIO.NeXMLError``,
+``Bio.PDB.PDBExceptions.PDBConstructionException`` and
+``Bio.CAPS.AlignmentHasDifferentLengthsError``. An ``except`` clause naming one
+of them still catches it, but so does ``except ValueError``. In a ``try``
+statement that has an ``except ValueError`` clause before a clause for one of
+these classes, the ``ValueError`` clause now wins. Code that must handle these
+apart from other ``ValueError`` exceptions should name the class in an
+``except`` clause before its ``except ValueError`` clause.
+
 Bio.AlignInfo
 -------------
 The ``pos_specific_score_matrix`` method of the ``SummaryInfo`` class and the

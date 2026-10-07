@@ -18,7 +18,7 @@ from io import StringIO
 from Bio.Phylo import Newick
 
 
-class NewickError(Exception):
+class NewickError(ValueError):
     """Exception raised when Newick object construction cannot continue."""
 
 

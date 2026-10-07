@@ -58,7 +58,7 @@ def matches(s):
         return (s,)
 
 
-class NeXMLError(Exception):
+class NeXMLError(ValueError):
     """Exception raised when NeXML object construction cannot continue."""
 
 
