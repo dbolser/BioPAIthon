@@ -17,6 +17,8 @@ from io import StringIO
 
 import numpy as np
 
+import support
+
 from Bio import Align
 from Bio.Align import Alignment
 from Bio.Align import Alignments
@@ -80,7 +82,7 @@ class TestBigBed(unittest.TestCase):
 
     def test_unsupported_version(self):
         """The header gives the bigBed format version."""
-        with open("Blat/bigbedtest.bb", "rb") as stream:
+        with open(support.DATA / "Blat" / "bigbedtest.bb", "rb") as stream:
             data = stream.read()
         # bytes 4-5 hold the version number; bigbedtest.bb is little-endian
         data = data[:4] + (3).to_bytes(2, "little") + data[6:]
@@ -172,7 +174,7 @@ seq2      ACG
 
 class TestEmboss(unittest.TestCase):
     def test_end_coordinate_does_not_match_letters(self):
-        with open("Emboss/needle.txt") as stream:
+        with open(support.DATA / "Emboss" / "needle.txt") as stream:
             text = stream.read()
         text = replace_once(
             text,
@@ -282,7 +284,7 @@ ACGT
 
 class TestMsf(unittest.TestCase):
     def test_text_after_sequence_data(self):
-        with open("msf/DOA_prot.msf") as stream:
+        with open(support.DATA / "msf" / "DOA_prot.msf") as stream:
             text = stream.read()
         text += "\nsome trailing text\n"
         with self.assertRaises(ValueError) as cm:
