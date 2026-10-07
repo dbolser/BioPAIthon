@@ -495,14 +495,16 @@ than one instance.
 ### 1.1 `Bio.AlignIO` and `Bio.Align` are two complete parser stacks for the same formats **[re-scoped — shim declined]**
 
 > **Status: re-scoped on 2026-10-06. The shim is declined. The new goal is
-> that `Bio.Align` reads every file `AlignIO` reads.** `Bio.AlignIO` is not
-> rewritten; it takes only small fixes, such as PR #116's. This fork will not
-> rebuild it as a shim over `Bio.Align`, delete its format modules, port
-> `MafIndex`, add `Bio.Align.convert()`, or migrate the internal consumers.
-> All numbers below were measured on 2026-10-06 on `main` and on upstream
-> `master` `372c71069`, which is also the merge-base. Line numbers were
-> re-checked on 2026-10-07, after PR #149. The commands that reproduce them
-> are in PR #142.
+> that `Bio.Align` reads the files `AlignIO` reads, closing the gaps
+> measured on real inputs.** `Bio.AlignIO` is not rewritten; it takes only
+> small fixes, such as PR #116's. This fork will not rebuild it as a shim
+> over `Bio.Align`, delete its format modules, port `MafIndex`, add
+> `Bio.Align.convert()`, or migrate the internal consumers. This note
+> replaces the **Plan** in the original text, which is kept below for the
+> record. All numbers below were measured on 2026-10-06 on `main` and on
+> upstream `master` `372c71069`, which is also the merge-base. Line numbers
+> were re-checked on 2026-10-07, after PR #149. The commands that reproduce
+> them are in PR #142.
 >
 > **Why the shim is declined:**
 >
@@ -583,8 +585,11 @@ than one instance.
 >
 > **New scope: `Bio.Align` reads what `AlignIO` reads.** Users who take
 > upstream's advice and move to `Bio.Align` should not lose files. Only gaps
-> measured on real inputs get closed. Five PRs are planned; none has merged
-> yet:
+> measured on real inputs get closed, and §1.1 is done when the five PRs
+> below have landed. Some files will still read only in `AlignIO`: the rare
+> inputs the table marks out of scope, and files that `Bio.Align`'s
+> stricter checks reject (`funny.sth`, `simple_short.xmfa`). None of the
+> five has merged yet:
 >
 > 1. `align-parse-nonseekable` — `Bio.Align.parse` reads stdin, pipes and
 >    other non-seekable streams.
