@@ -623,17 +623,6 @@ such as NumPy's ``"=u2"``, which it previously reported as an unexpected
 format. This is the same underlying problem as biopython/biopython#5235,
 reached from the other side.
 
-``Bio.pairwise2`` no longer corrupts the interpreter when exactly one of the
-two sequences it is given cannot be encoded as ASCII. The C helper that
-converts the sequences returned a borrowed reference for a ``bytes`` input but
-a new one otherwise, and the conversion failure path released both without
-distinguishing them, so a live object was released twice. The resulting damage
-surfaced as a segmentation fault in unrelated code one or two calls later,
-which is why it appeared to depend on where in the sequence the non-ASCII
-character sat. This is the crash reported upstream as biopython/biopython#3771
-in October 2021; it is present in every Biopython release this fork was able
-to test, and was inherited here.
-
 ``ProteinAnalysis.flexibility()`` now includes the actual center residue of
 each nine-residue window and includes the final complete window. This corrects
 a bug present since the method was introduced, but intentionally changes every
@@ -805,11 +794,6 @@ instance, used to melt. Pass ``check=False`` to get the old arithmetic back
 unchanged. ``Tm_GC`` and ``Tm_NN`` already discarded such letters silently, and
 now reject them as well. Adopted from biopython/biopython#4866 by Manuel
 Lera-Ramirez; see ``ADOPTED.md``.
-
-``Bio.pairwise2.rint`` no longer accepts a ``precision`` outside the range of a
-C ``int``. The argument was parsed as a C ``long`` into an ``int`` variable,
-which on platforms where ``long`` is the wider type wrote past it; an
-out-of-range value now raises ``OverflowError``.
 
 Reading FASTQ files is faster. The quality decoder no longer round-trips every
 record through ``array.array`` to accommodate the negative scores that only the
