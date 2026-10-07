@@ -166,21 +166,33 @@ class TestCifSeqresChainIds(unittest.TestCase):
             self.assertEqual(record.dbxrefs, pdb_record.dbxrefs)
 
     def test_no_author_ids(self):
-        """Fall back to the label ids if the file has no author ids."""
-        data = (
+        """Fall back to the label ids where the file has no author ids."""
+        no_column = (
             "data_TEST\n"
             "loop_\n"
             "_pdbx_poly_seq_scheme.asym_id\n"
             "_pdbx_poly_seq_scheme.mon_id\n"
             "A MET\n"
             "A ALA\n"
+            "B GLY\n"
         )
-        for auth_chains in (None, True, False):
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", BiopythonDeprecationWarning)
-                records = list(CifSeqresIterator(StringIO(data), auth_chains))
-            self.assertEqual(self.chains(records), ["A"])
-            self.assertEqual(records[0].seq, "MA")
+        null_values = (
+            "data_TEST\n"
+            "loop_\n"
+            "_pdbx_poly_seq_scheme.asym_id\n"
+            "_pdbx_poly_seq_scheme.mon_id\n"
+            "_pdbx_poly_seq_scheme.pdb_strand_id\n"
+            "A MET ?\n"
+            "A ALA ?\n"
+            "B GLY .\n"
+        )
+        for data in (no_column, null_values):
+            for auth_chains in (None, True, False):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", BiopythonDeprecationWarning)
+                    records = list(CifSeqresIterator(StringIO(data), auth_chains))
+                self.assertEqual(self.chains(records), ["A", "B"])
+                self.assertEqual([r.seq for r in records], ["MA", "G"])
 
 
 def AtomTestGenerator(extension, parser):

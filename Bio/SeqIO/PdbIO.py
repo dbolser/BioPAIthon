@@ -8,6 +8,7 @@
 
 import collections
 import warnings
+from itertools import zip_longest
 
 from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonParserWarning
@@ -466,8 +467,16 @@ class CifSeqresIterator(SequenceIterator):
                 records[field] = [records[field]]
 
         label_ids = records["_pdbx_poly_seq_scheme.asym_id"]
-        # mmCIF files from outside the PDB may lack the author chain ids
-        auth_ids = records["_pdbx_poly_seq_scheme.pdb_strand_id"] or label_ids
+        # mmCIF files from outside the PDB may lack the author chain ids, or
+        # give the CIF null values "?" or "."; use the label id for those.
+        auth_ids = [
+            label_id if auth_id in ("?", ".") else auth_id
+            for label_id, auth_id in zip_longest(
+                label_ids,
+                records["_pdbx_poly_seq_scheme.pdb_strand_id"],
+                fillvalue="?",
+            )
+        ]
         if auth_chains is None:
             if auth_ids != label_ids:
                 warnings.warn(
