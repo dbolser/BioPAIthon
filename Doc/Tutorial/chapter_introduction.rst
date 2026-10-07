@@ -104,7 +104,7 @@ All of the installation information for Biopython was separated from
 this document to make it easier to keep updated.
 
 The short version is use ``pip install biopython``, see the `main
-README <https://github.com/biopython/biopython/blob/master/README.rst>`__
+README <https://github.com/dbolser/BioPAIthon/blob/main/README.rst>`__
 file for other options.
 
 Frequently Asked Questions (FAQ)
@@ -164,7 +164,7 @@ Frequently Asked Questions (FAQ)
 #. | *Do you have a change-log listing what’s new in each release?*
    | See the file ``NEWS.rst`` included with the source code (originally
      called just ``NEWS``), or read the `latest NEWS file on
-     GitHub <https://github.com/biopython/biopython/blob/master/NEWS.rst>`__.
+     GitHub <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`__.
 
 #. | *What is going wrong with my print commands?*
    | As of Biopython 1.77, we only support Python 3, so this tutorial
@@ -295,7 +295,7 @@ Frequently Asked Questions (FAQ)
      2009) and removed it in Biopython 1.55 (August 2010). There is a
      brief example showing how to convert old code to use ``Bio.SeqIO``
      instead in the
-     `DEPRECATED.rst <https://github.com/biopython/biopython/blob/master/DEPRECATED.rst>`__
+     `DEPRECATED.rst <https://github.com/dbolser/BioPAIthon/blob/main/DEPRECATED.rst>`__
      file.
 
 For more general questions, the Python FAQ pages

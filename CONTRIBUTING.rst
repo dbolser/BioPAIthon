@@ -42,7 +42,7 @@ or the issue discussion makes it clear that someone is working on it, any
 issue can be worked on.
 
 We have been using the `good first issue
-<https://github.com/biopython/biopython/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22>`_
+<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22>`_
 label specifically for beginners. These are minor issues where the team knows
 what is needed, and could easily do it themselves (albeit some are tedious),
 but we have chosen instead to use these as teachable moments to help potential
@@ -55,11 +55,11 @@ have run the tests. Those conditions apply identically to every contributor;
 see `AGENTS.md <AGENTS.md>`__.
 
 The `help wanted
-<https://github.com/biopython/biopython/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22)>`_
+<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22>`_
 label is typically used for issues where none of the regular contributors have the
 expertise or setup to work on an issue (eg specific platforms, or restricted datasets).
 The `needs info
-<https://github.com/biopython/biopython/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22Needs%20info%22>`_
+<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22Needs%20info%22>`_
 label is for unresloved issues where we lack actionable information. In some cases
 these may be best closed, but perhaps another person will run into the same problem
 and can help solve it.
@@ -151,7 +151,7 @@ optional dependencies included), plus also style checks using ``pre-commit``
 (also used for git pre-commit checks, see above).
 
 The continuous integration tests collect test coverage information via
-CodeCov: https://codecov.io/github/biopython/biopython/
+CodeCov: https://codecov.io/github/dbolser/BioPAIthon/
 
 **The continuous integration checks must pass before your pull request will be
 merged.** Ideally the CodeCov checks will also pass, but we currently do not insist on
