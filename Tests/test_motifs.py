@@ -4869,13 +4869,13 @@ class TestMAST(unittest.TestCase):
         self.assertEqual(motif[10:20].length, 10)
 
     def test_mast_unsupported_strand_handling(self):
-        """Test that an unsupported strand_handling raises ValueError."""
+        """Test that an unsupported strand_handling raises NotImplementedError."""
         with open("motifs/mast.crp0.de.oops.txt.xml") as stream:
             data = stream.read()
         self.assertIn('strand_handling="combine"', data)
         data = data.replace('strand_handling="combine"', 'strand_handling="separate"')
         with self.assertRaisesRegex(
-            ValueError, "Strand handling option separate not parsable"
+            NotImplementedError, "Strand handling option separate not parsable"
         ):
             motifs.parse(StringIO(data), "MAST")
 

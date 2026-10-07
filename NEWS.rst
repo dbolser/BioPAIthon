@@ -61,13 +61,17 @@ not part of any upstream Biopython release.
 
 Several parsers and functions that rejected bad input with a bare
 ``Exception`` now raise ``ValueError``, so ``except ValueError`` catches
-them: the A2M, tabular BLAST/FASTA and bigBed alignment parsers, the Prosite,
-Prodoc and MAST parsers, ``Bio.motifs`` position matrices given rows of
-unequal length (such as a malformed ``pfm`` file), ``SVDSuperimposer.set()``,
+them: the A2M alignment parser, the Prosite and Prodoc parsers,
+``Bio.motifs`` position matrices given rows of unequal length (such as a
+malformed ``pfm`` file), ``SVDSuperimposer.set()``,
 ``NeighborSearch.search()``, ``PDBList.retrieve_assembly_file()``, and
 ``AtomKey`` in ``Bio.PDB.internal_coords``, which raises ``TypeError``
-instead for an argument of a type it does not recognise. Code that catches
-``Exception`` is unaffected, since both are subclasses of it.
+instead for an argument of a type it does not recognise. Two parsers that
+used a bare ``Exception`` for valid input they do not yet handle now raise
+``NotImplementedError``: the tabular alignment parser for a ``query seq``
+column from a program other than TBLASTN or TBLASTX, and the MAST parser for
+a ``strand_handling`` other than ``combine`` or ``unstranded``. Code that
+catches ``Exception`` is unaffected, since all three are subclasses of it.
 
 ``Bio.codonalign`` no longer keeps its own copy of the dN/dS and
 McDonald-Kreitman code in ``Bio.Align.analysis``, which had already meant

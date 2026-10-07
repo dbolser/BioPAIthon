@@ -5905,7 +5905,7 @@ q1\ts1\tACGT
 """
         )
         alignments = Align.parse(stream, "tabular")
-        with self.assertRaisesRegex(ValueError, "Unknown program BLASTN"):
+        with self.assertRaisesRegex(NotImplementedError, "BLASTN"):
             next(alignments)
 
     def test_2226_tblastn_001(self):
