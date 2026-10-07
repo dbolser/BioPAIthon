@@ -1142,7 +1142,7 @@ class SeqRecord:
         # Note can't transfer any per-letter-annotations
         offset = len(other)
         return type(self)(
-            cast(Seq | MutableSeq, other + self.seq),
+            other + self.seq,
             id=self.id,
             name=self.name,
             description=self.description,
