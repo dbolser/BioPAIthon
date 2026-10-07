@@ -77,6 +77,14 @@ empty id instead of raising ``IndexError``, and ``Bio.SeqIO.index`` and
 ``CodonAligner`` dropped its unused ``anchor_len`` argument, so a second
 positional argument now raises ``TypeError``; see DEPRECATED.rst.
 
+The ``gfa1`` and ``gfa2`` parsers in ``Bio.SeqIO`` now issue their warnings
+about malformed input (a wrong ``LN`` length or ``SH`` checksum, a bad tag
+name or type, a blank line) as ``BiopythonParserWarning``, like the other
+parsers, instead of plain ``BiopythonWarning``. ``BiopythonParserWarning`` is
+a subclass of ``BiopythonWarning``, so existing filters on
+``BiopythonWarning`` still apply; a filter on ``BiopythonParserWarning`` now
+covers GFA files too.
+
 The ``Bio.Seq`` functions ``complement``, ``complement_rna`` and
 ``reverse_complement_rna`` now raise a ``TypeError`` when given a
 ``SeqRecord``, naming ``record.seq.complement()`` (or the RNA equivalent)
