@@ -53,7 +53,17 @@ Examples
 
 """  # noqa: W291, W293
 
+import typing as _typing
+
 from Bio.Restriction.Restriction import *  # noqa (legacy module arrangement)
+
+# For type checkers only: the enzymes are typed Any, as explained in
+# Bio.Restriction.Restriction, whose own __getattr__ the star import above
+# does not bring over. typing is imported under a private name so that
+# "from Bio.Restriction import *" does not also export TYPE_CHECKING.
+if _typing.TYPE_CHECKING:
+
+    def __getattr__(name: str) -> _typing.Any: ...
 
 
 #
