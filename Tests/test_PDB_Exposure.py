@@ -26,6 +26,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import ExposureCN
 from Bio.PDB import HSExposureCA
 from Bio.PDB import HSExposureCB
@@ -37,7 +39,7 @@ class Exposure(unittest.TestCase):
     """Testing Bio.PDB.HSExposure."""
 
     def setUp(self):
-        pdb_filename = "PDB/a_structure.pdb"
+        pdb_filename = support.DATA / "PDB" / "a_structure.pdb"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             structure = PDBParser(PERMISSIVE=True).get_structure("X", pdb_filename)

@@ -18,6 +18,8 @@ except ImportError:
         "Install numpy if you want to use Bio.Align.Alignment.map."
     ) from None
 
+import support
+
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import Alignment
@@ -849,16 +851,18 @@ class TestZeroGaps(unittest.TestCase):
 
 class TestLiftOver(unittest.TestCase):
     def test_chimp(self):
-        chain = Align.read("Blat/panTro5ToPanTro6.over.chain", "chain")
-        alignment = Align.read("Blat/est.panTro5.psl", "psl")
+        chain = Align.read(
+            support.DATA / "Blat" / "panTro5ToPanTro6.over.chain", "chain"
+        )
+        alignment = Align.read(support.DATA / "Blat" / "est.panTro5.psl", "psl")
         self.assertEqual(chain.target.id, alignment.target.id)
         self.assertEqual(len(chain.target.seq), len(alignment.target.seq))
         chain = chain[::-1]
-        record = SeqIO.read("Blat/est.fa", "fasta")
+        record = SeqIO.read(support.DATA / "Blat" / "est.fa", "fasta")
         self.assertEqual(record.id, alignment.query.id)
         self.assertEqual(len(record.seq), len(alignment.query.seq))
         alignment.query = record.seq
-        record = SeqIO.read("Blat/panTro5.fa", "fasta")
+        record = SeqIO.read(support.DATA / "Blat" / "panTro5.fa", "fasta")
         chromosome, start_end = record.id.split(":")
         start, end = start_end.split("-")
         start = int(start)
@@ -929,7 +933,7 @@ $"""
                           )
         )
         # fmt: on
-        record = SeqIO.read("Blat/panTro6.fa", "fasta")
+        record = SeqIO.read(support.DATA / "Blat" / "panTro6.fa", "fasta")
         chromosome, start_end = record.id.split(":")
         start, end = start_end.split("-")
         start = int(start)

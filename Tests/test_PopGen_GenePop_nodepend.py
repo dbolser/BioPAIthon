@@ -10,6 +10,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 from Bio.PopGen import GenePop
 from Bio.PopGen.GenePop import FileParser
 
@@ -40,7 +42,7 @@ class ParserTest(unittest.TestCase):
         ]
         self.handles = []
         for filename in files:
-            self.handles.append(open(os.path.join("PopGen", filename)))
+            self.handles.append(open(support.DATA / "PopGen" / filename))
 
         self.pops_indivs = [
             (3, [4, 3, 5]),
@@ -83,7 +85,7 @@ class ParserTest(unittest.TestCase):
 
     def test_wrong_file_parser(self):
         """Testing the ability to deal with wrongly formatted files."""
-        with open(os.path.join("PopGen", "README")) as f:
+        with open(support.DATA / "PopGen" / "README") as f:
             self.assertRaises(ValueError, GenePop.read, f)
 
 
@@ -92,7 +94,7 @@ class FileParserTest(unittest.TestCase):
 
     def setUp(self):
         self.files = [
-            os.path.join("PopGen", x)
+            support.DATA / "PopGen" / x
             for x in [
                 "c2line.gen",
                 "c3line.gen",
@@ -140,7 +142,9 @@ class FileParserTest(unittest.TestCase):
 
     def test_wrong_file_parser(self):
         """Testing the ability to deal with wrongly formatted files."""
-        self.assertRaises(ValueError, FileParser.read, os.path.join("PopGen", "README"))
+        self.assertRaises(
+            ValueError, FileParser.read, support.DATA / "PopGen" / "README"
+        )
 
     def test_remove_features(self):
         """Testing the ability to remove population/loci via class methods."""
@@ -185,7 +189,7 @@ class UtilsTest(unittest.TestCase):
         files = ["c2line.gen"]
         self.handles = []
         for filename in files:
-            self.handles.append(open(os.path.join("PopGen", filename)))
+            self.handles.append(open(support.DATA / "PopGen" / filename))
 
     def tearDown(self):
         for handle in self.handles:

@@ -26,6 +26,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import PDBParser
 from Bio.PDB.PDBExceptions import PDBConstructionException
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
@@ -48,7 +50,9 @@ class FlawedPDB_tests(unittest.TestCase):
             warnings.simplefilter("always", PDBConstructionWarning)
 
             # Trigger warnings
-            self.permissive.get_structure("example", "PDB/a_structure.pdb")
+            self.permissive.get_structure(
+                "example", support.DATA / "PDB" / "a_structure.pdb"
+            )
 
             self.assertEqual(len(w), 15)
             for wrn, msg in zip(
@@ -82,7 +86,7 @@ class FlawedPDB_tests(unittest.TestCase):
                 PDBConstructionException,
                 self.strict.get_structure,
                 "example",
-                "PDB/a_structure.pdb",
+                support.DATA / "PDB" / "a_structure.pdb",
             )
 
             self.assertEqual(len(w), 4, w)
@@ -102,7 +106,9 @@ class FlawedPDB_tests(unittest.TestCase):
         """Parse file with missing occupancy with PERMISSIVE=True."""
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always", PDBConstructionWarning)
-            structure = self.permissive.get_structure("test", "PDB/occupancy.pdb")
+            structure = self.permissive.get_structure(
+                "test", support.DATA / "PDB" / "occupancy.pdb"
+            )
             self.assertEqual(len(w), 3, w)
 
         atoms = structure[0]["A"][(" ", 152, " ")]
@@ -115,7 +121,9 @@ class FlawedPDB_tests(unittest.TestCase):
     def test_6_missing_occupancy_strict(self):
         """Parse file with missing occupancy with PERMISSIVE=False."""
         with self.assertRaises(PDBConstructionException):
-            _ = self.strict.get_structure("test", "PDB/occupancy.pdb")
+            _ = self.strict.get_structure(
+                "test", support.DATA / "PDB" / "occupancy.pdb"
+            )
 
 
 class ParseDummyPDB_test(unittest.TestCase):
@@ -126,7 +134,9 @@ class ParseDummyPDB_test(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             p = PDBParser(PERMISSIVE=1)
-            cls.structure = p.get_structure("example", "PDB/a_structure.pdb")
+            cls.structure = p.get_structure(
+                "example", support.DATA / "PDB" / "a_structure.pdb"
+            )
 
     def test_structure_integrity(self):
         """Verify the structure of the parsed example PDB file."""
@@ -500,7 +510,7 @@ class ParseRealPDB_tests(unittest.TestCase):
 
     def test_SMCRA(self):
         """Walk down the structure hierarchy and test parser reliability."""
-        s = self.permissive.get_structure("scr", "PDB/1A8O.pdb")
+        s = self.permissive.get_structure("scr", support.DATA / "PDB" / "1A8O.pdb")
         for m in s:
             p = m.get_parent()
             self.assertEqual(s, p)
@@ -516,7 +526,9 @@ class ParseRealPDB_tests(unittest.TestCase):
 
     def test_1A8O_strict(self):
         """Parse 1A8O.pdb file in strict mode."""
-        structure = self.strict.get_structure("example", "PDB/1A8O.pdb")
+        structure = self.strict.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.pdb"
+        )
         self.assertEqual(len(structure), 1)
         model = structure[0]
         self.assertEqual(model.id, 0)

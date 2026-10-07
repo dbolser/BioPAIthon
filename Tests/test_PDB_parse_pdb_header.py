@@ -19,6 +19,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio import BiopythonParserWarning
 from Bio.PDB import PDBParser
 from Bio.PDB.parse_pdb_header import _parse_remark_465
@@ -31,7 +33,7 @@ class ParseReal(unittest.TestCase):
     def test_1(self):
         """Parse the header of a known PDB file (1A8O)."""
         parser = PDBParser()
-        struct = parser.get_structure("1A8O", "PDB/1A8O.pdb")
+        struct = parser.get_structure("1A8O", support.DATA / "PDB" / "1A8O.pdb")
         self.assertAlmostEqual(struct.header["resolution"], 1.7)
         # Case-insensitive string comparisons
         known_strings = {
@@ -51,7 +53,7 @@ class ParseReal(unittest.TestCase):
     def test_2(self):
         """Parse the header of another PDB file (2BEG)."""
         parser = PDBParser()
-        struct = parser.get_structure("2BEG", "PDB/2BEG.pdb")
+        struct = parser.get_structure("2BEG", support.DATA / "PDB" / "2BEG.pdb")
         known_strings = {
             "author": "T.Luhrs,C.Ritter,M.Adrian,D.Riek-Loher,B.Bohrmann,H.Dobeli,D.Schubert,R.Riek",
             "deposition_date": "2005-10-24",
@@ -68,7 +70,7 @@ class ParseReal(unittest.TestCase):
 
     def test_parse_pdb_with_remark_465(self):
         """Tests that parse_pdb_header now can identify some REMARK 465 entries."""
-        header = parse_pdb_header("PDB/2XHE.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "2XHE.pdb")
         self.assertEqual(header["idcode"], "2XHE")
         self.assertTrue(header["has_missing_residues"])
         self.assertEqual(len(header["missing_residues"]), 142)
@@ -82,7 +84,7 @@ class ParseReal(unittest.TestCase):
             },
             header["missing_residues"],
         )
-        header = parse_pdb_header("PDB/1A8O.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "1A8O.pdb")
         self.assertFalse(header["has_missing_residues"])
         self.assertEqual(header["missing_residues"], [])
 
@@ -144,7 +146,7 @@ class ParseReal(unittest.TestCase):
 
     def test_parse_header_line(self):
         """Unit test for parsing and converting fields in HEADER record."""
-        header = parse_pdb_header("PDB/header.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "header.pdb")
         self.assertEqual(header["head"], "structural genomics, unknown function")
         self.assertEqual(header["idcode"], "3EFG")
         self.assertEqual(header["deposition_date"], "2008-09-08")
@@ -153,7 +155,7 @@ class ParseReal(unittest.TestCase):
         """Unit test for parsing and converting fields where date is not an english abbreviation."""
         with self.assertWarns(BiopythonParserWarning) as bad_date_warning:
             header = parse_pdb_header(
-                "PDB/unrecognized_month_header.pdb", permissive=True
+                support.DATA / "PDB" / "unrecognized_month_header.pdb", permissive=True
             )
         self.assertEqual(header["head"], "structural genomics, unknown function")
         self.assertEqual(header["idcode"], "3EFG")
@@ -166,14 +168,16 @@ class ParseReal(unittest.TestCase):
     def test_parse_header_line_non_english_date_strict_mode(self):
         """Unit test for parsing and converting fields where date is not an english abbreviation."""
         with self.assertRaises(ValueError) as err:
-            parse_pdb_header("PDB/unrecognized_month_header.pdb", permissive=False)
+            parse_pdb_header(
+                support.DATA / "PDB" / "unrecognized_month_header.pdb", permissive=False
+            )
         self.assertEqual(str(err.exception), "Non-standard month in PDB header: Okt.")
 
     def test_get_structure_non_english_date(self):
         """A non-english month in HEADER must not abort the whole structure parse."""
         with self.assertWarns(BiopythonParserWarning):
             structure = PDBParser().get_structure(
-                "3EFG", "PDB/unrecognized_month_header.pdb"
+                "3EFG", support.DATA / "PDB" / "unrecognized_month_header.pdb"
             )
         self.assertEqual(structure.header["idcode"], "3EFG")
         self.assertEqual(structure.header["deposition_date"], "2008-00-08")
@@ -183,13 +187,13 @@ class ParseReal(unittest.TestCase):
         """With PERMISSIVE=False the error must name the offending month."""
         with self.assertRaises(ValueError) as err:
             PDBParser(PERMISSIVE=False).get_structure(
-                "3EFG", "PDB/unrecognized_month_header.pdb"
+                "3EFG", support.DATA / "PDB" / "unrecognized_month_header.pdb"
             )
         self.assertEqual(str(err.exception), "Non-standard month in PDB header: Okt.")
 
     def test_parse_title_line(self):
         """Unit test for correct parsing of multiline title records."""
-        header = parse_pdb_header("PDB/1LCD.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "1LCD.pdb")
         self.assertEqual(
             header["name"],
             "structure of the complex of lac repressor headpiece and an 11 "
@@ -199,12 +203,12 @@ class ParseReal(unittest.TestCase):
 
     def test_parse_no_title(self):
         """Unit test for sensible result with no TITLE line."""
-        header = parse_pdb_header("PDB/occupancy.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "occupancy.pdb")
         self.assertEqual(header["name"], "")
 
     def test_parse_pdb_with_remark_99(self):
         """Tests that parse_pdb_header can identify REMARK 99 ASTRAL entries."""
-        header = parse_pdb_header("PDB/d256ba_.ent")
+        header = parse_pdb_header(support.DATA / "PDB" / "d256ba_.ent")
         self.assertIn("astral", header)
         self.assertEqual(header["astral"]["SCOP-sccs"], "a.24.3.1")
         self.assertEqual(header["astral"]["Source-PDB"], "256b")
@@ -213,7 +217,7 @@ class ParseReal(unittest.TestCase):
 
     def test_parse_pdb_with_remark_350_biomoltrans(self):
         """Tests that parse_pdb_header now can identify some REMARK 350 entries."""
-        header = parse_pdb_header("PDB/2XHE.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "2XHE.pdb")
         self.assertEqual(
             header["biomoltrans"],
             {
@@ -227,7 +231,7 @@ class ParseReal(unittest.TestCase):
         )
 
     def test_parse_pdb_without_remark_350_biomoltrans(self):
-        header = parse_pdb_header("PDB/1LCD.pdb")
+        header = parse_pdb_header(support.DATA / "PDB" / "1LCD.pdb")
         self.assertEqual(header["biomoltrans"], {})
 
 

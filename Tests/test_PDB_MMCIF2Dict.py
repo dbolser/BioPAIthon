@@ -24,12 +24,14 @@ except ImportError:
 import io
 import textwrap
 
+import support
+
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 
 
 class MMCIF2dictTests(unittest.TestCase):
     def test_MMCIF2dict(self):
-        filename = "PDB/1A8O.cif"
+        filename = support.DATA / "PDB" / "1A8O.cif"
         mmcif = MMCIF2Dict(filename)
         self.assertEqual(len(mmcif.keys()), 575)
         # Turn black code style off
@@ -166,7 +168,7 @@ class MMCIF2dictTests(unittest.TestCase):
 
     def test_underscores(self):
         # Test values starting with an underscore are not treated as keys
-        filename = "PDB/4Q9R_min.cif"
+        filename = support.DATA / "PDB" / "4Q9R_min.cif"
         mmcif = MMCIF2Dict(filename)
         self.assertEqual(len(mmcif.keys()), 5)
         self.assertEqual(
@@ -181,7 +183,7 @@ class MMCIF2dictTests(unittest.TestCase):
 
     def test_quotefix(self):
         # Test quote characters parse correctly
-        filename = "PDB/1MOM_min.cif"
+        filename = support.DATA / "PDB" / "1MOM_min.cif"
         mmcif = MMCIF2Dict(filename)
         self.assertEqual(len(mmcif.keys()), 21)
         self.assertEqual(
@@ -208,7 +210,7 @@ class MMCIF2dictTests(unittest.TestCase):
         )
 
     def test_splitline(self):
-        filename = "PDB/4Q9R_min.cif"
+        filename = support.DATA / "PDB" / "4Q9R_min.cif"
         mmcif = MMCIF2Dict(filename)
         self.assertEqual(list(mmcif._splitline("foo bar")), ["foo", "bar"])
         self.assertEqual(list(mmcif._splitline("  foo bar  ")), ["foo", "bar"])

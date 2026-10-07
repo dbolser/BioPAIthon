@@ -6,13 +6,15 @@
 
 import unittest
 
+import support
+
 from Bio import SeqIO
 from Bio.Sequencing import Phd
 
 
 class PhdTestOne(unittest.TestCase):
     def setUp(self):
-        self.handle = open("Phd/phd1")
+        self.handle = open(support.DATA / "Phd" / "phd1")
 
     def tearDown(self):
         self.handle.close()
@@ -228,7 +230,7 @@ class PhdTestOne(unittest.TestCase):
 
 class PhdTestTwo(unittest.TestCase):
     def setUp(self):
-        self.handle = open("Phd/phd2")
+        self.handle = open(support.DATA / "Phd" / "phd2")
 
     def tearDown(self):
         self.handle.close()
@@ -264,7 +266,7 @@ class PhdTestTwo(unittest.TestCase):
 
 class PhdTest454(unittest.TestCase):
     def setUp(self):
-        self.handle = open("Phd/phd_454")
+        self.handle = open(support.DATA / "Phd" / "phd_454")
 
     def tearDown(self):
         self.handle.close()
@@ -310,7 +312,7 @@ class PhdTest454(unittest.TestCase):
 
 class PhdTestSolexa(unittest.TestCase):
     def setUp(self):
-        self.handle = open("Phd/phd_solexa")
+        self.handle = open(support.DATA / "Phd" / "phd_solexa")
 
     def tearDown(self):
         self.handle.close()

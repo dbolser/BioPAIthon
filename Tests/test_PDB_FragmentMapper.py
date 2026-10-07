@@ -19,6 +19,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import FragmentMapper
 from Bio.PDB import PDBParser
 from Bio.PDB import Selection
@@ -30,10 +32,12 @@ class FragmentMapperTests(unittest.TestCase):
     def test_fragment_mapper(self):
         """Self test for FragmentMapper module."""
         p = PDBParser()
-        pdb1 = "PDB/1A8O.pdb"
+        pdb1 = support.DATA / "PDB" / "1A8O.pdb"
         s = p.get_structure("X", pdb1)
         m = s[0]
-        fm = FragmentMapper(m, 10, 5, "PDB")
+        # FragmentMapper builds its library filename by string concatenation,
+        # so the fragment directory has to be passed as a str, not a Path.
+        fm = FragmentMapper(m, 10, 5, str(support.DATA / "PDB"))
         for r in Selection.unfold_entities(m, "R"):
             if r in fm:
                 self.assertTrue(str(fm[r]).startswith("<Fragment length=5 id="))

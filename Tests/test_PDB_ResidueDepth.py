@@ -15,6 +15,8 @@ import subprocess
 import unittest
 import warnings
 
+import support
+
 from Bio.PDB import MMCIFParser
 from Bio.PDB import PDBParser
 from Bio.PDB import ResidueDepth
@@ -65,7 +67,7 @@ class MSMS_tests(unittest.TestCase):
 
     def test_ResidueDepth_2BEG(self):
         self.check_msms(
-            "PDB/2BEG.pdb",
+            support.DATA / "PDB" / "2BEG.pdb",
             "LEUVALPHEPHEALAGLUASPVALGLYSERASNLYSGLYALAILEILEGLYLEUMETVALGLYGLYVALVALIL"
             "EALALEUVALPHEPHEALAGLUASPVALGLYSERASNLYSGLYALAILEILEGLYLEUMETVALGLYGLYVALV"
             "ALILEALALEUVALPHEPHEALAGLUASPVALGLYSERASNLYSGLYALAILEILEGLYLEUMETVALGLYGLY"
@@ -75,7 +77,7 @@ class MSMS_tests(unittest.TestCase):
 
     def test_ResidueDepth_1LCD(self):
         self.check_msms(
-            "PDB/1LCD.pdb",
+            support.DATA / "PDB" / "1LCD.pdb",
             "METLYSPROVALTHRLEUTYRASPVALALAGLUTYRALAGLYVALSERTYRGLNTHRVALSERARGVALVALAS"
             "NGLNALASERHISVALSERALALYSTHRARGGLULYSVALGLUALAALAMETALAGLULEUASNTYRILEPROA"
             "SNARG",
@@ -83,7 +85,7 @@ class MSMS_tests(unittest.TestCase):
 
     def test_ResidueDepth_1A8O(self):
         self.check_msms(
-            "PDB/1A8O.pdb",
+            support.DATA / "PDB" / "1A8O.pdb",
             "MSEASPILEARGGLNGLYPROLYSGLUPROPHEARGASPTYRVALASPARGPHETYRLYSTHRLEUARGALAGL"
             "UGLNALASERGLNGLUVALLYSASNTRPMSETHRGLUTHRLEULEUVALGLNASNALAASNPROASPCYSLYST"
             "HRILELEULYSALALEUGLYPROGLYALATHRLEUGLUGLUMSEMSETHRALACYSGLNGLY",
@@ -98,10 +100,10 @@ class ResidueDepth_tests(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             p = PDBParser(PERMISSIVE=1)
-            structure = p.get_structure("example", "PDB/1A8O.pdb")
+            structure = p.get_structure("example", support.DATA / "PDB" / "1A8O.pdb")
 
         # Read radii produced with original shell script
-        with open("PDB/1A8O.xyzr") as handle:
+        with open(support.DATA / "PDB" / "1A8O.xyzr") as handle:
             msms_radii = []
             for line in handle:
                 fields = line.split()

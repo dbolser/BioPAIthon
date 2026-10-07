@@ -5,8 +5,9 @@
 
 """Tests for Bio.ExPASy.Prosite module."""
 
-import os
 import unittest
+
+import support
 
 from Bio.ExPASy import Prosite
 
@@ -14,7 +15,7 @@ from Bio.ExPASy import Prosite
 class TestPrositeRead(unittest.TestCase):
     def test_read1(self):
         """Parsing Prosite record ps00107.txt."""
-        filename = os.path.join("Prosite", "ps00107.txt")
+        filename = support.DATA / "Prosite" / "ps00107.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "PROTEIN_KINASE_ATP")
@@ -2528,7 +2529,7 @@ class TestPrositeRead(unittest.TestCase):
 
     def test_read2(self):
         """Parsing Prosite record ps00159.txt."""
-        filename = os.path.join("Prosite", "ps00159.txt")
+        filename = support.DATA / "Prosite" / "ps00159.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "ALDOLASE_KDPG_KHG_1")
@@ -2576,7 +2577,7 @@ class TestPrositeRead(unittest.TestCase):
 
     def test_read3(self):
         """Parsing Prosite record ps00165.txt."""
-        filename = os.path.join("Prosite", "ps00165.txt")
+        filename = support.DATA / "Prosite" / "ps00165.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "DEHYDRATASE_SER_THR")
@@ -2724,7 +2725,7 @@ class TestPrositeRead(unittest.TestCase):
 
     def test_read4(self):
         """Parsing Prosite record ps00432.txt."""
-        filename = os.path.join("Prosite", "ps00432.txt")
+        filename = support.DATA / "Prosite" / "ps00432.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "ACTINS_2")
@@ -3162,7 +3163,7 @@ class TestPrositeRead(unittest.TestCase):
 
     def test_read5(self):
         """Parsing Prosite record ps00488.txt."""
-        filename = os.path.join("Prosite", "ps00488.txt")
+        filename = support.DATA / "Prosite" / "ps00488.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "PAL_HISTIDASE")
@@ -3334,7 +3335,7 @@ class TestPrositeRead(unittest.TestCase):
 
     def test_read6(self):
         """Parsing Prosite record ps00546.txt."""
-        filename = os.path.join("Prosite", "ps00546.txt")
+        filename = support.DATA / "Prosite" / "ps00546.txt"
         with open(filename) as handle:
             record = Prosite.read(handle)
         self.assertEqual(record.name, "CYSTEINE_SWITCH")

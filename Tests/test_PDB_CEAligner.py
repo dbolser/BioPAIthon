@@ -29,6 +29,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import CEAligner
 from Bio.PDB import MMCIFParser
 from Bio.PDB import ccealign
@@ -51,9 +53,9 @@ class CEAlignerTests(unittest.TestCase):
 
     def test_cealigner(self):
         """Test aligning 7CFN on 6WQA."""
-        ref = "PDB/6WQA.cif"
-        mob = "PDB/7CFN.cif"
-        result = "PDB/7CFN_aligned.cif"
+        ref = support.DATA / "PDB" / "6WQA.cif"
+        mob = support.DATA / "PDB" / "7CFN.cif"
+        result = support.DATA / "PDB" / "7CFN_aligned.cif"
 
         parser = MMCIFParser(QUIET=1)
         s1 = parser.get_structure("6wqa", ref)
@@ -78,8 +80,8 @@ class CEAlignerTests(unittest.TestCase):
 
     def test_cealigner_no_transform(self):
         """Test aligning 7CFN on 6WQA without transforming 7CFN."""
-        ref = "PDB/6WQA.cif"
-        mob = "PDB/7CFN.cif"
+        ref = support.DATA / "PDB" / "6WQA.cif"
+        mob = support.DATA / "PDB" / "7CFN.cif"
 
         parser = MMCIFParser(QUIET=1)
         s1 = parser.get_structure("6wqa", ref)
@@ -97,8 +99,8 @@ class CEAlignerTests(unittest.TestCase):
 
     def test_ce_aligner_final_optimization(self):
         """Test aligning 7CFN on 6WQA with the final optimization."""
-        ref = "PDB/6WQA.cif"
-        mob = "PDB/7CFN.cif"
+        ref = support.DATA / "PDB" / "6WQA.cif"
+        mob = support.DATA / "PDB" / "7CFN.cif"
 
         parser = MMCIFParser(QUIET=1)
         s1 = parser.get_structure("6wqa", ref)
@@ -112,8 +114,8 @@ class CEAlignerTests(unittest.TestCase):
 
     def test_cealigner_nucleic(self):
         """Test aligning 1LCD on 1LCD."""
-        ref = "PDB/1LCD.cif"
-        mob = "PDB/1LCD.cif"
+        ref = support.DATA / "PDB" / "1LCD.cif"
+        mob = support.DATA / "PDB" / "1LCD.cif"
 
         parser = MMCIFParser(QUIET=1)
         s1 = parser.get_structure("1lcd_ref", ref)

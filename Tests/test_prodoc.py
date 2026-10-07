@@ -5,8 +5,9 @@
 # as part of this package.
 """Tests for Bio.ExPASy.Prodoc module."""
 
-import os
 import unittest
+
+import support
 
 from Bio.ExPASy import Prodoc
 
@@ -16,7 +17,7 @@ class TestProdocRead(unittest.TestCase):
 
     def test_read_pdoc00100(self):
         """Reading Prodoc record PDOC00100."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00100.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00100.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -196,7 +197,7 @@ PubMed=2165531""",
 
     def test_read_pdoc00113(self):
         """Reading Prodoc record PDOC00113."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00113.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00113.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -279,7 +280,7 @@ PubMed=1654502""",
 
     def test_read_pdoc00144(self):
         """Reading Prodoc record PDOC00144."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00144.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00144.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -342,7 +343,7 @@ PubMed=3136164""",
 
     def test_read_pdoc00149(self):
         """Reading Prodoc record PDOC00149."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00149.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00149.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -443,7 +444,7 @@ PubMed=8236444""",
 
     def test_read_pdoc00340(self):
         """Reading Prodoc record PDOC00340."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00340.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00340.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -555,7 +556,7 @@ PubMed=2203335""",
 
     def test_read_pdoc00424(self):
         """Reading Prodoc record PDOC00424."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00424.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00424.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -650,7 +651,7 @@ PubMed=7961661""",
 
     def test_read_pdoc00472(self):
         """Reading Prodoc record PDOC00472."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00472.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00472.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -762,7 +763,7 @@ PubMed=1584806""",
 
     def test_read_pdoc00640(self):
         """Reading Prodoc record PDOC00640."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00640.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00640.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -880,7 +881,7 @@ PubMed=8805535""",
 
     def test_read_pdoc00787(self):
         """Reading Prodoc record PDOC00787."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00787.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00787.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -953,7 +954,7 @@ PubMed=7624375""",
 
     def test_read_pdoc0933(self):
         """Reading Prodoc record PDOC00933."""
-        filename = os.path.join("Prosite", "Doc", "pdoc00933.txt")
+        filename = support.DATA / "Prosite" / "Doc" / "pdoc00933.txt"
         with open(filename) as handle:
             record = Prodoc.read(handle)
 
@@ -1039,7 +1040,7 @@ class TestProdocParse(unittest.TestCase):
 
     def test_parse_pdoc(self):
         """Parsing an excerpt of prosite.doc."""
-        filename = os.path.join("Prosite", "Doc", "prosite.excerpt.doc")
+        filename = support.DATA / "Prosite" / "Doc" / "prosite.excerpt.doc"
         with open(filename) as handle:
             records = Prodoc.parse(handle)
 

@@ -29,6 +29,8 @@ except ImportError:
     ) from None
 
 
+import support
+
 from Bio.PDB import PDBParser
 from Bio.PDB.NACCESS import NACCESS
 from Bio.PDB.NACCESS import process_asa_data
@@ -40,13 +42,13 @@ class NACCESS_test(unittest.TestCase):
 
     def test_NACCESS_rsa_file(self):
         """Test parsing of pregenerated rsa NACCESS file."""
-        with open("PDB/1A8O.rsa") as rsa:
+        with open(support.DATA / "PDB" / "1A8O.rsa") as rsa:
             naccess = process_rsa_data(rsa)
         self.assertEqual(len(naccess), 66)
 
     def test_NACCESS_asa_file(self):
         """Test parsing of pregenerated asa NACCESS file."""
-        with open("PDB/1A8O.asa") as asa:
+        with open(support.DATA / "PDB" / "1A8O.asa") as asa:
             naccess = process_asa_data(asa)
         self.assertEqual(len(naccess), 524)
 
@@ -61,7 +63,7 @@ class NACCESS_test(unittest.TestCase):
             raise self.skipTest("Install naccess if you want to use it from Biopython.")
 
         p = PDBParser()
-        pdbfile = "PDB/1A8O.pdb"
+        pdbfile = support.DATA / "PDB" / "1A8O.pdb"
         model = p.get_structure("1A8O", pdbfile)[0]
         naccess = NACCESS(model, pdbfile)
         self.assertEqual(len(naccess), 66)

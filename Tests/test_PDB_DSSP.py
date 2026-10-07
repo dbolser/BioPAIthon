@@ -30,6 +30,8 @@ except ImportError:
     ) from None
 
 
+import support
+
 from Bio.PDB import DSSP
 from Bio.PDB import make_dssp_dict
 from Bio.PDB import MMCIFParser
@@ -98,7 +100,7 @@ class DSSP_tool_test(unittest.TestCase):
 
     def test_dssp(self):
         """Test DSSP generation from PDB."""
-        pdbfile = "PDB/2BEG.pdb"
+        pdbfile = support.DATA / "PDB" / "2BEG.pdb"
         model = self.pdbparser.get_structure("2BEG", pdbfile)[0]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # silence DSSP warnings
@@ -111,7 +113,7 @@ class DSSP_tool_test(unittest.TestCase):
         if self.dssp_version < VERSION_2_2_0:
             self.skipTest("Test requires DSSP version 2.2.0 or greater")
 
-        pdbfile = "PDB/4ZHL.cif"
+        pdbfile = support.DATA / "PDB" / "4ZHL.cif"
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # silence all warnings
             model = self.cifparser.get_structure("4ZHL", pdbfile)[0]
@@ -123,7 +125,7 @@ class DSSP_tool_test(unittest.TestCase):
         if self.dssp_version < VERSION_2_2_0:
             self.skipTest("Test requires DSSP version 2.2.0 or greater")
 
-        pdbfile = "PDB/1AS5.cif"
+        pdbfile = support.DATA / "PDB" / "1AS5.cif"
         model = self.cifparser.get_structure("1AS5", pdbfile)[0]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # silence DSSP warnings
@@ -135,7 +137,7 @@ class DSSP_tool_test(unittest.TestCase):
         if self.dssp_version < VERSION_2_2_0:
             self.skipTest("Test requires DSSP version 2.2.0 or greater")
 
-        pdbfile = "PDB/1A7G.cif"
+        pdbfile = support.DATA / "PDB" / "1A7G.cif"
         model = self.cifparser.get_structure("1A7G", pdbfile)[0]
         dssp = DSSP(model, pdbfile)
         self.assertEqual(len(dssp), 82)
@@ -147,18 +149,18 @@ class DSSP_test(unittest.TestCase):
 
     def test_DSSP_file(self):
         """Test parsing of pregenerated DSSP."""
-        dssp, keys = make_dssp_dict("PDB/2BEG.dssp")
+        dssp, keys = make_dssp_dict(support.DATA / "PDB" / "2BEG.dssp")
         self.assertEqual(len(dssp), 130)
 
     def test_DSSP_noheader_file(self):
         """Test parsing of pregenerated DSSP missing header information."""
         # New DSSP prints a line containing only whitespace and "."
-        dssp, keys = make_dssp_dict("PDB/2BEG_noheader.dssp")
+        dssp, keys = make_dssp_dict(support.DATA / "PDB" / "2BEG_noheader.dssp")
         self.assertEqual(len(dssp), 130)
 
     def test_DSSP_hbonds(self):
         """Test parsing of DSSP hydrogen bond information."""
-        dssp, keys = make_dssp_dict("PDB/2BEG.dssp")
+        dssp, keys = make_dssp_dict(support.DATA / "PDB" / "2BEG.dssp")
 
         dssp_indices = {v[5] for v in dssp.values()}
         hb_indices = set()
@@ -178,14 +180,14 @@ class DSSP_test(unittest.TestCase):
     def test_DSSP_in_model_obj(self):
         """All elements correctly added to xtra attribute of input model object."""
         p = PDBParser()
-        s = p.get_structure("example", "PDB/2BEG.pdb")
+        s = p.get_structure("example", support.DATA / "PDB" / "2BEG.pdb")
         m = s[0]
         # Read the DSSP data into the pdb object:
-        _ = DSSP(m, "PDB/2BEG.dssp", "dssp", "Sander", "DSSP")
+        _ = DSSP(m, support.DATA / "PDB" / "2BEG.dssp", "dssp", "Sander", "DSSP")
         # Now compare the xtra attribute of the pdb object
         # residue by residue with the pre-computed values:
         i = 0
-        with open("PDB/dssp_xtra_Sander.txt") as fh_ref:
+        with open(support.DATA / "PDB" / "dssp_xtra_Sander.txt") as fh_ref:
             ref_lines = fh_ref.readlines()
             for chain in m:
                 for res in chain:
@@ -212,13 +214,13 @@ class DSSP_test(unittest.TestCase):
         # Tests include Sander/default, Wilke and Miller
         p = PDBParser()
         # Sander/default:
-        s = p.get_structure("example", "PDB/2BEG.pdb")
+        s = p.get_structure("example", support.DATA / "PDB" / "2BEG.pdb")
         m = s[0]
         # Read the DSSP data into the pdb object:
-        _ = DSSP(m, "PDB/2BEG.dssp", "dssp", "Sander", "DSSP")
+        _ = DSSP(m, support.DATA / "PDB" / "2BEG.dssp", "dssp", "Sander", "DSSP")
         # Then compare the RASA values for each residue with the pre-computed values:
         i = 0
-        with open("PDB/Sander_RASA.txt") as fh_ref:
+        with open(support.DATA / "PDB" / "Sander_RASA.txt") as fh_ref:
             ref_lines = fh_ref.readlines()
             for chain in m:
                 for res in chain:
@@ -228,11 +230,11 @@ class DSSP_test(unittest.TestCase):
                     i += 1
 
         # Wilke (procedure similar as for the Sander values above):
-        s = p.get_structure("example", "PDB/2BEG.pdb")
+        s = p.get_structure("example", support.DATA / "PDB" / "2BEG.pdb")
         m = s[0]
-        _ = DSSP(m, "PDB/2BEG.dssp", "dssp", "Wilke", "DSSP")
+        _ = DSSP(m, support.DATA / "PDB" / "2BEG.dssp", "dssp", "Wilke", "DSSP")
         i = 0
-        with open("PDB/Wilke_RASA.txt") as fh_ref:
+        with open(support.DATA / "PDB" / "Wilke_RASA.txt") as fh_ref:
             ref_lines = fh_ref.readlines()
             for chain in m:
                 for res in chain:
@@ -242,11 +244,11 @@ class DSSP_test(unittest.TestCase):
                     i += 1
 
         # Miller (procedure similar as for the Sander values above):
-        s = p.get_structure("example", "PDB/2BEG.pdb")
+        s = p.get_structure("example", support.DATA / "PDB" / "2BEG.pdb")
         m = s[0]
-        _ = DSSP(m, "PDB/2BEG.dssp", "dssp", "Miller", "DSSP")
+        _ = DSSP(m, support.DATA / "PDB" / "2BEG.dssp", "dssp", "Miller", "DSSP")
         i = 0
-        with open("PDB/Miller_RASA.txt") as fh_ref:
+        with open(support.DATA / "PDB" / "Miller_RASA.txt") as fh_ref:
             ref_lines = fh_ref.readlines()
             for chain in m:
                 for res in chain:
@@ -256,11 +258,11 @@ class DSSP_test(unittest.TestCase):
                     i += 1
 
         # Ahmad (procedure similar as for the Sander values above):
-        s = p.get_structure("example", "PDB/2BEG.pdb")
+        s = p.get_structure("example", support.DATA / "PDB" / "2BEG.pdb")
         m = s[0]
-        _ = DSSP(m, "PDB/2BEG.dssp", "dssp", "Ahmad", "DSSP")
+        _ = DSSP(m, support.DATA / "PDB" / "2BEG.dssp", "dssp", "Ahmad", "DSSP")
         i = 0
-        with open("PDB/Ahmad_RASA.txt") as fh_ref:
+        with open(support.DATA / "PDB" / "Ahmad_RASA.txt") as fh_ref:
             ref_lines = fh_ref.readlines()
             for chain in m:
                 for res in chain:

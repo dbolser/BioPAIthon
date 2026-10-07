@@ -18,6 +18,8 @@ import tempfile
 import unittest
 import warnings
 
+import support
+
 from Bio.PDB import Atom
 from Bio.PDB import MMCIFIO
 from Bio.PDB import MMCIFParser
@@ -37,10 +39,12 @@ class WriteTest(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            self.structure = self.pdb_parser.get_structure("example", "PDB/1A8O.pdb")
-            self.mmcif_file = "PDB/1A8O.cif"
-            self.mmcif_multimodel_pdb_file = "PDB/1SSU_mod.pdb"
-            self.mmcif_multimodel_mmcif_file = "PDB/1SSU_mod.cif"
+            self.structure = self.pdb_parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
+            self.mmcif_file = support.DATA / "PDB" / "1A8O.cif"
+            self.mmcif_multimodel_pdb_file = support.DATA / "PDB" / "1SSU_mod.pdb"
+            self.mmcif_multimodel_mmcif_file = support.DATA / "PDB" / "1SSU_mod.cif"
 
     def test_mmcifio_write_structure(self):
         """Write a full structure using MMCIFIO."""
@@ -218,7 +222,7 @@ class WriteTest(unittest.TestCase):
                 os.remove(filename)
 
     def test_mmcifio_no_data_val(self):
-        idless = self.pdb_parser.get_structure("", "PDB/1A8O.pdb")
+        idless = self.pdb_parser.get_structure("", support.DATA / "PDB" / "1A8O.pdb")
         self.io.set_structure(idless)
         filenumber, filename = tempfile.mkstemp()
         os.close(filenumber)

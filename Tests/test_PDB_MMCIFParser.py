@@ -29,6 +29,8 @@ except ImportError:
     ) from None
 
 
+import support
+
 from Bio.PDB import CaPPBuilder
 from Bio.PDB import PDBIO
 from Bio.PDB import PDBParser
@@ -48,8 +50,10 @@ class ParseReal(unittest.TestCase):
         parser = MMCIFParser()
         fast_parser = FastMMCIFParser()
 
-        structure = parser.get_structure("example", "PDB/1A8O.cif")
-        f_structure = fast_parser.get_structure("example", "PDB/1A8O.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "1A8O.cif")
+        f_structure = fast_parser.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.cif"
+        )
 
         self.assertEqual(len(structure), 1)
         self.assertEqual(len(f_structure), 1)
@@ -59,10 +63,18 @@ class ParseReal(unittest.TestCase):
         parser_lab_chain = MMCIFParser(auth_chains=False, QUIET=True)
         fast_parser_lab_chain = FastMMCIFParser(auth_chains=False, QUIET=True)
 
-        structure_lr = parser_lab_res.get_structure("example", "PDB/1A8O.cif")
-        f_structure_lr = fast_parser_lab_res.get_structure("example", "PDB/1A8O.cif")
-        structure_lc = parser_lab_chain.get_structure("example", "PDB/1A8O.cif")
-        f_structure_lc = fast_parser_lab_chain.get_structure("example", "PDB/1A8O.cif")
+        structure_lr = parser_lab_res.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.cif"
+        )
+        f_structure_lr = fast_parser_lab_res.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.cif"
+        )
+        structure_lc = parser_lab_chain.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.cif"
+        )
+        f_structure_lc = fast_parser_lab_chain.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.cif"
+        )
 
         self.assertEqual(len(list(structure_lr.get_atoms())), 556)
         self.assertEqual(len(list(f_structure_lr.get_atoms())), 556)
@@ -162,8 +174,10 @@ class ParseReal(unittest.TestCase):
         parser = MMCIFParser()
         fast_parser = FastMMCIFParser()
 
-        structure = parser.get_structure("example", "PDB/4CUP.cif")
-        f_structure = fast_parser.get_structure("example", "PDB/4CUP.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "4CUP.cif")
+        f_structure = fast_parser.get_structure(
+            "example", support.DATA / "PDB" / "4CUP.cif"
+        )
 
         self.assertEqual(len(structure), 1)
         self.assertEqual(len(f_structure), 1)
@@ -202,8 +216,12 @@ class ParseReal(unittest.TestCase):
         f_parser = FastMMCIFParser(QUIET=1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = parser.get_structure("example", "PDB/1LCD.cif")
-            f_structure = f_parser.get_structure("example", "PDB/1LCD.cif")
+            structure = parser.get_structure(
+                "example", support.DATA / "PDB" / "1LCD.cif"
+            )
+            f_structure = f_parser.get_structure(
+                "example", support.DATA / "PDB" / "1LCD.cif"
+            )
 
         self.assertEqual(len(structure), 3)
         self.assertEqual(len(f_structure), 3)
@@ -241,7 +259,7 @@ class ParseReal(unittest.TestCase):
 
         # This structure contains several models with multiple lengths.
         # The tests were failing.
-        structure = parser.get_structure("example", "PDB/2OFG.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "2OFG.cif")
         self.assertEqual(len(structure), 3)
 
     def test_insertions(self):
@@ -250,8 +268,12 @@ class ParseReal(unittest.TestCase):
         parser_lab_res = MMCIFParser(auth_residues=False, QUIET=True)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = parser.get_structure("example", "PDB/4ZHL.cif")
-            structure_lr = parser_lab_res.get_structure("example", "PDB/4ZHL.cif")
+            structure = parser.get_structure(
+                "example", support.DATA / "PDB" / "4ZHL.cif"
+            )
+            structure_lr = parser_lab_res.get_structure(
+                "example", support.DATA / "PDB" / "4ZHL.cif"
+            )
         for ppbuild in [PPBuilder(), CaPPBuilder()]:
             # First try allowing non-standard amino acids,
             polypeptides = ppbuild.build_peptides(structure[0], False)
@@ -281,8 +303,12 @@ class ParseReal(unittest.TestCase):
         parser_lab_res = FastMMCIFParser(auth_residues=False, QUIET=True)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = parser.get_structure("example", "PDB/4ZHL.cif")
-            structure_lr = parser_lab_res.get_structure("example", "PDB/4ZHL.cif")
+            structure = parser.get_structure(
+                "example", support.DATA / "PDB" / "4ZHL.cif"
+            )
+            structure_lr = parser_lab_res.get_structure(
+                "example", support.DATA / "PDB" / "4ZHL.cif"
+            )
         auth_ids = [residue.get_id() for residue in structure[0]["U"]]
         label_ids = [residue.get_id() for residue in structure_lr[0]["U"]]
         # Auth numbering keeps the insertion codes...
@@ -295,10 +321,10 @@ class ParseReal(unittest.TestCase):
     def test_filehandle(self):
         """Test if the parser can handle file handle as well as filename."""
         parser = MMCIFParser()
-        structure = parser.get_structure("example", "PDB/1A8O.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "1A8O.cif")
         self.assertEqual(len(structure), 1)
 
-        with open("PDB/1A8O.cif") as handle:
+        with open(support.DATA / "PDB" / "1A8O.cif") as handle:
             structure = parser.get_structure("example", handle)
         self.assertEqual(len(structure), 1)
 
@@ -312,7 +338,7 @@ class ParseReal(unittest.TestCase):
 
     def _run_point_mutation_tests(self, parser):
         """Shared test code for testing point mutations."""
-        structure = parser.get_structure("example", "PDB/3JQH.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "3JQH.cif")
 
         # Residue 1 and 15 should be disordered.
         res_1 = structure[0]["A"][1]
@@ -358,7 +384,9 @@ class ParseReal(unittest.TestCase):
         parser = MMCIFParser(QUIET=1)
 
         # test default values
-        structure = parser.get_structure("example", "PDB/a_structure.cif")
+        structure = parser.get_structure(
+            "example", support.DATA / "PDB" / "a_structure.cif"
+        )
         self.assertEqual("", structure.header["idcode"])
         self.assertEqual("", structure.header["head"])
         self.assertEqual("", structure.header["deposition_date"])
@@ -366,7 +394,7 @@ class ParseReal(unittest.TestCase):
         self.assertIsNone(structure.header["resolution"])
 
         # test extracting fields
-        structure = parser.get_structure("example", "PDB/1A8O.cif")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "1A8O.cif")
         self.assertEqual("1A8O", structure.header["idcode"])
         self.assertEqual("Viral protein", structure.header["head"])
         self.assertEqual("", structure.header["deposition_date"])
@@ -374,7 +402,9 @@ class ParseReal(unittest.TestCase):
         self.assertEqual(1.7, structure.header["resolution"])
 
         # test not confused by '.' or '?'
-        structure = parser.get_structure("example", "PDB/1SSU_mod.cif")
+        structure = parser.get_structure(
+            "example", support.DATA / "PDB" / "1SSU_mod.cif"
+        )
         # self.assertIsNone(structure.header["resolution"])
         self.assertEqual(4.1, structure.header["resolution"])
 
@@ -385,7 +415,9 @@ class CIFtoPDB(unittest.TestCase):
     def test_conversion(self):
         """Parse 1LCD.cif, write 1LCD.pdb, parse again and compare."""
         cif_parser = MMCIFParser(QUIET=1)
-        cif_struct = cif_parser.get_structure("example", "PDB/1LCD.cif")
+        cif_struct = cif_parser.get_structure(
+            "example", support.DATA / "PDB" / "1LCD.cif"
+        )
 
         pdb_writer = PDBIO()
         pdb_writer.set_structure(cif_struct)
@@ -409,7 +441,9 @@ class CIFtoPDB(unittest.TestCase):
     def test_conversion_not_preserve_numbering(self):
         """Convert mmCIF to PDB and renumber atom serials."""
         cif_parser = MMCIFParser(QUIET=1)
-        cif_struct = cif_parser.get_structure("example", "PDB/a_structure.cif")
+        cif_struct = cif_parser.get_structure(
+            "example", support.DATA / "PDB" / "a_structure.cif"
+        )
 
         pdb_writer = PDBIO()
         pdb_writer.set_structure(cif_struct)
@@ -420,7 +454,9 @@ class CIFtoPDB(unittest.TestCase):
     def test_conversion_preserve_numbering(self):
         """Convert mmCIF to PDB and preserve original serial numbering."""
         cif_parser = MMCIFParser(QUIET=1)
-        cif_struct = cif_parser.get_structure("example", "PDB/a_structure.cif")
+        cif_struct = cif_parser.get_structure(
+            "example", support.DATA / "PDB" / "a_structure.cif"
+        )
 
         pdb_writer = PDBIO()
         pdb_writer.set_structure(cif_struct)

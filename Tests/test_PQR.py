@@ -15,6 +15,8 @@ import unittest
 import warnings
 from io import StringIO
 
+import support
+
 from Bio.PDB.PDBExceptions import PDBConstructionException
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 from Bio.PDB.PDBIO import PDBIO
@@ -148,7 +150,7 @@ class WriteTest(unittest.TestCase):
             # Open a parser in permissive mode and parse an example file
             self.pqr_parser = PDBParser(PERMISSIVE=1, is_pqr=True)
             self.example_structure = self.pqr_parser.get_structure(
-                "example", "PQR/1A80.pqr"
+                "example", support.DATA / "PQR" / "1A80.pqr"
             )
 
     def test_pdbio_write_pqr_structure(self):

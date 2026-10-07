@@ -18,6 +18,8 @@ import tempfile
 import unittest
 import warnings
 
+import support
+
 from Bio import BiopythonWarning
 from Bio.PDB import Atom
 from Bio.PDB import PDBIO
@@ -38,7 +40,9 @@ class WriteTest(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            self.structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+            self.structure = self.parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
 
     def test_pdbio_write_structure(self):
         """Write a full structure using PDBIO."""
@@ -94,7 +98,9 @@ class WriteTest(unittest.TestCase):
         """Test raising error when structure cannot meet PDB format limits."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+            structure = self.parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
 
         # Modify structure and check if parser raises an error
         # Chain id
@@ -300,7 +306,9 @@ class WriteTest(unittest.TestCase):
         """Write PDB file with missing occupancy."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = self.parser.get_structure("test", "PDB/occupancy.pdb")
+            structure = self.parser.get_structure(
+                "test", support.DATA / "PDB" / "occupancy.pdb"
+            )
 
         self.io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()
@@ -369,7 +377,9 @@ class WriteTest(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            struct1 = self.parser.get_structure("1lcd", "PDB/1LCD.pdb")
+            struct1 = self.parser.get_structure(
+                "1lcd", support.DATA / "PDB" / "1LCD.pdb"
+            )
 
         confirm_numbering(struct1)
 
@@ -464,7 +474,9 @@ class WriteTest(unittest.TestCase):
         test_b_factor(_MAX_B_FACTOR + 10, _MAX_B_FACTOR, assert_warn=True)
 
     def test_pdbio_write_formatting(self):
-        structure = self.parser.get_structure("format_test", "PDB/1A8O.pdb")
+        structure = self.parser.get_structure(
+            "format_test", support.DATA / "PDB" / "1A8O.pdb"
+        )
         self.io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()
         os.close(filenumber)
@@ -472,7 +484,7 @@ class WriteTest(unittest.TestCase):
             self.io.save(filename)
             with open(filename) as f:
                 output_lines = f.read().splitlines()
-            with open("PDB/1A8O.pdb") as f:
+            with open(support.DATA / "PDB" / "1A8O.pdb") as f:
                 expected_lines = f.read().splitlines()
             self.assertEqual(output_lines[296:304], expected_lines[635:643])
         finally:
@@ -483,7 +495,9 @@ class WriteTest(unittest.TestCase):
         """Test removing file when exception is caught (string)."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+            structure = self.parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
 
         structure[0]["A"].id = "AA"
         self.io.set_structure(structure)
@@ -499,7 +513,9 @@ class WriteTest(unittest.TestCase):
         """Test removing file when exception is caught (handle)."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+            structure = self.parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
 
         structure[0]["A"].id = "AA"
         self.io.set_structure(structure)
@@ -519,7 +535,9 @@ class WriteTest(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+            structure = self.parser.get_structure(
+                "example", support.DATA / "PDB" / "1A8O.pdb"
+            )
 
         structure[0]["A"].id = "AA"
         self.io.set_structure(structure)
