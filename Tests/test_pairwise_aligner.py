@@ -20483,6 +20483,29 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
         aligner.substitution_matrix = None
         matrix.release()
 
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython" and sys.version_info >= (3, 12),
+        "a Python class can only export a buffer with __buffer__ on CPython 3.12+",
+    )
+    def test_python_buffer_matrix(self):
+        # A Python class's __buffer__ exports through a private wrapper that
+        # cannot be exported again, so the aligner stores a memoryview of
+        # such a matrix, and each call takes its own export of that.
+        class Matrix:
+            def __init__(self):
+                self.data = np.eye(4)
+
+            def __buffer__(self, flags):
+                return memoryview(self.data)
+
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = Matrix()
+        self.assertIsInstance(aligner.substitution_matrix, memoryview)
+        sequence = np.array([0, 1, 2, 3], np.int32)
+        self.assertEqual(aligner.score(sequence, sequence), 4.0)
+        alignment = aligner.align(sequence, sequence)[0]
+        self.assertEqual(alignment.counts(aligner).substitution_score, 4.0)
+
     def test_matrix_resized_in_place(self):
         # NumPy can resize an array in place even while the aligner holds a
         # buffer export of it.  Each call exports the matrix afresh, so it

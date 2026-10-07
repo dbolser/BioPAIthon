@@ -2134,6 +2134,21 @@ Aligner_set_substitution_matrix(Aligner* self, PyObject* values, void* closure)
         return 0;
     }
     if (substitution_matrix_converter(values, &view) == 0) return -1;
+    if (view.obj != values) {
+        /* The object exported its buffer through another object, as a
+         * Python class with __buffer__ does through a private wrapper
+         * that cannot be exported again.  Each call takes its own export
+         * of the stored matrix (see Aligner_snapshot), so store a
+         * memoryview of the object instead. */
+        PyObject* memory;
+        int ok;
+        PyBuffer_Release(&view);
+        memory = PyMemoryView_FromObject(values);
+        if (!memory) return -1;
+        ok = substitution_matrix_converter(memory, &view);
+        Py_DECREF(memory);
+        if (ok == 0) return -1;
+    }
     PyBuffer_Release(&self->substitution_matrix);
     self->substitution_matrix = view;
     return 0;

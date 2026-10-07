@@ -69,9 +69,10 @@ started with. Each call also takes its own view of the substitution matrix,
 so a matrix that was changed in place after being assigned (for example by
 NumPy's ``resize(refcheck=False)``) and is no longer a square matrix of
 floats now raises ``ValueError``, where it used to be read as though
-unchanged. On Python 3.12 and later, a matrix given as a pure-Python object
-with a ``__buffer__`` method, rather than a NumPy array or
-``substitution_matrices.Array``, now raises ``TypeError`` when used.
+unchanged. A matrix given as a pure-Python object with a ``__buffer__``
+method (Python 3.12 and later) is now stored as a ``memoryview`` of that
+object, so ``aligner.substitution_matrix`` returns the ``memoryview``
+instead of CPython's internal ``_buffer_wrapper``.
 
 ``Bio.SeqIO``'s "cif-seqres" format names each chain by its mmCIF label id,
 but "cif-atom", "pdb-seqres", "pdb-atom" and ``Bio.PDB.MMCIFParser`` use the
