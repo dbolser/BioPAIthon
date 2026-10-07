@@ -8,6 +8,7 @@
 import inspect
 import os
 import re
+import sys
 import unittest
 from io import StringIO
 
@@ -3734,6 +3735,7 @@ rn7.chr2  174256650
 class TestAlign_read_parse_write(unittest.TestCase):
     """Test the module-level read, parse and write functions."""
 
+    @unittest.skipIf(sys.flags.optimize >= 2, "docstrings are stripped under -OO")
     def test_documented_arguments(self):
         """Check each Arguments list names the function's own parameters."""
         for function in (Align.read, Align.parse, Align.write):
