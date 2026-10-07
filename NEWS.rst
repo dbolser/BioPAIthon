@@ -243,9 +243,11 @@ differently. A label quoted in the tree itself loses its quotes, as in
 Newick: ``'Homo sapiens'`` becomes ``Homo sapiens``. A clade with two
 comments, as in MrBayes 3.2 consensus trees, keeps the last one; the old
 parser gave it a branch length that was a string, or raised
-``AssertionError``. An unquoted label containing a space, which NEXUS does
-not allow, keeps only its last word, as in Newick. Malformed tree text raises
-``NewickError`` instead of ``TreeError``.
+``AssertionError``. A label containing a space that is not in single quotes,
+which NEXUS does not allow, keeps only its last word, as in Newick. That
+includes double quotes, which ``Bio.Nexus`` accepted: ``"a b"`` used to keep
+its double quotes and now becomes ``b"``. Malformed tree text raises
+``NewickError`` instead of ``TreeError``; both subclass ``ValueError``.
 
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the

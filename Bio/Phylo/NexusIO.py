@@ -64,14 +64,18 @@ def _match_bio_nexus_trees(root, translate):
     - terminal names come from the TRANSLATE table, if any, quoted by
       ``Bio.Nexus.Nexus.safename``.
 
-    Walks the tree with a list rather than by recursion, so deep trees work.
+    Walks the tree in preorder with a list rather than by recursion, so deep
+    trees work and a failed TRANSLATE lookup names the same taxon as before.
     """
     stack = [root]
     while stack:
         clade = stack.pop()
-        stack.extend(clade.clades)
+        stack.extend(reversed(clade.clades))
         if clade.branch_length is None:
-            clade.branch_length = float(clade.confidence or 0)
+            # Not "confidence or 0", which would turn -0.0 into 0.0
+            clade.branch_length = (
+                0.0 if clade.confidence is None else float(clade.confidence)
+            )
             clade.confidence = None
         elif clade.confidence is not None:
             clade.confidence = float(clade.confidence)

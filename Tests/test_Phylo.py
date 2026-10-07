@@ -5,6 +5,7 @@
 
 """Unit tests for the Bio.Phylo module."""
 
+import math
 import os
 import tempfile
 import unittest
@@ -13,6 +14,7 @@ from io import StringIO
 import support
 
 from Bio import Phylo
+from Bio.Nexus.Nexus import NexusError
 from Bio.Phylo import PhyloXML
 
 # Example Newick and Nexus files
@@ -117,6 +119,21 @@ class IOTests(unittest.TestCase):
         # Comments keep their brackets
         self.assertEqual(human.comment, "[&rate=1.5]")
         self.assertEqual(human.branch_length, 0.1)
+
+    def test_nexus_read_negative_zero(self):
+        """A bare -0.0 after a clade is a branch length of -0.0, as before."""
+        handle = StringIO("#NEXUS\nbegin trees;\ntree t = ((a,b)-0.0,c);\nend;\n")
+        inner = Phylo.read(handle, "nexus").root.clades[0]
+        self.assertEqual(math.copysign(1, inner.branch_length), -1)
+
+    def test_nexus_read_translate_error(self):
+        """A failed TRANSLATE lookup names the first missing taxon in preorder."""
+        handle = StringIO(
+            "#NEXUS\nbegin trees;\ntranslate 1 a, 2 b;\n"
+            "tree t = (1,(2,3),4);\nend;\n"
+        )
+        with self.assertRaisesRegex(NexusError, "Unable to substitute 3 "):
+            Phylo.read(handle, "nexus")
 
     def test_newick_write(self):
         """Parse a Nexus file with multiple trees."""
