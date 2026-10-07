@@ -280,6 +280,32 @@ class ProbeTests(unittest.TestCase):
         self.assertRegex(output, r"ERROR \S*test_probe_chdir.py::Chdir::test_chdir")
         self.assertIn("Current directory changed", output)
 
+    def test_classes_run_in_unittest_order(self):
+        returncode, output = self.run_pytest(
+            {
+                "test_probe_order.py": """\
+                    import unittest
+                    class Second(unittest.TestCase):
+                        def test_b(self):
+                            pass
+                        def test_a(self):
+                            pass
+                    class First(unittest.TestCase):
+                        def test_z(self):
+                            pass
+                """,
+            },
+            "--collect-only",
+            "-q",
+        )
+        self.assertEqual(returncode, 0, output)
+        self.assertRegex(
+            output,
+            r"test_probe_order.py::First::test_z\n"
+            r"\S*test_probe_order.py::Second::test_a\n"
+            r"\S*test_probe_order.py::Second::test_b\n",
+        )
+
     def test_offline_blocks_network(self):
         returncode, output = self.run_pytest(
             {
@@ -350,7 +376,8 @@ class ProbeTests(unittest.TestCase):
             r" <- \S*probe_docstrings.py FAILED",
         )
         self.assertRegex(output, r"probe_docstrings.py:7: DocTestFailure")
-        self.assertIn("007     >>> 1 + 1", output)
+        # Python 3.13 and later strip the docstring's indentation.
+        self.assertRegex(output, r"007 +>>> 1 \+ 1")
         self.assertIn("Expected:\n    3\nGot:\n    2", output)
 
 

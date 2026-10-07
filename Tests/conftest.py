@@ -238,7 +238,11 @@ class _TestModule(pytest.Module):
         tests = unittest.TestLoader().loadTestsFromModule(self.obj)
         if tests.countTestCases() == 0:
             raise self.CollectError(f"No tests found in {self.path.stem}")
-        return super().collect()
+        # Run the TestCase classes in unittest's order, sorted by name, as
+        # run_tests.py did, not in pytest's definition order. Tests can
+        # depend on it: under PyPy a file handle leaked by one class may only
+        # be finalized during a later test's gc.collect().
+        return sorted(super().collect(), key=lambda node: node.name)
 
 
 class _DocTestRunner(doctest.DocTestRunner):
