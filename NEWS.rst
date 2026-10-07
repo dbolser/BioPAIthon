@@ -232,8 +232,8 @@ one step later without ever mentioning the removal. A GitHub code search finds
 package is now a stub raising ``ImportError`` that names the removed modules
 and points at hmmlearn, the treatment ``Bio.Alphabet`` and the command line
 wrappers already have. Code guarded with ``except ImportError`` is unaffected.
-The package deliberately stays in ``pyproject.toml``: the stub has to ship for
-its message to reach anyone.
+The package deliberately still ships: its message can only reach anyone if the
+stub is installed.
 
 ``Bio.Cluster``'s ``kcluster``, ``kmedoids`` and ``somcluster`` (and the
 corresponding ``Record`` methods) accept a new optional ``rng_seed`` keyword,
