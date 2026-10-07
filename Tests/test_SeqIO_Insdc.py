@@ -8,6 +8,7 @@ import unittest
 import warnings
 from io import StringIO
 
+import support
 from seq_tests_common import SeqRecordTestBaseClass
 from test_SeqIO import SeqIOConverterTestBaseClass
 
@@ -23,7 +24,7 @@ from Bio.SeqRecord import SeqRecord
 class TestEmbl(unittest.TestCase):
     def test_annotation1(self):
         """Check parsing of annotation from EMBL files (1)."""
-        record = SeqIO.read("EMBL/TRBG361.embl", "embl")
+        record = SeqIO.read(support.DATA / "EMBL" / "TRBG361.embl", "embl")
         self.assertEqual(len(record), 1859)
         # Single keyword:
         self.assertEqual(record.annotations["keywords"], ["beta-glucosidase"])
@@ -31,7 +32,7 @@ class TestEmbl(unittest.TestCase):
 
     def test_annotation2(self):
         """Check parsing of annotation from EMBL files (2)."""
-        record = SeqIO.read("EMBL/DD231055_edited.embl", "embl")
+        record = SeqIO.read(support.DATA / "EMBL" / "DD231055_edited.embl", "embl")
         self.assertEqual(len(record), 315)
         # Multiple keywords:
         self.assertEqual(
@@ -47,7 +48,7 @@ class TestEmbl(unittest.TestCase):
 
     def test_annotation3(self):
         """Check parsing of annotation from EMBL files (3)."""
-        record = SeqIO.read("EMBL/AE017046.embl", "embl")
+        record = SeqIO.read(support.DATA / "EMBL" / "AE017046.embl", "embl")
         self.assertEqual(len(record), 9609)
         # TODO: Should this be an empty list, or simply absent?
         self.assertEqual(record.annotations["keywords"], [""])
@@ -56,7 +57,7 @@ class TestEmbl(unittest.TestCase):
     def test_annotation4(self):
         """Check parsing of annotation from EMBL files (4)."""
         with self.assertWarns(BiopythonParserWarning):
-            record = SeqIO.read("EMBL/location_wrap.embl", "embl")
+            record = SeqIO.read(support.DATA / "EMBL" / "location_wrap.embl", "embl")
         self.assertEqual(len(record), 120)
         self.assertNotIn("keywords", record.annotations)
         # The ID line has the topology as unspecified:
@@ -196,29 +197,29 @@ class TestEmblRewrite(SeqRecordTestBaseClass):
         """Check writing-and-parsing EMBL file (1)."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            self.check_rewrite("EMBL/TRBG361.embl")
+            self.check_rewrite(support.DATA / "EMBL" / "TRBG361.embl")
 
     def test_annotation2(self):
         """Check writing-and-parsing EMBL file (2)."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            self.check_rewrite("EMBL/DD231055_edited.embl")
+            self.check_rewrite(support.DATA / "EMBL" / "DD231055_edited.embl")
 
     def test_annotation3(self):
         """Check writing-and-parsing EMBL file (3)."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            self.check_rewrite("EMBL/AE017046.embl")
+            self.check_rewrite(support.DATA / "EMBL" / "AE017046.embl")
 
 
 class ConvertTestsInsdc(SeqIOConverterTestBaseClass):
     def test_conversion(self):
         """Test format conversion by SeqIO.write/SeqIO.parse and SeqIO.convert."""
         tests = [
-            ("EMBL/U87107.embl", "embl"),
-            ("EMBL/TRBG361.embl", "embl"),
-            ("GenBank/NC_005816.gb", "gb"),
-            ("GenBank/cor6_6.gb", "genbank"),
+            (support.DATA / "EMBL" / "U87107.embl", "embl"),
+            (support.DATA / "EMBL" / "TRBG361.embl", "embl"),
+            (support.DATA / "GenBank" / "NC_005816.gb", "gb"),
+            (support.DATA / "GenBank" / "cor6_6.gb", "genbank"),
         ]
         for filename, fmt in tests:
             for in_format, out_format in self.formats:

@@ -22,6 +22,8 @@ except ImportError:
         "Install NumPy if you want to use PDB formats with SeqIO."
     ) from None
 
+import support
+
 from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
@@ -57,7 +59,9 @@ def SeqresTestGenerator(extension, parser):
             Reference:
             http://www.rcsb.org/pdb/files/fasta.txt?structureIdList=2BEG
             """
-            chains = list(SeqIO.parse("PDB/2BEG." + extension, parser))
+            chains = list(
+                SeqIO.parse(support.DATA / "PDB" / f"2BEG.{extension}", parser)
+            )
             self.assertEqual(len(chains), 5)
             actual_seq = "DAEFRHDSGYEVHHQKLVFFAEDVGSNKGAIIGLMVGGVVIA"
             for chain, chn_id in zip(chains, "ABCDE"):
@@ -71,7 +75,7 @@ def SeqresTestGenerator(extension, parser):
             Reference:
             http://www.rcsb.org/pdb/files/fasta.txt?structureIdList=1A8O
             """
-            chain = SeqIO.read("PDB/1A8O." + extension, parser)
+            chain = SeqIO.read(support.DATA / "PDB" / f"1A8O.{extension}", parser)
             self.assertEqual(chain.id, "1A8O:A")
             self.assertEqual(chain.annotations["chain"], "A")
             self.assertEqual(
@@ -82,7 +86,9 @@ def SeqresTestGenerator(extension, parser):
 
         def test_seqres_missing(self):
             """Parse a PDB with no SEQRES entries."""
-            chains = list(SeqIO.parse("PDB/a_structure." + extension, parser))
+            chains = list(
+                SeqIO.parse(support.DATA / "PDB" / f"a_structure.{extension}", parser)
+            )
             self.assertEqual(len(chains), 0)
 
     return SeqresTests
@@ -109,7 +115,9 @@ def AtomTestGenerator(extension, parser):
             Reference:
             http://www.rcsb.org/pdb/files/fasta.txt?structureIdList=2BEG
             """
-            chains = list(SeqIO.parse("PDB/2BEG." + extension, parser))
+            chains = list(
+                SeqIO.parse(support.DATA / "PDB" / f"2BEG.{extension}", parser)
+            )
             self.assertEqual(len(chains), 5)
             actual_seq = "LVFFAEDVGSNKGAIIGLMVGGVVIA"
             for chain, chn_id in zip(chains, "ABCDE"):
@@ -120,7 +128,9 @@ def AtomTestGenerator(extension, parser):
 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", PDBConstructionWarning)
-                chains = list(SeqIO.parse("PDB/2XHE." + extension, parser))
+                chains = list(
+                    SeqIO.parse(support.DATA / "PDB" / f"2XHE.{extension}", parser)
+                )
             actual_seq = (
                 "DRLSRLRQMAAENQXXXXXXXXXXXXXXXXXXXXXXXPEPFMADFFNRVK"
                 "RIRDNIEDIEQAIEQVAQLHTESLVAVSKEDRDRLNEKLQDTMARISALG"
@@ -137,7 +147,7 @@ def AtomTestGenerator(extension, parser):
             Reference:
             http://www.rcsb.org/pdb/files/fasta.txt?structureIdList=1A8O
             """
-            chain = SeqIO.read("PDB/1A8O." + extension, parser)
+            chain = SeqIO.read(support.DATA / "PDB" / f"1A8O.{extension}", parser)
             self.assertEqual(chain.id, "1A8O:A")
             self.assertEqual(chain.annotations["chain"], "A")
             self.assertEqual(chain.annotations["model"], 0)
@@ -158,7 +168,7 @@ class TestPdbAtom(AtomTestGenerator("pdb", "pdb-atom")):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             warnings.simplefilter("ignore", BiopythonParserWarning)
-            chains = list(SeqIO.parse("PDB/1LCD.pdb", "pdb-atom"))
+            chains = list(SeqIO.parse(support.DATA / "PDB" / "1LCD.pdb", "pdb-atom"))
 
         self.assertEqual(len(chains), 1)
         self.assertEqual(
@@ -170,14 +180,14 @@ class TestPdbAtom(AtomTestGenerator("pdb", "pdb-atom")):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             warnings.simplefilter("ignore", BiopythonParserWarning)
-            chain = SeqIO.read("PDB/a_structure.pdb", "pdb-atom")
+            chain = SeqIO.read(support.DATA / "PDB" / "a_structure.pdb", "pdb-atom")
         self.assertEqual(chain.id, "????:A")
         self.assertEqual(chain.annotations["chain"], "A")
         self.assertEqual(chain.seq, "Q")
 
     def test_atom_with_insertion(self):
         """Read a PDB with residue insertion code."""
-        chain = SeqIO.read("PDB/2n0n_M1.pdb", "pdb-atom")
+        chain = SeqIO.read(support.DATA / "PDB" / "2n0n_M1.pdb", "pdb-atom")
         self.assertEqual(chain.seq, "HAEGKFTSEF")
 
 
@@ -189,7 +199,7 @@ class TestCifAtom(AtomTestGenerator("cif", "cif-atom")):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             warnings.simplefilter("ignore", BiopythonParserWarning)
-            chain = SeqIO.read("PDB/a_structure.cif", "cif-atom")
+            chain = SeqIO.read(support.DATA / "PDB" / "a_structure.cif", "cif-atom")
         self.assertEqual(chain.id, "????:A")
         self.assertEqual(chain.annotations["chain"], "A")
         self.assertEqual(

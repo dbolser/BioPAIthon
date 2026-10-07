@@ -8,6 +8,8 @@ import array
 import unittest
 import warnings
 
+import support
+
 from Bio import BiopythonWarning
 from Bio import SeqIO
 from Bio.Data.CodonTable import CodonTable
@@ -526,7 +528,9 @@ class StringMethodTests(unittest.TestCase):
         with self.assertRaises(UndefinedSequenceError) as cm:
             u.replace("AT", "ACGT")  # unequal length
         self.assertEqual(str(cm.exception), "Sequence content is undefined")
-        with SeqIO.parse("TwoBit/sequence.littleendian.2bit", "twobit") as records:
+        with SeqIO.parse(
+            support.DATA / "TwoBit" / "sequence.littleendian.2bit", "twobit"
+        ) as records:
             v = records["seq6"].seq  # ACGTacgtNNNNnn, lazy-loaded
             s = Seq("xyzACGTacgtNNNNnnXYZ")
             t = s.replace(v, "KLM")
@@ -1022,7 +1026,7 @@ class StringMethodTests(unittest.TestCase):
 
     def test_join_Seq_with_file(self):
         """Checks if Seq join correctly concatenates sequence from a file with the spacer."""
-        filename = "Fasta/f003.fa"
+        filename = support.DATA / "Fasta" / "f003.fa"
         with SeqIO.parse(filename, "fasta") as records:
             seqlist = [record.seq for record in records]
         seqlist_as_strings = [str(_) for _ in seqlist]
@@ -1064,7 +1068,7 @@ class StringMethodTests(unittest.TestCase):
 
     def test_join_MutableSeq_with_file(self):
         """Checks if MutableSeq join correctly concatenates sequence from a file with the spacer."""
-        filename = "Fasta/f003.fa"
+        filename = support.DATA / "Fasta" / "f003.fa"
         with SeqIO.parse(filename, "fasta") as records:
             seqlist = [record.seq for record in records]
         seqlist_as_strings = [str(_) for _ in seqlist]
@@ -1110,7 +1114,7 @@ class FileBasedTests(unittest.TestCase):
 
     def test_unknown_seq(self):
         """Test if feature extraction works properly for unknown sequences."""
-        rec = SeqIO.read("GenBank/NT_019265.gb", "genbank")
+        rec = SeqIO.read(support.DATA / "GenBank" / "NT_019265.gb", "genbank")
         self.assertIsInstance(rec.seq, Seq)
         self.assertRaises(UndefinedSequenceError, bytes, rec.seq)
 
@@ -1806,7 +1810,9 @@ class PartialSequenceTests(unittest.TestCase):
         )
         self.assertEqual(repr(q1 + s1), "Seq({3: 'KLM', 11: 'XYZABCD'}, length=18)")
         self.assertEqual(repr(q1 + s2), "Seq({3: 'KLM', 11: 'XYZEFG'}, length=17)")
-        with SeqIO.parse("TwoBit/sequence.littleendian.2bit", "twobit") as records:
+        with SeqIO.parse(
+            support.DATA / "TwoBit" / "sequence.littleendian.2bit", "twobit"
+        ) as records:
             t = records["seq6"].seq  # ACGTacgtNNNNnn, lazy-loaded
             self.assertEqual(s1 + t, Seq("ABCDACGTacgtNNNNnn"))
             self.assertEqual(s2 + t, Seq("EFGACGTacgtNNNNnn"))

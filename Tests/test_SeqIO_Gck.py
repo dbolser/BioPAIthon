@@ -9,12 +9,14 @@
 import unittest
 from io import BytesIO
 
+import support
+
 from Bio import SeqIO
 
 
 class TestGckWithArtificialData(unittest.TestCase):
     def setUp(self):
-        with open("Gck/artificial.gck", "rb") as f:
+        with open(support.DATA / "Gck" / "artificial.gck", "rb") as f:
             self.buffer = f.read()
 
     def test_read(self):

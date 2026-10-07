@@ -9,6 +9,8 @@
 import unittest
 from io import BytesIO
 
+import support
+
 from Bio import BiopythonWarning
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -21,7 +23,7 @@ from Bio.SeqRecord import SeqRecord
 class TestXdna(unittest.TestCase):
     sample_data = {
         "sample-a": {
-            "file": "Xdna/sample-a.xdna",
+            "file": support.DATA / "Xdna" / "sample-a.xdna",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample sequence A",
@@ -46,7 +48,7 @@ class TestXdna(unittest.TestCase):
             ],
         },
         "sample-b": {
-            "file": "Xdna/sample-b.xdna",
+            "file": support.DATA / "Xdna" / "sample-b.xdna",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample sequence B",
@@ -71,7 +73,7 @@ class TestXdna(unittest.TestCase):
             ],
         },
         "sample-c": {
-            "file": "Xdna/sample-c.xprt",
+            "file": support.DATA / "Xdna" / "sample-c.xprt",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample Sequence C",
@@ -123,7 +125,7 @@ class TestXdna(unittest.TestCase):
 
 class TestInvalidXdna(unittest.TestCase):
     def setUp(self):
-        with open("Xdna/sample-a.xdna", "rb") as f:
+        with open(support.DATA / "Xdna" / "sample-a.xdna", "rb") as f:
             self.buffer = f.read()
 
     def munge_buffer(self, position, value):

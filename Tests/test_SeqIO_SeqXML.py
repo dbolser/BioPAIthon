@@ -7,6 +7,8 @@
 import unittest
 from io import BytesIO
 
+import support
+
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -15,13 +17,23 @@ from Bio.SeqRecord import SeqRecord
 class TestSimpleRead(unittest.TestCase):
     def test_check_SeqIO(self):
         """Files readable using parser via SeqIO."""
-        records = list(SeqIO.parse("SeqXML/dna_example.xml", "seqxml"))
+        records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "dna_example.xml", "seqxml")
+        )
         self.assertEqual(len(records), 4)
-        records = list(SeqIO.parse("SeqXML/rna_example.xml", "seqxml"))
+        records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "rna_example.xml", "seqxml")
+        )
         self.assertEqual(len(records), 5)
-        records = list(SeqIO.parse("SeqXML/protein_example.xml", "seqxml"))
+        records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "protein_example.xml", "seqxml")
+        )
         self.assertEqual(len(records), 5)
-        records = list(SeqIO.parse("SeqXML/global_species_example.xml", "seqxml"))
+        records = list(
+            SeqIO.parse(
+                support.DATA / "SeqXML" / "global_species_example.xml", "seqxml"
+            )
+        )
         self.assertEqual(len(records), 2)
 
 
@@ -29,13 +41,19 @@ class TestDetailedRead(unittest.TestCase):
     records = {}
 
     def setUp(self):
-        self.records["dna"] = list(SeqIO.parse("SeqXML/dna_example.xml", "seqxml"))
-        self.records["rna"] = list(SeqIO.parse("SeqXML/rna_example.xml", "seqxml"))
+        self.records["dna"] = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "dna_example.xml", "seqxml")
+        )
+        self.records["rna"] = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "rna_example.xml", "seqxml")
+        )
         self.records["protein"] = list(
-            SeqIO.parse("SeqXML/protein_example.xml", "seqxml")
+            SeqIO.parse(support.DATA / "SeqXML" / "protein_example.xml", "seqxml")
         )
         self.records["globalSpecies"] = list(
-            SeqIO.parse("SeqXML/global_species_example.xml", "seqxml")
+            SeqIO.parse(
+                support.DATA / "SeqXML" / "global_species_example.xml", "seqxml"
+            )
         )
 
     def test_special_characters_desc(self):
@@ -137,28 +155,30 @@ class TestDetailedRead(unittest.TestCase):
 class TestReadHeader(unittest.TestCase):
     def test_check_dna_header(self):
         """Check if the header information is parsed."""
-        records = SeqIO.parse("SeqXML/dna_example.xml", "seqxml")
+        records = SeqIO.parse(support.DATA / "SeqXML" / "dna_example.xml", "seqxml")
         self.assertEqual(records.source, "Ensembl")
         self.assertEqual(records.sourceVersion, "56")
         self.assertEqual(records.seqXMLversion, "0.4")
 
     def test_check_rna_header(self):
         """Check if the header information is parsed."""
-        records = SeqIO.parse("SeqXML/rna_example.xml", "seqxml")
+        records = SeqIO.parse(support.DATA / "SeqXML" / "rna_example.xml", "seqxml")
         self.assertEqual(records.source, "Ensembl")
         self.assertEqual(records.sourceVersion, "56")
         self.assertEqual(records.seqXMLversion, "0.3")
 
     def test_check_protein_header(self):
         """Check if the header information is parsed."""
-        records = SeqIO.parse("SeqXML/protein_example.xml", "seqxml")
+        records = SeqIO.parse(support.DATA / "SeqXML" / "protein_example.xml", "seqxml")
         self.assertEqual(records.source, "Ensembl")
         self.assertEqual(records.sourceVersion, "56")
         self.assertEqual(records.seqXMLversion, "0.4")
 
     def test_check_global_species_example_header(self):
         """Check if the header information is parsed."""
-        records = SeqIO.parse("SeqXML/global_species_example.xml", "seqxml")
+        records = SeqIO.parse(
+            support.DATA / "SeqXML" / "global_species_example.xml", "seqxml"
+        )
         self.assertEqual(records.speciesName, "Mus musculus")
         self.assertEqual(records.ncbiTaxID, "10090")
         self.assertEqual(records.source, "Ensembl")
@@ -169,22 +189,32 @@ class TestReadHeader(unittest.TestCase):
 class TestReadAndWrite(unittest.TestCase):
     def test_read_write_rna(self):
         """Read and write RNA."""
-        read1_records = list(SeqIO.parse("SeqXML/rna_example.xml", "seqxml"))
+        read1_records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "rna_example.xml", "seqxml")
+        )
         self._write_parse_and_compare(read1_records)
 
     def test_read_write_dna(self):
         """Read and write DNA."""
-        read1_records = list(SeqIO.parse("SeqXML/dna_example.xml", "seqxml"))
+        read1_records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "dna_example.xml", "seqxml")
+        )
         self._write_parse_and_compare(read1_records)
 
     def test_read_write_protein(self):
         """Read and write protein."""
-        read1_records = list(SeqIO.parse("SeqXML/protein_example.xml", "seqxml"))
+        read1_records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "protein_example.xml", "seqxml")
+        )
         self._write_parse_and_compare(read1_records)
 
     def test_read_write_globalSpecies(self):
         """Read and write global species."""
-        read1_records = list(SeqIO.parse("SeqXML/global_species_example.xml", "seqxml"))
+        read1_records = list(
+            SeqIO.parse(
+                support.DATA / "SeqXML" / "global_species_example.xml", "seqxml"
+            )
+        )
         self._write_parse_and_compare(read1_records)
 
     def _write_parse_and_compare(self, read1_records):
@@ -207,7 +237,7 @@ class TestReadAndWrite(unittest.TestCase):
 
     def test_write_species(self):
         """Test writing species from annotation tags."""
-        record = SeqIO.read("SwissProt/sp016", "swiss")
+        record = SeqIO.read(support.DATA / "SwissProt" / "sp016", "swiss")
         self.assertEqual(record.annotations["organism"], "Homo sapiens (Human)")
         self.assertEqual(record.annotations["ncbi_taxid"], ["9606"])
         handle = BytesIO()
@@ -238,9 +268,15 @@ class TestReadCorruptFiles(unittest.TestCase):
             for record in records:
                 pass
 
-        self.assertRaises(ValueError, f, "SeqXML/corrupt_example1.xml")
-        self.assertRaises(ValueError, f, "SeqXML/corrupt_example2.xml")
-        self.assertRaises(ValueError, f, "SeqXML/corrupt_example3.xml")
+        self.assertRaises(
+            ValueError, f, support.DATA / "SeqXML" / "corrupt_example1.xml"
+        )
+        self.assertRaises(
+            ValueError, f, support.DATA / "SeqXML" / "corrupt_example2.xml"
+        )
+        self.assertRaises(
+            ValueError, f, support.DATA / "SeqXML" / "corrupt_example3.xml"
+        )
 
     def test_molecule_type_mismatch(self):
         """Check a molecule_type property contradicting the sequence type."""
@@ -264,7 +300,9 @@ class TestReadCorruptFiles(unittest.TestCase):
 class TestOldVersions(unittest.TestCase):
     def test_version01(self):
         """Test for version 0.1 specific features."""
-        records = list(SeqIO.parse("SeqXML/version_01_example.xml", "seqxml"))
+        records = list(
+            SeqIO.parse(support.DATA / "SeqXML" / "version_01_example.xml", "seqxml")
+        )
         self.assertEqual(records[0].seq, "AAAAAACGTAAA")
         self.assertEqual(records[0].dbxrefs[0], "db:1")
         self.assertEqual(records[1].seq, "AAAUUUUCTGAA")
@@ -278,9 +316,9 @@ class TestOldVersions(unittest.TestCase):
             for record in records:
                 pass
 
-        self.assertRaises(ValueError, f, "SeqXML/wrong_version1.xml")
-        self.assertRaises(ValueError, f, "SeqXML/wrong_version2.xml")
-        self.assertRaises(ValueError, f, "SeqXML/wrong_version3.xml")
+        self.assertRaises(ValueError, f, support.DATA / "SeqXML" / "wrong_version1.xml")
+        self.assertRaises(ValueError, f, support.DATA / "SeqXML" / "wrong_version2.xml")
+        self.assertRaises(ValueError, f, support.DATA / "SeqXML" / "wrong_version3.xml")
 
 
 if __name__ == "__main__":

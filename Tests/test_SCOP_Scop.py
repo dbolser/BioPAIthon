@@ -11,6 +11,8 @@ import unittest
 from contextlib import redirect_stdout
 from io import StringIO
 
+import support
+
 from Bio.SCOP import cmp_sccs
 from Bio.SCOP import parse_domain
 from Bio.SCOP import Scop
@@ -33,11 +35,11 @@ class ScopTests(unittest.TestCase):
         self.assertCountEqual(fields1[5].split(","), fields2[5].split(","))
 
     def testParse(self):
-        with open("./SCOP/dir.cla.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.cla.scop.txt_test") as f:
             cla = f.read()
-        with open("./SCOP/dir.des.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.des.scop.txt_test") as f:
             des = f.read()
-        with open("./SCOP/dir.hie.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.hie.scop.txt_test") as f:
             hie = f.read()
 
         scop = Scop(StringIO(cla), StringIO(des), StringIO(hie))
@@ -69,11 +71,11 @@ class ScopTests(unittest.TestCase):
         self.assertIsNone(dom)
 
     def testHieSunidMissingFromDes(self):
-        with open("./SCOP/dir.cla.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.cla.scop.txt_test") as f:
             cla = f.read()
-        with open("./SCOP/dir.des.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.des.scop.txt_test") as f:
             des = f.read()
-        with open("./SCOP/dir.hie.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.hie.scop.txt_test") as f:
             hie = f.read() + "99999\t-\t-\n"
 
         stdout = StringIO()
@@ -117,14 +119,14 @@ class ScopTests(unittest.TestCase):
         self.assertRaises(ValueError, parse_domain, "Totally wrong")
 
     def testConstructFromDirectory(self):
-        scop = Scop(dir_path="SCOP", version="test")
+        scop = Scop(dir_path=support.DATA / "SCOP", version="test")
         self.assertIsInstance(scop, Scop)
 
         domain = scop.getDomainBySid("d1hbia_")
         self.assertEqual(domain.sunid, 14996)
 
     def testGetAscendent(self):
-        scop = Scop(dir_path="SCOP", version="test")
+        scop = Scop(dir_path=support.DATA / "SCOP", version="test")
         domain = scop.getDomainBySid("d1hbia_")
 
         # get the fold
@@ -145,7 +147,7 @@ class ScopTests(unittest.TestCase):
 
     def test_get_descendents(self):
         """Test getDescendents method."""
-        scop = Scop(dir_path="SCOP", version="test")
+        scop = Scop(dir_path=support.DATA / "SCOP", version="test")
         fold = scop.getNodeBySunid(46457)
 
         # get px descendents

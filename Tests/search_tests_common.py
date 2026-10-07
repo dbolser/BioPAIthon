@@ -73,6 +73,9 @@ class CheckRaw(unittest.TestCase):
 
     def check_raw(self, filename, id, raw, **kwargs):
         """Index filename using keyword arguments, check get_raw(id)==raw."""
+        # Callers pass support.DATA paths; this method appends ".bgz" and
+        # SearchIO.index_db takes a lone filename only as a str.
+        filename = os.fspath(filename)
         idx = SearchIO.index(filename, self.fmt, **kwargs)
         raw = raw.encode()
         # Anticipate cases where the raw string and/or file uses different
@@ -102,6 +105,8 @@ class CheckIndex(SearchTestBaseClass):
     """Base class for testing indexing."""
 
     def check_index(self, filename, format, **kwargs):
+        # Callers pass support.DATA paths; this method appends ".bgz".
+        filename = os.fspath(filename)
         if filename.endswith(".bgz"):
             with gzip.open(filename) as handle:
                 parsed = list(SearchIO.parse(handle, format, **kwargs))

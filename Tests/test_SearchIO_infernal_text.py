@@ -7,20 +7,21 @@
 
 """Tests for SearchIO InfernalIO infernal-text parser."""
 
-import os
 import unittest
 import itertools
+
+import support
 
 from Bio.SearchIO import parse
 
 # test case files are in the Infernal directory
-TEST_DIR = "Infernal"
+TEST_DIR = support.DATA / "Infernal"
 FMT = "infernal-text"
 
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 def next_result(qresults, counter):

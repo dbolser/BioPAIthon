@@ -8,6 +8,8 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import SeqIO
 from Bio.SeqIO.FastaIO import FastaTwoLineParser
 from Bio.SeqIO.FastaIO import SimpleFastaParser
@@ -59,19 +61,21 @@ class Wrapping(unittest.TestCase):
 
     def test_fails(self):
         """Test case which should fail."""
-        self.assertRaises(ValueError, SeqIO.read, "Fasta/aster.pro", "fasta-2line")
+        self.assertRaises(
+            ValueError, SeqIO.read, support.DATA / "Fasta" / "aster.pro", "fasta-2line"
+        )
 
     def test_passes(self):
         """Test case which should pass."""
-        expected = SeqIO.read("Fasta/aster.pro", "fasta")
+        expected = SeqIO.read(support.DATA / "Fasta" / "aster.pro", "fasta")
 
-        record = SeqIO.read("Fasta/aster_no_wrap.pro", "fasta")
+        record = SeqIO.read(support.DATA / "Fasta" / "aster_no_wrap.pro", "fasta")
         self.assertEqual(expected.id, record.id)
         self.assertEqual(expected.name, record.name)
         self.assertEqual(expected.description, record.description)
         self.assertEqual(expected.seq, record.seq)
 
-        record = SeqIO.read("Fasta/aster_no_wrap.pro", "fasta-2line")
+        record = SeqIO.read(support.DATA / "Fasta" / "aster_no_wrap.pro", "fasta-2line")
         self.assertEqual(expected.id, record.id)
         self.assertEqual(expected.name, record.name)
         self.assertEqual(expected.description, record.description)
@@ -106,14 +110,14 @@ class TitleFunctions(unittest.TestCase):
     def test_single_nucleic_files(self):
         """Test Fasta files containing a single nucleotide sequence."""
         paths = (
-            "Fasta/lupine.nu",
-            "Fasta/elderberry.nu",
-            "Fasta/phlox.nu",
-            "Fasta/centaurea.nu",
-            "Fasta/wisteria.nu",
-            "Fasta/sweetpea.nu",
-            "Fasta/lavender.nu",
-            "Fasta/f001",
+            support.DATA / "Fasta" / "lupine.nu",
+            support.DATA / "Fasta" / "elderberry.nu",
+            support.DATA / "Fasta" / "phlox.nu",
+            support.DATA / "Fasta" / "centaurea.nu",
+            support.DATA / "Fasta" / "wisteria.nu",
+            support.DATA / "Fasta" / "sweetpea.nu",
+            support.DATA / "Fasta" / "lavender.nu",
+            support.DATA / "Fasta" / "f001",
         )
         for path in paths:
             self.simple_check(path)
@@ -121,10 +125,10 @@ class TitleFunctions(unittest.TestCase):
     def test_single_proteino_files(self):
         """Test Fasta files containing a single protein sequence."""
         paths = (
-            "Fasta/aster.pro",
-            "Fasta/rosemary.pro",
-            "Fasta/rose.pro",
-            "Fasta/loveliesbleeding.pro",
+            support.DATA / "Fasta" / "aster.pro",
+            support.DATA / "Fasta" / "rosemary.pro",
+            support.DATA / "Fasta" / "rose.pro",
+            support.DATA / "Fasta" / "loveliesbleeding.pro",
         )
         for path in paths:
             self.simple_check(path)
@@ -194,14 +198,14 @@ class TestSimpleFastaParsers(unittest.TestCase):
 class TestFastaWithComments(unittest.TestCase):
     """Test FastaBlastIterator and FastaPearsonIterator."""
 
-    expected = SeqIO.read("Fasta/aster.pro", "fasta")
+    expected = SeqIO.read(support.DATA / "Fasta" / "aster.pro", "fasta")
 
     def test_fasta_blast(self):
         """Test FastaBlastIterator."""
 
         expected = self.expected
 
-        record = SeqIO.read("Fasta/aster_blast.pro", "fasta-blast")
+        record = SeqIO.read(support.DATA / "Fasta" / "aster_blast.pro", "fasta-blast")
         self.assertEqual(expected.id, record.id)
         self.assertEqual(expected.name, record.name)
         self.assertEqual(expected.description, record.description)
@@ -212,7 +216,9 @@ class TestFastaWithComments(unittest.TestCase):
 
         expected = self.expected
 
-        record = SeqIO.read("Fasta/aster_pearson.pro", "fasta-pearson")
+        record = SeqIO.read(
+            support.DATA / "Fasta" / "aster_pearson.pro", "fasta-pearson"
+        )
         self.assertEqual(expected.id, record.id)
         self.assertEqual(expected.name, record.name)
         self.assertEqual(expected.description, record.description)
@@ -222,10 +228,20 @@ class TestFastaWithComments(unittest.TestCase):
         """Test if ValueErrors are raised if comments are found unexpectedly."""
 
         self.assertRaises(
-            ValueError, SeqIO.read, "Fasta/aster_pearson.pro", "fasta-blast"
+            ValueError,
+            SeqIO.read,
+            support.DATA / "Fasta" / "aster_pearson.pro",
+            "fasta-blast",
         )
-        self.assertRaises(ValueError, SeqIO.read, "Fasta/aster_pearson.pro", "fasta")
-        self.assertRaises(ValueError, SeqIO.read, "Fasta/aster_blast.pro", "fasta")
+        self.assertRaises(
+            ValueError,
+            SeqIO.read,
+            support.DATA / "Fasta" / "aster_pearson.pro",
+            "fasta",
+        )
+        self.assertRaises(
+            ValueError, SeqIO.read, support.DATA / "Fasta" / "aster_blast.pro", "fasta"
+        )
 
 
 if __name__ == "__main__":

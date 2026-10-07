@@ -14,6 +14,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 from Bio.UniProt import GOA
 
 
@@ -24,7 +26,7 @@ class GoaTests(unittest.TestCase):
         """Test GOA GAF file iterator."""
         # Test GAF 2.0
         recs = []
-        with open("UniProt/goa_yeast.gaf") as handle:
+        with open(support.DATA / "UniProt" / "goa_yeast.gaf") as handle:
             for rec in GOA.gafiterator(handle):
                 recs.append(rec)
 
@@ -44,7 +46,9 @@ class GoaTests(unittest.TestCase):
 
         # Test GAF 2.1, it has the same fields as GAF 2.0
         recs = []
-        with open("UniProt/gene_association.goa_yeast.1.gaf") as handle:
+        with open(
+            support.DATA / "UniProt" / "gene_association.goa_yeast.1.gaf"
+        ) as handle:
             for rec in GOA.gafiterator(handle):
                 recs.append(rec)
 
@@ -65,7 +69,7 @@ class GoaTests(unittest.TestCase):
     def test_gpa_iterator(self):
         """Test GOA GPA file iterator."""
         recs = []
-        with open("UniProt/goa_yeast.gpa.59.gpa") as handle:
+        with open(support.DATA / "UniProt" / "goa_yeast.gpa.59.gpa") as handle:
             for rec in GOA.gpa_iterator(handle):
                 recs.append(rec)
         self.assertEqual(len(recs), 300)
@@ -87,7 +91,9 @@ class GoaTests(unittest.TestCase):
     def test_gpi_iterator(self):
         """Test GOA GPI file iterator, gpi-version: 1.1."""
         recs = []
-        with open("UniProt/gp_information.goa_yeast.28.gpi") as handle:
+        with open(
+            support.DATA / "UniProt" / "gp_information.goa_yeast.28.gpi"
+        ) as handle:
             for rec in GOA.gpi_iterator(handle):
                 recs.append(rec)
         self.assertEqual(len(recs), 300)
@@ -109,7 +115,7 @@ class GoaTests(unittest.TestCase):
     def test_gpi_iterator_one_two(self):
         """Test GOA GPI file iterator, gpi-version: 1.2."""
         recs = []
-        with open("UniProt/goa_human_sample.gpi") as handle:
+        with open(support.DATA / "UniProt" / "goa_human_sample.gpi") as handle:
             for rec in GOA.gpi_iterator(handle):
                 recs.append(rec)
         self.assertEqual(len(recs), 9)
@@ -144,7 +150,7 @@ class GoaTests(unittest.TestCase):
         os.close(f_number)
 
         # Open a file and select records as per filter
-        with open("UniProt/goa_yeast.gaf") as handle:
+        with open(support.DATA / "UniProt" / "goa_yeast.gaf") as handle:
             for rec in GOA.gafiterator(handle):
                 recs.append(rec)
                 # Filtering

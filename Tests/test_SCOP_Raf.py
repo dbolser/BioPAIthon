@@ -8,6 +8,8 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio.SCOP import Raf
 
 
@@ -63,12 +65,12 @@ class RafTests(unittest.TestCase):
     def test_SeqMap_getAtoms_err(self):
         r = Raf.SeqMap(self.rafLine)
         # There is no overlap with this PDB file...
-        with open("PDB/1A8O.pdb") as pdb_handle:
+        with open(support.DATA / "PDB" / "1A8O.pdb") as pdb_handle:
             out_handle = StringIO()
             self.assertRaises(RuntimeError, r.getAtoms, *(pdb_handle, out_handle))
 
     def testSeqMapIndex(self):
-        filename = "./SCOP/raftest.txt"
+        filename = support.DATA / "SCOP" / "raftest.txt"
 
         index = Raf.SeqMapIndex(filename)
         r = index.getSeqMap("103m")

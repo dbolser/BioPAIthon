@@ -10,6 +10,8 @@ import datetime
 import unittest
 from io import BytesIO
 
+import support
+
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import CompoundLocation
@@ -20,7 +22,7 @@ from Bio.SeqRecord import SeqRecord
 class TestSnapGene(unittest.TestCase):
     sample_data = {
         "sample-d": {
-            "file": "SnapGene/sample-d.dna",
+            "file": support.DATA / "SnapGene" / "sample-d.dna",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample Sequence D",
@@ -69,7 +71,7 @@ class TestSnapGene(unittest.TestCase):
             ],
         },
         "sample-e": {
-            "file": "SnapGene/sample-e.dna",
+            "file": support.DATA / "SnapGene" / "sample-e.dna",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample Sequence E",
@@ -94,7 +96,7 @@ class TestSnapGene(unittest.TestCase):
             ],
         },
         "sample-f": {
-            "file": "SnapGene/sample-f.dna",
+            "file": support.DATA / "SnapGene" / "sample-f.dna",
             "name": "Sample",
             "id": "Sample",
             "description": "Sample Sequence F",
@@ -140,7 +142,7 @@ class TestSnapGene(unittest.TestCase):
             ],
         },
         "pFA-KanMX4": {
-            "file": "SnapGene/pFA-KanMX4.dna",
+            "file": support.DATA / "SnapGene" / "pFA-KanMX4.dna",
             "name": "<unknown name>",
             "id": "<unknown id>",
             "description": "<unknown description>",
@@ -267,7 +269,9 @@ class TestSnapGene(unittest.TestCase):
         """Ensure only releveant `primer_bind` features from SnapGene files are retained in
         the `SeqRecord`. See the docstring of `_parse_primers_packet` for more details.
         """
-        record = SeqIO.read("SnapGene/sample-hybridization-params.dna", "snapgene")
+        record = SeqIO.read(
+            support.DATA / "SnapGene" / "sample-hybridization-params.dna", "snapgene"
+        )
         count_primer_features = 0
         for feature in record.features:
             if "XhoI-hht2(US)-Fwd" in feature.qualifiers["label"]:
@@ -280,7 +284,9 @@ class TestSnapGene(unittest.TestCase):
         Otherwise, when writing to GenBank, the linebreaks will be preserved,
         messing up the format.
         """
-        record = SeqIO.read("SnapGene/linebreak_in_qualifier_text.dna", "snapgene")
+        record = SeqIO.read(
+            support.DATA / "SnapGene" / "linebreak_in_qualifier_text.dna", "snapgene"
+        )
         for feature in record.features:
             for qualifier in feature.qualifiers:
                 for value in feature.qualifiers[qualifier]:
@@ -291,13 +297,17 @@ class TestSnapGene(unittest.TestCase):
         """Read a file that has a circular sequence with a feature that spans the entire sequence"""
 
         # If the feature spans the sequence from start to end
-        record = SeqIO.read("SnapGene/looped_feature_origin.dna", "snapgene")
+        record = SeqIO.read(
+            support.DATA / "SnapGene" / "looped_feature_origin.dna", "snapgene"
+        )
         self.assertEqual(record.annotations["topology"], "circular")
         self.assertEqual(len(record.features), 1)
         self.assertEqual(str(record.features[0].location), "[0:10](+)")
 
         # If the feature spans the entire sequence, but starts somewhere in the middle
-        record = SeqIO.read("SnapGene/looped_feature.dna", "snapgene")
+        record = SeqIO.read(
+            support.DATA / "SnapGene" / "looped_feature.dna", "snapgene"
+        )
         self.assertEqual(record.annotations["topology"], "circular")
         self.assertEqual(len(record.features), 1)
         self.assertEqual(str(record.features[0].location), "join{[2:10](+), [0:2](+)}")
@@ -316,7 +326,7 @@ class TestSnapGene(unittest.TestCase):
 
 class TestCorruptedSnapGene(unittest.TestCase):
     def setUp(self):
-        with open("SnapGene/sample-d.dna", "rb") as f:
+        with open(support.DATA / "SnapGene" / "sample-d.dna", "rb") as f:
             self.buffer = f.read()
 
     def munge_buffer(self, position, value):

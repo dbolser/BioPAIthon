@@ -8,6 +8,7 @@
 import os
 import unittest
 
+import support
 from search_tests_common import SearchTestBaseClass
 
 from Bio import SearchIO
@@ -40,38 +41,38 @@ class WriteCases(SearchTestBaseClass):
 
 class BlastXmlWriteCases(WriteCases):
     fmt = "blast-xml"
-    out = os.path.join("Blast", "test_write.xml")
+    out = support.DATA / "Blast" / "test_write.xml"
 
     def test_write_single_from_blastxml(self):
         """Test blast-xml writing from blast-xml, BLAST 2.2.26+, single query (xml_2226_blastp_004.xml)."""
-        source = os.path.join("Blast", "xml_2226_blastp_004.xml")
+        source = support.DATA / "Blast" / "xml_2226_blastp_004.xml"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_multiple_from_blastxml(self):
         """Test blast-xml writing from blast-xml, BLAST 2.2.26+, multiple queries (xml_2226_blastp_001.xml)."""
-        source = os.path.join("Blast", "xml_2226_blastp_001.xml")
+        source = support.DATA / "Blast" / "xml_2226_blastp_001.xml"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
 
 
 class BlastTabWriteCases(WriteCases):
     fmt = "blast-tab"
-    out = os.path.join("Blast", "test_write.txt")
+    out = support.DATA / "Blast" / "test_write.txt"
 
     def test_write_single_from_blasttab(self):
         """Test blast-tab writing from blast-tab, BLAST 2.2.26+, single query (tab_2226_tblastn_004.txt)."""
-        source = os.path.join("Blast", "tab_2226_tblastn_004.txt")
+        source = support.DATA / "Blast" / "tab_2226_tblastn_004.txt"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_multiple_from_blasttab(self):
         """Test blast-tab writing from blast-tab, BLAST 2.2.26+, multiple queries (tab_2226_tblastn_001.txt)."""
-        source = os.path.join("Blast", "tab_2226_tblastn_001.txt")
+        source = support.DATA / "Blast" / "tab_2226_tblastn_001.txt"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_single_from_blasttabc(self):
         """Test blast-tabc writing from blast-tabc, BLAST 2.2.26+, single query (tab_2226_tblastn_008.txt)."""
-        source = os.path.join("Blast", "tab_2226_tblastn_008.txt")
+        source = support.DATA / "Blast" / "tab_2226_tblastn_008.txt"
         self.parse_write_and_compare(
             source, self.fmt, self.out, self.fmt, comments=True
         )
@@ -79,14 +80,14 @@ class BlastTabWriteCases(WriteCases):
 
     def test_write_multiple_from_blasttabc(self):
         """Test blast-tabc writing from blast-tabc, BLAST 2.2.26+, multiple queries (tab_2226_tblastn_005.txt)."""
-        source = os.path.join("Blast", "tab_2226_tblastn_005.txt")
+        source = support.DATA / "Blast" / "tab_2226_tblastn_005.txt"
         self.parse_write_and_compare(
             source, self.fmt, self.out, self.fmt, comments=True
         )
 
     def test_write_multiple_from_blasttabc_allfields(self):
         """Test blast-tabc writing from blast-tabc, BLAST 2.2.28+, multiple queries (tab_2228_tblastx_001.txt)."""
-        source = os.path.join("Blast", "tab_2228_tblastx_001.txt")
+        source = support.DATA / "Blast" / "tab_2228_tblastx_001.txt"
         fields = [
             "qseqid",
             "qgi",
@@ -140,39 +141,39 @@ class BlastTabWriteCases(WriteCases):
 
 class HmmerTabWriteCases(WriteCases):
     fmt = "hmmer3-tab"
-    out = os.path.join("Hmmer", "test_write.txt")
+    out = support.DATA / "Hmmer" / "test_write.txt"
 
     def test_write_single_from_hmmertab(self):
         """Test hmmer3-tab writing from hmmer3-tab, HMMER 3.0, single query (tab_30_hmmscan_004.out)."""
-        source = os.path.join("Hmmer", "tab_30_hmmscan_004.out")
+        source = support.DATA / "Hmmer" / "tab_30_hmmscan_004.out"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_multiple_from_hmmertab(self):
         """Test hmmer3-tab writing from hmmer3-tab, HMMER 3.0, multiple queries (tab_30_hmmscan_001.out)."""
-        source = os.path.join("Hmmer", "tab_30_hmmscan_001.out")
+        source = support.DATA / "Hmmer" / "tab_30_hmmscan_001.out"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
 
 
 class HmmerDomtabWriteCases(WriteCases):
-    out = os.path.join("Hmmer", "test_write.txt")
+    out = support.DATA / "Hmmer" / "test_write.txt"
 
     def test_write_single_from_hmmscandomtab(self):
         """Test hmmscan-domtab writing from hmmscan-domtab, HMMER 3.0, single query (tab_30_hmmscan_004.out)."""
-        source = os.path.join("Hmmer", "domtab_30_hmmscan_004.out")
+        source = support.DATA / "Hmmer" / "domtab_30_hmmscan_004.out"
         fmt = "hmmscan3-domtab"
         self.parse_write_and_compare(source, fmt, self.out, fmt)
         self.read_write_and_compare(source, fmt, self.out, fmt)
 
     def test_write_multiple_from_hmmscandomtab(self):
         """Test hmmscan-domtab writing from hmmscan-domtab, HMMER 3.0, multiple queries (tab_30_hmmscan_001.out)."""
-        source = os.path.join("Hmmer", "domtab_30_hmmscan_001.out")
+        source = support.DATA / "Hmmer" / "domtab_30_hmmscan_001.out"
         fmt = "hmmscan3-domtab"
         self.parse_write_and_compare(source, fmt, self.out, fmt)
 
     def test_write_single_from_hmmsearchdomtab(self):
         """Test hmmsearch-domtab writing from hmmsearch-domtab, HMMER 3.0, single query (tab_30_hmmscan_004.out)."""
-        source = os.path.join("Hmmer", "domtab_30_hmmsearch_001.out")
+        source = support.DATA / "Hmmer" / "domtab_30_hmmsearch_001.out"
         fmt = "hmmsearch3-domtab"
         self.parse_write_and_compare(source, fmt, self.out, fmt)
         self.read_write_and_compare(source, fmt, self.out, fmt)
@@ -180,40 +181,40 @@ class HmmerDomtabWriteCases(WriteCases):
 
 class BlatPslWriteCases(WriteCases):
     fmt = "blat-psl"
-    out = os.path.join("Blat", "test_write.txt")
+    out = support.DATA / "Blat" / "test_write.txt"
 
     def test_write_single_from_blatpsl(self):
         """Test blat-psl writing from blat-psl, single query (psl_34_004.psl)."""
-        source = os.path.join("Blat", "psl_34_004.psl")
+        source = support.DATA / "Blat" / "psl_34_004.psl"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_single_from_blatpsl_protein_query(self):
         """Test blat-psl writing from blat-psl, single query (psl_35_002.psl)."""
-        source = os.path.join("Blat", "psl_35_002.psl")
+        source = support.DATA / "Blat" / "psl_35_002.psl"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_multiple_from_blatpsl(self):
         """Test blat-psl writing from blat-psl, multiple queries (psl_34_001.psl)."""
-        source = os.path.join("Blat", "psl_34_001.psl")
+        source = support.DATA / "Blat" / "psl_34_001.psl"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt)
 
     def test_write_single_from_blatpslx(self):
         """Test blat-pslx writing from blat-pslx, single query (pslx_34_004.pslx)."""
-        source = os.path.join("Blat", "pslx_34_004.pslx")
+        source = support.DATA / "Blat" / "pslx_34_004.pslx"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt, pslx=True)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt, pslx=True)
 
     def test_write_single_from_blatpslx_protein_query(self):
         """Test blat-pslx writing from blat-pslx, single query (pslx_35_002.pslx)."""
-        source = os.path.join("Blat", "pslx_35_002.pslx")
+        source = support.DATA / "Blat" / "pslx_35_002.pslx"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt, pslx=True)
         self.read_write_and_compare(source, self.fmt, self.out, self.fmt, pslx=True)
 
     def test_write_multiple_from_blatpslx(self):
         """Test blat-pslx writing from blat-pslx, multiple queries (pslx_34_001.pslx)."""
-        source = os.path.join("Blat", "pslx_34_001.pslx")
+        source = support.DATA / "Blat" / "pslx_34_001.pslx"
         self.parse_write_and_compare(source, self.fmt, self.out, self.fmt, pslx=True)
 
 

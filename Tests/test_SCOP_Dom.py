@@ -10,12 +10,14 @@ This test requires the mini DOM file 'testDom.txt'
 
 import unittest
 
+import support
+
 from Bio.SCOP import Dom
 
 
 class DomTests(unittest.TestCase):
     def setUp(self):
-        self.filename = "./SCOP/testDom.txt"
+        self.filename = support.DATA / "SCOP" / "testDom.txt"
 
     def testParse(self):
         """Test if all records in a DOM file are being read."""

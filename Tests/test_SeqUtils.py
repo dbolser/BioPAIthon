@@ -9,6 +9,8 @@ import os
 import re
 import unittest
 
+import support
+
 from Bio import SeqIO
 from Bio.Data import IUPACData
 from Bio.Seq import complement
@@ -52,7 +54,7 @@ class SeqUtilsTests(unittest.TestCase):
     def test_codon_adaptation_index_initialization(self):
         """Test Codon Adaptation Index (CAI) initialization from sequences."""
         # We need CDS sequences to count the codon usage...
-        dna_filename = "GenBank/NC_005816.gb"
+        dna_filename = support.DATA / "GenBank" / "NC_005816.gb"
         record = SeqIO.read(dna_filename, "genbank")
         records = []
         for feature in record.features:

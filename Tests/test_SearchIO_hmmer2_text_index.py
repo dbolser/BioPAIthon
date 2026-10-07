@@ -5,9 +5,9 @@
 
 """Tests for SearchIO hmmer2-text indexing."""
 
-import os
 import unittest
 
+import support
 from search_tests_common import CheckIndex
 from search_tests_common import CheckRaw
 
@@ -17,7 +17,7 @@ class Hmmer2TextRawCases(CheckRaw):
 
     def test_hmmer2text_22_single_hmmsearch(self):
         """Test hmmer2-text raw string retrieval, single query, hmmsearch."""
-        filename = os.path.join("Hmmer", "text_22_hmmsearch_001.out")
+        filename = support.DATA / "Hmmer" / "text_22_hmmsearch_001.out"
         raw = """hmmsearch - search a sequence database with a profile HMM
 HMMER 2.2g (August 2001)
 Copyright (C) 1992-2001 HHMI/Washington University School of Medicine
@@ -200,7 +200,7 @@ tophits_s report:
 
     def test_hmmer2text_22_single_hmmpfam(self):
         """Test hmmer2-text raw string retrieval, single query, hmmpfam."""
-        filename = os.path.join("Hmmer", "text_22_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_22_hmmpfam_001.out"
         raw = """hmmpfam - search one or more sequences against HMM database
 HMMER 2.2g (August 2001)
 Copyright (C) 1992-2001 HHMI/Washington University School of Medicine
@@ -256,7 +256,7 @@ Methylase_M: domain 1 of 1, from 280 to 481: score -105.2, E = 0.0022
 
     def test_hmmer2text_22_multiple_first_hmmpfam(self):
         """Test hmmer2-text raw string retrieval, multiple queries, hmmpfam."""
-        filename = os.path.join("Hmmer", "text_24_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_24_hmmpfam_001.out"
         raw = """hmmpfam - search one or more sequences against HMM database
 HMMER 2.4i (December 2006)
 Copyright (C) 1992-2006 HHMI Janelia Farm
@@ -288,7 +288,7 @@ Alignments of top-scoring domains:
 
     def test_hmmer2text_22_multiple_middle_hmmpfam(self):
         """Test hmmer2-text raw string retrieval, multiple queries, hmmpfam."""
-        filename = os.path.join("Hmmer", "text_24_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_24_hmmpfam_001.out"
         raw = """hmmpfam - search one or more sequences against HMM database
 HMMER 2.4i (December 2006)
 Copyright (C) 1992-2006 HHMI Janelia Farm
@@ -357,7 +357,7 @@ Rotavirus_VP3: domain 1 of 1, from 134 to 147: score -1.2, E = 7.9
 
     def test_hmmer2text_22_multiple_last_hmmpfam(self):
         """Test hmmer2-text raw string retrieval, multiple queries, hmmpfam."""
-        filename = os.path.join("Hmmer", "text_24_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_24_hmmpfam_001.out"
         raw = """hmmpfam - search one or more sequences against HMM database
 HMMER 2.4i (December 2006)
 Copyright (C) 1992-2006 HHMI Janelia Farm
@@ -482,27 +482,27 @@ class Hmmer2TextIndexCases(CheckIndex):
 
     def test_hmmertext_text_21_hmmpfam_001(self):
         """Test hmmer2-text indexing, HMMER 2.1."""
-        filename = os.path.join("Hmmer", "text_21_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_21_hmmpfam_001.out"
         self.check_index(filename, self.fmt)
 
     def test_hmmertext_text_22_hmmpfam_001(self):
         """Test hmmer2-text indexing, HMMER 2.2."""
-        filename = os.path.join("Hmmer", "text_22_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_22_hmmpfam_001.out"
         self.check_index(filename, self.fmt)
 
     def test_hmmertext_text_23_hmmpfam_001(self):
         """Test hmmer2-text indexing, HMMER 2.3."""
-        filename = os.path.join("Hmmer", "text_23_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_23_hmmpfam_001.out"
         self.check_index(filename, self.fmt)
 
     def test_hmmertext_text_24_hmmpfam_001(self):
         """Test hmmer2-text indexing, HMMER 2.4."""
-        filename = os.path.join("Hmmer", "text_24_hmmpfam_001.out")
+        filename = support.DATA / "Hmmer" / "text_24_hmmpfam_001.out"
         self.check_index(filename, self.fmt)
 
     def test_hmmertext_text_22_hmmsearch_001(self):
         """Test hmmer2-text indexing, HMMER 2.2."""
-        filename = os.path.join("Hmmer", "text_22_hmmsearch_001.out")
+        filename = support.DATA / "Hmmer" / "text_22_hmmsearch_001.out"
         self.check_index(filename, self.fmt)
 
 

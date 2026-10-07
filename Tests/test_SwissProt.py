@@ -5,8 +5,9 @@
 # as part of this package.
 """Test for the SwissProt parser on SwissProt files."""
 
-import os
 import unittest
+
+import support
 
 from Bio import SeqIO
 from Bio import SwissProt
@@ -19,7 +20,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "Q13454.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -521,7 +522,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P60904.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -938,7 +939,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P62258.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -1543,7 +1544,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P0A186.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -1691,7 +1692,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P68308.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -1816,7 +1817,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P39896.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -1945,7 +1946,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "O95832.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -2343,7 +2344,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P04439.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -5235,7 +5236,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "O23729.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -5345,7 +5346,7 @@ class TestSwissProt(unittest.TestCase):
         """Parsing SwissProt file Q13639."""
         filename = "Q13639.txt"
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -5753,7 +5754,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P16235.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         seq_record = SeqIO.read(datafile, "swiss")
 
         self.assertIsInstance(seq_record, SeqRecord)
@@ -6335,7 +6336,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "sp012"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         seq_record = SeqIO.read(datafile, "swiss")
 
         self.assertIsInstance(seq_record, SeqRecord)
@@ -6428,7 +6429,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "sp013"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         seq_record = SeqIO.read(datafile, "swiss")
 
         self.assertIsInstance(seq_record, SeqRecord)
@@ -6523,7 +6524,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "P60137.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         seq_record = SeqIO.read(datafile, "swiss")
 
         self.assertIsInstance(seq_record, SeqRecord)
@@ -6653,7 +6654,7 @@ class TestSwissProt(unittest.TestCase):
         filename = "sp015"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as test_handle:
             seq_record = SeqIO.read(test_handle, "swiss")
@@ -6734,7 +6735,7 @@ class TestSwissProt(unittest.TestCase):
     def test_P0CK95(self):
         """Parsing SwissProt file P0CK95.txt."""
         filename = "P0CK95.txt"
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         with open(datafile) as test_handle:
             record = SwissProt.read(test_handle)
         # Check the simple variant
@@ -6751,7 +6752,7 @@ class TestSwissProt(unittest.TestCase):
     def test_Q7Z739(self):
         """Parsing SwissProt file Q7Z739.txt, which has new qualifiers for ligands from Uniprot version 2022_03."""
         filename = "Q7Z739.txt"
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         with open(datafile) as test_handle:
             record = SwissProt.read(test_handle)
         self.assertEqual(
@@ -6778,7 +6779,7 @@ class TestSwissProt(unittest.TestCase):
     def test_ft_line(self):
         """Parsing SwissProt file O23729, which has a new-style FT line."""
         filename = "O23729.txt"
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
         with open(datafile) as test_handle:
             record = SwissProt.read(test_handle)
 

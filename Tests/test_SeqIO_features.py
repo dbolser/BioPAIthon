@@ -10,11 +10,11 @@ and confirms they are consistent using our different parsers.
 
 import datetime
 import locale
-import os
 import unittest
 import warnings
 from io import StringIO
 
+import support
 from test_SeqIO import SeqIOTestBaseClass
 
 from Bio import BiopythonWarning
@@ -61,7 +61,7 @@ def make_join_feature(f_list, ftype="misc_feature"):
 
 # Prepare a single GenBank record with one feature with a %s place holder for
 # the feature location [leaves the source feature in place]
-with open("GenBank/iro.gb") as handle:
+with open(support.DATA / "GenBank" / "iro.gb") as handle:
     gbk_template = handle.read()
 gbk_template = gbk_template.replace(
     '     gene            341..756\n                     /gene="FTCD"\n',
@@ -1156,12 +1156,12 @@ class NC_000932(SeqIOFeatureTestBaseClass):
     # TODO - neat way to change the docstrings...
 
     def setUp(self):
-        self.gb_filename = os.path.join("GenBank", self.basename + ".gb")
-        self.ffn_filename = os.path.join("GenBank", self.basename + ".ffn")
-        self.faa_filename = os.path.join("GenBank", self.basename + ".faa")
-        self.fna_filename = os.path.join("GenBank", self.basename + ".fna")
+        self.gb_filename = support.DATA / "GenBank" / (self.basename + ".gb")
+        self.ffn_filename = support.DATA / "GenBank" / (self.basename + ".ffn")
+        self.faa_filename = support.DATA / "GenBank" / (self.basename + ".faa")
+        self.fna_filename = support.DATA / "GenBank" / (self.basename + ".fna")
         if self.emblname:
-            self.embl_filename = os.path.join("EMBL", self.emblname + ".embl")
+            self.embl_filename = support.DATA / "EMBL" / (self.emblname + ".embl")
 
     # These tests only need the GenBank file and the FAA file:
     def test_CDS(self):
@@ -1280,98 +1280,98 @@ class TestWriteRead(SeqIOFeatureTestBaseClass):
 
     def test_NC_000932(self):
         """Write and read back NC_000932.gb."""
-        self.write_read(os.path.join("GenBank", "NC_000932.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "NC_000932.gb", "gb")
 
     def test_NC_005816(self):
         """Write and read back NC_005816.gb."""
-        self.write_read(os.path.join("GenBank", "NC_005816.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "NC_005816.gb", "gb")
 
     def test_gbvrl1_start(self):
         """Write and read back gbvrl1_start.seq."""
-        self.write_read(os.path.join("GenBank", "gbvrl1_start.seq"), "gb")
+        self.write_read(support.DATA / "GenBank" / "gbvrl1_start.seq", "gb")
 
     def test_NT_019265(self):
         """Write and read back NT_019265.gb."""
-        self.write_read(os.path.join("GenBank", "NT_019265.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "NT_019265.gb", "gb")
 
     def test_cor6(self):
         """Write and read back cor6_6.gb."""
-        self.write_read(os.path.join("GenBank", "cor6_6.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "cor6_6.gb", "gb")
 
     def test_arab1(self):
         """Write and read back arab1.gb."""
-        self.write_read(os.path.join("GenBank", "arab1.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "arab1.gb", "gb")
 
     def test_one_of(self):
         """Write and read back of_one.gb."""
-        self.write_read(os.path.join("GenBank", "one_of.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "one_of.gb", "gb")
 
     def test_pri1(self):
         """Write and read back pri1.gb."""
-        self.write_read(os.path.join("GenBank", "pri1.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "pri1.gb", "gb")
 
     def test_noref(self):
         """Write and read back noref.gb."""
-        self.write_read(os.path.join("GenBank", "noref.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "noref.gb", "gb")
 
     def test_origin_line(self):
         """Write and read back origin_line.gb."""
-        self.write_read(os.path.join("GenBank", "origin_line.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "origin_line.gb", "gb")
 
     def test_dbsource_wrap(self):
         """Write and read back dbsource_wrap.gb."""
         with warnings.catch_warnings():
             # Ignore warning about over long DBSOURCE line
             warnings.simplefilter("ignore", category=BiopythonWarning)
-            self.write_read(os.path.join("GenBank", "dbsource_wrap.gb"), "gb", ["gb"])
+            self.write_read(support.DATA / "GenBank" / "dbsource_wrap.gb", "gb", ["gb"])
         # Protein so can't convert this to EMBL format
 
     def test_blank_seq(self):
         """Write and read back blank_seq.gb."""
-        self.write_read(os.path.join("GenBank", "blank_seq.gb"), "gb", ["gb"])
+        self.write_read(support.DATA / "GenBank" / "blank_seq.gb", "gb", ["gb"])
         # Protein so can't convert this to EMBL format
 
     def test_extra_keywords(self):
         """Write and read back extra_keywords.gb."""
-        self.write_read(os.path.join("GenBank", "extra_keywords.gb"), "gb")
+        self.write_read(support.DATA / "GenBank" / "extra_keywords.gb", "gb")
 
     def test_protein_refseq(self):
         """Write and read back protein_refseq.gb."""
-        self.write_read(os.path.join("GenBank", "protein_refseq.gb"), "gb", ["gb"])
+        self.write_read(support.DATA / "GenBank" / "protein_refseq.gb", "gb", ["gb"])
         # Protein so can't convert this to EMBL format
 
     def test_protein_refseq2(self):
         """Write and read back protein_refseq2.gb."""
-        self.write_read(os.path.join("GenBank", "protein_refseq2.gb"), "gb", ["gb"])
+        self.write_read(support.DATA / "GenBank" / "protein_refseq2.gb", "gb", ["gb"])
         # Protein so can't convert this to EMBL format
 
     def test_AAA03323(self):
         """Write and read back AAA03323.embl."""
-        self.write_read(os.path.join("EMBL", "AAA03323.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "AAA03323.embl", "embl")
 
     def test_AE017046(self):
         """Write and read back AE017046.embl."""
-        self.write_read(os.path.join("EMBL", "AE017046.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "AE017046.embl", "embl")
 
     def test_DD231055_edited(self):
         """Write and read back DD231055_edited.embl."""
-        self.write_read(os.path.join("EMBL", "DD231055_edited.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "DD231055_edited.embl", "embl")
 
     def test_Human_contigs(self):
         """Write and read back Human_contigs.embl."""
-        self.write_read(os.path.join("EMBL", "Human_contigs.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "Human_contigs.embl", "embl")
 
     def test_SC10H5(self):
         """Write and read back SC10H5.embl."""
-        self.write_read(os.path.join("EMBL", "SC10H5.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "SC10H5.embl", "embl")
 
     def test_TRBG361(self):
         """Write and read back TRBG361.embl."""
-        self.write_read(os.path.join("EMBL", "TRBG361.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "TRBG361.embl", "embl")
 
     def test_U87107(self):
         """Write and read back U87107.embl."""
-        self.write_read(os.path.join("EMBL", "U87107.embl"), "embl")
+        self.write_read(support.DATA / "EMBL" / "U87107.embl", "embl")
 
 
 if __name__ == "__main__":

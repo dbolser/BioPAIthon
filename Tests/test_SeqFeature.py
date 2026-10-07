@@ -11,6 +11,8 @@ import warnings
 from copy import deepcopy
 from os import path
 
+import support
+
 from Bio import BiopythonParserWarning
 from Bio import Seq
 from Bio import SeqIO
@@ -33,7 +35,7 @@ class TestReference(unittest.TestCase):
 
     def test_eq_identical(self):
         """Test two identical references eq() to True."""
-        testfile = path.join("GenBank", "origin_line.gb")
+        testfile = support.DATA / "GenBank" / "origin_line.gb"
         rec1 = SeqIO.read(testfile, "genbank")
         rec2 = SeqIO.read(testfile, "genbank")
 
@@ -463,11 +465,11 @@ class TestHashing(unittest.TestCase):
 
     def test_features_of_a_parsed_record(self):
         """The motivating case: deduplicating features across sources."""
-        record = SeqIO.read(path.join("GenBank", "origin_line.gb"), "genbank")
+        record = SeqIO.read(support.DATA / "GenBank" / "origin_line.gb", "genbank")
         self.assertEqual(len(set(record.features)), len(set(map(id, record.features))))
 
     def test_reference(self):
-        record = SeqIO.read(path.join("GenBank", "origin_line.gb"), "genbank")
+        record = SeqIO.read(support.DATA / "GenBank" / "origin_line.gb", "genbank")
         ref1, ref2 = record.annotations["references"][:2]
         self.assertNotEqual(ref1, ref2)
         self.assertEqual(len({ref1, ref2}), 2)

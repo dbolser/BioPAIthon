@@ -10,6 +10,7 @@ import warnings
 from io import BytesIO
 from io import StringIO
 
+import support
 from test_SeqIO import SeqIOConverterTestBaseClass
 from test_SeqIO import SeqIOTestBaseClass
 
@@ -156,21 +157,21 @@ class TestFastqErrors(unittest.TestCase):
         # These FASTQ files will be rejected by both the low level parser AND
         # the high level SeqRecord parser:
         tests = [
-            ("Quality/error_diff_ids.fastq", 2),
-            ("Quality/error_no_qual.fastq", 0),
-            ("Quality/error_long_qual.fastq", 3),
-            ("Quality/error_short_qual.fastq", 2),
-            ("Quality/error_double_seq.fastq", 3),
-            ("Quality/error_double_qual.fastq", 2),
-            ("Quality/error_tabs.fastq", 0),
-            ("Quality/error_spaces.fastq", 0),
-            ("Quality/error_trunc_in_title.fastq", 4),
-            ("Quality/error_trunc_in_seq.fastq", 4),
-            ("Quality/error_trunc_in_plus.fastq", 4),
-            ("Quality/error_trunc_in_qual.fastq", 4),
-            ("Quality/error_trunc_at_seq.fastq", 4),
-            ("Quality/error_trunc_at_plus.fastq", 4),
-            ("Quality/error_trunc_at_qual.fastq", 4),
+            (support.DATA / "Quality" / "error_diff_ids.fastq", 2),
+            (support.DATA / "Quality" / "error_no_qual.fastq", 0),
+            (support.DATA / "Quality" / "error_long_qual.fastq", 3),
+            (support.DATA / "Quality" / "error_short_qual.fastq", 2),
+            (support.DATA / "Quality" / "error_double_seq.fastq", 3),
+            (support.DATA / "Quality" / "error_double_qual.fastq", 2),
+            (support.DATA / "Quality" / "error_tabs.fastq", 0),
+            (support.DATA / "Quality" / "error_spaces.fastq", 0),
+            (support.DATA / "Quality" / "error_trunc_in_title.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_in_seq.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_in_plus.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_in_qual.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_at_seq.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_at_plus.fastq", 4),
+            (support.DATA / "Quality" / "error_trunc_at_qual.fastq", 4),
         ]
         for path, count in tests:
             self.check_fails(path, count)
@@ -180,13 +181,13 @@ class TestFastqErrors(unittest.TestCase):
         # These FASTQ files which will be rejected by the high level SeqRecord
         # parser, but will be accepted by the low level parser:
         tests = [
-            ("Quality/error_qual_del.fastq", 3, 5),
-            ("Quality/error_qual_space.fastq", 3, 5),
-            ("Quality/error_qual_vtab.fastq", 0, 5),
-            ("Quality/error_qual_escape.fastq", 4, 5),
-            ("Quality/error_qual_unit_sep.fastq", 2, 5),
-            ("Quality/error_qual_tab.fastq", 4, 5),
-            ("Quality/error_qual_null.fastq", 0, 5),
+            (support.DATA / "Quality" / "error_qual_del.fastq", 3, 5),
+            (support.DATA / "Quality" / "error_qual_space.fastq", 3, 5),
+            (support.DATA / "Quality" / "error_qual_vtab.fastq", 0, 5),
+            (support.DATA / "Quality" / "error_qual_escape.fastq", 4, 5),
+            (support.DATA / "Quality" / "error_qual_unit_sep.fastq", 2, 5),
+            (support.DATA / "Quality" / "error_qual_tab.fastq", 4, 5),
+            (support.DATA / "Quality" / "error_qual_null.fastq", 0, 5),
         ]
         for path, good_count, full_count in tests:
             self.check_fails(path, good_count)
@@ -215,43 +216,57 @@ class TestReferenceSffConversions(unittest.TestCase):
 
     def check_sff(self, sff_name):
         self.check(
-            sff_name, "sff", "Roche/E3MFGYR02_random_10_reads_no_trim.fasta", "fasta"
+            sff_name,
+            "sff",
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads_no_trim.fasta",
+            "fasta",
         )
         self.check(
-            sff_name, "sff", "Roche/E3MFGYR02_random_10_reads_no_trim.qual", "qual"
+            sff_name,
+            "sff",
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads_no_trim.qual",
+            "qual",
         )
         self.check(
-            sff_name, "sff-trim", "Roche/E3MFGYR02_random_10_reads.fasta", "fasta"
+            sff_name,
+            "sff-trim",
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.fasta",
+            "fasta",
         )
-        self.check(sff_name, "sff-trim", "Roche/E3MFGYR02_random_10_reads.qual", "qual")
+        self.check(
+            sff_name,
+            "sff-trim",
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.qual",
+            "qual",
+        )
 
     def test_original(self):
         """Test converting E3MFGYR02_random_10_reads.sff into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_random_10_reads.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff")
 
     def test_no_manifest(self):
         """Test converting E3MFGYR02_no_manifest.sff into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_no_manifest.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_no_manifest.sff")
 
     def test_alt_index_at_start(self):
         """Test converting E3MFGYR02_alt_index_at_start into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_alt_index_at_start.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff")
 
     def test_alt_index_in_middle(self):
         """Test converting E3MFGYR02_alt_index_in_middle into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_alt_index_in_middle.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff")
 
     def test_alt_index_at_end(self):
         """Test converting E3MFGYR02_alt_index_at_end into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_alt_index_at_end.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff")
 
     def test_index_at_start(self):
         """Test converting E3MFGYR02_index_at_start into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_index_at_start.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_index_at_start.sff")
 
     def test_index_at_end(self):
         """Test converting E3MFGYR02_index_in_middle into FASTA+QUAL."""
-        self.check_sff("Roche/E3MFGYR02_index_in_middle.sff")
+        self.check_sff(support.DATA / "Roche" / "E3MFGYR02_index_in_middle.sff")
 
 
 class TestReferenceFastqConversions(unittest.TestCase):
@@ -259,10 +274,14 @@ class TestReferenceFastqConversions(unittest.TestCase):
 
     def simple_check(self, base_name, in_variant):
         for out_variant in ["sanger", "solexa", "illumina"]:
-            in_filename = f"Quality/{base_name}_original_{in_variant}.fastq"
+            in_filename = (
+                support.DATA / "Quality" / f"{base_name}_original_{in_variant}.fastq"
+            )
             self.assertTrue(os.path.isfile(in_filename))
             # Load the reference output...
-            with open(f"Quality/{base_name}_as_{out_variant}.fastq") as handle:
+            with open(
+                support.DATA / "Quality" / f"{base_name}_as_{out_variant}.fastq"
+            ) as handle:
                 expected = handle.read()
 
             with warnings.catch_warnings():
@@ -304,9 +323,14 @@ class TestQual(QualityIOTestBaseClass):
 
     def test_paired(self):
         """Check FASTQ parsing matches FASTA+QUAL parsing."""
-        with open("Quality/example.fasta") as f, open("Quality/example.qual") as q:
+        with (
+            open(support.DATA / "Quality" / "example.fasta") as f,
+            open(support.DATA / "Quality" / "example.qual") as q,
+        ):
             records1 = list(QualityIO.PairedFastaQualIterator(f, q))
-        records2 = list(SeqIO.parse("Quality/example.fastq", "fastq"))
+        records2 = list(
+            SeqIO.parse(support.DATA / "Quality" / "example.fastq", "fastq")
+        )
         self.compare_records(records1, records2)
 
     def test_qual_empty_title(self):
@@ -318,31 +342,37 @@ class TestQual(QualityIOTestBaseClass):
 
     def test_qual(self):
         """Check FASTQ parsing matches QUAL parsing."""
-        records1 = list(SeqIO.parse("Quality/example.qual", "qual"))
-        records2 = list(SeqIO.parse("Quality/example.fastq", "fastq"))
+        records1 = list(SeqIO.parse(support.DATA / "Quality" / "example.qual", "qual"))
+        records2 = list(
+            SeqIO.parse(support.DATA / "Quality" / "example.fastq", "fastq")
+        )
         # Will ignore the unknown sequences :)
         self.compare_records(records1, records2)
 
     def test_qual_out(self):
         """Check FASTQ to QUAL output."""
-        records = SeqIO.parse("Quality/example.fastq", "fastq")
+        records = SeqIO.parse(support.DATA / "Quality" / "example.fastq", "fastq")
         h = StringIO()
         SeqIO.write(records, h, "qual")
-        with open("Quality/example.qual") as expected:
+        with open(support.DATA / "Quality" / "example.qual") as expected:
             self.assertEqual(h.getvalue(), expected.read())
 
     def test_fasta(self):
         """Check FASTQ parsing matches FASTA parsing."""
-        records1 = list(SeqIO.parse("Quality/example.fasta", "fasta"))
-        records2 = list(SeqIO.parse("Quality/example.fastq", "fastq"))
+        records1 = list(
+            SeqIO.parse(support.DATA / "Quality" / "example.fasta", "fasta")
+        )
+        records2 = list(
+            SeqIO.parse(support.DATA / "Quality" / "example.fastq", "fastq")
+        )
         self.compare_records(records1, records2)
 
     def test_fasta_out(self):
         """Check FASTQ to FASTA output."""
-        records = SeqIO.parse("Quality/example.fastq", "fastq")
+        records = SeqIO.parse(support.DATA / "Quality" / "example.fastq", "fastq")
         h = StringIO()
         SeqIO.write(records, h, "fasta")
-        with open("Quality/example.fasta") as expected:
+        with open(support.DATA / "Quality" / "example.fasta") as expected:
             self.assertEqual(h.getvalue(), expected.read())
 
     def test_qual_negative(self):
@@ -566,7 +596,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_tricky(self):
         """Write and read back tricky.fastq."""
         self.check(
-            os.path.join("Quality", "tricky.fastq"),
+            support.DATA / "Quality" / "tricky.fastq",
             "fastq",
             [
                 "fastq",
@@ -582,7 +612,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_sanger_93(self):
         """Write and read back sanger_93.fastq."""
         self.check(
-            os.path.join("Quality", "sanger_93.fastq"),
+            support.DATA / "Quality" / "sanger_93.fastq",
             "fastq",
             ["fastq", "fastq-sanger", "fasta", "qual", "phd"],
         )
@@ -590,7 +620,7 @@ class TestWriteRead(QualityIOTestBaseClass):
             # TODO - Have a Biopython defined "DataLossWarning?"
             warnings.simplefilter("ignore", BiopythonWarning)
             self.check(
-                os.path.join("Quality", "sanger_93.fastq"),
+                support.DATA / "Quality" / "sanger_93.fastq",
                 "fastq",
                 ["fastq-solexa", "fastq-illumina"],
             )
@@ -598,7 +628,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_sanger_faked(self):
         """Write and read back sanger_faked.fastq."""
         self.check(
-            os.path.join("Quality", "sanger_faked.fastq"),
+            support.DATA / "Quality" / "sanger_faked.fastq",
             "fastq",
             [
                 "fastq",
@@ -613,13 +643,13 @@ class TestWriteRead(QualityIOTestBaseClass):
 
     def test_example_fasta(self):
         """Write and read back example.fasta."""
-        self.write_read(os.path.join("Quality", "example.fasta"), "fasta", "fasta")
+        self.write_read(support.DATA / "Quality" / "example.fasta", "fasta", "fasta")
         # TODO - tests to check can't write FASTQ or QUAL...
 
     def test_example_fastq(self):
         """Write and read back example.fastq."""
         self.check(
-            os.path.join("Quality", "example.fastq"),
+            support.DATA / "Quality" / "example.fastq",
             "fastq",
             [
                 "fastq",
@@ -635,7 +665,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_example_qual(self):
         """Write and read back example.qual."""
         self.check(
-            os.path.join("Quality", "example.qual"),
+            support.DATA / "Quality" / "example.qual",
             "qual",
             [
                 "fastq",
@@ -651,7 +681,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_solexa_faked(self):
         """Write and read back solexa_faked.fastq."""
         self.check(
-            os.path.join("Quality", "solexa_faked.fastq"),
+            support.DATA / "Quality" / "solexa_faked.fastq",
             "fastq-solexa",
             [
                 "fastq",
@@ -667,7 +697,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_solexa_example(self):
         """Write and read back solexa_example.fastq."""
         self.check(
-            os.path.join("Quality", "solexa_example.fastq"),
+            support.DATA / "Quality" / "solexa_example.fastq",
             "fastq-solexa",
             [
                 "fastq",
@@ -683,7 +713,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_illumina_faked(self):
         """Write and read back illumina_faked.fastq."""
         self.check(
-            os.path.join("Quality", "illumina_faked.fastq"),
+            support.DATA / "Quality" / "illumina_faked.fastq",
             "fastq-illumina",
             [
                 "fastq",
@@ -699,7 +729,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_greek_sff(self):
         """Write and read back greek.sff."""
         self.check(
-            os.path.join("Roche", "greek.sff"),
+            support.DATA / "Roche" / "greek.sff",
             "sff",
             [
                 "fastq",
@@ -716,7 +746,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_paired_sff(self):
         """Write and read back paired.sff."""
         self.check(
-            os.path.join("Roche", "paired.sff"),
+            support.DATA / "Roche" / "paired.sff",
             "sff",
             [
                 "fastq",
@@ -733,7 +763,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02(self):
         """Write and read back E3MFGYR02_random_10_reads.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_random_10_reads.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff",
             "sff",
             [
                 "fastq",
@@ -750,7 +780,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_no_manifest(self):
         """Write and read back E3MFGYR02_no_manifest.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_no_manifest.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_no_manifest.sff",
             "sff",
             [
                 "fastq",
@@ -767,7 +797,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_index_at_start(self):
         """Write and read back E3MFGYR02_index_at_start.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_index_at_start.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_index_at_start.sff",
             "sff",
             [
                 "fastq",
@@ -784,7 +814,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_index_in_middle(self):
         """Write and read back E3MFGYR02_index_in_middle.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_index_in_middle.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_index_in_middle.sff",
             "sff",
             [
                 "fastq",
@@ -801,7 +831,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_alt_index_at_start(self):
         """Write and read back E3MFGYR02_alt_index_at_start.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_alt_index_at_start.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff",
             "sff",
             [
                 "fastq",
@@ -818,7 +848,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_alt_index_in_middle(self):
         """Write and read back E3MFGYR02_alt_index_in_middle.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_alt_index_in_middle.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff",
             "sff",
             [
                 "fastq",
@@ -835,7 +865,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_alt_index_at_end(self):
         """Write and read back E3MFGYR02_alt_index_at_end.sff."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_alt_index_at_end.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff",
             "sff",
             [
                 "fastq",
@@ -852,7 +882,7 @@ class TestWriteRead(QualityIOTestBaseClass):
     def test_E3MFGYR02_trimmed(self):
         """Write and read back E3MFGYR02_random_10_reads.sff (trimmed)."""
         self.check(
-            os.path.join("Roche", "E3MFGYR02_random_10_reads.sff"),
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff",
             "sff-trim",
             [
                 "fastq",
@@ -984,7 +1014,7 @@ class TestSFF(unittest.TestCase):
     """Test SFF specific details."""
 
     def test_overlapping_clip(self):
-        record = next(SeqIO.parse("Roche/greek.sff", "sff"))
+        record = next(SeqIO.parse(support.DATA / "Roche" / "greek.sff", "sff"))
         self.assertEqual(len(record), 395)
         s = record.seq.lower()
         # Apply overlapping clipping
@@ -1025,7 +1055,7 @@ class TestSFF(unittest.TestCase):
             "clip_adapter_left",
             "clip_adapter_right",
         ]:
-            record = next(SeqIO.parse("Roche/greek.sff", "sff"))
+            record = next(SeqIO.parse(support.DATA / "Roche" / "greek.sff", "sff"))
             self.assertEqual(len(record), 395)
             self.assertLessEqual(0, record.annotations[clip])
             record.annotations[clip] = -1
@@ -1036,12 +1066,12 @@ class TestSFF(unittest.TestCase):
 class NonFastqTests(unittest.TestCase):
     def test_fasta_as_fastq(self):
         for f in ("fastq", "fastq-sanger", "fastq-solexa", "fastq-illumina"):
-            generator = SeqIO.parse("Fasta/elderberry.nu", f)
+            generator = SeqIO.parse(support.DATA / "Fasta" / "elderberry.nu", f)
             self.assertRaises(ValueError, next, generator)
 
     def test_sff_as_fastq(self):
         for f in ("fastq", "fastq-sanger", "fastq-solexa", "fastq-illumina"):
-            generator = SeqIO.parse("Roche/greek.sff", f)
+            generator = SeqIO.parse(support.DATA / "Roche" / "greek.sff", f)
             self.assertRaises(ValueError, next, generator)
 
 
@@ -1102,13 +1132,13 @@ class TestsConverter(SeqIOConverterTestBaseClass, QualityIOTestBaseClass):
 
     def test_conversion(self):
         tests = [
-            ("Quality/example.fastq", "fastq"),
-            ("Quality/example.fastq", "fastq-sanger"),
-            ("Quality/tricky.fastq", "fastq"),
-            ("Quality/sanger_93.fastq", "fastq-sanger"),
-            ("Quality/sanger_faked.fastq", "fastq-sanger"),
-            ("Quality/solexa_faked.fastq", "fastq-solexa"),
-            ("Quality/illumina_faked.fastq", "fastq-illumina"),
+            (support.DATA / "Quality" / "example.fastq", "fastq"),
+            (support.DATA / "Quality" / "example.fastq", "fastq-sanger"),
+            (support.DATA / "Quality" / "tricky.fastq", "fastq"),
+            (support.DATA / "Quality" / "sanger_93.fastq", "fastq-sanger"),
+            (support.DATA / "Quality" / "sanger_faked.fastq", "fastq-sanger"),
+            (support.DATA / "Quality" / "solexa_faked.fastq", "fastq-solexa"),
+            (support.DATA / "Quality" / "illumina_faked.fastq", "fastq-illumina"),
         ]
         for filename, fmt in tests:
             for in_format, out_format in self.formats:
@@ -1118,28 +1148,28 @@ class TestsConverter(SeqIOConverterTestBaseClass, QualityIOTestBaseClass):
 
     def test_failure_detection(self):
         tests = [
-            ("Quality/error_diff_ids.fastq", "fastq"),
-            ("Quality/error_long_qual.fastq", "fastq"),
-            ("Quality/error_no_qual.fastq", "fastq"),
-            ("Quality/error_qual_del.fastq", "fastq"),
-            ("Quality/error_qual_escape.fastq", "fastq"),
-            ("Quality/error_qual_null.fastq", "fastq"),
-            ("Quality/error_qual_space.fastq", "fastq"),
-            ("Quality/error_qual_tab.fastq", "fastq"),
-            ("Quality/error_qual_unit_sep.fastq", "fastq"),
-            ("Quality/error_qual_vtab.fastq", "fastq"),
-            ("Quality/error_short_qual.fastq", "fastq"),
-            ("Quality/error_spaces.fastq", "fastq"),
-            ("Quality/error_tabs.fastq", "fastq"),
-            ("Quality/error_trunc_at_plus.fastq", "fastq"),
-            ("Quality/error_trunc_at_qual.fastq", "fastq"),
-            ("Quality/error_trunc_at_seq.fastq", "fastq"),
-            ("Quality/error_trunc_in_title.fastq", "fastq"),
-            ("Quality/error_trunc_in_seq.fastq", "fastq"),
-            ("Quality/error_trunc_in_plus.fastq", "fastq"),
-            ("Quality/error_trunc_in_qual.fastq", "fastq"),
-            ("Quality/error_double_seq.fastq", "fastq"),
-            ("Quality/error_double_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_diff_ids.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_long_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_no_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_del.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_escape.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_null.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_space.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_tab.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_unit_sep.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_qual_vtab.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_short_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_spaces.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_tabs.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_at_plus.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_at_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_at_seq.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_in_title.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_in_seq.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_in_plus.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_trunc_in_qual.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_double_seq.fastq", "fastq"),
+            (support.DATA / "Quality" / "error_double_qual.fastq", "fastq"),
         ]
         for filename, fmt in tests:
             for in_format, out_format in self.formats:
@@ -1149,7 +1179,7 @@ class TestsConverter(SeqIOConverterTestBaseClass, QualityIOTestBaseClass):
                     in_format
                     in ["fastq", "fastq-sanger", "fastq-solexa", "fastq-illumina"]
                     and out_format in ["fasta", "tab"]
-                    and filename.startswith("Quality/error_qual_")
+                    and filename.name.startswith("error_qual_")
                 ):
                     # TODO? These conversions don't check for bad characters in the quality,
                     # and in order to pass this strict test they should.

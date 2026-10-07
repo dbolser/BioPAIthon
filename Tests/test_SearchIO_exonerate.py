@@ -5,19 +5,20 @@
 
 """Tests for SearchIO ExonerateIO parsers."""
 
-import os
 import unittest
+
+import support
 
 from Bio.SearchIO import parse
 from Bio.SearchIO import read
 
 # test case files are in the Blast directory
-TEST_DIR = "Exonerate"
+TEST_DIR = support.DATA / "Exonerate"
 
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 class ExonerateSpcCases(unittest.TestCase):
