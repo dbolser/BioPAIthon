@@ -188,6 +188,14 @@ Passing it positionally, as in ``CodonAligner(table, 10)``, now raises
 ``TypeError``. Passed by keyword, ``anchor_len=...`` is stored as a plain
 attribute and still does nothing. Either way, delete the argument.
 
+Bio.codonalign.BiopythonExperimentalWarning
+-------------------------------------------
+Removed in BioPAIthon 1.88 without a deprecation period. ``Bio.codonalign``
+(and ``Bio.CodonAlign`` before it) imported this class from ``Bio`` only to
+warn, on import, that the module was experimental. BioPAIthon 1.88 drops that
+warning and commits to the module's API, so the import went with it. Use
+``from Bio import BiopythonExperimentalWarning`` instead.
+
 Bio.Medline.read
 ----------------
 Changed in BioPAIthon 1.88 without a deprecation period. ``read`` now enforces
