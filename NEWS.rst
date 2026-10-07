@@ -130,22 +130,15 @@ when the call comes from ``__main__``, so by default code calling
 filters or catches the warning by class should use
 ``BiopythonDeprecationWarning``; see DEPRECATED.rst.
 
-Malformed input to the ``Bio.Align`` parsers and writers now raises
-``ValueError`` saying what was expected and what was found. 138 ``assert``
-statements across ``Bio.Align`` were checking file content or the alignments
-passed to a writer, in the a2m, bigBed, bigMaf, bigPsl, Clustal, EMBOSS,
-Exonerate, MAF, Mauve, MSF, PHYLIP, PSL, SAM, Stockholm and tabular modules,
-in ``substitution_matrices.read`` and in the YN00 method of
-``calculate_dn_ds``. Each raised a bare ``AssertionError``, and under
-``python -O``, where asserts are removed, most of that input was silently
-accepted: the Stockholm writer truncated every sequence to the length of a
-too-short ``alignment.operations``, the PSL writer wrote wrong block sizes for
-an alignment mixing 1:1 and 3:1 blocks, and a bigBed item whose data did not
-end in a NUL byte lost its last byte. One more check, in the bigBed writer's
-zoom levels, is reachable by valid input (in some layouts, a zero-length item
-at the very end of a chromosome) and is a writer bug rather than bad input; it
-now raises ``RuntimeError`` like the writer's other internal checks. The
-remaining seven asserts in ``Bio.Align`` are internal invariants and stay.
+Malformed input to the ``Bio.Align`` parsers and writers, to
+``substitution_matrices.read`` and to ``calculate_dn_ds(method="YN00")`` now
+raises a ``ValueError`` saying what was expected and what was found, instead
+of a bare ``AssertionError``. These checks were ``assert`` statements, so under
+``python -O`` most such input was silently accepted, sometimes giving wrong
+output (the Stockholm writer, for one, truncated every sequence to the length
+of a too-short ``alignment.operations``). One check in the bigBed writer's zoom
+levels can be hit by valid input, so it is a writer bug, not bad input; it now
+raises ``RuntimeError`` like the writer's other internal checks.
 
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the

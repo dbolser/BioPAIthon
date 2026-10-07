@@ -301,7 +301,7 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
                 if words[1].decode() != src:  # from the previous "s" line
                     raise ValueError(
                         f"Expected 'i' line for {src} (the preceding 's' line), "
-                        f"found {words[1].decode()}"
+                        f"found {words[1].decode()}:\n{line.decode()}"
                     )
                 leftStatus = words[2].decode()
                 leftCount = int(words[3])
@@ -366,7 +366,7 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
                 if words[1].decode() != src:  # from the previous "s" line
                     raise ValueError(
                         f"Expected 'q' line for {src} (the preceding 's' line), "
-                        f"found {words[1].decode()}"
+                        f"found {words[1].decode()}:\n{line.decode()}"
                     )
                 value = words[2].replace(b"-", b"")
                 record.annotations["quality"] = value.decode()

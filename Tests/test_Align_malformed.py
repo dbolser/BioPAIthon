@@ -232,6 +232,7 @@ class TestMaf(unittest.TestCase):
         with self.assertRaises(ValueError) as cm:
             parse(text, "maf")
         self.assertIn("Expected 'i' line for mm10.chr2", str(cm.exception))
+        self.assertIn("i hg38.chr1 C 0 C 0", str(cm.exception))
 
     def test_e_line_with_unknown_status(self):
         text = (

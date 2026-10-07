@@ -396,7 +396,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if words[1] != src:  # from the previous "s" line
                     raise ValueError(
                         f"Expected 'i' line for {src} (the preceding 's' line), "
-                        f"found {words[1]}"
+                        f"found {words[1]}:\n{line}"
                     )
                 leftStatus = words[2]
                 leftCount = int(words[3])
@@ -454,7 +454,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if words[1] != src:  # from the previous "s" line
                     raise ValueError(
                         f"Expected 'q' line for {src} (the preceding 's' line), "
-                        f"found {words[1]}"
+                        f"found {words[1]}:\n{line}"
                     )
                 value = words[2].replace("-", "")
                 record.annotations["quality"] = value
