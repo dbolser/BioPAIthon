@@ -1464,6 +1464,12 @@ class ParseIdFromHeaderContractTests(unittest.TestCase):
         self.assertLessEqual(self.implemented_by, set(implementations))
         for fmt, iterator in sorted(implementations.items()):
             self.assertIn(fmt, IndexParseKeyAgreementTests.corpus)
+            # The header lines are found with record_start_marker, as the
+            # indexer finds them, so a hook without one cannot be checked.
+            self.assertIsNotNone(
+                iterator.record_start_marker,
+                msg=f"{iterator.__name__} has no record_start_marker",
+            )
             filenames = set()
             for pattern in IndexParseKeyAgreementTests.corpus[fmt]:
                 filenames.update(glob.glob(pattern))
