@@ -101,74 +101,14 @@ Tracker = "https://github.com/dbolser/BioPAIthon/issues"
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
-packages = [
-    "Bio",
-    "Bio.Affy",
-    "Bio.Align",
-    "Bio.Align.Applications",
-    "Bio.Align.substitution_matrices",
-    "Bio.Align.substitution_matrices.data",
-    "Bio.AlignIO",
-    "Bio.Alphabet",
-    "Bio.Application",
-    "Bio.Blast",
-    "Bio.CAPS",
-    "Bio.Cluster",
-    "Bio.codonalign",
-    "Bio.Compass",
-    "Bio.Data",
-    "Bio.Emboss",
-    "Bio.Entrez",
-    "Bio.Entrez.DTDs",
-    "Bio.Entrez.XSDs",
-    "Bio.ExPASy",
-    "Bio.GenBank",
-    "Bio.Geo",
-    "Bio.Graphics",
-    "Bio.Graphics.GenomeDiagram",
-    "Bio.HMM",
-    "Bio.KEGG",
-    "Bio.KEGG.Compound",
-    "Bio.KEGG.Enzyme",
-    "Bio.KEGG.Gene",
-    "Bio.KEGG.Map",
-    "Bio.KEGG.KGML",
-    "Bio.Medline",
-    "Bio.motifs",
-    "Bio.motifs.jaspar",
-    "Bio.Nexus",
-    "Bio.NMR",
-    "Bio.Pathway",
-    "Bio.Pathway.Rep",
-    "Bio.PDB",
-    "Bio.PDB.mmtf",
-    "Bio.phenotype",
-    "Bio.PopGen",
-    "Bio.PopGen.GenePop",
-    "Bio.Restriction",
-    "Bio.SCOP",
-    "Bio.SearchIO",
-    "Bio.SearchIO._model",
-    "Bio.SearchIO.BlastIO",
-    "Bio.SearchIO.HHsuiteIO",
-    "Bio.SearchIO.HmmerIO",
-    "Bio.SearchIO.InfernalIO",
-    "Bio.SearchIO.ExonerateIO",
-    "Bio.SearchIO.InterproscanIO",
-    "Bio.SeqIO",
-    "Bio.SeqUtils",
-    "Bio.Sequencing",
-    "Bio.Sequencing.Applications",
-    "Bio.SVDSuperimposer",
-    "Bio.SwissProt",
-    "Bio.TogoWS",
-    "Bio.Phylo",
-    "Bio.Phylo.Applications",
-    "Bio.Phylo.PAML",
-    "Bio.UniGene",
-    "Bio.UniProt",
-    "BioSQL",
-]
+
+[tool.setuptools.packages.find]
+include = ["Bio", "Bio.*", "BioSQL", "BioSQL.*"]
+# Load-bearing, though it is the default: Bio/Align/substitution_matrices/data,
+# Bio/Entrez/DTDs and Bio/Entrez/XSDs hold data files but no __init__.py, so
+# only namespace discovery lists them as packages. Without it, setuptools warns
+# "Package would be ignored" for each (see upstream #4050).
+namespaces = true
 
 [tool.setuptools.dynamic]
 version = {attr = "Bio.__version__"}
