@@ -166,6 +166,9 @@ def parse(handle):
     key = ""
     record = Record()
     for line in handle:
+        if not record and not line.strip():
+            # Skip whitespace-only lines before, between and after records
+            continue
         if line[:6] == "      ":  # continuation line
             line = line.rstrip()
             if line == "":
@@ -178,14 +181,14 @@ def parse(handle):
                 record[key][-1] += line[5:]  # including space using line[5:]
             else:
                 record[key].append(line[6:])
-        elif line != "\n" and line != "\r\n":
+        elif line.strip():
             line = line.rstrip()
             key = line[:4].rstrip()
             if key not in record:
                 record[key] = []
             record[key].append(line[6:])
-        elif record:
-            # End of the record
+        else:
+            # A blank or whitespace-only line ends the record
             # Join each list of strings into one string.
             for key in record:
                 if key in textkeys:

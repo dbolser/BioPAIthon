@@ -7,6 +7,7 @@
 
 """Tests for Medline module."""
 
+import io
 import unittest
 
 import support
@@ -374,6 +375,32 @@ class TestMedline(unittest.TestCase):
                 ValueError, "^More than one record found in handle$"
             ):
                 Medline.read(handle)
+
+    def test_parse_whitespace_only_lines(self):
+        with open("Medline/pubmed_result2.txt") as handle:
+            text = handle.read()
+        records = list(Medline.parse(io.StringIO(text)))
+        self.assertEqual(len(records), 4)
+        for blank in ("   \n", "\t\n", "        \n"):
+            with self.subTest(blank=blank):
+                # before, between and after records
+                padded = blank + text.replace("\n\n", "\n\n" + blank) + "\n" + blank
+                self.assertEqual(list(Medline.parse(io.StringIO(padded))), records)
+        for blank in ("   \n", "\t\n"):
+            with self.subTest(blank=blank):
+                # in place of the empty line separating records
+                padded = text.replace("\n\n", "\n" + blank)
+                self.assertEqual(list(Medline.parse(io.StringIO(padded))), records)
+        # lines without line endings, so the separators are empty strings
+        self.assertEqual(list(Medline.parse(text.splitlines())), records)
+
+    def test_read_trailing_whitespace_only_line(self):
+        with open("Medline/pubmed_result1.txt") as handle:
+            text = handle.read()
+        record = Medline.read(io.StringIO(text))
+        for tail in ("   \n", "\n   \n", "\n\t", "\n        \n"):
+            with self.subTest(tail=tail):
+                self.assertEqual(Medline.read(io.StringIO(text + tail)), record)
 
 
 if __name__ == "__main__":
