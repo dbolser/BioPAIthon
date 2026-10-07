@@ -10,6 +10,8 @@
 #include <Python.h>
 #include <math.h>
 
+#include "../_freethreading.h"
+
 
 static void
 calculate(const char sequence[], Py_ssize_t m, double* matrix, Py_ssize_t n,
@@ -212,5 +214,14 @@ static struct PyModuleDef moduledef = {
 PyObject*
 PyInit__pwm(void)
 {
-    return PyModule_Create(&moduledef);
+    PyObject *module = PyModule_Create(&moduledef);
+
+    if (!module) {
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    return module;
 }

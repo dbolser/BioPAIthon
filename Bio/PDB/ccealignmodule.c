@@ -87,6 +87,8 @@
 #include <limits.h>
 #include <stdint.h>
 
+#include "../_freethreading.h"
+
 #define MAX_PATHS 20
 
 // Typical XYZ point and array of points
@@ -959,6 +961,10 @@ PyInit_ccealign(void)
     PyObject *module = PyModule_Create(&moduledef);
 
     if (!module) {
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
         return NULL;
     }
     if (!alignmentType) {

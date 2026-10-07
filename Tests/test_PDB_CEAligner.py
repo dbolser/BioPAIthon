@@ -12,6 +12,7 @@ import platform
 import sys
 import sysconfig
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 
 try:
     import tracemalloc
@@ -320,6 +321,35 @@ class RunCEAlignResultTypeTests(unittest.TestCase):
         self.assertEqual(clone.path, result.path)
         self.assertEqual(clone.z_score, result.z_score)
         self.assertEqual(clone.length, result.length)
+
+
+@unittest.skipUnless(
+    sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+)
+class RunCEAlignThreadTests(unittest.TestCase):
+    """Concurrent run_cealign calls on shared coordinates match serial calls.
+
+    The threads call run_cealign directly: a CEAligner keeps the results of
+    its last alignment as attributes, so one instance is not for sharing.
+    """
+
+    def test_threads_match_serial(self):
+        parser = MMCIFParser(QUIET=1)
+        aligner = CEAligner()
+        coords_a = aligner.get_guide_coord_from_structure(
+            parser.get_structure("6wqa", support.DATA / "PDB" / "6WQA.cif")
+        )
+        coords_b = aligner.get_guide_coord_from_structure(
+            parser.get_structure("7cfn", support.DATA / "PDB" / "7CFN.cif")
+        )
+        expected = run_cealign(coords_a, coords_b, 8, 30)
+
+        def work(_):
+            return run_cealign(coords_a, coords_b, 8, 30)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for result in executor.map(work, range(8)):
+                self.assertEqual(result, expected)
 
 
 if __name__ == "__main__":
