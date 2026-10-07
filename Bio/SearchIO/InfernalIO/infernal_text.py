@@ -320,11 +320,11 @@ class InfernalTextParser(_BaseInfernalParser):
         if len(row) > 12:
             row[12] = " ".join(row[12:])
         # if there's no description, set it to an empty string
-        elif len(row) < 12:
+        elif len(row) < 13:
             row.append("")
-            if len(row) != 12:
+            if len(row) != 13:
                 raise ValueError(
-                    "Expected at least 11 columns in the hit scores table row,"
+                    "Expected at least 12 columns in the hit scores table row,"
                     f" found {len(row) - 1}: {row[:-1]!r}"
                 )
 

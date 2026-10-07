@@ -170,7 +170,9 @@ start after its end, and ``QueryResult.absorb`` re-raises the ``ValueError``
 explaining why a ``Hit`` was refused rather than an ``AssertionError``. The
 ``exonerate-text`` parser also used an ``assert`` to choose a code path, so
 under ``-O`` it failed with ``IndexError`` on ``cdna2genome`` and
-``genome2genome`` output; it now parses them.
+``genome2genome`` output; it now parses them. The ``infernal-text`` parser
+now reads ``--noali`` output listing a hit with no description, which used to
+fail with ``IndexError``.
 
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the

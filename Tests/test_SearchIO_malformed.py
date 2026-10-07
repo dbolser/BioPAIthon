@@ -258,6 +258,33 @@ class Infernal(unittest.TestCase):
             "Expected 16 columns in the hit table row, found 15", str(cm.exception)
         )
 
+    def test_text_scores_table_row_without_description(self):
+        # A target with no description gives a 12-column row, which is valid.
+        text = edited(
+            "Infernal/cmsearch_114_U2_Yeast_noali.txt",
+            "681747 -  cm    no 0.33  TPA_inf: Saccharomyces cerevisiae S288C"
+            " chromosome II,\n",
+            "681747 -  cm    no 0.33\n",
+        )
+        (qresult,) = parse_all(text, "infernal-text")
+        self.assertEqual(qresult[0].id, "ENA|BK006936|BK006936.2")
+        self.assertEqual(qresult[0].description, "")
+        self.assertEqual(qresult[0][0].gc, 0.33)
+
+    def test_text_scores_table_row_too_short(self):
+        text = edited(
+            "Infernal/cmsearch_114_U2_Yeast_noali.txt",
+            "681747 -  cm    no 0.33  TPA_inf: Saccharomyces cerevisiae S288C"
+            " chromosome II,\n",
+            "681747 -  cm    no\n",
+        )
+        with self.assertRaises(ValueError) as cm:
+            parse_all(text, "infernal-text")
+        self.assertIn(
+            "Expected at least 12 columns in the hit scores table row, found 11",
+            str(cm.exception),
+        )
+
     def test_tab_hit_descriptions_differ(self):
         text = edited(
             "Infernal/cmsearch_114_5S_Yeast.tbl",
