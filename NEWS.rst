@@ -59,6 +59,20 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``PairwiseAligner`` no longer reads freed memory when Python code that it
+calls reconfigures it. A gap function that replaced the aligner's
+substitution matrix or gap functions partway through ``score()``,
+``align()`` or ``alignment.counts(aligner)`` could crash the interpreter or
+silently give a wrong score, and ``str(aligner)`` could crash if a gap
+function's ``__repr__`` did the same. Each call now keeps the settings it
+started with. Each call also takes its own view of the substitution matrix,
+so a matrix that was changed in place after being assigned (for example by
+NumPy's ``resize(refcheck=False)``) and is no longer a square matrix of
+floats now raises ``ValueError``, where it used to be read as though
+unchanged. On Python 3.12 and later, a matrix given as a pure-Python object
+with a ``__buffer__`` method, rather than a NumPy array or
+``substitution_matrices.Array``, now raises ``TypeError`` when used.
+
 ``Bio.SeqIO``'s "cif-seqres" format names each chain by its mmCIF label id,
 but "cif-atom", "pdb-seqres", "pdb-atom" and ``Bio.PDB.MMCIFParser`` use the
 author id, so the two mmCIF formats can name the same chain differently. In

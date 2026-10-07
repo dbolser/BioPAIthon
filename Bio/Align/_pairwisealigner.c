@@ -1837,11 +1837,17 @@ Aligner_str(Aligner* self)
     char* p = text;
     char* value;
     PyObject* substitution_matrix = self->substitution_matrix.obj;
+    /* Formatting with %R runs the gap functions' __repr__, which may
+     * reconfigure the aligner, so hold our own references to them. */
+    PyObject* insertion_score_function = self->insertion_score_function;
+    PyObject* deletion_score_function = self->deletion_score_function;
     void* args[3];
     int n = 0;
     PyObject* wildcard = NULL;
     PyObject* s = NULL;
 
+    Py_XINCREF(insertion_score_function);
+    Py_XINCREF(deletion_score_function);
     p += sprintf(p, "Pairwise sequence aligner with parameters\n");
     if (substitution_matrix) {
 #ifdef PYPY_VERSION
@@ -1870,7 +1876,7 @@ Aligner_str(Aligner* self)
         else {
             wildcard = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND,
                                                  &self->wildcard, 1);
-            if (!wildcard) return NULL;
+            if (!wildcard) goto exit;
             p += sprintf(p, "  wildcard: '%%U'\n");
             args[n++] = wildcard;
         }
@@ -1886,9 +1892,9 @@ Aligner_str(Aligner* self)
         p += sprintf(p, "  mismatch_score: %s\n", value);
         PyMem_Free(value);
     }
-    if (self->insertion_score_function) {
+    if (insertion_score_function) {
         p += sprintf(p, "  insertion_score_function: %%R\n");
-        args[n++] = self->insertion_score_function;
+        args[n++] = insertion_score_function;
     }
     else {
         value = PyOS_double_to_string(self->open_internal_insertion_score,
@@ -1922,9 +1928,9 @@ Aligner_str(Aligner* self)
         p += sprintf(p, "  extend_right_insertion_score: %s\n", value);
         PyMem_Free(value);
     }
-    if (self->deletion_score_function) {
+    if (deletion_score_function) {
         p += sprintf(p, "  deletion_score_function: %%R\n");
-        args[n++] = self->deletion_score_function;
+        args[n++] = deletion_score_function;
     }
     else {
         value = PyOS_double_to_string(self->open_internal_deletion_score,
@@ -1963,12 +1969,14 @@ Aligner_str(Aligner* self)
         case FOGSAA_Mode: sprintf(p, "  mode: fogsaa\n"); break;
         default:
             ERR_UNEXPECTED_MODE
-            return NULL;
+            goto exit;
     }
     s = PyUnicode_FromFormat(text, args[0], args[1], args[2]);
 
 exit:
     Py_XDECREF(wildcard);
+    Py_XDECREF(insertion_score_function);
+    Py_XDECREF(deletion_score_function);
     return s;
 }
 
@@ -7596,11 +7604,12 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     int nB;
     Py_buffer bA = {0};
     Py_buffer bB = {0};
-    const Mode mode = self->mode;
-    const Algorithm algorithm = _get_algorithm(self);
+    Aligner snapshot;
+    Mode mode;
+    Algorithm algorithm;
     char strand = '+';
     PyObject* result = NULL;
-    PyObject* substitution_matrix = self->substitution_matrix.obj;
+    PyObject* substitution_matrix;
 
     static char *kwlist[] = {"sequenceA", "sequenceB", "strand", NULL};
 
@@ -7609,6 +7618,13 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
                                      sequence_converter, &bB,
                                      strand_converter, &strand))
         return NULL;
+
+    /* Work on a snapshot, as gap functions may reconfigure the aligner. */
+    if (Aligner_snapshot(self, &snapshot) < 0) goto exit;
+    self = &snapshot;
+    mode = self->mode;
+    algorithm = _get_algorithm(self);
+    substitution_matrix = self->substitution_matrix.obj;
 
     if (substitution_matrix) {
         if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
@@ -7706,6 +7722,7 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
+    Aligner_snapshot_release(&snapshot);
     sequence_converter(NULL, &bA);
     sequence_converter(NULL, &bB);
 
@@ -7723,11 +7740,12 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     int nB;
     Py_buffer bA = {0};
     Py_buffer bB = {0};
-    const Mode mode = self->mode;
-    const Algorithm algorithm = _get_algorithm(self);
+    Aligner snapshot;
+    Mode mode;
+    Algorithm algorithm;
     char strand = '+';
     PyObject* result = NULL;
-    PyObject* substitution_matrix = self->substitution_matrix.obj;
+    PyObject* substitution_matrix;
 
     static char *kwlist[] = {"sequenceA", "sequenceB", "strand", NULL};
 
@@ -7736,6 +7754,13 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
                                     sequence_converter, &bB,
                                     strand_converter, &strand))
         return NULL;
+
+    /* Work on a snapshot, as gap functions may reconfigure the aligner. */
+    if (Aligner_snapshot(self, &snapshot) < 0) goto exit;
+    self = &snapshot;
+    mode = self->mode;
+    algorithm = _get_algorithm(self);
+    substitution_matrix = self->substitution_matrix.obj;
 
     if (substitution_matrix) {
         if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
@@ -7833,6 +7858,7 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
+    Aligner_snapshot_release(&snapshot);
     sequence_converter(NULL, &bA);
     sequence_converter(NULL, &bB);
 
