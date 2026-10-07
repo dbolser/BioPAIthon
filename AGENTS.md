@@ -135,21 +135,38 @@ pip install pre-commit && pre-commit install
 
 ## Testing
 
-The suite uses `unittest` with a bespoke runner — not pytest. Run it from
-`Tests/`:
+The tests are written with `unittest` and run by pytest 9 or later
+(`pip install pytest`, or the `test` extra for every optional dependency the
+suite exercises). `Tests/conftest.py` holds the suite's own rules, and
+`Tests/run_tests.py` is a shim that translates the old command line into a
+pytest one, so both of these work:
 
 ```bash
 cd Tests
-python run_tests.py                    # everything
-python run_tests.py --offline          # skip network tests (use this by default)
-python run_tests.py test_Seq           # one module
-python run_tests.py -v test_Seq         # verbose
-python run_tests.py doctest            # doctests
+python run_tests.py --offline          # everything, skipping network tests (use this by default)
+python run_tests.py test_Seq_objs      # one module
+python run_tests.py -v test_Seq_objs   # verbose
+python run_tests.py doctest            # the docstring examples of every module
+python run_tests.py Bio.Seq            # the docstring examples of one module
+python run_tests.py --check-skips      # fail if a module skips without being in expected_skips.txt
+
+python -m pytest --offline                                 # everything
+python -m pytest --offline test_Seq_objs.py                # one module
+python -m pytest --offline test_Seq_objs.py -k translate   # some tests in it
+python -m pytest --offline test_docstrings.py              # all doctests
+python -m pytest --offline "test_docstrings.py::Bio.Seq"   # one module's doctests
 ```
+
+pytest can also be run from the repository root (`python -m pytest --offline
+Tests/test_Seq_objs.py`); the tests still run inside `Tests/`. Only
+`unittest.TestCase` subclasses are collected, so write new tests as those, not
+as plain pytest functions.
 
 Tests needing the network use the `@requires_internet` decorator; tests
 needing external binaries must detect their absence and skip gracefully
-rather than fail.
+rather than fail. A test module may skip only by raising
+`MissingExternalDependencyError` (or `MissingPythonDependencyError`) when it is
+imported, and must then be listed in `Tests/expected_skips.txt`.
 
 ## Style
 

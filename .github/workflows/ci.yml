@@ -388,7 +388,7 @@ jobs:
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy
+        python -m pip install numpy pytest
 
     - name: Debug Info
       run: |
@@ -494,7 +494,7 @@ jobs:
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy msgpack
+        python -m pip install numpy msgpack pytest
 
     - name: Debug Info
       run: |
@@ -553,7 +553,7 @@ jobs:
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy
+        python -m pip install numpy pytest
 
     - name: Debug Info
       run: |

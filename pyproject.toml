@@ -88,6 +88,7 @@ test = [
     "coverage",
     "mmtf-python",
     "numpy!=2.1.0",
+    "pytest>=9",
     "scipy",
 ]
 
@@ -185,5 +186,22 @@ archs = ["x86_64", "arm64"]
 
 [dependency-groups]
 dev = [
+    "pytest>=9",
     "setuptools>=77",
 ]
+
+# The test suite in Tests/ runs under pytest; Tests/conftest.py carries the
+# suite's own rules (--offline, --check-skips, import-time dependency skips,
+# the doctest collector). pytest 9 is the floor because it reports unittest
+# subTest failures individually; 8.x reported one failure per test method.
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["Tests"]
+python_files = ["test_*.py"]
+# Collect only unittest.TestCase subclasses, which pytest's unittest support
+# finds whatever their name. This is exactly the set run_tests.py ran; a
+# plain pytest-style test function would be silently ignored, as before.
+python_classes = []
+python_functions = []
+# Like run_tests.py, report a module that fails to import and run the rest.
+addopts = "--continue-on-collection-errors"

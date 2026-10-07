@@ -59,6 +59,15 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The test suite is now run by pytest 9 or later, which the ``test`` extra
+installs. The tests are still written with ``unittest``, and ``python
+run_tests.py --offline`` in ``Tests/`` still works: it is now a shim that
+passes its arguments on to pytest. ``python -m pytest --offline`` works too,
+from ``Tests/`` or from the repository root. Results are reported per test
+rather than per module, and a failing docstring example shows its expected
+and actual output inline. Anyone running the tests from the source
+distribution, such as a downstream packager, now needs pytest installed.
+
 ``Bio.Align`` now ships type stubs for its five C extensions. Type checkers
 such as mypy therefore see the attributes ``PairwiseAligner`` and
 ``CodonAligner`` inherit from them, such as ``mode``, ``match_score`` and the

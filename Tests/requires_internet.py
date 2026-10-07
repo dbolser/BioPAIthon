@@ -7,8 +7,9 @@
 # To use it, import requires_internet into your Python code, and call
 # requires_internet.check().  If the internet is available, then the
 # call returns.  If it is not, then it raises a
-# MissingExternalDependencyError exception, and run_tests.py reports
-# the calling test module as skipped.
+# MissingExternalDependencyError exception, and the test suite (see
+# conftest.py) reports the calling test module as skipped.  The
+# --offline option sets check.available to False.
 
 """Common code to check if the internet is available."""
 

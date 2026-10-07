@@ -107,6 +107,7 @@ If you are interested in using Tox, you could start with the example
    commands = {envpython} run_tests.py --offline
    deps =
        numpy
+       pytest
        reportlab
 
 Using the template above, executing ``tox`` will test your Biopython
