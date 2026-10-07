@@ -108,7 +108,7 @@ providing dictionary like access to any record. For example,
 
 Many but not all of the supported input file formats can be indexed like
 this. For example "fasta", "fastq", "qual" and even the binary format "sff"
-work, but alignment formats like "phylip", "clustalw" and "nexus" will not.
+work, but alignment formats like "phylip", "clustal" and "nexus" will not.
 
 In most cases you can also use SeqIO.index to get the record from the file
 as a raw string (not a SeqRecord). This can be useful for example to extract
@@ -269,11 +269,19 @@ names are also used in Bio.AlignIO and include the following:
       (mmCIF) file to determine the complete protein sequence as defined by the
       _pdbx_poly_seq_scheme records.
     - embl    - The EMBL flat file format. Uses Bio.GenBank internally.
+    - embl-cds - Reads an EMBL file and returns one record per CDS feature,
+      taking its protein sequence from the /translation qualifier (seq is
+      None if the feature has none).
     - fasta   - The generic sequence file format where each record starts with
       an identifier line starting with a ">" character, followed by
       lines of sequence.
     - fasta-2line - Stricter interpretation of the FASTA format using exactly
       two lines per record (no line wrapping).
+    - fasta-blast - FASTA as read by BLAST, where any line starting with "#",
+      "!" or ";" is a comment and is ignored.
+    - fasta-pearson - FASTA as read by William Pearson's FASTA aligner, which
+      ignores any lines before the first record, and any line starting
+      with ";".
     - fastq   - A "FASTA like" format used by Sanger which also stores PHRED
       sequence quality values (with an ASCII offset of 33).
     - fastq-sanger - An alias for "fastq" for consistency with BioPerl and EMBOSS
@@ -287,6 +295,7 @@ names are also used in Bio.AlignIO and include the following:
     - gck     - Gene Construction Kit's format.
     - genbank - The GenBank or GenPept flat file format.
     - gb      - An alias for "genbank", for consistency with NCBI Entrez Utilities
+    - genbank-cds - As "embl-cds", but reading a GenBank file.
     - gfa1     - Graphical Fragment Assemblyv versions 1.x. Only segment lines
       are parsed and all linkage information is ignored.
     - gfa2    - Graphical Fragment Assembly version 2.0. Only segment lines are
@@ -316,6 +325,10 @@ names are also used in Bio.AlignIO and include the following:
       line holds a record's identifier and sequence. For example,
       this is used as by Aligent's eArray software when saving
       microarray probes in a minimal tab delimited text file.
+    - twobit  - UCSC's twoBit (.2bit) format for nucleotide sequences, which
+      uses two bits per nucleotide. Sequence data is only read from the
+      file when it is accessed, so keep the file open while you use the
+      records.
     - qual    - A "FASTA like" format holding PHRED quality values from
       sequencing DNA, but no actual sequences (usually provided
       in separate FASTA files).
