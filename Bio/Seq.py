@@ -3088,6 +3088,8 @@ def reverse_complement_rna(sequence, inplace=False):
     Given a MutableSeq, returns a new MutableSeq object.
     Given a SeqRecord object, raises a TypeError; use
     ``record.seq.reverse_complement_rna()`` or ``record.reverse_complement()``.
+    A SeqRecord subclass with its own ``reverse_complement_rna()`` method
+    has that method called instead.
 
     >>> my_seq = "CGA"
     >>> reverse_complement_rna(my_seq)
@@ -3162,6 +3164,8 @@ def complement(sequence, inplace=False):
     Given a MutableSeq, returns a new MutableSeq object.
     Given a SeqRecord object, raises a TypeError; use
     ``record.seq.complement()`` or ``record.reverse_complement()``.
+    A SeqRecord subclass with its own ``complement()`` method has that
+    method called instead.
 
     >>> my_seq = "CGA"
     >>> complement(my_seq)
@@ -3234,6 +3238,8 @@ def complement_rna(sequence, inplace=False):
     Given a MutableSeq, returns a new MutableSeq object.
     Given a SeqRecord object, raises a TypeError; use
     ``record.seq.complement_rna()`` or ``record.reverse_complement()``.
+    A SeqRecord subclass with its own ``complement_rna()`` method has that
+    method called instead.
 
     >>> my_seq = "CGA"
     >>> complement_rna(my_seq)
