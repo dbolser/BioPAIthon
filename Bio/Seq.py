@@ -3136,6 +3136,9 @@ def reverse_complement_rna(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
+        if hasattr(sequence, "reverse_complement_rna"):
+            # SeqRecord has no reverse_complement_rna(), but a subclass may define one.
+            return sequence.reverse_complement_rna()
         raise TypeError(
             "reverse_complement_rna() does not accept a SeqRecord; use "
             "record.seq.reverse_complement_rna() for the sequence, or "
@@ -3207,6 +3210,9 @@ def complement(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
+        if hasattr(sequence, "complement"):
+            # SeqRecord has no complement(), but a subclass may define one.
+            return sequence.complement()
         raise TypeError(
             "complement() does not accept a SeqRecord; use "
             "record.seq.complement() for the sequence, or "
@@ -3276,6 +3282,9 @@ def complement_rna(sequence, inplace=False):
     if isinstance(sequence, SeqRecord):
         if inplace:
             raise TypeError("SeqRecords are immutable")
+        if hasattr(sequence, "complement_rna"):
+            # SeqRecord has no complement_rna(), but a subclass may define one.
+            return sequence.complement_rna()
         raise TypeError(
             "complement_rna() does not accept a SeqRecord; use "
             "record.seq.complement_rna() for the sequence, or "

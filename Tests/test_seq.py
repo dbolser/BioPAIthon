@@ -911,6 +911,28 @@ class TestComplement(unittest.TestCase):
         self.assertIn("complement_rna() does not accept a SeqRecord", str(cm.exception))
         self.assertIn("record.seq.complement_rna()", str(cm.exception))
 
+    def test_seqrecord_subclass_dispatch(self):
+        """Test complement functions still call a SeqRecord subclass's method."""
+        from Bio.SeqRecord import SeqRecord
+
+        class Record(SeqRecord):
+            def complement(self):
+                return "complement"
+
+            def complement_rna(self):
+                return "complement_rna"
+
+            def reverse_complement_rna(self):
+                return "reverse_complement_rna"
+
+        r = Record(Seq.Seq("ACGT"))
+        self.assertEqual(Seq.complement(r), "complement")
+        self.assertEqual(Seq.complement_rna(r), "complement_rna")
+        self.assertEqual(Seq.reverse_complement_rna(r), "reverse_complement_rna")
+        with self.assertRaises(TypeError) as cm:
+            Seq.complement(r, inplace=True)
+        self.assertEqual(str(cm.exception), "SeqRecords are immutable")
+
 
 class TestReverseComplement(unittest.TestCase):
     def test_reverse_complement(self):

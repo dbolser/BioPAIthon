@@ -84,7 +84,8 @@ and ``record.reverse_complement()`` as the alternatives. Their docstrings
 promised a new ``SeqRecord``, but ``SeqRecord`` has none of those methods, so
 since Biopython 1.80 they have raised an unexplained ``AttributeError``
 instead. ``reverse_complement`` is unchanged and still returns a
-``SeqRecord``.
+``SeqRecord``, and a ``SeqRecord`` subclass that defines the method is
+still called as before.
 
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
