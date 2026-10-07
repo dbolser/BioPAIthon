@@ -20463,6 +20463,26 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
                     alignment.counts(aligner)
         self.assertEqual([sys.getrefcount(obj) for obj in objects], expected)
 
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython",
+        "PyPy's memoryview does not count buffer exports",
+    )
+    def test_counts_releases_only_its_own_export(self):
+        # counts(aligner) used to release a buffer export of the aligner's
+        # matrix that it had never taken, so each call drove a memoryview's
+        # export count down by one.
+        matrix = memoryview(np.eye(4))
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        sequence = np.array([0, 1, 2, 3], np.int32)
+        alignment = aligner.align(sequence, sequence)[0]
+        for _ in range(3):
+            self.assertEqual(alignment.counts(aligner).substitution_score, 4.0)
+        with self.assertRaises(BufferError):
+            matrix.release()  # the aligner still holds its export
+        aligner.substitution_matrix = None
+        matrix.release()
+
     def test_matrix_resized_in_place(self):
         # NumPy can resize an array in place even while the aligner holds a
         # buffer export of it.  Each call exports the matrix afresh, so it
