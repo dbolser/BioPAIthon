@@ -9,16 +9,18 @@ import os
 import os.path
 import unittest
 
+import support
+
 from Bio.Phylo.PAML import baseml
 from Bio.Phylo.PAML._paml import PamlError
 
 
 class ModTest(unittest.TestCase):
-    align_dir = os.path.join("PAML", "Alignments")
-    tree_dir = os.path.join("PAML", "Trees")
-    ctl_dir = os.path.join("PAML", "Control_files")
-    results_dir = os.path.join("PAML", "Results")
-    working_dir = os.path.join("PAML", "baseml_test")
+    align_dir = support.DATA / "PAML" / "Alignments"
+    tree_dir = support.DATA / "PAML" / "Trees"
+    ctl_dir = support.DATA / "PAML" / "Control_files"
+    results_dir = support.DATA / "PAML" / "Results"
+    working_dir = support.DATA / "PAML" / "baseml_test"
 
     align_file = os.path.join(align_dir, "alignment.phylip")
     tree_file = os.path.join(tree_dir, "species.tree")
@@ -194,7 +196,7 @@ class ModTest(unittest.TestCase):
         self.assertRaises(ValueError, baseml.read, self.results_file)
 
     def testParseAllVersions(self):
-        folder = os.path.join("PAML", "Results", "baseml", "versions")
+        folder = support.DATA / "PAML" / "Results" / "baseml" / "versions"
         for results_file in os.listdir(folder):
             file_path = os.path.join(folder, results_file)
             if os.path.isfile(file_path) and results_file[:6] == "baseml":

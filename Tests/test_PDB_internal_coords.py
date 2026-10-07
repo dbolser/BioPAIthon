@@ -22,6 +22,8 @@ except ImportError:
 
 from io import StringIO
 
+import support
+
 from Bio.File import as_handle
 from Bio.PDB.ic_rebuild import compare_residues
 from Bio.PDB.ic_rebuild import IC_duplicate
@@ -46,21 +48,21 @@ class Rebuild(unittest.TestCase):
     PDB_parser = PDBParser(PERMISSIVE=True, QUIET=True)
     CIF_parser = MMCIFParser(QUIET=True)
     MMTF_parser = MMTFParser()
-    pdb_1LCD = PDB_parser.get_structure("1LCD", "PDB/1LCD.pdb")
+    pdb_1LCD = PDB_parser.get_structure("1LCD", support.DATA / "PDB" / "1LCD.pdb")
     # cif_1A7G = CIF_parser.get_structure("1A7G", "PDB/1A7G.cif")
     # cif_1A7G2 = CIF_parser.get_structure("1A7G", "PDB/1A7G.cif")
-    pdb_2XHE = PDB_parser.get_structure("2XHE", "PDB/2XHE.pdb")
-    pdb_2XHE2 = PDB_parser.get_structure("2XHE", "PDB/2XHE.pdb")
-    pdb_1A8O = PDB_parser.get_structure("1A8O", "PDB/1A8O.pdb")
-    cif_3JQH = CIF_parser.get_structure("3JQH", "PDB/3JQH.cif")
-    cif_3JQH2 = CIF_parser.get_structure("3JQH", "PDB/3JQH.cif")
-    cif_4CUP = CIF_parser.get_structure("4CUP", "PDB/4CUP.cif")
-    cif_4CUP2 = CIF_parser.get_structure("4CUP", "PDB/4CUP.cif")
-    cif_4ZHL = CIF_parser.get_structure("4ZHL", "PDB/4ZHL.cif")
-    cif_4ZHL2 = CIF_parser.get_structure("4ZHL", "PDB/4ZHL.cif")
+    pdb_2XHE = PDB_parser.get_structure("2XHE", support.DATA / "PDB" / "2XHE.pdb")
+    pdb_2XHE2 = PDB_parser.get_structure("2XHE", support.DATA / "PDB" / "2XHE.pdb")
+    pdb_1A8O = PDB_parser.get_structure("1A8O", support.DATA / "PDB" / "1A8O.pdb")
+    cif_3JQH = CIF_parser.get_structure("3JQH", support.DATA / "PDB" / "3JQH.cif")
+    cif_3JQH2 = CIF_parser.get_structure("3JQH", support.DATA / "PDB" / "3JQH.cif")
+    cif_4CUP = CIF_parser.get_structure("4CUP", support.DATA / "PDB" / "4CUP.cif")
+    cif_4CUP2 = CIF_parser.get_structure("4CUP", support.DATA / "PDB" / "4CUP.cif")
+    cif_4ZHL = CIF_parser.get_structure("4ZHL", support.DATA / "PDB" / "4ZHL.cif")
+    cif_4ZHL2 = CIF_parser.get_structure("4ZHL", support.DATA / "PDB" / "4ZHL.cif")
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", PDBConstructionWarning)
-        mmtf_1A8O = MMTF_parser.get_structure("PDB/1A8O.mmtf")
+        mmtf_1A8O = MMTF_parser.get_structure(support.DATA / "PDB" / "1A8O.mmtf")
 
     def test_mmtf(self):
         chain = next(self.mmtf_1A8O.get_chains())

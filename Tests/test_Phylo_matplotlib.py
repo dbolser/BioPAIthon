@@ -8,6 +8,8 @@
 import unittest
 from io import StringIO
 
+import support
+
 # Check for any missing dependencies at the top level so we can skip
 from Bio import MissingExternalDependencyError
 from Bio import Phylo
@@ -34,8 +36,8 @@ except ImportError:
 
 
 # Example PhyloXML file
-EX_DOLLO = "PhyloXML/o_tol_332_d_dollo.xml"
-EX_APAF = "PhyloXML/apaf.xml"
+EX_DOLLO = support.DATA / "PhyloXML" / "o_tol_332_d_dollo.xml"
+EX_APAF = support.DATA / "PhyloXML" / "apaf.xml"
 
 
 class UtilTests(unittest.TestCase):

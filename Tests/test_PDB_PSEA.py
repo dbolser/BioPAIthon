@@ -11,6 +11,8 @@ import sys
 import unittest
 from subprocess import getoutput
 
+import support
+
 from Bio import MissingExternalDependencyError
 from Bio.PDB import PDBParser
 from Bio.PDB.PSEA import PSEA
@@ -43,7 +45,7 @@ class TestPDBPSEA(unittest.TestCase):
     def test_run_psea_verbose(self):
         captured_ouput = io.StringIO()
         sys.stdout = captured_ouput
-        psae_run = run_psea("PDB/1A8O.pdb", verbose=True)
+        psae_run = run_psea(support.DATA / "PDB" / "1A8O.pdb", verbose=True)
         sys.stdout = sys.__stdout__
         self.assertEqual(psae_run, "1A8O.sea")
         self.assertTrue(captured_ouput.getvalue())
@@ -51,17 +53,17 @@ class TestPDBPSEA(unittest.TestCase):
     def test_run_psea_quiet(self):
         captured_ouput = io.StringIO()
         sys.stdout = captured_ouput
-        psae_run = run_psea("PDB/1A8O.pdb", verbose=False)
+        psae_run = run_psea(support.DATA / "PDB" / "1A8O.pdb", verbose=False)
         sys.stdout = sys.__stdout__
         self.assertEqual(psae_run, "1A8O.sea")
         self.assertFalse(captured_ouput.getvalue())
 
     def test_psea(self):
-        psae_run = psea("PDB/2BEG.pdb")
+        psae_run = psea(support.DATA / "PDB" / "2BEG.pdb")
         self.assertEqual(psae_run, "ccccbbbbbbbccccbbbbbbbbbbc")
 
     def test_psea_2HEC(self):
-        seq = psea("PDB/2BEG.pdb")
+        seq = psea(support.DATA / "PDB" / "2BEG.pdb")
         psae_run = psea2HEC(seq)
         self.assertEqual(
             psae_run,
@@ -99,7 +101,7 @@ class TestPDBPSEA(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            psae_run = run_psea("PDB/1A8O.pdb", outdir=tmpdir)
+            psae_run = run_psea(support.DATA / "PDB" / "1A8O.pdb", outdir=tmpdir)
             output_file = os.path.join(tmpdir, psae_run)
 
             self.assertTrue(os.path.exists(output_file))
@@ -112,8 +114,8 @@ class TestPSEA(unittest.TestCase):
 
     def test_get_seq(self):
         p = PDBParser()
-        s = p.get_structure("X", "PDB/2BEG.pdb")
-        psea_class = PSEA(s[0], "PDB/2BEG.pdb")
+        s = p.get_structure("X", support.DATA / "PDB" / "2BEG.pdb")
+        psea_class = PSEA(s[0], support.DATA / "PDB" / "2BEG.pdb")
         self.assertEqual(
             psea_class.get_seq(),
             [

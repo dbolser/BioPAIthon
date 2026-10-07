@@ -10,21 +10,23 @@ import tempfile
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import Phylo
 from Bio.Phylo import PhyloXML
 
 # Example Newick and Nexus files
-EX_NEWICK = "Nexus/int_node_labels.nwk"
-EX_NEWICK2 = "Nexus/test.new"
-EX_NEXUS = "Nexus/test_Nexus_input.nex"
-EX_NEXUS2 = "Nexus/bats.nex"
-EX_NEWICK_BOM = "Nexus/ByteOrderMarkFile.nwk"
+EX_NEWICK = support.DATA / "Nexus" / "int_node_labels.nwk"
+EX_NEWICK2 = support.DATA / "Nexus" / "test.new"
+EX_NEXUS = support.DATA / "Nexus" / "test_Nexus_input.nex"
+EX_NEXUS2 = support.DATA / "Nexus" / "bats.nex"
+EX_NEWICK_BOM = support.DATA / "Nexus" / "ByteOrderMarkFile.nwk"
 
 # Example PhyloXML files
-EX_APAF = "PhyloXML/apaf.xml"
-EX_BCL2 = "PhyloXML/bcl_2.xml"
-EX_DIST = "PhyloXML/distribution.xml"
-EX_PHYLO = "PhyloXML/phyloxml_examples.xml"
+EX_APAF = support.DATA / "PhyloXML" / "apaf.xml"
+EX_BCL2 = support.DATA / "PhyloXML" / "bcl_2.xml"
+EX_DIST = support.DATA / "PhyloXML" / "distribution.xml"
+EX_PHYLO = support.DATA / "PhyloXML" / "phyloxml_examples.xml"
 
 
 class IOTests(unittest.TestCase):
@@ -153,20 +155,26 @@ class IOTests(unittest.TestCase):
 
     def test_convert_phyloxml_binary(self):
         """Try writing phyloxml to a binary handle; fail on Py3."""
-        trees = Phylo.parse("PhyloXML/phyloxml_examples.xml", "phyloxml")
+        trees = Phylo.parse(
+            support.DATA / "PhyloXML" / "phyloxml_examples.xml", "phyloxml"
+        )
         with tempfile.NamedTemporaryFile(mode="wb") as out_handle:
             self.assertRaises(TypeError, Phylo.write, trees, out_handle, "phyloxml")
 
     def test_convert_phyloxml_text(self):
         """Write phyloxml to a text handle."""
-        trees = Phylo.parse("PhyloXML/phyloxml_examples.xml", "phyloxml")
+        trees = Phylo.parse(
+            support.DATA / "PhyloXML" / "phyloxml_examples.xml", "phyloxml"
+        )
         with tempfile.NamedTemporaryFile(mode="w") as out_handle:
             count = Phylo.write(trees, out_handle, "phyloxml")
         self.assertEqual(14, count)
 
     def test_convert_phyloxml_filename(self):
         """Write phyloxml to a given filename."""
-        trees = Phylo.parse("PhyloXML/phyloxml_examples.xml", "phyloxml")
+        trees = Phylo.parse(
+            support.DATA / "PhyloXML" / "phyloxml_examples.xml", "phyloxml"
+        )
         out_handle = tempfile.NamedTemporaryFile(mode="w", delete=False)
         out_handle.close()
         tmp_filename = out_handle.name

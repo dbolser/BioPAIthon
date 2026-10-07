@@ -33,6 +33,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio import BiopythonWarning
 from Bio.PDB import Atom
 from Bio.PDB import PDBParser
@@ -47,7 +49,7 @@ class Atom_Element(unittest.TestCase):
     def test_atom_element_assignment(self):
         """Atom Element."""
         parser = PDBParser(PERMISSIVE=True, QUIET=True)
-        structure = parser.get_structure("X", "PDB/a_structure.pdb")
+        structure = parser.get_structure("X", support.DATA / "PDB" / "a_structure.pdb")
         residue = structure[0]["A"][("H_PCA", 1, " ")]
 
         atoms = residue.child_list
@@ -74,7 +76,7 @@ class Atom_Element(unittest.TestCase):
     def test_ions(self):
         """Element for magnesium is assigned correctly."""
         parser = PDBParser(PERMISSIVE=True)
-        structure = parser.get_structure("X", "PDB/ions.pdb")
+        structure = parser.get_structure("X", support.DATA / "PDB" / "ions.pdb")
         # check magnesium atom
         atoms = structure[0]["A"][("H_MG", 1, " ")].child_list
         self.assertEqual("MG", atoms[0].element)
@@ -159,8 +161,8 @@ class SortingTests(unittest.TestCase):
 
     def test_strict_equality(self):
         parser = PDBParser()
-        structure = parser.get_structure("example", "PDB/1A8O.pdb")
-        structure2 = parser.get_structure("example", "PDB/1A8O.pdb")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "1A8O.pdb")
+        structure2 = parser.get_structure("example", support.DATA / "PDB" / "1A8O.pdb")
 
         self.assertTrue(structure.strictly_equals(structure2))
         self.assertTrue(
@@ -184,7 +186,7 @@ class SortingTests(unittest.TestCase):
         )  # Strict equality should be symmetric
 
         # Reset structure2
-        structure2 = parser.get_structure("example", "PDB/1A8O.pdb")
+        structure2 = parser.get_structure("example", support.DATA / "PDB" / "1A8O.pdb")
 
         self.assertTrue(structure.strictly_equals(structure2))
         self.assertTrue(
@@ -242,7 +244,7 @@ class SortingTests(unittest.TestCase):
     def test_residue_sort(self):
         """Test atoms are sorted correctly in residues."""
         parser = PDBParser()
-        structure = parser.get_structure("example", "PDB/1A8O.pdb")
+        structure = parser.get_structure("example", support.DATA / "PDB" / "1A8O.pdb")
 
         for residue in structure.get_residues():
             old = [a.name for a in residue]
@@ -267,7 +269,9 @@ class SortingTests(unittest.TestCase):
     def test_comparison_entities(self):
         """Test comparing and sorting the several SMCRA objects."""
         parser = PDBParser(QUIET=True)
-        structure = parser.get_structure("example", "PDB/a_structure.pdb")
+        structure = parser.get_structure(
+            "example", support.DATA / "PDB" / "a_structure.pdb"
+        )
 
         # Test deepcopy of a structure with disordered atoms
         structure2 = deepcopy(structure)
@@ -376,7 +380,9 @@ class IterationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         parser = PDBParser(PERMISSIVE=True, QUIET=True)
-        cls.structure = parser.get_structure("X", "PDB/a_structure.pdb")
+        cls.structure = parser.get_structure(
+            "X", support.DATA / "PDB" / "a_structure.pdb"
+        )
 
     def test_get_chains(self):
         """Yields chains from different models separately."""
@@ -401,7 +407,9 @@ class ChangingIdTests(unittest.TestCase):
 
     def setUp(self):
         parser = PDBParser(PERMISSIVE=True, QUIET=True)
-        self.structure = parser.get_structure("X", "PDB/a_structure.pdb")
+        self.structure = parser.get_structure(
+            "X", support.DATA / "PDB" / "a_structure.pdb"
+        )
 
     def test_change_model_id(self):
         """Change the id of a model."""
@@ -495,7 +503,7 @@ class TransformTests(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             self.s = PDBParser(PERMISSIVE=True).get_structure(
-                "X", "PDB/a_structure.pdb"
+                "X", support.DATA / "PDB" / "a_structure.pdb"
             )
         self.m = self.s.get_list()[0]
         self.c = self.m.get_list()[0]
@@ -539,7 +547,7 @@ class CopyTests(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             self.s = PDBParser(PERMISSIVE=True).get_structure(
-                "X", "PDB/a_structure.pdb"
+                "X", support.DATA / "PDB" / "a_structure.pdb"
             )
         self.m = self.s.get_list()[0]
         self.c = self.m.get_list()[0]
@@ -564,7 +572,7 @@ class IndexingTests(unittest.TestCase):
 
     def setUp(self):
         parser = PDBParser(PERMISSIVE=True, QUIET=True)
-        self.structure = parser.get_structure("a", "PDB/1LCD.pdb")
+        self.structure = parser.get_structure("a", support.DATA / "PDB" / "1LCD.pdb")
 
     def test_res_indexing(self):
         chain = self.structure[0]["A"]  # Get first chain in the first model
@@ -593,7 +601,7 @@ class CenterOfMassTests(unittest.TestCase):
         cls.parser = parser = PDBParser()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            cls.structure = parser.get_structure("a", "PDB/1LCD.pdb")
+            cls.structure = parser.get_structure("a", support.DATA / "PDB" / "1LCD.pdb")
 
     def test_structure_com(self):
         """Calculate Structure center of mass."""
@@ -623,7 +631,9 @@ class CenterOfMassTests(unittest.TestCase):
         """Center of mass of empty structure raises ValueError."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s = self.parser.get_structure("b", "PDB/disordered.pdb")  # smaller
+            s = self.parser.get_structure(
+                "b", support.DATA / "PDB" / "disordered.pdb"
+            )  # smaller
 
         for child in list(s):
             s.detach_child(child.id)

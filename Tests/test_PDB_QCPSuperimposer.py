@@ -17,6 +17,8 @@ except ImportError:
     ) from None
 
 
+import support
+
 from Bio.PDB import PDBParser
 from Bio.PDB import Selection
 from Bio.PDB.qcprot import QCPSuperimposer
@@ -148,7 +150,7 @@ class QCPSuperimposerTest(unittest.TestCase):
 
     def test_on_pdb(self):
         """Align a PDB to itself."""
-        pdb1 = "PDB/1A8O.pdb"
+        pdb1 = support.DATA / "PDB" / "1A8O.pdb"
         p = PDBParser()
         s1 = p.get_structure("FIXED", pdb1)
         fixed = Selection.unfold_entities(s1, "A")

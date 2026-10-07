@@ -33,6 +33,8 @@ import json
 import unittest
 import warnings
 
+import support
+
 from Bio import BiopythonExperimentalWarning
 
 with warnings.catch_warnings():
@@ -40,7 +42,7 @@ with warnings.catch_warnings():
     from Bio import phenotype
 
 # Example plate files
-JSON_PLATE = "phenotype/Plate.json"
+JSON_PLATE = support.DATA / "phenotype" / "Plate.json"
 
 
 class TestPhenoMicro(unittest.TestCase):

@@ -23,6 +23,8 @@ except ImportError:
         "Install numpy if you want to use Bio.Align."
     ) from None
 
+import support
+
 from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonWarning
 from Bio import Align
@@ -17174,10 +17176,10 @@ class TestOverflowError(unittest.TestCase):
     def test_align_overflow_error(self):
         aligner = Align.PairwiseAligner()
         aligner.gap_score = 0
-        path = os.path.join("Align", "bsubtilis.fa")
+        path = support.DATA / "Align" / "bsubtilis.fa"
         record = SeqIO.read(path, "fasta")
         seq1 = record.seq
-        path = os.path.join("Align", "ecoli.fa")
+        path = support.DATA / "Align" / "ecoli.fa"
         record = SeqIO.read(path, "fasta")
         seq2 = record.seq
         alignments = aligner.align(seq1, seq2)

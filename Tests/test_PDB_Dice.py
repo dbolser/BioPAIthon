@@ -9,6 +9,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 from Bio.PDB import Dice
 from Bio.PDB import PDBParser
 
@@ -20,7 +22,7 @@ class DiceTests(unittest.TestCase):
         """Self test for PDB.Dice module."""
         # Load and dice 2BEG.pdb
         parser = PDBParser()
-        pdb_file = "PDB/2BEG.pdb"
+        pdb_file = support.DATA / "PDB" / "2BEG.pdb"
         structure = parser.get_structure("scr", pdb_file)
         file_number, file_pdb_diced = tempfile.mkstemp()
         os.close(file_number)

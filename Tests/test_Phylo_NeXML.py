@@ -11,6 +11,8 @@ import tempfile
 import unittest
 from io import BytesIO
 
+import support
+
 from Bio import Phylo
 
 # Example NeXML files
@@ -49,7 +51,7 @@ class ParseTests(unittest.TestCase):
         """Extract and count phylogenetic trees using Phylo.parse."""
         for filename in nexml_files:
             count = tree_counts.get(filename, 1)
-            path = os.path.join("NeXML", filename)
+            path = support.DATA / "NeXML" / filename
             msg = f"Failed parser test for {path}"
             trees = list(Phylo.parse(path, "nexml"))
             self.assertEqual(len(trees), count, msg=msg)
@@ -100,7 +102,7 @@ class WriterTests(unittest.TestCase):
         for filename in nexml_files:
             count = tree_counts.get(filename, 1)
             if count > 0:
-                path = os.path.join("NeXML", filename)
+                path = support.DATA / "NeXML" / filename
                 self.check(path)
 
 

@@ -23,6 +23,8 @@ import unittest
 import warnings
 from io import StringIO
 
+import support
+
 from Bio import BiopythonExperimentalWarning
 
 with warnings.catch_warnings():
@@ -30,15 +32,15 @@ with warnings.catch_warnings():
     from Bio import phenotype
 
 # Example plate files
-SMALL_JSON_PLATE = "phenotype/SmallPlate.json"
-SMALL_JSON_PLATE_2 = "phenotype/SmallPlate_2.json"
-JSON_PLATE = "phenotype/Plate.json"
-JSON_PLATE_2 = "phenotype/Plate_2.json"
-JSON_PLATE_3 = "phenotype/Plate_3.json"
-JSON_BAD = "phenotype/BadPlate.json"
+SMALL_JSON_PLATE = support.DATA / "phenotype" / "SmallPlate.json"
+SMALL_JSON_PLATE_2 = support.DATA / "phenotype" / "SmallPlate_2.json"
+JSON_PLATE = support.DATA / "phenotype" / "Plate.json"
+JSON_PLATE_2 = support.DATA / "phenotype" / "Plate_2.json"
+JSON_PLATE_3 = support.DATA / "phenotype" / "Plate_3.json"
+JSON_BAD = support.DATA / "phenotype" / "BadPlate.json"
 
-SMALL_CSV_PLATES = "phenotype/SmallPlates.csv"
-CSV_PLATES = "phenotype/Plates.csv"
+SMALL_CSV_PLATES = support.DATA / "phenotype" / "SmallPlates.csv"
+CSV_PLATES = support.DATA / "phenotype" / "Plates.csv"
 
 
 class TestPhenoMicro(unittest.TestCase):

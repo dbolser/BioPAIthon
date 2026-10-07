@@ -10,15 +10,17 @@ import os
 import os.path
 import unittest
 
+import support
+
 from Bio.Phylo.PAML import yn00
 
 
 class ModTest(unittest.TestCase):
-    align_dir = os.path.join("PAML", "Alignments")
-    tree_dir = os.path.join("PAML", "Trees")
-    ctl_dir = os.path.join("PAML", "Control_files")
-    results_dir = os.path.join("PAML", "Results")
-    working_dir = os.path.join("PAML", "yn00_test")
+    align_dir = support.DATA / "PAML" / "Alignments"
+    tree_dir = support.DATA / "PAML" / "Trees"
+    ctl_dir = support.DATA / "PAML" / "Control_files"
+    results_dir = support.DATA / "PAML" / "Results"
+    working_dir = support.DATA / "PAML" / "yn00_test"
 
     align_file = os.path.join(align_dir, "alignment.phylip")
     dotname_align_file = os.path.join(align_dir, "alignment_dottednames.phylip")

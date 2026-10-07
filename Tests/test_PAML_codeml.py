@@ -10,6 +10,8 @@ import os
 import os.path
 import unittest
 
+import support
+
 from Bio.Phylo.PAML import codeml
 from Bio.Phylo.PAML._paml import PamlError
 
@@ -23,11 +25,11 @@ SITECLASSES = {0: None, 1: 2, 2: 3, 3: 3, 7: 10, 8: 11, 22: 3}
 
 
 class ModTest(unittest.TestCase):
-    align_dir = os.path.join("PAML", "Alignments")
-    tree_dir = os.path.join("PAML", "Trees")
-    ctl_dir = os.path.join("PAML", "Control_files")
-    results_dir = os.path.join("PAML", "Results")
-    working_dir = os.path.join("PAML", "codeml_test")
+    align_dir = support.DATA / "PAML" / "Alignments"
+    tree_dir = support.DATA / "PAML" / "Trees"
+    ctl_dir = support.DATA / "PAML" / "Control_files"
+    results_dir = support.DATA / "PAML" / "Results"
+    working_dir = support.DATA / "PAML" / "codeml_test"
 
     align_file = os.path.join(align_dir, "alignment.phylip")
     tree_file = os.path.join(tree_dir, "species.tree")

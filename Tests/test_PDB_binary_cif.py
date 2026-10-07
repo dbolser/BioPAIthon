@@ -14,6 +14,8 @@ except ImportError:
         "Install numpy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import MMCIFParser
 from Bio.PDB import _bcif_helper
 from Bio.PDB.binary_cif import BinaryCIFParser
@@ -162,9 +164,12 @@ class TestBinaryCIFParser(unittest.TestCase):
         bcif_parser = BinaryCIFParser()
 
         for entry in ["1GBT", "6WG6", "3JQH"]:
-            mmcif_structure = mmcif_parser.get_structure(entry, f"PDB/{entry}.cif")
+            mmcif_structure = mmcif_parser.get_structure(
+                entry, support.DATA / "PDB" / f"{entry}.cif"
+            )
+            # get_structure calls source.endswith(), so pass a str, not a Path.
             bcif_structure = bcif_parser.get_structure(
-                entry, f"PDB/{entry.lower()}.bcif.gz"
+                entry, str(support.DATA / "PDB" / f"{entry.lower()}.bcif.gz")
             )
             self.assertTrue(
                 mmcif_structure.strictly_equals(

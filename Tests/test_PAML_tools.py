@@ -9,6 +9,8 @@ import os
 import shutil
 import unittest
 
+import support
+
 from Bio import MissingExternalDependencyError
 from Bio.Phylo.PAML import baseml
 from Bio.Phylo.PAML import codeml
@@ -44,12 +46,12 @@ class CodemlTest(Common):
 
     def testCodemlBinary(self):
         """Check codeml runs, generates correct output, and is the correct version."""
-        ctl_file = os.path.join("PAML", "Control_files", "codeml", "codeml.ctl")
+        ctl_file = support.DATA / "PAML" / "Control_files" / "codeml" / "codeml.ctl"
         self.cml.read_ctl_file(ctl_file)
-        self.cml.alignment = os.path.join("PAML", "Alignments", "alignment.phylip")
-        self.cml.tree = os.path.join("PAML", "Trees", "species.tree")
-        self.cml.out_file = os.path.join("PAML", "temp.out")
-        self.cml.working_dir = os.path.join("PAML", "codeml_test")
+        self.cml.alignment = support.DATA / "PAML" / "Alignments" / "alignment.phylip"
+        self.cml.tree = support.DATA / "PAML" / "Trees" / "species.tree"
+        self.cml.out_file = support.DATA / "PAML" / "temp.out"
+        self.cml.working_dir = support.DATA / "PAML" / "codeml_test"
         results = self.cml.run()
         self.assertGreater(results["version"], "4.0")
         self.assertIn("NSsites", results)
@@ -65,12 +67,12 @@ class BasemlTest(Common):
 
     def testBasemlBinary(self):
         """Check baseml runs, generates correct output, and is the correct version."""
-        ctl_file = os.path.join("PAML", "Control_files", "baseml", "baseml.ctl")
+        ctl_file = support.DATA / "PAML" / "Control_files" / "baseml" / "baseml.ctl"
         self.bml.read_ctl_file(ctl_file)
-        self.bml.alignment = os.path.join("PAML", "Alignments", "alignment.phylip")
-        self.bml.tree = os.path.join("PAML", "Trees", "species.tree")
-        self.bml.out_file = os.path.join("PAML", "temp.out")
-        self.bml.working_dir = os.path.join("PAML", "baseml_test")
+        self.bml.alignment = support.DATA / "PAML" / "Alignments" / "alignment.phylip"
+        self.bml.tree = support.DATA / "PAML" / "Trees" / "species.tree"
+        self.bml.out_file = support.DATA / "PAML" / "temp.out"
+        self.bml.working_dir = support.DATA / "PAML" / "baseml_test"
         results = self.bml.run()
         self.assertGreater(results["version"], "4.0")
         self.assertIn("parameters", results)
@@ -88,11 +90,11 @@ class Yn00Test(Common):
 
         yn00 output does not specify the version number.
         """
-        ctl_file = os.path.join("PAML", "Control_files", "yn00", "yn00.ctl")
+        ctl_file = support.DATA / "PAML" / "Control_files" / "yn00" / "yn00.ctl"
         self.yn.read_ctl_file(ctl_file)
-        self.yn.alignment = os.path.join("PAML", "Alignments", "alignment.phylip")
-        self.yn.out_file = os.path.join("PAML", "temp.out")
-        self.yn.working_dir = os.path.join("PAML", "yn00_test")
+        self.yn.alignment = support.DATA / "PAML" / "Alignments" / "alignment.phylip"
+        self.yn.out_file = support.DATA / "PAML" / "temp.out"
+        self.yn.working_dir = support.DATA / "PAML" / "yn00_test"
         results = self.yn.run()
         self.assertEqual(len(results), 5)
 

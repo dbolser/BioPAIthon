@@ -15,6 +15,8 @@ import warnings
 
 import numpy as np
 
+import support
+
 from Bio.PDB import PDBIO
 from Bio.PDB import PDBParser
 from Bio.PDB.Atom import Atom
@@ -27,7 +29,9 @@ class TestDisordered(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.parser = parser = PDBParser(QUIET=1)
-        cls.structure = parser.get_structure("x", "PDB/disordered.pdb")
+        cls.structure = parser.get_structure(
+            "x", support.DATA / "PDB" / "disordered.pdb"
+        )
 
     def unpack_all_atoms(self, structure):
         """Return a list of all atoms in the structure."""
@@ -215,7 +219,7 @@ class TestDisordered(unittest.TestCase):
         """Calculate center of mass of structure including DisorderedAtoms."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = self.parser.get_structure("b", "PDB/disordered.pdb")
+            s = self.parser.get_structure("b", support.DATA / "PDB" / "disordered.pdb")
 
         com = s.center_of_mass()
 
@@ -225,7 +229,7 @@ class TestDisordered(unittest.TestCase):
         """Calculate DisorderedAtom center of geometry."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = self.parser.get_structure("b", "PDB/disordered.pdb")
+            s = self.parser.get_structure("b", support.DATA / "PDB" / "disordered.pdb")
 
         arg27 = s[0]["A"][27]
 
@@ -252,7 +256,7 @@ class TestDisordered(unittest.TestCase):
         """Remove residues from DisorderedResidue entities."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = self.parser.get_structure("a", "PDB/a_structure.pdb")
+            s = self.parser.get_structure("a", support.DATA / "PDB" / "a_structure.pdb")
 
         # Residue 10 of chain A is disordered
         disres = s[1]["A"][(" ", 10, " ")]
@@ -279,7 +283,7 @@ class TestDisordered(unittest.TestCase):
         """Remove altlocs from DisorderedAtom entities."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = self.parser.get_structure("a", "PDB/a_structure.pdb")
+            s = self.parser.get_structure("a", support.DATA / "PDB" / "a_structure.pdb")
 
         # Residue 3 of chain A is disordered
         disres = s[1]["A"][(" ", 3, " ")]

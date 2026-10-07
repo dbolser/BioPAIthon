@@ -6,6 +6,8 @@ Currently only tests unfold_entities.
 
 import unittest
 
+import support
+
 from Bio.PDB import PDBParser
 from Bio.PDB.PDBExceptions import PDBException
 from Bio.PDB.Residue import Residue
@@ -21,7 +23,9 @@ class UnfoldEntitiesTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.parser = PDBParser(PERMISSIVE=True)
-        cls.structure = cls.parser.get_structure("scr", "PDB/1A8O.pdb")
+        cls.structure = cls.parser.get_structure(
+            "scr", support.DATA / "PDB" / "1A8O.pdb"
+        )
 
     def test_from_structure_level(self):
         """Unfold from highest level to all levels."""

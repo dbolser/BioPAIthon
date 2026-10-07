@@ -20,6 +20,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.PDB."
     ) from None
 
+import support
+
 from Bio.PDB import PDBParser
 from Bio.PDB import Selection
 from Bio.PDB import Superimposer
@@ -30,7 +32,7 @@ class SuperimposerTests(unittest.TestCase):
 
     def test_Superimposer(self):
         """Test on module that superimpose two protein structures."""
-        pdb1 = "PDB/1A8O.pdb"
+        pdb1 = support.DATA / "PDB" / "1A8O.pdb"
         p = PDBParser()
         s1 = p.get_structure("FIXED", pdb1)
         fixed = Selection.unfold_entities(s1, "A")

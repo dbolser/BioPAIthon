@@ -13,6 +13,8 @@
 
 import unittest
 
+import support
+
 from Bio.PDB import CaPPBuilder
 from Bio.PDB import PDBParser
 from Bio.PDB import PPBuilder
@@ -24,7 +26,7 @@ class PolypeptideTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
-        pdb1 = "PDB/1A8O.pdb"
+        pdb1 = support.DATA / "PDB" / "1A8O.pdb"
         self.parser = PDBParser(PERMISSIVE=True)
         self.structure = self.parser.get_structure("scr", pdb1)
 

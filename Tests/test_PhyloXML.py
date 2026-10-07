@@ -12,6 +12,8 @@ import tempfile
 import unittest
 from itertools import chain
 
+import support
+
 from Bio.Align import Alignment
 from Bio.Align import MultipleSeqAlignment
 from Bio.Phylo import PhyloXML as PX
@@ -20,11 +22,11 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 # Example PhyloXML files
-EX_APAF = "PhyloXML/apaf.xml"
-EX_BCL2 = "PhyloXML/bcl_2.xml"
-EX_MADE = "PhyloXML/made_up.xml"
-EX_PHYLO = "PhyloXML/phyloxml_examples.xml"
-EX_DOLLO = "PhyloXML/o_tol_332_d_dollo.xml"
+EX_APAF = support.DATA / "PhyloXML" / "apaf.xml"
+EX_BCL2 = support.DATA / "PhyloXML" / "bcl_2.xml"
+EX_MADE = support.DATA / "PhyloXML" / "made_up.xml"
+EX_PHYLO = support.DATA / "PhyloXML" / "phyloxml_examples.xml"
+EX_DOLLO = support.DATA / "PhyloXML" / "o_tol_332_d_dollo.xml"
 
 # Temporary file name for Writer tests below
 DUMMY = tempfile.NamedTemporaryFile(delete=False).name
