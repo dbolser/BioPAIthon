@@ -310,7 +310,8 @@ handle.name: {handle.name}
                     )
                 # Every way into state_ALIGN_HEADER sets or checks match_id:
                 assert match_id is not None, line
-                if not query_id.startswith(line[1:].split(None, 1)[0]):
+                parts = line[1:].split(None, 1)
+                if not parts or not query_id.startswith(parts[0]):
                     raise ValueError(
                         f"Expected query alignment line for {query_id!r}, not: {line!r}"
                     )
@@ -320,7 +321,8 @@ handle.name: {handle.name}
                 # Checked on entering state_ALIGN_QUERY just above:
                 assert query_id is not None, line
                 assert match_id is not None, line
-                if not match_id.startswith(line[1:].split(None, 1)[0]):
+                parts = line[1:].split(None, 1)
+                if not parts or not match_id.startswith(parts[0]):
                     raise ValueError(
                         f"Expected match alignment line for {match_id!r}, not: {line!r}"
                     )

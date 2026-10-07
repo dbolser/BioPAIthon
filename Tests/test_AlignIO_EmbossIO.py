@@ -133,6 +133,13 @@ seqB               1 ACGTACGTA-      9
             self.parse(text)
         self.assertIn("Expected identifier line for sequence 2", str(cm.exception))
 
+    def test_identifier_line_not_numbered(self):
+        """An identifier line without a number gets the same error."""
+        text = self.header.replace("# 2: seqB", "# x: seqB") + self.first_block
+        with self.assertRaises(ValueError) as cm:
+            self.parse(text)
+        self.assertIn("Expected identifier line for sequence 2", str(cm.exception))
+
     def test_letters_on_line_with_start_after_end(self):
         """Only a line with no letters can have its start after its end."""
         text = (

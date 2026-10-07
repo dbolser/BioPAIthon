@@ -908,6 +908,17 @@ class FastaM10MalformedTests(unittest.TestCase):
             str(cm.exception),
         )
 
+    def test_alignment_line_without_id(self):
+        """A bare '>' alignment line names no sequence."""
+        for old, expected in [
+            (">gi|10955263| ..\n", "Expected query alignment line"),
+            (">gi|152973457|ref|YP_001338508.1| ..\n", "Expected match alignment line"),
+        ]:
+            with self.subTest(old=old):
+                with self.assertRaises(ValueError) as cm:
+                    self.parse_mutated(old, ">\n")
+                self.assertIn(expected, str(cm.exception))
+
     def test_consensus_line_before_sequences(self):
         """A ; al_cons line can only follow the match sequence."""
         with self.assertRaises(ValueError) as cm:

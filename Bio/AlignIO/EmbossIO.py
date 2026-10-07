@@ -70,7 +70,11 @@ class EmbossIterator(AlignmentIterator):
                 for i in range(number_of_seqs):
                     line = handle.readline()
                     parts = line[1:].strip().split(":", 1)
-                    if i + 1 != int(parts[0].strip()):
+                    try:
+                        line_num = int(parts[0].strip())
+                    except ValueError:
+                        line_num = None
+                    if i + 1 != line_num:
                         raise ValueError(
                             f"Expected identifier line for sequence {i + 1},"
                             f" not: {line!r}"
