@@ -270,7 +270,8 @@ names are also used in Bio.AlignIO and include the following:
       _pdbx_poly_seq_scheme records.
     - embl    - The EMBL flat file format. Uses Bio.GenBank internally.
     - embl-cds - Reads an EMBL file and returns one record per CDS feature,
-      taking its protein sequence from the /translation qualifier.
+      taking its protein sequence from the /translation qualifier (seq is
+      None if the feature has none).
     - fasta   - The generic sequence file format where each record starts with
       an identifier line starting with a ">" character, followed by
       lines of sequence.
@@ -326,7 +327,8 @@ names are also used in Bio.AlignIO and include the following:
       microarray probes in a minimal tab delimited text file.
     - twobit  - UCSC's twoBit (.2bit) format for nucleotide sequences, which
       uses two bits per nucleotide. Sequence data is only read from the
-      file when it is accessed.
+      file when it is accessed, so keep the file open while you use the
+      records.
     - qual    - A "FASTA like" format holding PHRED quality values from
       sequencing DNA, but no actual sequences (usually provided
       in separate FASTA files).
