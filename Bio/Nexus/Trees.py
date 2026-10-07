@@ -215,7 +215,11 @@ class Tree(Nodes.Chain):
                 try:
                     values.append(float(part))
                 except ValueError:
-                    assert taxonomy is None, "Two string taxonomies?"
+                    if taxonomy is not None:
+                        raise ValueError(
+                            f"Two string taxonomies {taxonomy!r} and {part!r} "
+                            f"in node {text!r}"
+                        ) from None
                     taxonomy = part
         if taxonomy:
             values.insert(0, taxonomy)

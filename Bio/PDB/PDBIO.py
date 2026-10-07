@@ -54,7 +54,9 @@ def _format_b_factor(value: float) -> str:
         )
         _bfactor_str = f"{_MAX_B_FACTOR:6d}"
 
-    assert len(_bfactor_str) <= 6
+    if len(_bfactor_str) > 6:
+        # e.g. a B factor of -1000 or below
+        raise ValueError(f"B factor {value!r} does not fit the 6 character PDB field")
 
     return _bfactor_str
 

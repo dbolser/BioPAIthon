@@ -265,7 +265,11 @@ class QCPSuperimposer:
         :param moving: list of (moving) atoms
         :type fixed,moving: [L{Atom}, L{Atom},...]
         """
-        assert len(fixed) == len(moving), "Fixed and moving atom lists differ in size"
+        if len(fixed) != len(moving):
+            raise ValueError(
+                f"Fixed and moving atom lists differ in size: "
+                f"{len(fixed)} and {len(moving)}"
+            )
 
         # Grab coordinates in double precision
         fix_coord = np.array([a.get_coord() for a in fixed], dtype=np.float64)

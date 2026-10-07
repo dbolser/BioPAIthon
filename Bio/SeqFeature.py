@@ -985,7 +985,9 @@ class SimpleLocation(Location):
         for key, value in m.groupdict().items():
             if value is not None:
                 break
-        assert value == text
+        if value != text:
+            # Only part of the text matched, e.g. "123..456abc"
+            raise LocationParserError(f"Could not parse feature location '{text}'")
         if key == "bond":
             # e.g. bond(196)
             warnings.warn(
@@ -2167,7 +2169,11 @@ class BetweenPosition(int, Position):
 
     def __new__(cls, position, left, right):
         """Create a new instance in BetweenPosition object."""
-        assert position == left or position == right
+        if not (position == left or position == right):
+            raise ValueError(
+                f"BetweenPosition: {position!r} should match left {left!r} "
+                f"or right {right!r}"
+            )
         # TODO - public API for getting left/right, especially the unknown one
         obj = int.__new__(cls, position)
         obj._left = left

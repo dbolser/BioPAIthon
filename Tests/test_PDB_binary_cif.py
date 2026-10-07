@@ -19,7 +19,9 @@ import support
 from Bio.PDB import MMCIFParser
 from Bio.PDB import _bcif_helper
 from Bio.PDB.binary_cif import BinaryCIFParser
+from Bio.PDB.binary_cif import _fixed_point_decoder
 from Bio.PDB.binary_cif import _integer_packing_decoder
+from Bio.PDB.binary_cif import _run_length_decoder
 
 
 class TestIntegerUnpack(unittest.TestCase):
@@ -156,6 +158,50 @@ class TestIntegerUnpack(unittest.TestCase):
             True,
             "decoded output should be in native byte order",
         )
+
+
+class TestMalformedEncodings(unittest.TestCase):
+    """Encodings that disagree with their data raise ValueError, not assert."""
+
+    @staticmethod
+    def column(data, **encoding):
+        return {"data": {"data": data, "encoding": [encoding]}}
+
+    def test_integer_packing_byte_count(self):
+        column = self.column(
+            np.array([1, 2], dtype=np.uint16),
+            kind="IntegerPacking",
+            byteCount=1,
+            srcSize=2,
+            isUnsigned=True,
+        )
+        with self.assertRaisesRegex(ValueError, "byteCount is 1"):
+            _integer_packing_decoder(column)
+
+    def test_integer_packing_signedness(self):
+        column = self.column(
+            np.array([1, 2], dtype=np.int8),
+            kind="IntegerPacking",
+            byteCount=1,
+            srcSize=2,
+            isUnsigned=True,
+        )
+        with self.assertRaisesRegex(ValueError, "isUnsigned is True"):
+            _integer_packing_decoder(column)
+
+    def test_run_length_src_size(self):
+        column = self.column(
+            np.array([7, 3], dtype=np.int32), kind="RunLength", srcType=3, srcSize=4
+        )
+        with self.assertRaisesRegex(ValueError, "gave 3 values, but srcSize is 4"):
+            _run_length_decoder(column)
+
+    def test_fixed_point_data_type(self):
+        column = self.column(
+            np.array([1, 2], dtype=np.int8), kind="FixedPoint", srcType=32, factor=10
+        )
+        with self.assertRaisesRegex(ValueError, "Expected 32-bit integers"):
+            _fixed_point_decoder(column)
 
 
 class TestBinaryCIFParser(unittest.TestCase):

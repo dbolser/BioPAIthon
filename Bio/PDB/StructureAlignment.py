@@ -141,9 +141,11 @@ class StructureAlignment:
         seq2_record = self._extract_sequence_from_model(m2, "structure2")
 
         if self.aligner is not None:
-            assert isinstance(
-                self.aligner, PairwiseAligner
-            ), f"custom aligner must be a PairwiseAligner object, not {type(self.aligner)}"
+            if not isinstance(self.aligner, PairwiseAligner):
+                raise TypeError(
+                    "custom aligner must be a PairwiseAligner object, "
+                    f"not {type(self.aligner)}"
+                )
         else:
             aligner = PairwiseAligner("blastp")
 
@@ -169,7 +171,11 @@ class StructureAlignment:
         """Test if aa in sequence fits aa in structure (PRIVATE)."""
         resname = r1.get_resname()
         resname = PDBData.protein_letters_3to1_extended[resname]
-        assert aa1 == resname
+        if aa1 != resname:
+            raise ValueError(
+                f"Alignment has {aa1!r} where the structure has {resname!r} "
+                f"(residue {r1.get_full_id()})"
+            )
 
     def get_maps(self):
         """Map residues between the structures.

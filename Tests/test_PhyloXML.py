@@ -637,6 +637,23 @@ class MethodTests(unittest.TestCase):
     def setUp(self):
         self.phyloxml = PhyloXMLIO.read(EX_PHYLO)
 
+    # Argument checks (these were asserts, which python -O removes)
+
+    def test_bad_arguments(self):
+        """Wrong types and values raise TypeError or ValueError."""
+        with self.assertRaisesRegex(TypeError, "Expected a Phyloxml object"):
+            PhyloXMLIO.Writer(self.phyloxml.phylogenies[0])
+        with self.assertRaisesRegex(TypeError, "rooted must be True or False"):
+            PX.Phylogeny(rooted="yes")
+        with self.assertRaisesRegex(TypeError, "Color values must be integers"):
+            PX.BranchColor(1.5, 0, 0)
+        with self.assertRaisesRegex(ValueError, "between 0 and 255, not 256"):
+            PX.BranchColor(0, 256, 0)
+        with self.assertRaisesRegex(TypeError, "hexadecimal string"):
+            PX.BranchColor.from_hex(0xFF8000)
+        with self.assertRaisesRegex(ValueError, "e.g. #000000, not 'FF8000'"):
+            PX.BranchColor.from_hex("FF8000")
+
     # Type conversions
 
     def test_clade_to_phylogeny(self):

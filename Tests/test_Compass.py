@@ -7,6 +7,7 @@
 """Tests for parsing Compass output."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -97,6 +98,18 @@ class CompassTest(unittest.TestCase):
         self.assertEqual(2, com_record.query_start)
         self.assertEqual(2, com_record.hit_start)
         self.assertEqual("LKERKL", com_record.hit_aln[-6:])
+
+    def test_short_alignment_lines(self):
+        """Alignment lines too short to hold a sequence raise ValueError."""
+        with open(self.test_files[0]) as handle:
+            lines = handle.readlines()
+        self.assertTrue(lines[6].startswith("QUERY   2      LSDRL"))
+        for index, message in [(6, "query alignment"), (7, "positives"), (8, "hit")]:
+            with self.subTest(line=index):
+                broken = lines[:]
+                broken[index] = "QUERY   2\n"
+                with self.assertRaisesRegex(ValueError, f"Expected a {message}"):
+                    Compass.read(StringIO("".join(broken)))
 
 
 if __name__ == "__main__":

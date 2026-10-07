@@ -61,7 +61,12 @@ class _UniProtSearchResults:
     """
 
     def _fetch_next_batch(self) -> HTTPResponse:
-        assert self.next_url is not None  # type: ignore
+        if self.next_url is None:  # type: ignore
+            # The x-total-results header promised more than the batches gave
+            raise ValueError(
+                f"UniProt reported {len(self)} results, but gave no link "
+                f"to the next batch after {len(self.results_cache)}"
+            )
         with urlopen(self.next_url) as response:  # type: ignore
             self.results_cache += _get_results(response)
             self.next_url = _get_next_link(response)
@@ -102,8 +107,6 @@ class _UniProtSearchResults:
     def __getitem__(self, index):
         if isinstance(index, slice):
             start, stop, step = index.indices(len(self))
-            # The assertions below should be guaranteed by the indices method
-            assert 0 <= start < len(self) and 0 <= stop <= len(self)
             if step > 0:
                 if start <= stop and stop > 0:
                     self._fetch_for(stop - 1)

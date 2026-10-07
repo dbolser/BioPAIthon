@@ -169,7 +169,8 @@ class DisorderedResidue(DisorderedEntityWrapper):
         # add chain parent to residue
         chain = self.get_parent()
         residue.set_parent(chain)
-        assert not self.disordered_has_id(resname)
+        if self.disordered_has_id(resname):
+            raise ValueError(f"Residue {resname} is already in this DisorderedResidue")
         self[resname] = residue
         self.disordered_select(resname)
 

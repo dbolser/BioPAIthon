@@ -142,7 +142,8 @@ class PDBList:
             answer = []
             for line in handle:
                 pdb = line.strip()
-                assert len(pdb) == 4
+                if len(pdb) != 4:
+                    raise ValueError(f"Expected a 4 character PDB code, not {line!r}")
                 answer.append(pdb.decode())
         return answer
 
@@ -215,7 +216,8 @@ class PDBList:
                 if not line.startswith(b"OBSLTE "):
                     continue
                 pdb = line.split()[2]
-                assert len(pdb) == 4
+                if len(pdb) != 4:
+                    raise ValueError(f"Expected a 4 character PDB code in {line!r}")
                 obsolete.append(pdb.decode())
         return obsolete
 
@@ -366,9 +368,12 @@ class PDBList:
         automatically downloads the according PDB files.
         You can call this module as a weekly cron job.
         """
-        assert os.path.isdir(self.local_pdb)
-        if os.path.exists(self.obsolete_pdb):
-            assert os.path.isdir(self.obsolete_pdb)
+        if not os.path.isdir(self.local_pdb):
+            raise ValueError(f"Local PDB path {self.local_pdb!r} is not a directory")
+        if os.path.exists(self.obsolete_pdb) and not os.path.isdir(self.obsolete_pdb):
+            raise ValueError(
+                f"Obsolete PDB path {self.obsolete_pdb!r} is not a directory"
+            )
 
         # Deprecation warning
         file_format = self._print_default_format_warning(file_format)

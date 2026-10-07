@@ -59,7 +59,8 @@ def parse(handle):
                 record.entity_attributes[key] = value
         elif c == "#":
             key, value = _read_key_value(line)
-            assert key not in record.col_defs
+            if key in record.col_defs:
+                raise ValueError(f"Column {key!r} defined twice, again in {line!r}")
             record.col_defs[key] = value
         else:
             row = line.split("\t")

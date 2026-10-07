@@ -47,7 +47,8 @@ class _AbstractHSExposure(AbstractPropertyMap):
                           the entity.xtra attribute
         :type angle_key: string
         """
-        assert offset >= 0
+        if offset < 0:
+            raise ValueError(f"offset must not be negative, not {offset}")
         # For PyMOL visualization
         self.ca_cb_list = []
         ppb = CaPPBuilder()
@@ -296,7 +297,8 @@ class ExposureCN(AbstractPropertyMap):
         :type offset: int
 
         """
-        assert offset >= 0
+        if offset < 0:
+            raise ValueError(f"offset must not be negative, not {offset}")
         ppb = CaPPBuilder()
         ppl = ppb.build_peptides(model)
         fs_map = {}

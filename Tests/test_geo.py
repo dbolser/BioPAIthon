@@ -6,6 +6,7 @@
 """Tests the basic functionality of the GEO parsers."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -4982,6 +4983,16 @@ Column Header Definitions
 20: 20	0.030977	1.021704	0.016798	3\t
 """,
             )
+
+    def test_column_defined_twice(self):
+        """A column defined twice raises ValueError, not assert."""
+        with open("Geo/GSM645.txt") as handle:
+            data = handle.read()
+        old = "#POSITIVE = number of poisitive probe pairs\n"
+        self.assertIn(old, data)
+        data = data.replace(old, old + "#POSITIVE = again\n", 1)
+        with self.assertRaisesRegex(ValueError, "Column 'POSITIVE' defined twice"):
+            next(Geo.parse(StringIO(data)))
 
 
 if __name__ == "__main__":

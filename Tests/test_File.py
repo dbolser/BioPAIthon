@@ -54,6 +54,19 @@ class RandomAccess(unittest.TestCase):
             support.DATA / "Quality" / "example.fastq.gz",
         )
 
+    def test_damaged_bgzf(self):
+        """A damaged BGZF header gives its own ValueError, not assert."""
+        # BGZF magic, then an extra field whose subfield lengths add up to
+        # 6 bytes while the header says 5.
+        header = b"\x1f\x8b\x08\x04" + bytes(6) + struct.pack("<H", 5)
+        data = header + b"AB" + struct.pack("<H", 2) + bytes(30)
+        with tempfile.TemporaryDirectory() as tmp:
+            filename = os.path.join(tmp, "damaged.bgz")
+            with open(filename, "wb") as handle:
+                handle.write(data)
+            with self.assertRaisesRegex(ValueError, "x_len and extra_len differ"):
+                File._open_for_random_access(filename)
+
 
 class AsHandleTestCase(unittest.TestCase):
     """Tests for as_handle function."""

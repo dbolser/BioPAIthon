@@ -151,7 +151,12 @@ class NACCESS(AbstractResiduePropertyMap):
                 if (chain_id, res_id) in naccess_dict:
                     item = naccess_dict[(chain_id, res_id)]
                     res_name = item["res_name"]
-                    assert res_name == res.get_resname()
+                    if res_name != res.get_resname():
+                        raise ValueError(
+                            f"NACCESS output has {res_name} for residue "
+                            f"{chain_id} {res_id}, but the model has "
+                            f"{res.get_resname()}"
+                        )
                     property_dict[(chain_id, res_id)] = item
                     property_keys.append((chain_id, res_id))
                     property_list.append((res, item))

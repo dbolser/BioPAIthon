@@ -22,6 +22,7 @@ from Bio.SeqFeature import BeforePosition
 from Bio.SeqFeature import BetweenPosition
 from Bio.SeqFeature import CompoundLocation
 from Bio.SeqFeature import ExactPosition
+from Bio.SeqFeature import LocationParserError
 from Bio.SeqFeature import OneOfPosition
 from Bio.SeqFeature import SeqFeature
 from Bio.SeqFeature import SimpleLocation
@@ -555,6 +556,19 @@ class TestPositions(unittest.TestCase):
         self.assertEqual(between_pos._left, between_pos2._left)
         self.assertEqual(between_pos._right, between_pos2._right)
         self.assertEqual(oneof_pos.position_choices, oneof_pos2.position_choices)
+
+    def test_between_position_not_an_end(self):
+        """BetweenPosition must be its left or right end."""
+        with self.assertRaisesRegex(ValueError, "should match left 20 or right 24"):
+            BetweenPosition(22, left=20, right=24)
+
+    def test_location_with_trailing_text(self):
+        """Location text that only partly matches is a LocationParserError."""
+        for text in ("123..456abc", "5^6xyz", "(3.9)..10z"):
+            with self.subTest(text=text):
+                with self.assertRaises(LocationParserError) as cm:
+                    Location.fromstring(text)
+                self.assertIsInstance(cm.exception, ValueError)
 
 
 class TestExtract(unittest.TestCase):

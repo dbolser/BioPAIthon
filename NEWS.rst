@@ -59,6 +59,28 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+Outside the sequence, alignment and search parsers, 93 ``assert`` statements
+that checked input now raise ``ValueError`` instead of ``AssertionError``.
+Most are in parsers: SwissProt, GenBank and EMBL headers and feature tables,
+IMGT, Entrez XML and the DTDs and XML Schemas it reads, BinaryCIF, PDBML,
+COMPASS, SCOP, GEO, Affymetrix CEL and Nexus trees. The rest check arguments,
+such as a ``BetweenPosition`` that is neither of its ends, a negative
+``offset`` for ``HSExposureCA``, or a ``track_size`` above 1 in
+``GenomeDiagram``. Under ``python -O`` these checks vanished, and bad input
+was mishandled without a word. A truncated IMGT file made the parser loop
+forever. A CDS with two ``/translation`` qualifiers kept the second. A
+GenBank ``CONTIG`` line after the sequence was dropped. A B factor of -1000
+or below shifted the columns of a written PDB file. A SCOP CLA file that
+disagreed with its DES file was merged in anyway. Each case now says what was
+expected and what was found. Wrong types raise ``TypeError`` instead: a
+``BranchColor`` value that is not an integer, a ``Phylogeny`` whose
+``rooted`` is not a bool, ``PhyloXMLIO.Writer`` given anything but a
+``Phyloxml``, and a ``StructureAlignment`` aligner that is not a
+``PairwiseAligner``. Slicing ``Bio.UniProt.search`` results backwards
+(``results[::-1]``), past the end, or with no results no longer raises
+``AssertionError``; that assert was wrong, and is gone. The other asserts in
+these modules are internal invariants that no input can reach, and stay.
+
 ``Bio.PopGen.GenePop.LargeFileParser`` is deprecated and now emits a
 ``BiopythonDeprecationWarning`` on import; we intend to remove it in a later
 release. Nothing in BioPAIthon uses it and it had no tests. Use

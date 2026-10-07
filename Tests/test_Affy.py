@@ -4,6 +4,7 @@
 
 """Tests for Affy module."""
 
+import io
 import os
 import struct
 import unittest
@@ -262,6 +263,14 @@ class AffyTest(unittest.TestCase):
         with self.assertRaises(CelFile.ParserError):
             with open(self.affy4Bad, "rb") as f:
                 record = CelFile.read(f)
+
+    def testAffyDatHeaderWithoutBrackets(self):
+        with open(self.affy3) as f:
+            data = f.read()
+        self.assertIn("DatHeader=[11..65533]", data)
+        data = data.replace("DatHeader=[11..65533]", "DatHeader=11..65533", 1)
+        with self.assertRaisesRegex(CelFile.ParserError, r"Expected \[min..max\]"):
+            CelFile.read(io.StringIO(data))
 
     def testAffyWrongModeReadV3(self):
         with self.assertRaises(ValueError):

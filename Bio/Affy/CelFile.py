@@ -329,8 +329,14 @@ def _read_v3(handle):
                     if i >= 0:
                         min_max_pixel_intensity, filename = value[:i].split()
                         record.DatHeader["filename"] = filename
-                        assert min_max_pixel_intensity[0] == "["
-                        assert min_max_pixel_intensity[-1] == "]"
+                        if not (
+                            min_max_pixel_intensity.startswith("[")
+                            and min_max_pixel_intensity.endswith("]")
+                        ):
+                            raise ParserError(
+                                "Expected [min..max] pixel intensity in DatHeader, "
+                                f"found {min_max_pixel_intensity!r}"
+                            )
                         (
                             min_pixel_intensity,
                             max_pixel_intensity,

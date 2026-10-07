@@ -1237,9 +1237,10 @@ class BranchColor:
     def __init__(self, red, green, blue):
         """Initialize BranchColor for a tree."""
         for color in (red, green, blue):
-            assert (
-                isinstance(color, int) and 0 <= color <= 255
-            ), "Color values must be integers between 0 and 255."
+            if not isinstance(color, int):
+                raise TypeError(f"Color values must be integers, not {color!r}")
+            if not 0 <= color <= 255:
+                raise ValueError(f"Color values must be between 0 and 255, not {color}")
         self.red = red
         self.green = green
         self.blue = blue
@@ -1251,9 +1252,12 @@ class BranchColor:
         The string format is the same style used in HTML and CSS, such as
         '#FF8000' for an RGB value of (255, 128, 0).
         """
-        assert (
-            isinstance(hexstr, str) and hexstr.startswith("#") and len(hexstr) == 7
-        ), "need a 24-bit hexadecimal string, e.g. #000000"
+        if not isinstance(hexstr, str):
+            raise TypeError(f"need a 24-bit hexadecimal string, not {hexstr!r}")
+        if not (hexstr.startswith("#") and len(hexstr) == 7):
+            raise ValueError(
+                f"need a 24-bit hexadecimal string, e.g. #000000, not {hexstr!r}"
+            )
 
         RGB = hexstr[1:3], hexstr[3:5], hexstr[5:]
         return cls(*(int("0x" + cc, base=16) for cc in RGB))

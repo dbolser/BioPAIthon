@@ -59,6 +59,14 @@ class SpiralTest(unittest.TestCase):
         ]
         self.assertEqual(cstr, expected)
 
+    def test_offset_out_of_range(self):
+        """An offset outside (0, 1) raises ValueError, not assert."""
+        cs = ColorSpiral(a=4, b=0.33, jitter=0)
+        for offset in (0, 1, 1.5):
+            with self.subTest(offset=offset):
+                with self.assertRaisesRegex(ValueError, "offset must be in"):
+                    list(cs.get_colors(8, offset=offset))
+
     def test_colorspiral(self):
         """Get set of 16 colours, no jitter, using ColorSpiral."""
         cs = ColorSpiral(a=4, b=0.33, jitter=0)

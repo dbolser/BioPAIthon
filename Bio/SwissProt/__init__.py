@@ -310,6 +310,8 @@ def _read(handle):
         if unread:
             value = unread + " " + value
             unread = ""
+        if key in ("RP", "RC", "RX", "RL", "RA", "RG", "RT") and not record.references:
+            raise SwissProtParserError(f"{key} line before any RN line", line=line)
         if key == "AC":
             accessions = value.rstrip(";").split("; ")
             record.accessions.extend(accessions)
@@ -340,33 +342,26 @@ def _read(handle):
             _read_rn(reference, value)
             record.references.append(reference)
         elif key == "RP":
-            assert record.references, "RP: missing RN"
             record.references[-1].positions.append(value)
         elif key == "RC":
-            assert record.references, "RC: missing RN"
             reference = record.references[-1]
             unread = _read_rc(reference, value)
         elif key == "RX":
-            assert record.references, "RX: missing RN"
             reference = record.references[-1]
             _read_rx(reference, value)
         elif key == "RL":
-            assert record.references, "RL: missing RN"
             reference = record.references[-1]
             reference.location.append(value)
         # In UniProt release 1.12 of 6/21/04, there is a new RG
         # (Reference Group) line, which references a group instead of
         # an author.  Each block must have at least 1 RA or RG line.
         elif key == "RA":
-            assert record.references, "RA: missing RN"
             reference = record.references[-1]
             reference.authors.append(value)
         elif key == "RG":
-            assert record.references, "RG: missing RN"
             reference = record.references[-1]
             reference.authors.append(value)
         elif key == "RT":
-            assert record.references, "RT: missing RN"
             reference = record.references[-1]
             reference.title.append(value)
         elif key == "CC":
@@ -381,7 +376,10 @@ def _read(handle):
             _read_ft(record, line)
         elif key == "SQ":
             cols = value.split()
-            assert len(cols) == 7, f"I don't understand SQ line {line}"
+            if len(cols) != 7:
+                raise SwissProtParserError(
+                    f"Expected 7 fields in SQ line, found {len(cols)}", line=line
+                )
             # Do more checking here?
             record.seqinfo = int(cols[1]), int(cols[3]), cols[5]
         elif key == "  ":
@@ -435,7 +433,12 @@ def _read_gn(record):
             if key == "Name":
                 gene_name["Name"] = value
             else:
-                assert key in ("Synonyms", "OrderedLocusNames", "ORFNames")
+                if key not in ("Synonyms", "OrderedLocusNames", "ORFNames"):
+                    raise SwissProtParserError(
+                        "Expected Name, Synonyms, OrderedLocusNames or ORFNames"
+                        f" in GN line, found {key!r}",
+                        line=text,
+                    )
                 gene_name[key] = value.split(", ")
         record.gene_name[i] = gene_name
 
@@ -501,7 +504,8 @@ def _read_dt(record, line):
         for index in range(len(uprcols)):
             if "REL." in uprcols[index]:
                 rel_index = index
-        assert rel_index >= 0, f"Could not find Rel. in DT line: {line}"
+        if rel_index < 0:
+            raise SwissProtParserError("Could not find Rel. in DT line", line=line)
         version_index = rel_index + 1
         # get the version information
         str_version = cols[version_index].rstrip(",")
@@ -592,16 +596,23 @@ def _read_ox(record, line):
         ids = line[5:].rstrip().rstrip(";")
     else:
         descr, ids = line[5:].rstrip().rstrip(";").split("=")
-        assert descr == "NCBI_TaxID", f"Unexpected taxonomy type {descr}"
+        if descr != "NCBI_TaxID":
+            raise SwissProtParserError(
+                f"Expected NCBI_TaxID in OX line, found {descr!r}", line=line
+            )
     record.taxonomy_id.extend(ids.split(", "))
 
 
 def _read_oh(record, line):
     # Line type OH (Organism Host) for viral hosts
-    assert line[5:].startswith("NCBI_TaxID="), f"Unexpected {line}"
-    line = line[16:].rstrip()
-    assert line[-1] == "." and line.count(";") == 1, line
-    taxid, name = line[:-1].split(";")
+    if not line[5:].startswith("NCBI_TaxID="):
+        raise SwissProtParserError("Expected NCBI_TaxID= in OH line", line=line)
+    text = line[16:].rstrip()
+    if not (text.endswith(".") and text.count(";") == 1):
+        raise SwissProtParserError(
+            "Expected 'NCBI_TaxID=<id>; <organism>.' in OH line", line=line
+        )
+    taxid, name = text[:-1].split(";")
     record.host_taxonomy_id.append(taxid.strip())
     record.host_organism.append(name.strip())
 
@@ -613,13 +624,17 @@ def _read_rn(reference, rn):
     # RN   [1] {ECO:0000313|EMBL:AEX14553.1}
     words = rn.split(None, 1)
     number = words[0]
-    assert number.startswith("[") and number.endswith("]"), f"Missing brackets {number}"
+    if not (number.startswith("[") and number.endswith("]")):
+        raise SwissProtParserError(
+            f"Expected reference number in brackets in RN line, found {number!r}"
+        )
     reference.number = int(number[1:-1])
     if len(words) > 1:
         evidence = words[1]
-        assert evidence.startswith("{") and evidence.endswith(
-            "}"
-        ), f"Missing braces {evidence}"
+        if not (evidence.startswith("{") and evidence.endswith("}")):
+            raise SwissProtParserError(
+                f"Expected evidence in braces in RN line, found {evidence!r}"
+            )
         reference.evidence = evidence[1:-1].split("|")
 
 

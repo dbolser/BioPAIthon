@@ -354,7 +354,11 @@ class InsdcScanner:
                         qualifiers.append((key, value))
                 else:
                     # Unquoted continuation
-                    assert len(qualifiers) > 0
+                    if not qualifiers:
+                        raise ValueError(
+                            f"Expected a qualifier starting with '/' in the "
+                            f"'{feature_key}' feature, found {line!r}"
+                        )
                     assert key == qualifiers[-1][0]
                     # if debug : print("Unquoted Cont %s:%s" % (key, line))
                     if qualifiers[-1][1] is None:
@@ -476,7 +480,10 @@ class InsdcScanner:
         # Calls to consumer.base_number() do nothing anyway
         consumer.record_end("//")
 
-        assert self.line == "//"
+        if self.line != "//":
+            raise ValueError(
+                f"Expected '//' at the end of the record, not {self.line!r}"
+            )
 
         # And we are done
         return True
@@ -583,7 +590,11 @@ class InsdcScanner:
                                 qualifier_data = qualifier_data[1:-1]
                             # Append the data to the annotation qualifier...
                             if qualifier_name == "translation":
-                                assert record.seq is None, "Multiple translations!"
+                                if record.seq is not None:
+                                    raise ValueError(
+                                        "Multiple translations in CDS feature at "
+                                        f"{location_string}"
+                                    )
                                 record.seq = Seq(qualifier_data.replace("\n", ""))
                             elif qualifier_name == "db_xref":
                                 # its a list, possibly empty.  Its safe to extend
@@ -832,8 +843,12 @@ class EmblScanner(InsdcScanner):
     @staticmethod
     def _feed_seq_length(consumer, text):
         length_parts = text.split()
-        assert len(length_parts) == 2, f"Invalid sequence length string {text!r}"
-        assert length_parts[1].upper() in ["BP", "BP.", "AA", "AA."]
+        if len(length_parts) != 2:
+            raise ValueError(f"Invalid sequence length string {text!r}")
+        if length_parts[1].upper() not in ["BP", "BP.", "AA", "AA."]:
+            raise ValueError(
+                f"Expected sequence length in BP or AA, not {length_parts[1]!r}"
+            )
         consumer.size(length_parts[0])
 
     def _feed_header_lines(self, consumer, lines):
@@ -1124,7 +1139,10 @@ class _ImgtScanner(EmblScanner):
                 ):
                     line = self.handle.readline()
             else:
-                assert line[:2] == "FT"
+                if line[:2] != "FT":
+                    raise ValueError(
+                        f"Expected an FT line in the feature table, not {line!r}"
+                    )
                 try:
                     feature_key, location_start = line[2:].strip().split()
                 except ValueError:
@@ -1142,7 +1160,15 @@ class _ImgtScanner(EmblScanner):
                 ):  # cope with blank lines in the midst of a feature
                     # Use strip to remove any harmless trailing white space AND and leading
                     # white space (copes with 21 or 26 indents and orther variants)
-                    assert line[:2] == "FT"
+                    if not line:
+                        raise ValueError(
+                            f"Premature end of file in the '{feature_key}' feature"
+                        )
+                    if line[:2] != "FT":
+                        raise ValueError(
+                            f"Expected an FT line in the '{feature_key}' feature, "
+                            f"not {line!r}"
+                        )
                     feature_lines.append(line[self.FEATURE_QUALIFIER_INDENT :].strip())
                     line = self.handle.readline()
                 feature_key, location, qualifiers = self.parse_feature(

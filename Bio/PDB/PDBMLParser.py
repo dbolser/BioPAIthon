@@ -83,7 +83,11 @@ def _parse_atom_from(element: Element, namespaces: dict[str, str]):
 def _parse_residue_id_from(
     element: Element, namespaces: dict[str, str]
 ) -> tuple[str, int, str]:
-    assert element.tag == f"{{{namespaces['PDBx']}}}atom_site"
+    expected = f"{{{namespaces['PDBx']}}}atom_site"
+    if element.tag != expected:
+        raise ValueError(
+            f"Expected {expected} in atom_siteCategory, found {element.tag}"
+        )
     atom_group = element.find("PDBx:group_PDB", namespaces).text
     component_id = element.find("PDBx:label_comp_id", namespaces).text
     ins_code_element = element.find("PDBx:pdbx_PDB_ins_code", namespaces)

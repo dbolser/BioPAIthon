@@ -53,7 +53,10 @@ def _fixed_point_decoder(column):
     dtype = _dtypes[encoding["srcType"]]
     factor = encoding["factor"]
     data = column["data"]["data"]
-    assert data.dtype.type in (np.int32, np.uint32)
+    if data.dtype.type not in (np.int32, np.uint32):
+        raise ValueError(
+            f"Expected 32-bit integers for FixedPoint decoding, found {data.dtype}"
+        )
     decoded_data = np.divide(data, factor, dtype=dtype)
 
     column["data"]["data"] = decoded_data
@@ -84,7 +87,11 @@ def _run_length_decoder(column):
     dtype = _dtypes[encoding["srcType"]]
     decoded_data = np.repeat(data[::2].astype(dtype), data[1::2])
 
-    assert len(decoded_data) == encoding["srcSize"]
+    if len(decoded_data) != encoding["srcSize"]:
+        raise ValueError(
+            f"RunLength decoding gave {len(decoded_data)} values, "
+            f"but srcSize is {encoding['srcSize']}"
+        )
     column["data"]["data"] = decoded_data
     column["data"]["encoding"].pop()
 
@@ -122,8 +129,16 @@ def _integer_packing_decoder(column):
         dtype = np.dtype(np.int32)
 
     data = column["data"]["data"]
-    assert byte_count == data.dtype.itemsize
-    assert np.issubdtype(data.dtype, np.unsignedinteger) == is_unsigned
+    if byte_count != data.dtype.itemsize:
+        raise ValueError(
+            f"IntegerPacking byteCount is {byte_count}, "
+            f"but the packed data is {data.dtype}"
+        )
+    if np.issubdtype(data.dtype, np.unsignedinteger) != is_unsigned:
+        raise ValueError(
+            f"IntegerPacking isUnsigned is {is_unsigned}, "
+            f"but the packed data is {data.dtype}"
+        )
     # The packed data is little-endian on disk, so on a big-endian machine it
     # arrives here byte-swapped. Copies only where the orders differ.
     data = data.astype(data.dtype.newbyteorder("="), copy=False)

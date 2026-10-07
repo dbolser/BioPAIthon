@@ -712,7 +712,8 @@ class Writer:
 
     def __init__(self, phyloxml):
         """Build an ElementTree from a PhyloXML object."""
-        assert isinstance(phyloxml, PX.Phyloxml), "Not a Phyloxml object"
+        if not isinstance(phyloxml, PX.Phyloxml):
+            raise TypeError(f"Expected a Phyloxml object, not {type(phyloxml)}")
         self._tree = ElementTree.ElementTree(self.phyloxml(phyloxml))
 
     def write(self, file, encoding=DEFAULT_ENCODING, indent=True):

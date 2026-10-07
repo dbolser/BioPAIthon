@@ -84,6 +84,23 @@ class ScopTests(unittest.TestCase):
                 Scop(StringIO(cla), StringIO(des), StringIO(hie))
         self.assertEqual(stdout.getvalue(), "")
 
+    def testClaDisagreesWithDes(self):
+        with open("./SCOP/dir.des.scop.txt_test") as f:
+            des = f.read()
+        with open("./SCOP/dir.hie.scop.txt_test") as f:
+            hie = f.read()
+        with open("./SCOP/dir.cla.scop.txt_test") as f:
+            cla = f.read()
+        for old, new, message in [
+            ("A:\ta.1.1.2\t14984", "A:\ta.1.1.3\t14984", "sccs a.1.1.3"),
+            ("d3sdha_\t3sdh", "d3sdhz_\t3sdh", "sid d3sdhz_"),
+        ]:
+            with self.subTest(message=message):
+                self.assertIn(old, cla)
+                broken = StringIO(cla.replace(old, new, 1))
+                with self.assertRaisesRegex(ValueError, message):
+                    Scop(broken, StringIO(des), StringIO(hie))
+
     def testSccsOrder(self):
         self.assertEqual(cmp_sccs("a.1.1.1", "a.1.1.1"), 0)
         self.assertEqual(cmp_sccs("a.1.1.2", "a.1.1.1"), 1)

@@ -294,7 +294,13 @@ class LinearDrawer(AbstractDrawer):
         track_crop = (
             trackunit_height * (1 - self.track_size) / 2.0
         )  # 'step back' in pixels
-        assert track_crop >= 0
+        if track_crop < 0:
+            raise ValueError(
+                "Cannot lay out the tracks: expected track_size and fragment_size "
+                "between 0 and 1, fragments at least 1 and positive track heights; "
+                f"got track_size={self.track_size!r}, "
+                f"fragment_size={self.fragment_size!r}, fragments={self.fragments!r}"
+            )
         for track in trackunits:
             top = trackunits[track][1] * trackunit_height - track_crop  # top offset
             btm = trackunits[track][0] * trackunit_height + track_crop  # bottom offset
@@ -795,8 +801,10 @@ class LinearDrawer(AbstractDrawer):
 
         trackobjA = cross_link._trackA(list(self._parent.tracks.values()))
         trackobjB = cross_link._trackB(list(self._parent.tracks.values()))
-        assert trackobjA is not None
-        assert trackobjB is not None
+        if trackobjA is None:
+            raise ValueError("Cross-link feature A is not in any track of this diagram")
+        if trackobjB is None:
+            raise ValueError("Cross-link feature B is not in any track of this diagram")
         if trackobjA == trackobjB:
             raise NotImplementedError
 

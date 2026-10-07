@@ -129,7 +129,7 @@ def ss_to_index(ss):
         return 1
     if ss == "C":
         return 2
-    assert 0
+    raise ValueError(f"Expected secondary structure H, E or C, not {ss!r}")
 
 
 def dssp_dict_from_pdb_file(in_file, DSSP="dssp", dssp_version="3.9.9"):
@@ -371,11 +371,8 @@ class DSSP(AbstractResiduePropertyMap):
         file_type = file_type.upper()
         if file_type == "CIF":
             file_type = "MMCIF"
-        assert file_type in [
-            "PDB",
-            "MMCIF",
-            "DSSP",
-        ], "File type must be PDB, mmCIF or DSSP"
+        if file_type not in ["PDB", "MMCIF", "DSSP"]:
+            raise ValueError(f"File type must be PDB, mmCIF or DSSP, not {file_type}")
         # If the input file is a PDB or mmCIF file run DSSP and parse output:
         if file_type == "PDB" or file_type == "MMCIF":
             # Newer versions of DSSP program call the binary 'mkdssp', so

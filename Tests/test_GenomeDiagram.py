@@ -892,6 +892,32 @@ class DiagramTest(unittest.TestCase):
         """Test adding unspecified track."""
         self.assertRaises(ValueError, self.gdd.add_track, None, 1)
 
+    def test_cross_link_outside_diagram(self):
+        """Cross-links to tracks or features not in the diagram raise ValueError."""
+        feature_set = self.gdd.get_tracks()[0].new_set()
+        feature = feature_set.add_feature(self.record.features[1])
+        other = Diagram("Other").new_track(1).new_set()
+        stray_feature = other.add_feature(self.record.features[2])
+        stray_track = Track()
+        track_b = self.gdd.new_track(2)
+        track_b.new_set().add_feature(self.record.features[3])
+        cases = [
+            (CrossLink(stray_feature, feature), "feature A is not in any track"),
+            (CrossLink(feature, stray_feature), "feature B is not in any track"),
+            (CrossLink((stray_track, 1, 9), (track_b, 1, 9)), "is not in this diagram"),
+        ]
+        for cross_link, message in cases:
+            self.gdd.cross_track_links = [cross_link]
+            for fmt in ("linear", "circular"):
+                with self.subTest(message=message, format=fmt):
+                    with self.assertRaisesRegex(ValueError, message):
+                        self.gdd.draw(format=fmt, start=0, end=len(self.record))
+
+    def test_track_size_too_large(self):
+        """A track_size above 1 raises ValueError, not assert."""
+        with self.assertRaisesRegex(ValueError, "Cannot lay out the tracks"):
+            self.gdd.draw(format="linear", track_size=1.5, start=0, end=1000)
+
     def test_del_tracks(self):
         """Delete track."""
         self.gdd.del_track(1)

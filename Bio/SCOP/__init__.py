@@ -285,8 +285,16 @@ class Scop:
                 records = Cla.parse(cla_handle)
                 for record in records:
                     n = sunidDict[record.sunid]
-                    assert n.sccs == record.sccs
-                    assert n.sid == record.sid
+                    if n.sccs != record.sccs:
+                        raise ValueError(
+                            f"CLA file gives sccs {record.sccs} for sunid "
+                            f"{record.sunid}, but DES file gives {n.sccs}"
+                        )
+                    if n.sid != record.sid:
+                        raise ValueError(
+                            f"CLA file gives sid {record.sid} for sunid "
+                            f"{record.sunid}, but DES file gives {n.sid}"
+                        )
                     n.residues = record.residues
                     sidDict[n.sid] = n
 

@@ -24,6 +24,7 @@ from Bio import MissingPythonDependencyError
 
 try:
     # reportlab
+    from reportlab.graphics.shapes import Drawing
     from reportlab.lib import colors
 except ImportError:
     raise MissingPythonDependencyError(
@@ -415,6 +416,28 @@ class OrganismSubAnnotationsTest(unittest.TestCase):
             # BiopythonWarning: Too many labels to avoid overlap
             warnings.simplefilter("ignore", BiopythonWarning)
             chr_diagram.draw(filename, "Arabidopsis thaliana tRNA")
+
+
+class BadArgumentsTest(unittest.TestCase):
+    """Missing coordinates and bad features raise ValueError, not assert."""
+
+    def test_drawing_coordinates_not_set(self):
+        for component in (
+            BasicChromosome.Chromosome("Chr I"),
+            BasicChromosome.ChromosomeSegment(),
+        ):
+            with self.subTest(component=type(component).__name__):
+                with self.assertRaisesRegex(ValueError, "set drawing coordinates"):
+                    component.draw(Drawing(100, 100))
+
+    def test_feature_outside_segment(self):
+        segment = BasicChromosome.AnnotatedChromosomeSegment(
+            100, [(10, 200, 1, "too long", colors.red)]
+        )
+        segment.start_x_position, segment.end_x_position = 0, 10
+        segment.start_y_position, segment.end_y_position = 100, 0
+        with self.assertRaisesRegex(ValueError, "Feature 10-200 does not fit"):
+            segment.draw(Drawing(100, 100))
 
 
 class ChromosomeCountTest(unittest.TestCase):

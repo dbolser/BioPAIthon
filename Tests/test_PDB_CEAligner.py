@@ -78,6 +78,13 @@ class CEAlignerTests(unittest.TestCase):
         rmsd = np.sqrt((diff * diff).sum() / len(refe_coords))
         self.assertAlmostEqual(rmsd, 0.0, places=2)
 
+    def test_invalid_parameters(self):
+        """Out of range parameters raise ValueError, not assert."""
+        with self.assertRaisesRegex(ValueError, "window_size must be greater than 0"):
+            CEAligner(window_size=0)
+        with self.assertRaisesRegex(ValueError, "max_gap must be positive"):
+            CEAligner(max_gap=-1)
+
     def test_cealigner_no_transform(self):
         """Test aligning 7CFN on 6WQA without transforming 7CFN."""
         ref = support.DATA / "PDB" / "6WQA.cif"
