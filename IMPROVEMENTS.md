@@ -590,9 +590,10 @@ than one instance.
 > upstream's advice and move to `Bio.Align` should not lose files. Only gaps
 > measured on real inputs get closed, and §1.1 is done when the five PRs
 > below have landed. Some files will still read only in `AlignIO`: the rare
-> inputs the table marks out of scope, and files that `Bio.Align`'s
-> stricter checks reject (`funny.sth`, `simple_short.xmfa`). None of the
-> five has merged yet:
+> inputs the table marks out of scope, FASTA `-m 10` output (`fasta-m10`,
+> a format only `AlignIO` has), and files that `Bio.Align`'s stricter
+> checks reject (`funny.sth`, `simple_short.xmfa`). None of the five has
+> merged yet:
 >
 > 1. `align-parse-nonseekable` — `Bio.Align.parse` reads stdin, pipes and
 >    other non-seekable streams.
@@ -650,6 +651,7 @@ than one instance.
 > | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:295`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed by `align-stockholm-gr` (planned); upstream row 28 |
 > | Stockholm | `#=GF SQ` must match the number of sequences in `Bio.Align` (`Bio/Align/stockholm.py:233`), so `funny.sth` raises; `AlignIO` ignores it. Deliberate ([#3747](https://github.com/biopython/biopython/issues/3747)). | kept |
 > | all | Non-seekable streams. `Bio.Align.parse` seeks, so stdin and pipes raise `io.UnsupportedOperation`; `AlignIO` reads them. | fixed by `align-parse-nonseekable` (planned); upstream row 24 |
+> | FASTA `-m 10` | Only `AlignIO` has `fasta-m10` (`Bio/AlignIO/__init__.py:165`): `Tests/Fasta/output001.m10` reads as 4 alignments there. `Bio.Align` has no such format. Its `tabular` reads FASTA's `-m 8CB` and `-m 8CC` output, not `-m 10`, and raises `AssertionError` on that file. | out of scope (not one of the eight formats both stacks implement) |
 > | writers | Only nexus output is byte-identical. Clustal, PHYLIP, Stockholm, MAF and Mauve output differ, and `AlignIO` cannot write EMBOSS or MSF. | kept: both sets of writers stay |
 
 Eight formats implemented twice — ~3,300 lines in `Bio/AlignIO/` duplicating
