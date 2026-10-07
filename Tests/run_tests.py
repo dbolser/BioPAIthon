@@ -67,16 +67,18 @@ def pytest_args(argv):
         elif arg == "doctest":
             args.append(os.path.join(TESTS_DIR, "test_docstrings.py"))
             selected = True
-        elif re.fullmatch(r"test_\w+(\.py)?", arg):
-            name = arg.removesuffix(".py")
-            args.append(os.path.join(TESTS_DIR, name + ".py"))
+        elif re.fullmatch(r"test_\w+(\.py)?", arg) and os.path.isfile(
+            path := os.path.join(TESTS_DIR, arg.removesuffix(".py") + ".py")
+        ):
+            args.append(path)
             selected = True
         elif re.fullmatch(r"(Bio|BioSQL)(\.\w+)*", arg):
             args.append(os.path.join(TESTS_DIR, "test_docstrings.py") + "::" + arg)
             selected = True
         else:
             # Anything else goes to pytest unchanged: a node ID, a path, or
-            # the value of a long option, as in --tb short.
+            # the value of a long option, as in --tb short or --basetemp
+            # test_tmp (which names no test module).
             args.append(arg)
             selected = selected or "::" in arg or os.path.exists(arg)
     if not selected:

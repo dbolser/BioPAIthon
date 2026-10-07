@@ -107,6 +107,13 @@ class ShimTests(unittest.TestCase):
             ["-k", "test_translation", "--tb", "short", "-n", "4", TESTS_DIR],
         )
 
+    def test_long_option_values_pass_through(self):
+        # Words that look like test names but name no module in Tests/.
+        self.assertEqual(
+            pytest_args(["--basetemp", "test_tmp", "--junitxml", "test_out.py"]),
+            ["--basetemp", "test_tmp", "--junitxml", "test_out.py", TESTS_DIR],
+        )
+
     def test_node_ids_pass_through(self):
         node = "test_Seq_objs.py::StringMethodTests"
         self.assertEqual(pytest_args([node]), [node])
@@ -239,6 +246,8 @@ class ProbeTests(unittest.TestCase):
 
     def test_failures(self):
         """Late dependency errors, import errors, empty modules and chdir fail."""
+        # test_probe_moves changes directory at import, during collection;
+        # test_probe_ok, collected after it, checks it still runs in Tests/.
         returncode, output = self.run_pytest(
             {
                 "test_probe_late.py": """\
@@ -263,22 +272,35 @@ class ProbeTests(unittest.TestCase):
                         def test_chdir(self):
                             os.chdir(os.pardir)
                 """,
+                "test_probe_moves.py": """\
+                    import os
+                    import unittest
+                    os.chdir(os.pardir)
+                    class Moves(unittest.TestCase):
+                        def test_moves(self):
+                            pass
+                """,
                 "test_probe_ok.py": """\
+                    import os
                     import unittest
                     class Ok(unittest.TestCase):
                         def test_ok(self):
-                            pass
+                            self.assertTrue(os.path.isfile("expected_skips.txt"))
                 """,
             }
         )
         self.assertEqual(returncode, 1, output)
         # The collection errors do not stop the other modules running.
-        self.assertIn("1 failed, 2 passed, 3 errors", output)
+        self.assertIn("1 failed, 2 passed, 4 errors", output)
         self.assertRegex(output, r"FAILED \S*test_probe_late.py::Late::test_late")
         self.assertRegex(output, r"ERROR \S*test_probe_import.py\n")
         self.assertIn("No tests found in test_probe_empty", output)
         self.assertRegex(output, r"ERROR \S*test_probe_chdir.py::Chdir::test_chdir")
-        self.assertIn("Current directory changed", output)
+        self.assertIn("Current directory changed\n", output)
+        self.assertRegex(output, r"ERROR \S*test_probe_moves.py\n")
+        self.assertIn(
+            "Current directory changed while importing test_probe_moves.py", output
+        )
 
     def test_classes_run_in_unittest_order(self):
         returncode, output = self.run_pytest(

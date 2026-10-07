@@ -24,6 +24,7 @@ Only unittest.TestCase subclasses are collected (python_classes and
 python_functions are empty), exactly what run_tests.py used to run.
 """
 
+import contextlib
 import doctest
 import gc
 import importlib
@@ -218,12 +219,35 @@ def _skip_module(collector, name, error):
     pytest.skip(str(error), allow_module_level=True)
 
 
+@contextlib.contextmanager
+def _restoring_cwd(collector):
+    """Fail a module whose import changes the current directory (PRIVATE).
+
+    pytest imports every module during collection, before any test runs, so
+    a module that changed directory on import would move all the rest.  The
+    directory is restored whatever happens; a module that imported cleanly
+    then fails, as run_tests.py failed one that left the directory changed.
+    """
+    cwd = os.getcwd()
+    try:
+        yield
+    finally:
+        now = os.getcwd()
+        os.chdir(cwd)
+    if now != cwd:
+        raise collector.CollectError(
+            f"Current directory changed while importing {collector.name}\n"
+            f"Was: {cwd}\nNow: {now}"
+        )
+
+
 class _TestModule(pytest.Module):
     """A Tests/test_*.py module (PRIVATE)."""
 
     def _getobj(self):
         try:
-            return super()._getobj()
+            with _restoring_cwd(self):
+                return super()._getobj()
         except MissingExternalDependencyError as error:
             # Not an ImportError, so pytest lets it through unwrapped.
             _skip_module(self, self.path.stem, error)
@@ -278,7 +302,8 @@ class _DocstringModule(pytest.Module):
 
     def _getobj(self):
         try:
-            return importlib.import_module(self.name)
+            with _restoring_cwd(self):
+                return importlib.import_module(self.name)
         except MissingExternalDependencyError as error:
             _skip_module(self, self.name, error)
 
