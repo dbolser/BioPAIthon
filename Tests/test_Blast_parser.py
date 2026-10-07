@@ -15183,7 +15183,17 @@ class TestBlastMalformedInput(unittest.TestCase):
             "xml_2226_blastn_002.xml",
             b"  <BlastOutput_query-ID>",
             b"junk\n  <BlastOutput_query-ID>",
-            "unexpected text 'junk' before tag BlastOutput_query-ID: line 9, column 2",
+            "unexpected text 'junk' before tag <BlastOutput_query-ID>: line 9, "
+            "column 2",
+        )
+
+    def test_text_before_end_tag(self):
+        """Text where only whitespace may appear before a closing tag."""
+        self.check_parse_error(
+            "xml_2226_blastp_004.xml",
+            b"</Hsp_midline>\n            </Hsp>",
+            b"</Hsp_midline>junk\n            </Hsp>",
+            "unexpected text 'junk' before tag </Hsp>: line 52, column 12",
         )
 
     def test_wrong_public_identifier(self):
@@ -15345,6 +15355,7 @@ class TestBlastMalformedInput(unittest.TestCase):
             "expected XML output from the BLAST server starting with "
             "b'<?xml ', found b'Error: database not found\\n'",
         )
+        self.assertTrue(answer.closed)
 
 
 if __name__ == "__main__":

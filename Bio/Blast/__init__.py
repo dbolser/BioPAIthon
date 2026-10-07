@@ -1289,6 +1289,7 @@ def qblast(
     else:
         expected = b""
     if not data.startswith(expected):
+        stream.close()
         raise ValueError(
             f"expected {format_type} output from the BLAST server starting with "
             f"{expected!r}, found {data[:100]!r}"

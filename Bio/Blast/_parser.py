@@ -577,7 +577,7 @@ class XMLHandler:
         return
 
     def _end_blastoutput(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         parser = self._parser
         parser.StartElementHandler = None
         parser.EndElementHandler = None
@@ -587,7 +587,7 @@ class XMLHandler:
         del self._parser
 
     def _end_blastoutput_xml2(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
 
     def _end_blastxml2(self, name):
         self._end_blastoutput(name)
@@ -637,17 +637,17 @@ class XMLHandler:
         self._records.query.seq = seq
 
     def _end_mbstat(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         self._records.mbstat = self._stat
         del self._stat
 
     def _end_param(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_parameters(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_matrix(self, name):
@@ -695,7 +695,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_query_masking(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         location = self._location
         del self._location
@@ -730,11 +730,11 @@ class XMLHandler:
         self._characters = ""
 
     def _end_iterations(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_iteration(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         if self._program == "psiblast" and name == "http://www.ncbi.nlm.nih.gov Search":
             # PSIBLAST XML2 uses both <Iteration> and <Search>; ignore one
@@ -762,11 +762,11 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hits(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_hit(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         hit = self._alignments
         del self._alignments
@@ -819,7 +819,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hsps(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_num(self, name):
@@ -954,7 +954,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hsp(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         line = self._parser.CurrentLineNumber  # of </Hsp>, for error messages
         hsp = self._hsp
@@ -1164,7 +1164,7 @@ class XMLHandler:
         self._alignments.append(alignment)
 
     def _end_stat(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
         self._record.stat = self._stat
         del self._stat
@@ -1174,7 +1174,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_statistics(self, name):
-        self._check_no_text(name)
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_db_num(self, name):
@@ -1300,14 +1300,19 @@ class XMLHandler:
         """
         self._characters += characters
 
-    def _check_no_text(self, name):
-        """Raise ValueError if non-whitespace text precedes this tag (PRIVATE)."""
+    def _check_no_text(self, name, end=False):
+        """Raise ValueError if non-whitespace text precedes this tag (PRIVATE).
+
+        Pass end=True from an end-element handler, so that the message
+        names the closing tag.
+        """
         text = self._characters.strip()
         if text:
             tag = name.split(" ")[-1]  # drop the XML2 namespace
+            slash = "/" if end else ""
             parser = self._parser
             raise ValueError(
-                f"unexpected text {text!r} before tag {tag}: "
+                f"unexpected text {text!r} before tag <{slash}{tag}>: "
                 f"line {parser.CurrentLineNumber}, column {parser.CurrentColumnNumber}"
             )
 
