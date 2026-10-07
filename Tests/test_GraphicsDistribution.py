@@ -10,9 +10,10 @@ BACs/chromosomes/etc.
 """
 
 # standard library
-import os
 import random
 import unittest
+
+import support
 
 from Bio import MissingExternalDependencyError
 
@@ -47,8 +48,9 @@ class BarChartTest(unittest.TestCase):
     """Test display of BarChart distributions on a page."""
 
     def setUp(self):
-        self.simple_page = os.path.join(os.getcwd(), "Graphics", "simple_bar.pdf")
-        self.multi_page = os.path.join(os.getcwd(), "Graphics", "multi_bar.pdf")
+        # A str, as ReportLab (which writes the file) will not take a Path
+        self.simple_page = str(support.DATA / "Graphics" / "simple_bar.pdf")
+        self.multi_page = str(support.DATA / "Graphics" / "multi_bar.pdf")
 
         self.num_multi = 5
 

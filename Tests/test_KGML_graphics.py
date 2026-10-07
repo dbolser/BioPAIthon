@@ -9,6 +9,8 @@
 import os
 import unittest
 
+import support
+
 # Do we have ReportLab?  Raise error if not present.
 from Bio import MissingExternalDependencyError
 
@@ -57,12 +59,12 @@ class PathwayData:
 
     def __init__(self, name, element_counts, show_pathway_image=False):
         """Initialize the class."""
-        self.infilename = os.path.join("KEGG", f"ko{name}.xml")
-        self.outfilename = os.path.join("KEGG", f"ko{name}.kgml")
+        self.infilename = support.DATA / "KEGG" / f"ko{name}.xml"
+        self.outfilename = support.DATA / "KEGG" / f"ko{name}.kgml"
         self.element_counts = element_counts
-        self.pathway_image = os.path.join("KEGG", f"map{name}.png")
+        self.pathway_image = support.DATA / "KEGG" / f"map{name}.png"
         self.show_pathway_image = show_pathway_image
-        self.output_stem = f"Graphics/map{name}"
+        self.output_stem = str(support.DATA / "Graphics" / f"map{name}")
 
 
 class KGMLPathwayTest(unittest.TestCase):
@@ -74,8 +76,8 @@ class KGMLPathwayTest(unittest.TestCase):
 
     def setUp(self):
         # Does our output directory exist?  If not, create it
-        if not os.path.isdir("KEGG"):
-            os.mkdir("KEGG")
+        if not os.path.isdir(support.DATA / "KEGG"):
+            os.mkdir(support.DATA / "KEGG")
         # Define some data to work with as a list of tuples:
         # (infilename, outfilename, (entry_count, ortholog_count,
         # compound_count, map_counts), pathway_image,

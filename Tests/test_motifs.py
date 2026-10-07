@@ -22,6 +22,8 @@ except ImportError:
         "Install numpy if you want to use Bio.motifs."
     ) from None
 
+import support
+
 from Bio import motifs
 from Bio.Seq import Seq
 
@@ -309,7 +311,7 @@ class TestAlignAce(unittest.TestCase):
 
     def test_alignace_parsing(self):
         """Test if Bio.motifs can parse AlignAce output files."""
-        with open("motifs/alignace.out") as stream:
+        with open(support.DATA / "motifs" / "alignace.out") as stream:
             record = motifs.parse(stream, "AlignAce")
         self.assertEqual(record.version, "AlignACE 4.0 05/13/04")
         self.assertEqual(record.command, "./AlignACE -i test.fa")
@@ -1414,7 +1416,7 @@ class TestClusterBuster(unittest.TestCase):
 
     def test_clusterbuster_parsing_and_output(self):
         """Test if Bio.motifs can parse and output Cluster-Buster PFM files."""
-        with open("motifs/clusterbuster.pfm") as stream:
+        with open(support.DATA / "motifs" / "clusterbuster.pfm") as stream:
             record = motifs.parse(stream, "clusterbuster")
             self.assertEqual(len(record), 3)
             motif = record[0]
@@ -1588,7 +1590,7 @@ class TestXMS(unittest.TestCase):
 
     def test_xms_parsing(self):
         """Test if Bio.motifs can parse and output xms PFM files."""
-        with open("motifs/abdb.xms") as stream:
+        with open(support.DATA / "motifs" / "abdb.xms") as stream:
             record = motifs.parse(stream, "xms")
         self.assertEqual(len(record), 1)
         motif = record[0]
@@ -1700,7 +1702,7 @@ class TestJASPAR(unittest.TestCase):
 
     def test_pfm_parsing(self):
         """Test if Bio.motifs can parse JASPAR-style pfm files."""
-        with open("motifs/SRF.pfm") as stream:
+        with open(support.DATA / "motifs" / "SRF.pfm") as stream:
             m = motifs.read(stream, "pfm")
         self.assertEqual(m.length, 12)
 
@@ -1712,7 +1714,7 @@ class TestJASPAR(unittest.TestCase):
 
     def test_pfm_four_columns_parsing(self):
         """Test if Bio.motifs.pfm can parse motifs in position frequency matrix format (4 columns)."""
-        with open("motifs/fourcolumns.pfm") as stream:
+        with open(support.DATA / "motifs" / "fourcolumns.pfm") as stream:
             record = motifs.parse(stream, "pfm-four-columns")
         self.assertEqual(len(record), 8)
         motif = record[0]
@@ -2269,7 +2271,7 @@ class TestJASPAR(unittest.TestCase):
 
     def test_pfm_four_rows_parsing(self):
         """Test if Bio.motifs.pfm can parse motifs in position frequency matrix format (4 rows)."""
-        with open("motifs/fourrows.pfm") as stream:
+        with open(support.DATA / "motifs" / "fourrows.pfm") as stream:
             record = motifs.parse(stream, "pfm-four-rows")
         self.assertEqual(len(record), 9)
         motif = record[0]
@@ -2844,7 +2846,7 @@ class TestJASPAR(unittest.TestCase):
 
     def test_sites_parsing(self):
         """Test if Bio.motifs can parse JASPAR-style sites files."""
-        with open("motifs/Arnt.sites") as stream:
+        with open(support.DATA / "motifs" / "Arnt.sites") as stream:
             m = motifs.read(stream, "sites")
         self.assertEqual(m.length, 6)
         self.assertEqual(m.alignment.sequences[0], "CACGTG")
@@ -2905,7 +2907,9 @@ class TestJASPAR(unittest.TestCase):
 class TestMEME(unittest.TestCase):
     def test_meme_parser_1(self):
         """Parse motifs/meme.INO_up800.classic.oops.xml file."""
-        with open("motifs/meme.INO_up800.classic.oops.xml") as stream:
+        with open(
+            support.DATA / "motifs" / "meme.INO_up800.classic.oops.xml"
+        ) as stream:
             record = motifs.parse(stream, "meme")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.datafile, "common/INO_up800.s")
@@ -3083,7 +3087,7 @@ class TestMEME(unittest.TestCase):
 
     def test_meme_parser_2(self):
         """Parsing motifs/meme.adh.classic.oops.xml file."""
-        with open("motifs/meme.adh.classic.oops.xml") as stream:
+        with open(support.DATA / "motifs" / "meme.adh.classic.oops.xml") as stream:
             record = motifs.parse(stream, "meme")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.datafile, "common/adh.s")
@@ -3625,7 +3629,9 @@ class TestMEME(unittest.TestCase):
 
     def test_meme_parser_3(self):
         """Parse motifs/meme.farntrans5.classic.anr.xml file."""
-        with open("motifs/meme.farntrans5.classic.anr.xml") as stream:
+        with open(
+            support.DATA / "motifs" / "meme.farntrans5.classic.anr.xml"
+        ) as stream:
             record = motifs.parse(stream, "meme")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.datafile, "common/farntrans5.s")
@@ -4045,7 +4051,7 @@ class TestMEME(unittest.TestCase):
 
     def test_minimal_meme_parser(self):
         """Parse motifs/minimal_test.meme file."""
-        with open("motifs/minimal_test.meme") as stream:
+        with open(support.DATA / "motifs" / "minimal_test.meme") as stream:
             record = motifs.parse(stream, "minimal")
         self.assertEqual(record.version, "4")
         self.assertEqual(record.alphabet, "ACGT")
@@ -4137,7 +4143,7 @@ class TestMEME(unittest.TestCase):
             )
         )
         self.assertEqual(motif[2:9].consensus, "CTGTATA")
-        with open("motifs/minimal_test.meme") as stream:
+        with open(support.DATA / "motifs" / "minimal_test.meme") as stream:
             record = motifs.parse(stream, "minimal")
         motif = record[2]
         self.assertEqual(motif.name, "IFXA_no_nsites_no_evalue")
@@ -4184,7 +4190,7 @@ class TestMEME(unittest.TestCase):
 
     def test_meme_parser_rna(self):
         """Test if Bio.motifs can parse MEME output files using RNA."""
-        with open("motifs/minimal_test_rna.meme") as stream:
+        with open(support.DATA / "motifs" / "minimal_test_rna.meme") as stream:
             record = motifs.parse(stream, "minimal")
         self.assertEqual(record.version, "4")
         self.assertEqual(record.alphabet, "ACGU")
@@ -4326,7 +4332,7 @@ class TestMAST(unittest.TestCase):
 
     def test_mast_parser_1(self):
         """Parse motifs/mast.crp0.de.oops.txt.xml file."""
-        with open("motifs/mast.crp0.de.oops.txt.xml") as stream:
+        with open(support.DATA / "motifs" / "mast.crp0.de.oops.txt.xml") as stream:
             record = motifs.parse(stream, "MAST")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.database, "common/crp0.s")
@@ -4384,7 +4390,7 @@ class TestMAST(unittest.TestCase):
 
     def test_mast_parser_2(self):
         """Parse motifs/mast.adh.de.oops.html.xml file."""
-        with open("motifs/mast.adh.de.oops.html.xml") as stream:
+        with open(support.DATA / "motifs" / "mast.adh.de.oops.html.xml") as stream:
             record = motifs.parse(stream, "MAST")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.database, "common/adh.s")
@@ -4472,7 +4478,7 @@ class TestMAST(unittest.TestCase):
 
     def test_mast_parser_3(self):
         """Parse motifs/mast.Klf1-200.cd.oops.xml.xml file."""
-        with open("motifs/mast.Klf1-200.cd.oops.xml.xml") as stream:
+        with open(support.DATA / "motifs" / "mast.Klf1-200.cd.oops.xml.xml") as stream:
             record = motifs.parse(stream, "MAST")
         self.assertEqual(record.version, "5.0.1")
         self.assertEqual(record.database, "common/Klf1-200.fa")
@@ -4885,7 +4891,7 @@ class TestTransfac(unittest.TestCase):
 
     def test_transfac_parser(self):
         """Parse motifs/transfac.dat file."""
-        with open("motifs/transfac.dat") as stream:
+        with open(support.DATA / "motifs" / "transfac.dat") as stream:
             record = motifs.parse(stream, "TRANSFAC")
         motif = record[0]
         self.assertEqual(motif["ID"], "motif1")
@@ -5061,7 +5067,7 @@ class TestTransfac(unittest.TestCase):
         # Khan, A. et al. JASPAR 2018: update of the open-access database of
         # transcription factor binding profiles and its web framework.
         # Nucleic Acids Res. 2018; 46:D260-D266,
-        path = "motifs/MA0056.1.transfac"
+        path = support.DATA / "motifs" / "MA0056.1.transfac"
         with open(path) as stream:
             self.assertRaises(ValueError, motifs.parse, stream, "TRANSFAC")
         with open(path) as stream:
@@ -5132,7 +5138,7 @@ class TestTransfac(unittest.TestCase):
 class MotifTestPWM(unittest.TestCase):
     """PWM motif tests."""
 
-    with open("motifs/SRF.pfm") as stream:
+    with open(support.DATA / "motifs" / "SRF.pfm") as stream:
         m = motifs.read(stream, "pfm")
 
     s = Seq("ACGTGTGCGTAGTGCGT")

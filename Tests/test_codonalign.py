@@ -13,6 +13,8 @@ import tempfile
 import unittest
 import warnings
 
+import support
+
 from Bio import AlignIO
 from Bio import BiopythonWarning
 from Bio import codonalign
@@ -22,16 +24,17 @@ from Bio.Data import CodonTable
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-TEST_ALIGN_FILE1 = [("codonalign/nucl1.fa", "codonalign/pro1.aln"), "parse"]
-TEST_ALIGN_FILE2 = [("codonalign/nucl2.fa", "codonalign/pro2.aln"), "parse"]
-TEST_ALIGN_FILE3 = [("codonalign/nucl3.fa", "codonalign/pro3.aln"), "index"]
-TEST_ALIGN_FILE4 = [("codonalign/nucl4.fa", "codonalign/pro4.aln"), "index"]
-TEST_ALIGN_FILE5 = [("codonalign/nucl5.fa", "codonalign/pro5.aln"), "parse"]
+CODONALIGN = support.DATA / "codonalign"
+TEST_ALIGN_FILE1 = [(CODONALIGN / "nucl1.fa", CODONALIGN / "pro1.aln"), "parse"]
+TEST_ALIGN_FILE2 = [(CODONALIGN / "nucl2.fa", CODONALIGN / "pro2.aln"), "parse"]
+TEST_ALIGN_FILE3 = [(CODONALIGN / "nucl3.fa", CODONALIGN / "pro3.aln"), "index"]
+TEST_ALIGN_FILE4 = [(CODONALIGN / "nucl4.fa", CODONALIGN / "pro4.aln"), "index"]
+TEST_ALIGN_FILE5 = [(CODONALIGN / "nucl5.fa", CODONALIGN / "pro5.aln"), "parse"]
 TEST_ALIGN_FILE6 = [
-    ("codonalign/egfr_nucl.fa", "codonalign/egfr_pro.aln", "codonalign/egfr_id"),
+    (CODONALIGN / "egfr_nucl.fa", CODONALIGN / "egfr_pro.aln", CODONALIGN / "egfr_id"),
     "id",
 ]
-TEST_ALIGN_FILE7 = [("codonalign/drosophila.fasta", "codonalign/adh.aln"), "index"]
+TEST_ALIGN_FILE7 = [(CODONALIGN / "drosophila.fasta", CODONALIGN / "adh.aln"), "index"]
 
 temp_dir = tempfile.mkdtemp()
 

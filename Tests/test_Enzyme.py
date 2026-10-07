@@ -6,9 +6,10 @@
 
 """Tests for Enzyme module."""
 
-import os
 import unittest
 from io import StringIO
+
+import support
 
 from Bio.ExPASy import Enzyme
 
@@ -21,7 +22,7 @@ class TestEnzyme(unittest.TestCase):
 
     def test_parse_one(self):
         """Check parse function with one record."""
-        with open("Enzymes/lipoprotein.txt") as handle:
+        with open(support.DATA / "Enzymes" / "lipoprotein.txt") as handle:
             records = list(Enzyme.parse(handle))
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["ID"], "3.1.1.34")
@@ -30,9 +31,9 @@ class TestEnzyme(unittest.TestCase):
         """Check parse function with multiple records."""
         data = ""
         for filename in [
-            "Enzymes/lipoprotein.txt",
-            "Enzymes/proline.txt",
-            "Enzymes/valine.txt",
+            support.DATA / "Enzymes" / "lipoprotein.txt",
+            support.DATA / "Enzymes" / "proline.txt",
+            support.DATA / "Enzymes" / "valine.txt",
         ]:
             with open(filename) as handle:
                 data += handle.read()
@@ -45,7 +46,7 @@ class TestEnzyme(unittest.TestCase):
 
     def test_lipoprotein(self):
         """Parsing ENZYME record for lipoprotein lipase (3.1.1.34)."""
-        filename = os.path.join("Enzymes", "lipoprotein.txt")
+        filename = support.DATA / "Enzymes" / "lipoprotein.txt"
         with open(filename) as handle:
             record = Enzyme.read(handle)
         self.assertEqual(record["ID"], "3.1.1.34")
@@ -81,7 +82,7 @@ class TestEnzyme(unittest.TestCase):
 
     def test_proline(self):
         """Parsing ENZYME record for proline racemase (5.1.1.4)."""
-        filename = os.path.join("Enzymes", "proline.txt")
+        filename = support.DATA / "Enzymes" / "proline.txt"
         with open(filename) as handle:
             record = Enzyme.read(handle)
         self.assertEqual(record["ID"], "5.1.1.4")
@@ -104,7 +105,7 @@ class TestEnzyme(unittest.TestCase):
 
     def test_valine(self):
         """Parsing ENZYME record for valine decarboxylase (4.1.1.14)."""
-        filename = os.path.join("Enzymes", "valine.txt")
+        filename = support.DATA / "Enzymes" / "valine.txt"
         with open(filename) as handle:
             record = Enzyme.read(handle)
         self.assertEqual(record["ID"], "4.1.1.14")
@@ -120,7 +121,7 @@ class TestEnzyme(unittest.TestCase):
 
     def test_lactate(self):
         """Parsing ENZYME record for lactate racemase (5.1.2.1)."""
-        filename = os.path.join("Enzymes", "lactate.txt")
+        filename = support.DATA / "Enzymes" / "lactate.txt"
         with open(filename) as handle:
             record = Enzyme.read(handle)
         self.assertEqual(record["ID"], "5.1.2.1")

@@ -19,6 +19,8 @@ import tempfile
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import SeqIO
 from Bio.Align import Alignment
 from Bio.Align import MultipleSeqAlignment
@@ -43,27 +45,29 @@ class OldSelfTests(unittest.TestCase):
     def test_trees_and_taxa_block(self):
         """Basic tree file with TREES and TAXA block."""
         nexus1 = Nexus.Nexus()
-        nexus1.read("Nexus/bats.nex")
+        nexus1.read(support.DATA / "Nexus" / "bats.nex")
 
     def test_data_and_codons_block(self):
         """Simple sequence data file with DATA and CODONS block."""
         nexus2 = Nexus.Nexus()
-        nexus2.read("Nexus/codonposset.nex")
+        nexus2.read(support.DATA / "Nexus" / "codonposset.nex")
 
     def test_data_sets_trees_unknown_block(self):
         """Sequence data file with DATA, SETS, TREES and an unknown block."""
         nexus3 = Nexus.Nexus()
-        nexus3.read("Nexus/test_Nexus_input.nex")
+        nexus3.read(support.DATA / "Nexus" / "test_Nexus_input.nex")
 
     def test_taxa_and_characters_block(self):
         """Taxa and characters multi-state block."""
         nexus4 = Nexus.Nexus()
-        nexus4.read("Nexus/vSysLab_Ganaspidium_multistate.nex")
+        nexus4.read(support.DATA / "Nexus" / "vSysLab_Ganaspidium_multistate.nex")
 
     def test_taxa_and_characters_with_many_codings_one_without_state(self):
         """Taxa and chr blocks, over 9 codings, 1 character without states."""
         nexus5 = Nexus.Nexus()
-        nexus5.read("Nexus/vSysLab_Heptascelio_no-states_10+chars.nex")
+        nexus5.read(
+            support.DATA / "Nexus" / "vSysLab_Heptascelio_no-states_10+chars.nex"
+        )
 
     def test_taxa_and_characters_with_many_codings_two_without_state(self):
         """Taxa and chr blocks, over 9 codings, 2 character without states."""
@@ -73,7 +77,7 @@ class OldSelfTests(unittest.TestCase):
         self.assertRaises(
             Nexus.NexusError,
             nexus6.read,
-            "Nexus/vSysLab_Oreiscelio_discrete+continuous.nex",
+            support.DATA / "Nexus" / "vSysLab_Oreiscelio_discrete+continuous.nex",
         )
 
     def test_standard_data_error_is_nexus_error(self):
@@ -89,7 +93,7 @@ class OldSelfTests(unittest.TestCase):
 
 class NexusTest1(unittest.TestCase):
     def setUp(self):
-        self.testfile_dir = "Nexus"
+        self.testfile_dir = support.DATA / "Nexus"
         self.handle = open(os.path.join(self.testfile_dir, "test_Nexus_input.nex"))
 
     def tearDown(self):
@@ -97,7 +101,7 @@ class NexusTest1(unittest.TestCase):
 
     def test_WriteToFileName(self):
         """Test writing to a given filename."""
-        filename = "Nexus/test_temp.nex"
+        filename = support.DATA / "Nexus" / "test_temp.nex"
         if os.path.isfile(filename):
             os.remove(filename)
         n = Nexus.Nexus(self.handle)
@@ -121,7 +125,8 @@ class NexusTest1(unittest.TestCase):
         # check data of main nexus file
         n = Nexus.Nexus(self.handle)
         self.assertEqual(
-            os.path.normpath(n.filename), os.path.normpath("Nexus/test_Nexus_input.nex")
+            os.path.normpath(n.filename),
+            os.path.normpath(support.DATA / "Nexus" / "test_Nexus_input.nex"),
         )
         self.assertEqual(n.ntax, 9)
         self.assertEqual(n.nchar, 48)

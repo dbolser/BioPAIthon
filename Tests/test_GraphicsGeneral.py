@@ -4,9 +4,10 @@
 # as part of this package.
 """Test for graphics things that don't really deserve there own test module."""
 
-import os
 import random
 import unittest
+
+import support
 
 from Bio import MissingExternalDependencyError
 
@@ -54,7 +55,8 @@ class ComparativeTest(unittest.TestCase):
         """Test creation of a simple ScatterPlot with one list."""
         compare_plot = ComparativeScatterPlot()
         compare_plot.display_info = self._make_random_points(1)
-        output_file = os.path.join(os.getcwd(), "Graphics", "scatter_test_1.pdf")
+        # A str, as ReportLab (which writes the file) will not take a Path
+        output_file = str(support.DATA / "Graphics" / "scatter_test_1.pdf")
         compare_plot.draw_to_file(output_file, "Testing Scatter Plots")
 
     def test_simple_scatter_plot_7(self):
@@ -62,7 +64,7 @@ class ComparativeTest(unittest.TestCase):
         compare_plot = ComparativeScatterPlot()
         # There are 6 pre-defined colors and symbols, doing more:
         compare_plot.display_info = self._make_random_points(7)
-        output_file = os.path.join(os.getcwd(), "Graphics", "scatter_test_7.pdf")
+        output_file = str(support.DATA / "Graphics" / "scatter_test_7.pdf")
         compare_plot.draw_to_file(output_file, "Testing Scatter Plots")
 
 

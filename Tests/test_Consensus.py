@@ -9,6 +9,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 # from io import StringIO
 from Bio import Align
 from Bio import AlignIO
@@ -53,7 +55,9 @@ class ConsensusTest(unittest.TestCase):
     """Test for consensus methods."""
 
     def setUp(self):
-        self.trees = list(Phylo.parse("./TreeConstruction/trees.tre", "newick"))
+        self.trees = list(
+            Phylo.parse(support.DATA / "TreeConstruction" / "trees.tre", "newick")
+        )
 
     def test_count_clades(self):
         bitstr_counts, len_trees = Consensus._count_clades(self.trees)
@@ -67,7 +71,9 @@ class ConsensusTest(unittest.TestCase):
         self.assertEqual(bitstr_counts[_BitString("01111")][0], 1)
 
     def test_strict_consensus(self):
-        ref_trees = list(Phylo.parse("./TreeConstruction/strict_refs.tre", "newick"))
+        ref_trees = list(
+            Phylo.parse(support.DATA / "TreeConstruction" / "strict_refs.tre", "newick")
+        )
         # three trees
         consensus_tree = Consensus.strict_consensus(self.trees)
         # tree_file = StringIO()
@@ -86,7 +92,9 @@ class ConsensusTest(unittest.TestCase):
         # tree_file.close()
 
     def test_majority_consensus(self):
-        ref_trees = Phylo.parse("./TreeConstruction/majority_ref.tre", "newick")
+        ref_trees = Phylo.parse(
+            support.DATA / "TreeConstruction" / "majority_ref.tre", "newick"
+        )
         ref_tree = next(ref_trees)
         consensus_tree = Consensus.majority_consensus(self.trees)
         self.assertTrue(Consensus._equal_topology(consensus_tree, ref_tree))
@@ -95,7 +103,9 @@ class ConsensusTest(unittest.TestCase):
         self.assertTrue(Consensus._equal_topology(consensus_tree, ref_tree))
 
     def test_adam_consensus(self):
-        ref_trees = list(Phylo.parse("./TreeConstruction/adam_refs.tre", "newick"))
+        ref_trees = list(
+            Phylo.parse(support.DATA / "TreeConstruction" / "adam_refs.tre", "newick")
+        )
         # three trees
         consensus_tree = Consensus.adam_consensus(self.trees)
         # tree_file = '/home/yeyanbo/adam.tres'
@@ -134,8 +144,10 @@ class BootstrapTest(unittest.TestCase):
     """Test for bootstrap methods."""
 
     def setUp(self):
-        self.msa = AlignIO.read("TreeConstruction/msa.phy", "phylip")
-        self.alignment = Align.read("TreeConstruction/msa.phy", "phylip")
+        self.msa = AlignIO.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
+        self.alignment = Align.read(
+            support.DATA / "TreeConstruction" / "msa.phy", "phylip"
+        )
 
     def test_bootstrap(self):
         msa_list = list(Consensus.bootstrap(self.msa, 100))

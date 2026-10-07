@@ -7,10 +7,11 @@
 
 # Builtins
 import colorsys
-import os
 import unittest
 from cmath import rect
 from math import pi
+
+import support
 
 # Do we have ReportLab?  Raise error if not present.
 from Bio import MissingPythonDependencyError
@@ -35,7 +36,8 @@ class SpiralTest(unittest.TestCase):
 
     def setUp(self):
         """Set up canvas for drawing."""
-        output_filename = os.path.join("Graphics", "spiral_test.pdf")
+        # A str, as ReportLab (which writes the file) will not take a Path
+        output_filename = str(support.DATA / "Graphics" / "spiral_test.pdf")
         self.c = Canvas(output_filename, pagesize=A4)
         # coordinates of the centre of the canvas
         self.x_0, self.y_0 = 0.5 * A4[0], 0.5 * A4[1]
@@ -82,7 +84,7 @@ class SquareTest(unittest.TestCase):
 
     def setUp(self):
         """Set up canvas for drawing."""
-        output_filename = os.path.join("Graphics", "square_test.pdf")
+        output_filename = str(support.DATA / "Graphics" / "square_test.pdf")
         self.c = Canvas(output_filename, pagesize=(500, 500))
 
     def test_colorspiral(self):

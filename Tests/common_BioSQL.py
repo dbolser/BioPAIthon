@@ -15,6 +15,7 @@ import unittest
 import warnings
 from io import StringIO
 
+import support
 from seq_tests_common import SeqRecordTestBaseClass
 
 from Bio import BiopythonWarning
@@ -43,13 +44,14 @@ DBDRIVER = DBTYPE = DBHOST = DBUSER = DBPASSWD = TESTDB = DBSCHEMA = SQL_FILE = 
 
 def load_biosql_ini(DBTYPE):
     """Load the database settings from INI file."""
-    if not os.path.isfile("biosql.ini"):
+    ini_file = support.DATA / "biosql.ini"
+    if not ini_file.is_file():
         raise MissingExternalDependencyError(
             "BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)"
         )
 
     config = configparser.ConfigParser()
-    config.read("biosql.ini")
+    config.read(ini_file)
     DBHOST = config.get(DBTYPE, "dbhost")
     DBUSER = config.get(DBTYPE, "dbuser")
     DBPASSWD = config.get(DBTYPE, "dbpasswd")
@@ -113,7 +115,7 @@ def check_config(dbdriver, dbtype, dbhost, dbuser, dbpasswd, testdb):
         raise MissingExternalDependencyError(message) from None
 
     DBSCHEMA = "biosqldb-" + DBTYPE + ".sql"
-    SQL_FILE = os.path.join(os.getcwd(), "BioSQL", DBSCHEMA)
+    SQL_FILE = support.DATA / "BioSQL" / DBSCHEMA
 
     if not os.path.isfile(SQL_FILE):
         message = f"Missing SQL schema file: {SQL_FILE}"
@@ -289,7 +291,10 @@ class MultiReadTest(unittest.TestCase):
 
     def setUp(self):
         """Connect to and load up the database."""
-        load_multi_database("GenBank/cor6_6.gb", "GenBank/NC_000932.gb")
+        load_multi_database(
+            support.DATA / "GenBank" / "cor6_6.gb",
+            support.DATA / "GenBank" / "NC_000932.gb",
+        )
 
         self.server = BioSeqDatabase.open_database(
             driver=DBDRIVER, user=DBUSER, passwd=DBPASSWD, host=DBHOST, db=TESTDB
@@ -355,7 +360,7 @@ class ReadTest(unittest.TestCase):
 
     def setUp(self):
         """Connect to and load up the database."""
-        load_database("GenBank/cor6_6.gb")
+        load_database(support.DATA / "GenBank" / "cor6_6.gb")
 
         self.server = BioSeqDatabase.open_database(
             driver=DBDRIVER, user=DBUSER, passwd=DBPASSWD, host=DBHOST, db=TESTDB
@@ -417,7 +422,7 @@ class SeqInterfaceTest(unittest.TestCase):
 
     def setUp(self):
         """Load a database."""
-        load_database("GenBank/cor6_6.gb")
+        load_database(support.DATA / "GenBank" / "cor6_6.gb")
 
         self.server = BioSeqDatabase.open_database(
             driver=DBDRIVER, user=DBUSER, passwd=DBPASSWD, host=DBHOST, db=TESTDB
@@ -885,7 +890,7 @@ class LoaderTest(unittest.TestCase):
         self.db = self.server.new_database(db_name)
 
         # get the GenBank file we are going to put into it
-        self.iterator = SeqIO.parse("GenBank/cor6_6.gb", "gb")
+        self.iterator = SeqIO.parse(support.DATA / "GenBank" / "cor6_6.gb", "gb")
 
     def tearDown(self):
         self.server.close()
@@ -933,7 +938,7 @@ class DeleteTest(unittest.TestCase):
 
     def setUp(self):
         """Connect to and load up the database."""
-        load_database("GenBank/cor6_6.gb")
+        load_database(support.DATA / "GenBank" / "cor6_6.gb")
 
         self.server = BioSeqDatabase.open_database(
             driver=DBDRIVER, user=DBUSER, passwd=DBPASSWD, host=DBHOST, db=TESTDB
@@ -1102,8 +1107,10 @@ class ClosedLoopTest(SeqRecordTestBaseClass):
         self.loop("GenBank/arab1.gb", "gb")
 
     def loop(self, filename, format):
+        # The filename is relative to Tests/ because it also names the
+        # namespace below, so anchor it only for reading the file.
         original_records = []
-        for record in SeqIO.parse(filename, format):
+        for record in SeqIO.parse(support.DATA / filename, format):
             if "RNA" in record.annotations.get("molecule_type", ""):
                 if "U" in record.seq:
                     record.annotations["molecule_type"] = "RNA"
@@ -1190,8 +1197,10 @@ class TransferTest(SeqRecordTestBaseClass):
         self.trans("GenBank/arab1.gb", "gb")
 
     def trans(self, filename, format):
+        # The filename is relative to Tests/ because it also names the
+        # namespaces below, so anchor it only for reading the file.
         original_records = []
-        for record in SeqIO.parse(filename, format):
+        for record in SeqIO.parse(support.DATA / filename, format):
             if record.annotations.get("molecule_type") == "mRNA":
                 record.annotations["molecule_type"] = "DNA"
             original_records.append(record)
@@ -1228,7 +1237,7 @@ class InDepthLoadTest(unittest.TestCase):
     """Make sure we are loading and retrieving in a semi-lossless fashion."""
 
     def setUp(self):
-        gb_file = os.path.join(os.getcwd(), "GenBank", "cor6_6.gb")
+        gb_file = support.DATA / "GenBank" / "cor6_6.gb"
         load_database(gb_file)
 
         self.server = BioSeqDatabase.open_database(
@@ -1254,7 +1263,7 @@ class InDepthLoadTest(unittest.TestCase):
 
     def test_reload(self):
         """Make sure can't reimport existing records."""
-        gb_file = os.path.join(os.getcwd(), "GenBank", "cor6_6.gb")
+        gb_file = support.DATA / "GenBank" / "cor6_6.gb"
         with open(gb_file) as gb_handle:
             record = next(SeqIO.parse(gb_handle, "gb"))
         # Should be in database already...
@@ -1422,68 +1431,68 @@ class AutoSeqIOTests(SeqRecordTestBaseClass):
                     self.compare_record(record, db_rec)
 
     def test_SeqIO_loading(self):
-        self.check("fasta", "Fasta/lupine.nu")
-        self.check("fasta", "Fasta/elderberry.nu")
-        self.check("fasta", "Fasta/phlox.nu")
-        self.check("fasta", "Fasta/centaurea.nu")
-        self.check("fasta", "Fasta/wisteria.nu")
-        self.check("fasta", "Fasta/sweetpea.nu")
-        self.check("fasta", "Fasta/lavender.nu")
-        self.check("fasta", "Fasta/aster.pro")
-        self.check("fasta", "Fasta/loveliesbleeding.pro")
-        self.check("fasta", "Fasta/rose.pro")
-        self.check("fasta", "Fasta/rosemary.pro")
-        self.check("fasta", "Fasta/f001")
-        self.check("fasta", "Fasta/f002", 3)
-        self.check("fasta", "Fasta/fa01", 2)
-        self.check("fasta", "GFF/NC_001802.fna")
-        self.check("fasta", "GFF/multi.fna", 3)
-        self.check("fasta", "Registry/seqs.fasta", 2)
-        self.check("swiss", "SwissProt/Q13454.txt")
-        self.check("swiss", "SwissProt/P60904.txt")
-        self.check("swiss", "SwissProt/P62258.txt")
-        self.check("swiss", "SwissProt/P0A186.txt")
-        self.check("swiss", "SwissProt/P68308.txt")
-        self.check("swiss", "SwissProt/P39896.txt")
-        self.check("swiss", "SwissProt/O95832.txt")
-        self.check("swiss", "SwissProt/P04439.txt")
-        self.check("swiss", "SwissProt/O23729.txt")
-        self.check("swiss", "SwissProt/Q13639.txt")
-        self.check("swiss", "SwissProt/P16235.txt")
-        self.check("swiss", "SwissProt/sp012")
-        self.check("swiss", "SwissProt/sp013")
-        self.check("swiss", "SwissProt/P60137.txt")
-        self.check("swiss", "SwissProt/sp015")
-        self.check("swiss", "SwissProt/sp016")
-        self.check("swiss", "Registry/EDD_RAT.dat")
-        self.check("genbank", "GenBank/noref.gb")
-        self.check("genbank", "GenBank/cor6_6.gb", 6)
-        self.check("genbank", "GenBank/iro.gb")
-        self.check("genbank", "GenBank/pri1.gb")
-        self.check("genbank", "GenBank/arab1.gb")
+        self.check("fasta", support.DATA / "Fasta" / "lupine.nu")
+        self.check("fasta", support.DATA / "Fasta" / "elderberry.nu")
+        self.check("fasta", support.DATA / "Fasta" / "phlox.nu")
+        self.check("fasta", support.DATA / "Fasta" / "centaurea.nu")
+        self.check("fasta", support.DATA / "Fasta" / "wisteria.nu")
+        self.check("fasta", support.DATA / "Fasta" / "sweetpea.nu")
+        self.check("fasta", support.DATA / "Fasta" / "lavender.nu")
+        self.check("fasta", support.DATA / "Fasta" / "aster.pro")
+        self.check("fasta", support.DATA / "Fasta" / "loveliesbleeding.pro")
+        self.check("fasta", support.DATA / "Fasta" / "rose.pro")
+        self.check("fasta", support.DATA / "Fasta" / "rosemary.pro")
+        self.check("fasta", support.DATA / "Fasta" / "f001")
+        self.check("fasta", support.DATA / "Fasta" / "f002", 3)
+        self.check("fasta", support.DATA / "Fasta" / "fa01", 2)
+        self.check("fasta", support.DATA / "GFF" / "NC_001802.fna")
+        self.check("fasta", support.DATA / "GFF" / "multi.fna", 3)
+        self.check("fasta", support.DATA / "Registry" / "seqs.fasta", 2)
+        self.check("swiss", support.DATA / "SwissProt" / "Q13454.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P60904.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P62258.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P0A186.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P68308.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P39896.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "O95832.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P04439.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "O23729.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "Q13639.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "P16235.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "sp012")
+        self.check("swiss", support.DATA / "SwissProt" / "sp013")
+        self.check("swiss", support.DATA / "SwissProt" / "P60137.txt")
+        self.check("swiss", support.DATA / "SwissProt" / "sp015")
+        self.check("swiss", support.DATA / "SwissProt" / "sp016")
+        self.check("swiss", support.DATA / "Registry" / "EDD_RAT.dat")
+        self.check("genbank", support.DATA / "GenBank" / "noref.gb")
+        self.check("genbank", support.DATA / "GenBank" / "cor6_6.gb", 6)
+        self.check("genbank", support.DATA / "GenBank" / "iro.gb")
+        self.check("genbank", support.DATA / "GenBank" / "pri1.gb")
+        self.check("genbank", support.DATA / "GenBank" / "arab1.gb")
         with warnings.catch_warnings():
             # BiopythonWarning: order location operators are not fully
             # supported
             warnings.simplefilter("ignore", BiopythonWarning)
-            self.check("genbank", "GenBank/protein_refseq2.gb")
-        self.check("genbank", "GenBank/extra_keywords.gb")
-        self.check("genbank", "GenBank/one_of.gb")
-        self.check("genbank", "GenBank/NT_019265.gb")
-        self.check("genbank", "GenBank/origin_line.gb")
-        self.check("genbank", "GenBank/blank_seq.gb")
+            self.check("genbank", support.DATA / "GenBank" / "protein_refseq2.gb")
+        self.check("genbank", support.DATA / "GenBank" / "extra_keywords.gb")
+        self.check("genbank", support.DATA / "GenBank" / "one_of.gb")
+        self.check("genbank", support.DATA / "GenBank" / "NT_019265.gb")
+        self.check("genbank", support.DATA / "GenBank" / "origin_line.gb")
+        self.check("genbank", support.DATA / "GenBank" / "blank_seq.gb")
         with warnings.catch_warnings():
             # BiopythonWarning: bond location operators are not fully supported
             warnings.simplefilter("ignore", BiopythonWarning)
-            self.check("genbank", "GenBank/dbsource_wrap.gb")
+            self.check("genbank", support.DATA / "GenBank" / "dbsource_wrap.gb")
             # BiopythonWarning: order location operators are not fully
             # supported
-            self.check("genbank", "GenBank/NC_005816.gb")
-        self.check("genbank", "GenBank/gbvrl1_start.seq", 3)
-        self.check("genbank", "GFF/NC_001422.gbk")
-        self.check("embl", "EMBL/TRBG361.embl")
-        self.check("embl", "EMBL/DD231055_edited.embl")
-        self.check("embl", "EMBL/SC10H5.embl")
-        self.check("embl", "EMBL/U87107.embl")
+            self.check("genbank", support.DATA / "GenBank" / "NC_005816.gb")
+        self.check("genbank", support.DATA / "GenBank" / "gbvrl1_start.seq", 3)
+        self.check("genbank", support.DATA / "GFF" / "NC_001422.gbk")
+        self.check("embl", support.DATA / "EMBL" / "TRBG361.embl")
+        self.check("embl", support.DATA / "EMBL" / "DD231055_edited.embl")
+        self.check("embl", support.DATA / "EMBL" / "SC10H5.embl")
+        self.check("embl", support.DATA / "EMBL" / "U87107.embl")
         self.assertEqual(len(self.db), 66)
 
 
@@ -1510,7 +1519,7 @@ class SwissProtUnknownPositionTest(unittest.TestCase):
     def test_ambiguous_location(self):
         """Loaded uniprot-xml with ambiguous location in BioSQL."""
         id = "P97881"
-        seqiter = SeqIO.parse(f"SwissProt/{id}.xml", "uniprot-xml")
+        seqiter = SeqIO.parse(support.DATA / "SwissProt" / f"{id}.xml", "uniprot-xml")
         self.assertEqual(self.db.load(seqiter), 1)
 
         dbrecord = self.db.lookup(primary_id=id)
@@ -1528,7 +1537,7 @@ class TestBaseClassMethods(unittest.TestCase):
 
     def setUp(self):
         """Load a database."""
-        path = "GenBank/cor6_6.gb"
+        path = support.DATA / "GenBank" / "cor6_6.gb"
         accession = "X62281"
         load_database(path)
 

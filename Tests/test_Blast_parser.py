@@ -5,11 +5,12 @@
 """Test the Blast XML parser."""
 
 import io
-import os
 import unittest
 from unittest import mock
 
 import numpy as np
+
+import support
 
 from Bio import Blast
 from Bio import StreamModeError
@@ -83,7 +84,7 @@ class TestBlastp(unittest.TestCase):
     def test_xml_2218_blastp_002_iterator(self):
         """Parsing BLASTP 2.2.18+ (xml_2218_blastp_002.xml) by iteration."""
         filename = "xml_2218_blastp_002.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2218_blastp_002_header(records)
@@ -110,7 +111,7 @@ class TestBlastp(unittest.TestCase):
     def test_xml_2218_blastp_002_list(self):
         """Parsing BLASTP 2.2.18+ (xml_2218_blastp_002.xml) as a list."""
         filename = "xml_2218_blastp_002.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2218_blastp_002_header(records)
@@ -146,7 +147,7 @@ Program: BLASTP 2.2.18+
     def test_xml_2218_blastp_002_writer(self):
         """Writing BLASTP 2.2.18+ (xml_2218_blastp_002.xml)."""
         filename = "xml_2218_blastp_002.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             records = records[:]
@@ -165,7 +166,7 @@ Program: BLASTP 2.2.18+
     def test_xml_2218L_blastp_001_parser(self):
         """Parsing blastp 2.2.18 [Mar-02-2008] (xml_2218L_blastp_001.xml)."""
         filename = "xml_2218L_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2218L_blastp_001_records(records)
@@ -232,7 +233,7 @@ Program: blastp 2.2.18 [Mar-02-2008]
     def test_xml_2218L_blastp_001_writer(self):
         """Writing blastp 2.2.18 [Mar-02-2008] (xml_2218L_blastp_001.xml)."""
         filename = "xml_2218L_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -244,7 +245,7 @@ Program: blastp 2.2.18 [Mar-02-2008]
     def test_xml_2226_blastp_003(self):
         """Parsing BLASTP 2.2.26+ (xml_2226_blastp_003.xml)."""
         filename = "xml_2226_blastp_003.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2226_blastp_003(records)
@@ -761,7 +762,7 @@ Query_1          59 VSLDITEESTSDLDKFNSGDKVTIT  84
     def test_xml_2226_blastp_003_writer(self):
         """Writing BLASTP 2.2.26+ (xml_2226_blastp_003.xml)."""
         filename = "xml_2226_blastp_003.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -773,7 +774,7 @@ Query_1          59 VSLDITEESTSDLDKFNSGDKVTIT  84
     def test_phiblast_parser(self):
         """Parsing BLASTP 2.14.1+ (phiblast.xml)."""
         filename = "phiblast.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_phiblast_records(records)
@@ -1965,7 +1966,7 @@ Query_744       660 AEQP 664
     def test_phiblast_writer(self):
         """Writing BLASTP 2.14.1+ (phiblast.xml)."""
         filename = "phiblast.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -1977,7 +1978,7 @@ Query_744       660 AEQP 664
     def test_xml_21500_blastp_001_parser(self):
         """Parsing BLASTP 2.15.0+ (xml_21500_blastp_001.xml)."""
         filename = "xml_21500_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastp_001_records(records)
@@ -2037,7 +2038,7 @@ Program: BLASTP 2.15.0+
     def test_xml2_21500_blastp_001_parser(self):
         """Parsing BLASTP 2.15.0+ (xml2_21500_blastp_001.xml)."""
         filename = "xml2_21500_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastp_001_records(records, xml2=True)
@@ -3466,7 +3467,7 @@ WXX52402.       239
     def test_xml_21500_blastp_001_writer(self):
         """Writing BLASTP 2.15.0+ (xml_21500_blastp_001.xml)."""
         filename = "xml_21500_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -3478,7 +3479,7 @@ WXX52402.       239
     def test_xml2_21500_blastp_001_writer(self):
         """Writing BLASTP 2.15.0+ (xml2_21500_blastp_001.xml)."""
         filename = "xml2_21500_blastp_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -3494,7 +3495,7 @@ class TestBlastn(unittest.TestCase):
     def test_xml_21500_blastn_001_parser(self):
         """Parsing BLASTN 2.15.0+ (xml_21500_blastn_001.xml)."""
         filename = "xml_21500_blastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastn_001_records(records)
@@ -3533,7 +3534,7 @@ Program: BLASTN 2.15.0+
     def test_xml2_21500_blastn_001_parser(self):
         """Parsing BLASTN 2.15.0+ (xml2_21500_blastn_001.xml)."""
         filename = "xml2_21500_blastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastn_001_records(records, xml2=True)
@@ -4926,7 +4927,7 @@ Query_780       228
     def test_xml_21500_blastn_001_writer(self):
         """Writing BLASTN 2.15.0+ (xml_21500_blastn_001.xml)."""
         filename = "xml_21500_blastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -4938,7 +4939,7 @@ Query_780       228
     def test_xml2_21500_blastn_001_writer(self):
         """Writing BLASTN 2.15.0+ XML2 (xml2_21500_blastn_001.xml)."""
         filename = "xml2_21500_blastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -4950,7 +4951,7 @@ Query_780       228
     def test_megablast_legacy(self):
         """Parsing megablast 2.2.26 [Sep-21-2011] (megablast_legacy.xml)."""
         filename = "megablast_legacy.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_megablast_legacy_records(records)
@@ -5145,7 +5146,7 @@ lcl|1_          780 TCACCACCCAATACGTG 797
     def test_megablast_legacy_writer(self):
         """Writing megablast 2.2.26 [Sep-21-2011] (megablast_legacy.xml)."""
         filename = "megablast_legacy.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -5161,7 +5162,7 @@ class TestBlastx(unittest.TestCase):
     def test_xml_2222_blastx_001_parser(self):
         """Parsing BLASTX 2.2.22+ (xml_2222_blastx_001.xml)."""
         filename = "xml_2222_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2222_blastx_001(records)
@@ -10192,7 +10193,7 @@ gi|146197       480 STLQKLHRNRIWYLDILFSNDLVNNE 506
     def test_xml_2222_blastx_001_writer(self):
         """Writing BLASTX 2.2.22+ (xml_2222_blastx_001.xml)."""
         filename = "xml_2222_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -10204,7 +10205,7 @@ gi|146197       480 STLQKLHRNRIWYLDILFSNDLVNNE 506
     def test_xml_21500_blastx_001_parser(self):
         """Parsing BLASTX 2.15.0+ (xml_21500_blastx_001.xml)."""
         filename = "xml_21500_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastx_001_records(records)
@@ -11185,7 +11186,7 @@ AI021773.        60 SKRGILTLKYPIEHGIVTNWDDMEKIWHHTFYNELRVAPEEHPVLLTE 108
     def test_xml2_21500_blastx_001_parser(self):
         """Parsing BLASTX 2.15.0+ (xml2_21500_blastx_001.xml)."""
         filename = "xml2_21500_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_blastx_001_records(records, xml2=True)
@@ -11200,7 +11201,7 @@ AI021773.        60 SKRGILTLKYPIEHGIVTNWDDMEKIWHHTFYNELRVAPEEHPVLLTE 108
     def test_xml_21500_blastx_001_writer(self):
         """Writing BLASTX 2.15.0+ (xml_21500_blastx_001.xml)."""
         filename = "xml_21500_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -11212,7 +11213,7 @@ AI021773.        60 SKRGILTLKYPIEHGIVTNWDDMEKIWHHTFYNELRVAPEEHPVLLTE 108
     def test_xml2_21500_blastx_001_writer(self):
         """Writing BLASTX 2.15.0+ XML2 (xml2_21500_blastx_001.xml)."""
         filename = "xml2_21500_blastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -11228,7 +11229,7 @@ class TestTBlastn(unittest.TestCase):
     def test_xml_21500_tblastn_001_parser(self):
         """Parsing TBLASTN 2.15.0+ (xml_21500_tblastn_001.xml)."""
         filename = "xml_21500_tblastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_tblastn_001_records(records)
@@ -11266,7 +11267,7 @@ Program: TBLASTN 2.15.0+
     def test_xml2_21500_tblastn_001_parser(self):
         """Parsing TBLASTN 2.15.0+ (xml2_21500_tblastn_001.xml)."""
         filename = "xml2_21500_tblastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_tblastn_001_records(records, xml2=True)
@@ -12595,7 +12596,7 @@ CAJ99216.       180 FLKQHLNQKMPLLYGGSVNTQNAKEILGIDSVDGLLIGSTSLELENFKTIISFL 234
     def test_xml_21500_tblastn_001_writer(self):
         """Writing TBLASTN 2.15.0+ (xml_21500_tblastn_001.xml)."""
         filename = "xml_21500_tblastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -12607,7 +12608,7 @@ CAJ99216.       180 FLKQHLNQKMPLLYGGSVNTQNAKEILGIDSVDGLLIGSTSLELENFKTIISFL 234
     def test_xml2_21500_tblastn_001_writer(self):
         """Writing TBLASTN 2.15.0+ XML2 (xml2_21500_tblastn_001.xml)."""
         filename = "xml2_21500_tblastn_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -12623,7 +12624,7 @@ class TestTBlastx(unittest.TestCase):
     def test_xml_2226_tblastx_004(self):
         """Parsing TBLASTX 2.2.26+ (xml_2226_tblastx_004.xml)."""
         filename = "xml_2226_tblastx_004.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_2226_tblastx_004(records)
@@ -13338,7 +13339,7 @@ Query: Query_2
     def test_xml_2226_tblastx_004_writer(self):
         """Writing TBLASTX 2.2.26+ (xml_2226_tblastx_004.xml)."""
         filename = "xml_2226_tblastx_004.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -13350,7 +13351,7 @@ Query: Query_2
     def test_xml_21500_tblastx_001_parser(self):
         """Parsing TBLASTX 2.15.0+ (xml_21500_tblastx_001.xml)."""
         filename = "xml_21500_tblastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_tblastx_001_records(records)
@@ -13389,7 +13390,7 @@ Program: TBLASTX 2.15.0+
     def test_xml2_21500_tblastx_001_parser(self):
         """Parsing TBLASTX 2.15.0+ (xml2_21500_tblastx_001.xml)."""
         filename = "xml2_21500_tblastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_tblastx_001_records(records, xml2=True)
@@ -14478,7 +14479,7 @@ Query_949        60 KKAVDLGASYFILKPFDMENLV 82
     def test_xml_21500_tblastx_001_writer(self):
         """Writing TBLASTX 2.15.0+ (xml_21500_tblastx_001.xml)."""
         filename = "xml_21500_tblastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -14490,7 +14491,7 @@ Query_949        60 KKAVDLGASYFILKPFDMENLV 82
     def test_xml2_21500_tblastx_001_writer(self):
         """Writing TBLASTX 2.15.0+ XML2 (xml2_21500_tblastx_001.xml)."""
         filename = "xml2_21500_tblastx_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -14506,7 +14507,7 @@ class TestRPSBlast(unittest.TestCase):
     def test_xml_21500_rpsblast_001_parser(self):
         """Parsing RPSBLAST 2.15.0+ (xml_21500_rpsblast_001.xml)."""
         filename = "xml_21500_rpsblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_rpsblast_001_records(records)
@@ -14521,7 +14522,7 @@ class TestRPSBlast(unittest.TestCase):
     def test_xml2_21500_rpsblast_001_parser(self):
         """Parsing RPSBLAST 2.15.0+ (xml2_21500_rpsblast_001.xml)."""
         filename = "xml2_21500_rpsblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_rpsblast_001_records(records, xml2=True)
@@ -14536,7 +14537,7 @@ class TestRPSBlast(unittest.TestCase):
     def test_xml_21500_rpsblast_001_writer(self):
         """Writing rpsblast 2.15.0+ (xml_21500_rpsblast_001.xml)."""
         filename = "xml_21500_rpsblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -14548,7 +14549,7 @@ class TestRPSBlast(unittest.TestCase):
     def test_xml2_21500_rpsblast_001_writer(self):
         """Writing rpsblast 2.9.0+ XML2 (xml2_21500_rpsblast_001_v2.xml)."""
         filename = "xml2_21500_rpsblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -14721,7 +14722,7 @@ class TestPSIBlast(unittest.TestCase):
     def test_xml_21500_psiblast_001_parser(self):
         """Parsing PSIBLAST 2.15.0+ (xml_21500_psiblast_001.xml)."""
         filename = "xml_21500_psiblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_psiblast_001_records(records)
@@ -14736,7 +14737,7 @@ class TestPSIBlast(unittest.TestCase):
     def test_xml2_21500_psiblast_001_parser(self):
         """Parsing PSIBLAST 2.15.0+ (xml2_21500_psiblast_001.xml)."""
         filename = "xml2_21500_psiblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             self.check_xml_21500_psiblast_001_records(records, xml2=True)
@@ -14751,7 +14752,7 @@ class TestPSIBlast(unittest.TestCase):
     def test_xml_21500_psiblast_001_writer(self):
         """Writing psiblast 2.15.0+ (xml_21500_psiblast_001.xml)."""
         filename = "xml_21500_psiblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream)
@@ -14763,7 +14764,7 @@ class TestPSIBlast(unittest.TestCase):
     def test_xml2_21500_psiblast_001_writer(self):
         """Writing psiblast 2.9.0+ XML2 (xml2_21500_psiblast_001_v2.xml)."""
         filename = "xml2_21500_psiblast_001.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with Blast.parse(path) as records:
             stream = io.BytesIO()
             n = Blast.write(records, stream, fmt="XML2")
@@ -15043,7 +15044,7 @@ class TestBlastErrors(unittest.TestCase):
         """Try to parse a FASTA file."""
         message = "Failed to parse the XML data (syntax error: line 1, column 0). Please make sure that the input data are in XML format."
         filename = "wisteria.nu"
-        path = os.path.join("Fasta", filename)
+        path = support.DATA / "Fasta" / filename
         with open(path, "rb") as stream:
             with self.assertRaises(Blast.NotXMLError) as cm:
                 records = Blast.parse(stream)
@@ -15056,7 +15057,7 @@ class TestBlastErrors(unittest.TestCase):
         """Try to parse an XML file terminating in the header."""
         message = r"^premature end of XML file: line [0-9]\d*, column [0-9]\d*$"
         filename = "broken1.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             with self.assertRaises(ValueError) as cm:
                 records = Blast.parse(stream)
@@ -15076,7 +15077,7 @@ class TestBlastErrors(unittest.TestCase):
         """Try to parse an XML file terminating within the first block."""
         message = r"^premature end of XML file: line [0-9]\d*, column [0-9]\d*$"
         filename = "broken2.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             with self.assertRaises(ValueError) as cm:
@@ -15098,7 +15099,7 @@ class TestBlastErrors(unittest.TestCase):
         """Try to parse an XML file terminating in the second block."""
         message = r"^premature end of XML file: line [0-9]\d*, column [0-9]\d*$"
         filename = "broken3.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             with self.assertRaises(ValueError) as cm:
@@ -15120,7 +15121,7 @@ class TestBlastErrors(unittest.TestCase):
         """Try to parse an XML file terminating after the first record."""
         message = r"^premature end of XML file: line [0-9]\d*, column [0-9]\d*$"
         filename = "broken4.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             record = next(records)
@@ -15145,7 +15146,7 @@ class TestBlastErrors(unittest.TestCase):
         message = "Failed to parse the XML data (not well-formed (invalid token): line 10, column 2). Please make sure that the input data are not corrupted."
 
         filename = "broken5.xml"
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             with self.assertRaises(Blast.CorruptedXMLError) as cm:
                 records = Blast.parse(stream)
@@ -15168,7 +15169,7 @@ class TestBlastMalformedInput(unittest.TestCase):
 
     def check_parse_error(self, filename, old, new, message):
         """Parse a test file with old replaced by new, and check the error."""
-        path = os.path.join("Blast", filename)
+        path = support.DATA / "Blast" / filename
         with open(path, "rb") as stream:
             data = stream.read()
         self.assertIn(old, data)
@@ -15210,7 +15211,7 @@ class TestBlastMalformedInput(unittest.TestCase):
         """External entity referenced from the content, not the DOCTYPE."""
         # The DTD is loaded once per process, and only after that does the
         # entity handler stay installed past the DOCTYPE; parse a file first.
-        path = os.path.join("Blast", "xml_2226_blastn_002.xml")
+        path = support.DATA / "Blast" / "xml_2226_blastn_002.xml"
         with Blast.parse(path) as records:
             list(records)
         self.check_parse_error(
@@ -15323,7 +15324,7 @@ class TestBlastMalformedInput(unittest.TestCase):
 
     def test_write_unbalanced_coded_by(self):
         """Writing an HSP whose coded_by qualifier lacks its closing bracket."""
-        path = os.path.join("Blast", "xml_2900_tblastn_001.xml")
+        path = support.DATA / "Blast" / "xml_2900_tblastn_001.xml"
         with open(path, "rb") as stream:
             records = Blast.parse(stream)
             records = records[:]

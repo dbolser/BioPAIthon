@@ -12,9 +12,10 @@ to check Bio.Graphics can make a bitmap (e.g. PNG).
 The example itself is essentially a repeat from test_GraphicsGeneral.py.
 """
 
-import os
 import random
 import unittest
+
+import support
 
 from Bio import MissingExternalDependencyError
 from Bio import MissingPythonDependencyError
@@ -87,7 +88,8 @@ def real_test():
     compare_plot = ComparativeScatterPlot("png")
     compare_plot.display_info = plot_info
 
-    output_file = os.path.join(os.getcwd(), "Graphics", "scatter_test.png")
+    # A str, as ReportLab (which writes the file) will not take a Path
+    output_file = str(support.DATA / "Graphics" / "scatter_test.png")
     try:
         compare_plot.draw_to_file(output_file, "Testing Scatter Plots")
     # there is a bug in reportlab which occasionally generates an

@@ -8,8 +8,9 @@
 """Tests for Primer-based programs in the Emboss suite."""
 
 # standard library
-import os
 import unittest
+
+import support
 
 from Bio.Emboss import Primer3
 
@@ -20,12 +21,12 @@ from Bio.Emboss import PrimerSearch
 class Primer3ParseTest(unittest.TestCase):
     def setUp(self):
         self.test_files = [
-            os.path.join("Emboss", "bac_find.primer3"),
-            os.path.join("Emboss", "cds_forward.primer3"),
-            os.path.join("Emboss", "cds_reverse.primer3"),
-            os.path.join("Emboss", "short.primer3"),
-            os.path.join("Emboss", "internal_oligo.primer3"),
-            os.path.join("Emboss", "no_oligo.primer3"),
+            support.DATA / "Emboss" / "bac_find.primer3",
+            support.DATA / "Emboss" / "cds_forward.primer3",
+            support.DATA / "Emboss" / "cds_reverse.primer3",
+            support.DATA / "Emboss" / "short.primer3",
+            support.DATA / "Emboss" / "internal_oligo.primer3",
+            support.DATA / "Emboss" / "no_oligo.primer3",
         ]
 
     def test_simple_parse(self):
@@ -90,7 +91,7 @@ class Primer3ParseTest(unittest.TestCase):
 
     def test_multi_record_fwd(self):
         """Test parsing multiple primer sets (NirK forward)."""
-        with open(os.path.join("Emboss", "NirK.primer3")) as handle:
+        with open(support.DATA / "Emboss" / "NirK.primer3") as handle:
             targets = list(Primer3.parse(handle))
 
         self.assertEqual(len(targets), 16)
@@ -117,7 +118,7 @@ class Primer3ParseTest(unittest.TestCase):
 
     def test_multi_record_full(self):
         """Test parsing multiple primer sets (NirK full)."""
-        with open(os.path.join("Emboss", "NirK_full.primer3")) as handle:
+        with open(support.DATA / "Emboss" / "NirK_full.primer3") as handle:
             targets = list(Primer3.parse(handle))
 
         self.assertEqual(len(targets), 16)
@@ -145,7 +146,7 @@ class Primer3ParseTest(unittest.TestCase):
 
 class PrimersearchParseTest(unittest.TestCase):
     def setUp(self):
-        self.test_files = [os.path.join("Emboss", "bac_find.psearch")]
+        self.test_files = [support.DATA / "Emboss" / "bac_find.psearch"]
 
     def test_simple_parse(self):
         """Make sure that we can parse all primersearch files."""
