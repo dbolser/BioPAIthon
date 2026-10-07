@@ -61,6 +61,10 @@ online component by adding ``--offline``, e.g.
 
    $ python run_tests.py --offline
 
+This also blocks connections to other machines, so a test which tries to
+go online anyway fails with an error rather than quietly using the
+network.
+
 By default, ``run_tests.py`` runs all tests, including the docstring
 tests.
 
@@ -105,7 +109,7 @@ If you are interested in using Tox, you could start with the example
 
 Using the template above, executing ``tox`` will test your Biopython
 code against PyPy, Python 3.12 and 3.13. It assumes that those Pythons’
-executables are named “python3.12“ for Python 3.12, and so on.
+executables are named ``python3.12`` for Python 3.12, and so on.
 
 Writing tests
 -------------
@@ -126,9 +130,9 @@ optionally a directory with input files used by the test:
    clogging up the main Tests directory. In general, use a temporary
    file/folder.
 
-Build the paths to your input files from ``DATA`` in
-``Tests/support.py``, which is the ``Tests`` directory itself, rather
-than relative to the current directory:
+Build the paths to your input files from ``support.DATA``, the
+``Tests`` directory (defined in ``Tests/support.py``), rather than
+relative to the current directory:
 
 .. code:: python
 
