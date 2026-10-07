@@ -119,6 +119,20 @@ class TestDetailedRead(unittest.TestCase):
             SeqRecord(id="", seq=Seq("")).description,
         )
 
+    def test_molecule_type_without_value(self):
+        """Check a molecule_type property without a value keeps the type."""
+        data = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<seqXML seqXMLversion="0.4">
+  <entry id="X1" source="test">
+    <DNAseq>ACGT</DNAseq>
+    <property name="molecule_type"/>
+  </entry>
+</seqXML>
+"""
+        record = SeqIO.read(BytesIO(data), "seqxml")
+        self.assertEqual(record.annotations["molecule_type"], "DNA")
+
 
 class TestReadHeader(unittest.TestCase):
     def test_check_dna_header(self):
@@ -227,6 +241,24 @@ class TestReadCorruptFiles(unittest.TestCase):
         self.assertRaises(ValueError, f, "SeqXML/corrupt_example1.xml")
         self.assertRaises(ValueError, f, "SeqXML/corrupt_example2.xml")
         self.assertRaises(ValueError, f, "SeqXML/corrupt_example3.xml")
+
+    def test_molecule_type_mismatch(self):
+        """Check a molecule_type property contradicting the sequence type."""
+        data = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<seqXML seqXMLversion="0.4">
+  <entry id="X1" source="test">
+    <DNAseq>ACGT</DNAseq>
+    <property name="molecule_type" value="protein"/>
+  </entry>
+</seqXML>
+"""
+        with self.assertRaisesRegex(
+            ValueError,
+            "^molecule_type property 'protein' of entry 'X1' does not match "
+            "its DNA sequence$",
+        ):
+            list(SeqIO.parse(BytesIO(data), "seqxml"))
 
 
 class TestOldVersions(unittest.TestCase):

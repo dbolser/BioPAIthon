@@ -284,7 +284,11 @@ def _insdc_location_string_ignoring_strand_and_subfeatures(location, rec_length)
         ref = f"{location.ref}:"
     else:
         ref = ""
-    assert not location.ref_db
+    if location.ref_db:
+        raise ValueError(
+            f"Location {location} has ref_db {location.ref_db!r}, "
+            "which INSDC location strings cannot represent"
+        )
     if (
         isinstance(location.start, SeqFeature.ExactPosition)
         and isinstance(location.end, SeqFeature.ExactPosition)
@@ -483,7 +487,10 @@ class _InsdcWriter(SequenceWriter):
 
     def _write_feature(self, feature, record_length):
         """Write a single SeqFeature object to features table (PRIVATE)."""
-        assert feature.type, feature
+        if not feature.type:
+            raise ValueError(
+                f"Cannot write a feature with no type, at location {feature.location}"
+            )
 
         f_type = feature.type.replace(" ", "_")
         if not _allowed_table_component_name_chars.issuperset(f_type):
@@ -528,8 +535,10 @@ class _InsdcWriter(SequenceWriter):
         except KeyError:
             return default
         if isinstance(answer, list):
-            if not just_first:
-                assert len(answer) == 1
+            if not just_first and len(answer) != 1:
+                raise ValueError(
+                    f"Expected a single value for annotation {key!r}, not {answer!r}"
+                )
             return str(answer[0])
         else:
             return str(answer)
@@ -841,7 +850,11 @@ class GenBankWriter(_InsdcWriter):
             name_length = str(len(record)).rjust(28)
             name_length = locus + name_length[len(locus) :]
             assert len(name_length) == 28, name_length
-            assert " " in name_length, name_length
+            if " " not in name_length:
+                raise ValueError(
+                    f"Locus name {locus!r} and sequence length {len(record)} "
+                    "do not fit in the LOCUS line"
+                )
 
         assert len(units) == 2
         assert len(division) == 3
@@ -885,7 +898,11 @@ class GenBankWriter(_InsdcWriter):
             # assert line[28:29] == " "
             # assert line[29:40].lstrip() == str(len(record)), \
             #     'LOCUS line does not contain the length at the expected position:\n' + line
-            assert line[12:40].split() == [locus, str(len(record))], line
+            if line[12:40].split() != [locus, str(len(record))]:
+                raise ValueError(
+                    f"LOCUS line does not contain the locus {locus!r} and length "
+                    f"{len(record)} at the expected positions:\n{line}"
+                )
 
             # Tests copied from Bio.GenBank.Scanner
             if line[40:44] not in [" bp ", " aa "]:
@@ -1139,7 +1156,11 @@ class GenBankWriter(_InsdcWriter):
             # e.g. AH000819
             segment = record.annotations["segment"]
             if isinstance(segment, list):
-                assert len(segment) == 1, segment
+                if len(segment) != 1:
+                    raise ValueError(
+                        "Expected a single value for annotation 'segment', "
+                        f"not {segment!r}"
+                    )
                 segment = segment[0]
             self._write_single_line("SEGMENT", segment)
 

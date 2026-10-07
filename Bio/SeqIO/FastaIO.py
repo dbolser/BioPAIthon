@@ -554,8 +554,11 @@ class FastaWriter(SequenceWriter):
         lines = [f">{title}\n"]
 
         data = _get_seq_string(record)  # Catches sequence being None
-        assert "\n" not in data
-        assert "\r" not in data
+        if "\n" in data or "\r" in data:
+            raise ValueError(
+                f"Sequence of record {record.id!r} contains a newline "
+                "or carriage return"
+            )
         for i in range(0, len(data), 60):
             lines.append(data[i : i + 60] + "\n")
 
@@ -582,8 +585,11 @@ class FastaWriter(SequenceWriter):
 
         data = _get_seq_string(record)  # Catches sequence being None
 
-        assert "\n" not in data
-        assert "\r" not in data
+        if "\n" in data or "\r" in data:
+            raise ValueError(
+                f"Sequence of record {record.id!r} contains a newline "
+                "or carriage return"
+            )
 
         if self.wrap:
             for i in range(0, len(data), self.wrap):
@@ -647,8 +653,11 @@ class FastaTwoLineWriter(FastaWriter):
         assert "\r" not in title
 
         data = _get_seq_string(record)  # Catches sequence being None
-        assert "\n" not in data
-        assert "\r" not in data
+        if "\n" in data or "\r" in data:
+            raise ValueError(
+                f"Sequence of record {record.id!r} contains a newline "
+                "or carriage return"
+            )
 
         return f">{title}\n{data}\n"
 

@@ -7,6 +7,8 @@
 import unittest
 
 from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 from Bio.Sequencing import Phd
 
 
@@ -474,6 +476,18 @@ class PhdTestSolexa(unittest.TestCase):
         )
         # Make sure that no further records are found
         self.assertRaises(StopIteration, next, records)
+
+
+class PhdWriterErrors(unittest.TestCase):
+    def test_empty_sequence(self):
+        """Check writing a record with an empty sequence raises ValueError."""
+        record = SeqRecord(
+            Seq(""), id="empty", letter_annotations={"phred_quality": []}
+        )
+        with self.assertRaisesRegex(
+            ValueError, "^No sequence present in SeqRecord 'empty'$"
+        ):
+            record.format("phd")
 
 
 if __name__ == "__main__":

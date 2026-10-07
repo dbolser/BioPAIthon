@@ -130,7 +130,8 @@ class PhdWriter(SequenceWriter):
 
     def write_record(self, record):
         """Write a single Phd record to the file."""
-        assert record.seq, "No sequence present in SeqRecord"
+        if not record.seq:
+            raise ValueError(f"No sequence present in SeqRecord {record.id!r}")
         # This method returns the 'phred_quality' scores or converted
         # 'solexa_quality' scores if present, else raises a value error
         phred_qualities = _get_phred_quality(record)

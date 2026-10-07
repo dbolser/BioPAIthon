@@ -294,6 +294,22 @@ class WriterTests(SeqIOTestBaseClass):
         self.assertRaises(TypeError, SeqIO.write, handle, records, fmt)
         self.assertEqual(1, SeqIO.write(records, handle, fmt))
 
+    def test_line_break_in_sequence(self):
+        """Check writers reject a sequence containing a line break."""
+        for letter in "\n\r":
+            record = SeqRecord(Seq(f"ACGT{letter}ACGT"), id="Alpha")
+            for fmt in ("fasta", "fasta-2line", "pir"):
+                with self.subTest(fmt=fmt, letter=letter):
+                    self.check_write_fails(
+                        [record],
+                        fmt,
+                        "line break in sequence",
+                        ValueError,
+                        "Sequence of record 'Alpha' contains a newline "
+                        "or carriage return",
+                    )
+                    self.assertRaises(ValueError, record.format, fmt)
+
     def test_alignment_formats(self):
         for records, descr, errs in test_records:
             for fmt in test_write_read_alignment_formats:

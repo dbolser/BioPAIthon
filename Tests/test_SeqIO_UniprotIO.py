@@ -7,6 +7,8 @@
 
 import os
 import unittest
+from io import BytesIO
+from xml.etree import ElementTree
 
 from seq_tests_common import SeqRecordTestBaseClass
 
@@ -663,6 +665,41 @@ class ParserTests(SeqRecordTestBaseClass):
             for entry in SeqIO.parse(handle, "uniprot-xml"):
                 self.assertEqual(entry.id, "R5HY77")
                 self.assertEqual(entry.description, "Elongation factor Ts")
+
+
+class ParserErrorTests(unittest.TestCase):
+    """Tests Uniprot XML parser on malformed input."""
+
+    def test_truncated_file(self):
+        """Check a file truncated between entries is not reported as empty."""
+        with open("SwissProt/multi_ex.xml", "rb") as handle:
+            data = handle.read()
+        end = data.index(b"</entry>\n") + len(b"</entry>\n")
+        records = SeqIO.parse(BytesIO(data[:end]), "uniprot-xml")
+        self.assertEqual(next(records).id, "P00750")
+        with self.assertRaisesRegex(ElementTree.ParseError, "^no element found"):
+            next(records)
+
+    def test_unknown_status_with_position(self):
+        """Check a position with status 'unknown' and a value raises ValueError."""
+        data = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<uniprot xmlns="http://uniprot.org/uniprot">
+<entry dataset="Swiss-Prot">
+<accession>P12345</accession>
+<name>TEST_HUMAN</name>
+<feature type="chain" description="Test">
+<location><begin position="5" status="unknown"/><end position="10"/></location>
+</feature>
+<sequence length="12" mass="1000" checksum="X" modified="2000-01-01" version="1">MKTAYIAKQRQI</sequence>
+</entry>
+</uniprot>
+"""
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Expected no position value with status 'unknown', found position='5'$",
+        ):
+            list(SeqIO.parse(BytesIO(data), "uniprot-xml"))
 
 
 if __name__ == "__main__":

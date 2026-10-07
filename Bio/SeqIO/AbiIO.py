@@ -574,7 +574,12 @@ def _parse_tag_data(elem_code, elem_num, raw_data):
             num = str(elem_num)
         fmt = ">" + num + _BYTEFMT[elem_code]
 
-        assert len(raw_data) == struct.calcsize(fmt)
+        size = struct.calcsize(fmt)
+        if len(raw_data) != size:
+            raise ValueError(
+                f"Expected {size} bytes of data for {elem_num} ABIF elements of "
+                f"type {elem_code}, found {len(raw_data)}"
+            )
         data = struct.unpack(fmt, raw_data)
 
         # no need to use tuple if len(data) == 1
