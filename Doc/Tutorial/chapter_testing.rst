@@ -61,9 +61,11 @@ online component by adding ``--offline``, e.g.
 
    $ python run_tests.py --offline
 
-This also blocks connections to other machines, so a test which tries to
-go online anyway fails with an error rather than quietly using the
-network.
+``--offline`` also makes any ``socket.connect`` call to another machine
+raise an error. ``urllib`` connects that way, so a test which goes
+online by mistake will usually fail rather than quietly use the
+network. This is a safety net, not a sandbox: DNS lookups and
+subprocesses, for example, are not blocked.
 
 By default, ``run_tests.py`` runs all tests, including the docstring
 tests.
