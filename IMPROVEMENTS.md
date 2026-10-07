@@ -598,14 +598,16 @@ than one instance.
 > 3. `align-stockholm-blocks` — interleaved (multi-block) Stockholm. After 2.
 > 4. `align-phylip-multi` — PHYLIP files holding several alignments
 >    (seqboot output).
-> 5. `align-phylip-relaxed` — `phylip-relaxed` in `Bio.Align`. A name with a
->    hyphen used to be impossible, because `Bio.Align` imported
->    `Bio.Align.<name>`. §1.2's registry core (PR #149) removed that:
->    `Bio.Align._load` now looks names up in a registry
->    (`Bio/Align/__init__.py:5319`), so a format name no longer has to be a
->    module name. What is left is one registry entry. It waits on §1.2's
->    public `register_format` contract, still open in PR #146, which decides
->    what a `Bio.Align` entry may be.
+> 5. `align-phylip-relaxed` — `phylip-relaxed` in `Bio.Align`: a reader and
+>    writer for names of any length, separated from the sequence by
+>    whitespace. Today's `phylip` cuts names at 10 characters
+>    (`Bio/Align/phylip.py:39,98-99`). A name with a hyphen used to be
+>    impossible, because `Bio.Align` imported `Bio.Align.<name>`. §1.2's
+>    registry core (PR #149) removed that: `Bio.Align._load` now looks names
+>    up in a registry (`Bio/Align/__init__.py:5319`), so a format name no
+>    longer has to be a module name, and naming the new format takes one
+>    registry entry. It waits on §1.2's public `register_format` contract,
+>    still open in PR #146, which decides what a `Bio.Align` entry may be.
 >
 > **Rules the code PRs follow:**
 >
