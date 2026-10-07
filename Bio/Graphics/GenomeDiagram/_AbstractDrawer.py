@@ -41,6 +41,8 @@ from reportlab.graphics.shapes import Polygon
 from reportlab.lib import colors
 from reportlab.lib import pagesizes
 
+from ._Colors import _warn_colour_alias
+
 ################################################################################
 # METHODS
 ################################################################################
@@ -108,8 +110,8 @@ def draw_box(
     Arguments:
      - point1, point2 - coordinates for opposite corners of the box
        (x,y tuples)
-     - color /colour - The color for the box (colour takes priority
-       over color)
+     - color /colour - The color for the box (colour, a deprecated alias
+       with UK spelling, takes priority over color)
      - border - Border color for the box
 
     Returns a closed path object, beginning at (x1,y1) going round
@@ -120,6 +122,7 @@ def draw_box(
 
     # Let the UK spelling (colour) override the USA spelling (color)
     if colour is not None:
+        _warn_colour_alias("colour", "color")
         color = colour
         del colour
 
@@ -189,7 +192,8 @@ def draw_polygon(
 
     Arguments:
      - list_of_point - list of (x,y) tuples for the corner coordinates
-     - color / colour - The color for the box
+     - color / colour - The color for the box (colour is a deprecated
+       alias with UK spelling)
 
     Returns a closed path object, beginning at (x1,y1) going round
     the four points in order, and filling with the passed colour.
@@ -197,6 +201,7 @@ def draw_polygon(
     """
     # Let the UK spelling (colour) override the USA spelling (color)
     if colour is not None:
+        _warn_colour_alias("colour", "color")
         color = colour
         del colour
 
@@ -245,6 +250,7 @@ def draw_arrow(
 
     # Let the UK spelling (colour) override the USA spelling (color)
     if colour is not None:
+        _warn_colour_alias("colour", "color")
         color = colour
         del colour
 

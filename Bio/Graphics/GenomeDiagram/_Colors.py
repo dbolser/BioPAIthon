@@ -21,8 +21,26 @@ For drawing capabilities, this module uses reportlab to define colors:
 http://www.reportlab.com
 """
 
+import warnings
+
 # ReportLab imports
 from reportlab.lib import colors
+
+from Bio import BiopythonDeprecationWarning
+
+
+def _warn_colour_alias(colour, color):
+    """Warn that a UK spelling alias is deprecated (PRIVATE).
+
+    Call this directly from the function or method that accepts the alias;
+    stacklevel=3 then attributes the warning to that function's caller.
+    """
+    warnings.warn(
+        f"The UK spelling {colour!r} is deprecated and will be removed in a"
+        f" future release; use {color!r} instead.",
+        BiopythonDeprecationWarning,
+        stacklevel=3,
+    )
 
 
 class ColorTranslator:
@@ -94,14 +112,15 @@ class ColorTranslator:
            or a tuple of three floats 0 -> 1, or a string giving
            one of the named colors defined by ReportLab, or a
            ReportLab color object (returned as is).
-         - colour - Backwards compatible alias using UK spelling (which
-           will over-ride any color argument).
+         - colour - Deprecated alias using UK spelling (which will
+           over-ride any color argument).
 
         Returns a colors.Color object, determined semi-intelligently
         depending on the input values
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
 
         if color is None:

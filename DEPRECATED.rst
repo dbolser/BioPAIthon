@@ -724,8 +724,17 @@ center) for argument names.  As part of its integration into Biopython 1.50,
 this will support both colour and color, and both centre and center, to help
 people port existing scripts written for the standalone version of
 GenomeDiagram.  However, these were deprecated in Release 1.55 final.
-Support for centre was removed in Release 1.62, and we intend to eventually
-remove support for colour in later releases of Biopython.
+Support for centre was removed in Release 1.62. The colour aliases gave no
+warning until BioPAIthon 1.88, which makes each of them raise a
+``BiopythonDeprecationWarning``; they will be removed in the release after
+BioPAIthon 1.88. They are the ``colour`` argument (of
+``ColorTranslator.translate``, ``Feature``, ``FeatureSet.add_feature``,
+``GraphData``, ``GraphSet.new_graph`` and the drawing functions), the
+``altcolour`` argument (of ``GraphData`` and ``GraphSet.new_graph``), the
+``greytrack_font_colour`` and ``scale_colour`` arguments of ``Track``, and
+the ``Feature.set_colour`` method. Use the US spellings ``color``,
+``altcolor``, ``greytrack_font_color``, ``scale_color`` and ``set_color``
+instead. Upstream Biopython still accepts the aliases without a warning.
 
 Bio.Seq, Bio.MutableSeq and the data property
 ---------------------------------------------

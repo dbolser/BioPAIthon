@@ -26,6 +26,7 @@ the diagram: http://www.reportlab.com
 
 import re
 
+from ._Colors import _warn_colour_alias
 from ._Feature import Feature
 
 
@@ -61,6 +62,8 @@ class FeatureSet:
         f = Feature(self, id, feature)
         self.features[id] = f  # add feature
         for key in kwargs:
+            if key == "colour":
+                _warn_colour_alias("colour", "color")
             if key == "colour" or key == "color":
                 # Deal with "colour" as a special case by also mapping to color.
                 # If Feature.py used a python property we wouldn't need to call

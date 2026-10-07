@@ -23,6 +23,7 @@ http://www.reportlab.com
 from reportlab.lib import colors
 
 # GenomeDiagram imports
+from ._Colors import _warn_colour_alias
 from ._Colors import ColorTranslator
 
 
@@ -84,7 +85,7 @@ class Feature:
          - feature_id    Unique id for the feature
          - feature   Bio.SeqFeature object to be wrapped
          - color    color.Color Color to draw the feature (overridden
-           by backwards compatible argument with UK spelling, colour).
+           by deprecated argument with UK spelling, colour).
            Either argument is overridden if 'color' is found in feature
            qualifiers
          - border   color.Color Color to draw the feature border, use
@@ -94,6 +95,7 @@ class Feature:
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
 
         self._colortranslator = ColorTranslator()
@@ -162,7 +164,8 @@ class Feature:
         return self._feature
 
     def set_colour(self, colour):
-        """Backwards compatible variant of set_color(self, color) using UK spelling."""
+        """Deprecated variant of set_color(self, color) using UK spelling."""
+        _warn_colour_alias("set_colour", "set_color")
         color = self._colortranslator.translate(colour)
         self.color = color
 
