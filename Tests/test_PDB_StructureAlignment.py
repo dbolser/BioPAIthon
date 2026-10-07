@@ -16,6 +16,7 @@ import support
 
 from Bio import Align
 from Bio import AlignIO
+from Bio import BiopythonDeprecationWarning
 from Bio.Align import PairwiseAligner
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import PDBData
@@ -53,7 +54,8 @@ class StructureAlignTests(unittest.TestCase):
         m2 = s2[0]
 
         for argument in (records, alignment):
-            al = StructureAlignment(argument, m1, m2)
+            with self.assertWarns(BiopythonDeprecationWarning):
+                al = StructureAlignment(argument, m1, m2)
             self.assertNotEqual(al.map12, al.map21)
             self.assertTrue(len(al.map12), 566)
             self.assertTrue(len(al.map21), 70)
@@ -94,8 +96,10 @@ class StructureAlignTests(unittest.TestCase):
             alignment_obj = Align.read(handle, "fasta")
 
         # Create StructureAlignment with both types
-        al_msa = StructureAlignment(msa_records, m1, m2)
-        al_align = StructureAlignment(alignment_obj, m1, m2)
+        with self.assertWarns(BiopythonDeprecationWarning):
+            al_msa = StructureAlignment(msa_records, m1, m2)
+        with self.assertWarns(BiopythonDeprecationWarning):
+            al_align = StructureAlignment(alignment_obj, m1, m2)
 
         # Results should be identical
         self.assertEqual(len(al_msa.duos), len(al_align.duos))
@@ -166,7 +170,8 @@ class StructureAlignTests(unittest.TestCase):
         custom_alignment = MultipleSeqAlignment([aligned_seq1, aligned_seq2])
 
         # Create StructureAlignment with custom alignment
-        al_custom = StructureAlignment(custom_alignment, m1, m2)
+        with self.assertWarns(BiopythonDeprecationWarning):
+            al_custom = StructureAlignment(custom_alignment, m1, m2)
 
         # Create StructureAlignment with automatic alignment
         al_auto = StructureAlignment(m1=m1, m2=m2)
@@ -220,6 +225,35 @@ class StructureAlignTests(unittest.TestCase):
         # Verify that some residues were mapped
         self.assertGreater(len(al_auto.map12), 0)
         self.assertGreater(len(al_auto.map21), 0)
+
+    def test_fasta_align_deprecation_warning(self):
+        """Test that passing fasta_align raises BiopythonDeprecationWarning.
+
+        Biopython 1.86 raised the built-in DeprecationWarning here, which Python
+        hides by default unless the caller is __main__, so calls made from an
+        imported module did not show it.
+        """
+        p = PDBParser(QUIET=1)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            s1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")
+            s2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")
+        m1 = s1[0]
+        m2 = s2[0]
+
+        with open(support.DATA / "PDB" / "alignment_file.fa") as handle:
+            alignment = Align.read(handle, "fasta")
+
+        with self.assertWarns(BiopythonDeprecationWarning) as cm:
+            StructureAlignment(alignment, m1, m2)
+        # stacklevel=2 attributes the warning to the caller, not to Bio.PDB
+        self.assertEqual(cm.filename, __file__)
+
+        # Leaving fasta_align out is the non-deprecated usage
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            StructureAlignment(m1=m1, m2=m2)
 
 
 if __name__ == "__main__":
