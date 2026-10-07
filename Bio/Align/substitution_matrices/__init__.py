@@ -485,7 +485,11 @@ def read(handle, dtype=float):
         matrix = Array(alphabet=alphabet, dims=2, dtype=dtype)
         for letter1, row in zip(alphabet, rows):
             letter = row.pop(0)
-            assert letter1 == letter
+            if letter != letter1:
+                raise ValueError(
+                    f"Expected the row for {letter1!r}, in the order of the "
+                    f"column header, found the row for {letter!r}"
+                )
             for letter2, word in zip(alphabet, row):
                 matrix[letter1, letter2] = float(word)
     matrix.header = header

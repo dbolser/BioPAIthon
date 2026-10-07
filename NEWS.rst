@@ -144,6 +144,16 @@ when the call comes from ``__main__``, so by default code calling
 filters or catches the warning by class should use
 ``BiopythonDeprecationWarning``; see DEPRECATED.rst.
 
+Malformed input to the ``Bio.Align`` parsers and writers, to
+``substitution_matrices.read`` and to ``calculate_dn_ds(method="YN00")`` now
+raises a ``ValueError`` saying what was expected and what was found, instead
+of a bare ``AssertionError``. These checks were ``assert`` statements, so under
+``python -O`` most such input was silently accepted, sometimes giving wrong
+output (the Stockholm writer, for one, truncated every sequence to the length
+of a too-short ``alignment.operations``). One check in the bigBed writer's zoom
+levels can be hit by valid input, so it is a writer bug, not bad input; it now
+raises ``RuntimeError`` like the writer's other internal checks.
+
 ``Bio.SCOP.Scop`` no longer prints to stdout when its HIE file names a sunid
 that the DES file lacks. It used to print the bare sunid and then fail on the
 same lookup with an unexplained ``KeyError``; it now raises a ``ValueError``

@@ -228,14 +228,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             elif key in ("SM", "CC", "**"):
                 value = " ".join(value)
             elif key == "SQ":
-                assert len(value) == 1
+                if len(value) != 1:
+                    raise ValueError(f"Expected one #=GF SQ line, found {len(value)}")
                 if int(value.pop()) != rows:
                     raise ValueError("Inconsistent number of sequences in alignment")
                 continue
             elif key == "AU":
                 pass
             else:
-                assert len(value) == 1, (key, value)
+                if len(value) != 1:
+                    raise ValueError(
+                        f"Expected one #=GF {key} line, found {len(value)}: {value}"
+                    )
                 value = value.pop()
             try:
                 alignment.annotations[AlignmentIterator.gf_mapping[key]] = value
@@ -373,10 +377,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     )
                 for i, letter in enumerate(aligned_sequence):
                     if letter == "-":
-                        assert operations[i] != ord("I")
+                        if operations[i] == ord("I"):
+                            raise ValueError(
+                                f"Expected '.' in insert column {i + 1} of "
+                                f"{seqname}, as in earlier sequences; found '-'"
+                            )
                         operations[i] = ord("D")  # deletion
                     elif letter == ".":
-                        assert operations[i] != ord("D")
+                        if operations[i] == ord("D"):
+                            raise ValueError(
+                                f"Expected '-' in match column {i + 1} of "
+                                f"{seqname}, as in earlier sequences; found '.'"
+                            )
                         operations[i] = ord("I")  # insertion
                 aligned_sequence = aligned_sequence.replace(".", "-")
                 aligned_sequences.append(aligned_sequence)
@@ -387,8 +399,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 # Format: #=GF <feature> <free text>
                 feature, text = line[5:].strip().split(None, 1)
                 if feature == "RN":
-                    assert text.startswith("[")
-                    assert text.endswith("]")
+                    if not (text.startswith("[") and text.endswith("]")):
+                        raise ValueError(
+                            f"Expected a reference number in square brackets, "
+                            f"found:\n{line}"
+                        )
                     number = int(text[1:-1])
                     reference = defaultdict(list)
                     reference["number"] = number
@@ -397,7 +412,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         reference_comments = []
                     references.append(reference)
                 elif feature == "RM":
-                    assert not reference["medline"]
+                    if reference["medline"]:
+                        raise ValueError(
+                            f"Expected one #=GF RM line for reference "
+                            f"{reference['number']}, found a second one:\n{line}"
+                        )
                     reference["medline"] = text
                 elif feature == "RT":
                     reference["title"].append(text)
@@ -411,13 +430,23 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     database_reference = {"reference": text}
                     database_references.append(database_reference)
                 elif feature == "DC":
-                    assert "comment" not in database_reference
+                    if "comment" in database_reference:
+                        raise ValueError(
+                            f"Expected one #=GF DC line for database reference "
+                            f"{database_reference['reference']}, found a second "
+                            f"one:\n{line}"
+                        )
                     database_reference["comment"] = text
                 elif feature == "NE":
                     nested_domain = {"accession": text}
                     nested_domains.append(nested_domain)
                 elif feature == "NL":
-                    assert "location" not in nested_domain
+                    if "location" in nested_domain:
+                        raise ValueError(
+                            f"Expected one #=GF NL line for nested domain "
+                            f"{nested_domain['accession']}, found a second "
+                            f"one:\n{line}"
+                        )
                     nested_domain["location"] = text
                 else:
                     # Each feature key could be used more than once,
@@ -444,13 +473,21 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if feature == "DR":
                     gs[seqname][feature].append(text)
                 else:
-                    assert feature not in gs[seqname]
+                    if feature in gs[seqname]:
+                        raise ValueError(
+                            f"Expected one #=GS {feature} line for {seqname}, "
+                            f"found a second one:\n{line}"
+                        )
                     gs[seqname][feature] = text
             elif line[:5] == "#=GR ":
                 # Generic per-Sequence AND per-Column markup
                 # Format: "#=GR <seqname> <feature> <exactly 1 char per column>"
                 terms = line[5:].split(None, 2)
-                assert terms[0] == seqname
+                if terms[0] != seqname:
+                    raise ValueError(
+                        f"Expected #=GR line for {seqname} (the preceding "
+                        f"sequence), found:\n{line}"
+                    )
                 feature = terms[1]
                 gr[seqname][feature] = terms[2].strip()
 
@@ -559,7 +596,11 @@ class AlignmentWriter(interfaces.AlignmentWriter):
         except AttributeError:
             operations = bytes(b"M" * columns)
         else:
-            assert len(operations) == columns
+            if len(operations) != columns:
+                raise ValueError(
+                    f"Expected one operation per alignment column ({columns}), "
+                    f"found {len(operations)} in alignment.operations"
+                )
         for aligned_sequence, record in zip(alignment, alignment.sequences):
             aligned_sequence = "".join(
                 "." if letter == "-" and operation == ord("I") else letter

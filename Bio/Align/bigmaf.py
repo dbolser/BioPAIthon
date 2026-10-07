@@ -120,7 +120,12 @@ class AlignmentWriter(bigbed.AlignmentWriter):
             alignment = alignment[:2]
             reference, chromosome = alignment.target.id.split(".", 1)
             alignment.target.id = chromosome
-            assert coordinates[0, 0] < coordinates[0, -1]
+            if coordinates[0, 0] >= coordinates[0, -1]:
+                raise ValueError(
+                    f"Expected the reference sequence {reference}.{chromosome} to "
+                    f"be aligned on the forward strand over at least one base, "
+                    f"found start {coordinates[0, 0]} and end {coordinates[0, -1]}"
+                )
             alignment.annotations = {}
             alignment.annotations["mafBlock"] = mafBlock
             fixed_alignments.append(alignment)
@@ -216,7 +221,11 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
     def _create_alignment(
         self, chromId, chromStart, chromEnd, data, dataStart, dataEnd
     ):
-        assert data[dataEnd - 1] == 0
+        if data[dataEnd - 1] != 0:
+            raise ValueError(
+                f"Expected the data of the bigMaf item at {chromStart}-{chromEnd} "
+                f"to end with a NUL byte, found {data[dataEnd - 1 : dataEnd]!r}"
+            )
         buffer = memoryview(data)
         buffer = buffer[dataStart:dataEnd]
         records = []
@@ -284,14 +293,27 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
                 j = i + m.span()[1]
                 line = buffer[i:j].tobytes()
                 words = line.split(None, 5)
-                assert len(words) == 6
-                assert words[1].decode() == src  # from the previous "s" line
+                if len(words) != 6:
+                    raise ValueError(
+                        f"Expected 6 fields in 'i' line, found {len(words)}:\n"
+                        f"{line.decode()}"
+                    )
+                if words[1].decode() != src:  # from the previous "s" line
+                    raise ValueError(
+                        f"Expected 'i' line for {src} (the preceding 's' line), "
+                        f"found {words[1].decode()}:\n{line.decode()}"
+                    )
                 leftStatus = words[2].decode()
                 leftCount = int(words[3])
                 rightStatus = words[4].decode()
                 rightCount = int(words[5])
-                assert leftStatus in AlignmentIterator.status_characters
-                assert rightStatus in AlignmentIterator.status_characters
+                for status in (leftStatus, rightStatus):
+                    if status not in AlignmentIterator.status_characters:
+                        raise ValueError(
+                            f"Expected a status character from "
+                            f"{', '.join(AlignmentIterator.status_characters)} "
+                            f"in 'i' line, found '{status}':\n{line.decode()}"
+                        )
                 record.annotations["leftStatus"] = leftStatus
                 record.annotations["leftCount"] = leftCount
                 record.annotations["rightStatus"] = rightStatus
@@ -301,14 +323,23 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
                 j = i + m.span()[1]
                 line = buffer[i:j].tobytes()
                 words = line.split(None, 6)
-                assert len(words) == 7
+                if len(words) != 7:
+                    raise ValueError(
+                        f"Expected 7 fields in 'e' line, found {len(words)}:\n"
+                        f"{line.decode()}"
+                    )
                 src = words[1].decode()
                 start = int(words[2])
                 size = int(words[3])
                 strand = words[4]
                 srcSize = int(words[5])
                 status = words[6].decode()
-                assert status in AlignmentIterator.empty_status_characters
+                if status not in AlignmentIterator.empty_status_characters:
+                    raise ValueError(
+                        f"Expected a status character from "
+                        f"{', '.join(AlignmentIterator.empty_status_characters)} "
+                        f"in 'e' line, found '{status}':\n{line.decode()}"
+                    )
                 sequence = Seq(None, length=srcSize)
                 record = SeqRecord(sequence, id=src, name="", description="")
                 end = start + size
@@ -327,8 +358,16 @@ class AlignmentIterator(bigbed.AlignmentIterator, maf.AlignmentIterator):
                 j = i + m.span()[1]
                 line = buffer[i:j].tobytes()
                 words = line.split(None, 2)
-                assert len(words) == 3
-                assert words[1].decode() == src  # from the previous "s" line
+                if len(words) != 3:
+                    raise ValueError(
+                        f"Expected 3 fields in 'q' line, found {len(words)}:\n"
+                        f"{line.decode()}"
+                    )
+                if words[1].decode() != src:  # from the previous "s" line
+                    raise ValueError(
+                        f"Expected 'q' line for {src} (the preceding 's' line), "
+                        f"found {words[1].decode()}:\n{line.decode()}"
+                    )
                 value = words[2].replace(b"-", b"")
                 record.annotations["quality"] = value.decode()
             elif prefix == b"\00":

@@ -180,12 +180,30 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                         step = target_step
                     elif target_step == 3 * query_step:
                         step = target_step
-                        assert query_molecule_type == "protein"
-                        assert target_molecule_type != "protein"
+                        if (
+                            query_molecule_type != "protein"
+                            or target_molecule_type == "protein"
+                        ):
+                            raise ValueError(
+                                f"Expected a protein query and a nucleotide target "
+                                f"for operation 'M' with steps target {target_step}, "
+                                f"query {query_step}; found molecule types "
+                                f"{target_molecule_type} (target), "
+                                f"{query_molecule_type} (query)"
+                            )
                     elif query_step == 3 * target_step:
                         step = query_step
-                        assert query_molecule_type != "protein"
-                        assert target_molecule_type == "protein"
+                        if (
+                            query_molecule_type == "protein"
+                            or target_molecule_type != "protein"
+                        ):
+                            raise ValueError(
+                                f"Expected a nucleotide query and a protein target "
+                                f"for operation 'M' with steps target {target_step}, "
+                                f"query {query_step}; found molecule types "
+                                f"{target_molecule_type} (target), "
+                                f"{query_molecule_type} (query)"
+                            )
                     else:
                         raise ValueError(
                             "Unexpected steps target %d, query %s for operation 'M'"
@@ -198,7 +216,12 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                         step = query_step
                         operation = "I"
                     else:
-                        assert query_step == target_step
+                        if query_step != target_step:
+                            raise ValueError(
+                                f"Expected equal steps for operation '5' "
+                                f"(5' splice site), found steps target "
+                                f"{target_step}, query {query_step}"
+                            )
                         step = target_step
                         operation = "M"
                 elif operation == "N":  # Intron
@@ -221,19 +244,38 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                         step = query_step
                         operation = "I"
                     else:
-                        assert query_step == target_step
+                        if query_step != target_step:
+                            raise ValueError(
+                                f"Expected equal steps for operation '3' "
+                                f"(3' splice site), found steps target "
+                                f"{target_step}, query {query_step}"
+                            )
                         step = target_step
                         operation = "M"
                 elif operation == "C":  # Codon
-                    assert target_step == query_step
+                    if target_step != query_step:
+                        raise ValueError(
+                            f"Expected equal steps for operation 'C' (codon), "
+                            f"found steps target {target_step}, query {query_step}"
+                        )
                     step = target_step
                     operation = "M"
                 elif operation == "D":  # Deletion
-                    assert query_step == 0
+                    if query_step != 0:
+                        raise ValueError(
+                            f"Expected a query step of 0 for operation 'D' "
+                            f"(deletion), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                     step = target_step
                     operation = "D"
                 elif operation == "I":  # Insertion
-                    assert target_step == 0
+                    if target_step != 0:
+                        raise ValueError(
+                            f"Expected a target step of 0 for operation 'I' "
+                            f"(insertion), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                     step = query_step
                 elif operation == "U":  # Non-equivalenced (unaligned) region
                     if target_step > 0:
@@ -364,44 +406,118 @@ class AlignmentWriter(interfaces.AlignmentWriter):
                     if target_step == query_step:
                         pass
                     elif target_step == 3 * query_step:
-                        assert query_molecule_type == "protein"
-                        assert target_molecule_type != "protein"
+                        if (
+                            query_molecule_type != "protein"
+                            or target_molecule_type == "protein"
+                        ):
+                            raise ValueError(
+                                f"Expected a protein query and a nucleotide target "
+                                f"for operation 'M' with steps target {target_step}, "
+                                f"query {query_step}; found molecule types "
+                                f"{target_molecule_type} (target), "
+                                f"{query_molecule_type} (query)"
+                            )
                     elif query_step == 3 * target_step:
-                        assert query_molecule_type != "protein"
-                        assert target_molecule_type == "protein"
+                        if (
+                            query_molecule_type == "protein"
+                            or target_molecule_type != "protein"
+                        ):
+                            raise ValueError(
+                                f"Expected a nucleotide query and a protein target "
+                                f"for operation 'M' with steps target {target_step}, "
+                                f"query {query_step}; found molecule types "
+                                f"{target_molecule_type} (target), "
+                                f"{query_molecule_type} (query)"
+                            )
                     else:
                         raise ValueError(
                             "Unexpected steps target %d, query %d for operation 'M'"
                             % (target_step, query_step)
                         )
                 elif operation == "5":  # 5' splice site
-                    assert target_step == 2 or query_step == 2
+                    if target_step != 2 and query_step != 2:
+                        raise ValueError(
+                            f"Expected a step of 2 for operation '5' "
+                            f"(5' splice site), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                 elif operation == "N":  # Intron
                     operation = "I"  # Intron; exonerate definition
-                    assert query_step == 0 or target_step == 0
+                    if query_step != 0 and target_step != 0:
+                        raise ValueError(
+                            f"Expected a target or query step of 0 for operation "
+                            f"'N' (intron), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                 elif operation == "3":  # 3' splice site
-                    assert target_step == 2 or query_step == 2
+                    if target_step != 2 and query_step != 2:
+                        raise ValueError(
+                            f"Expected a step of 2 for operation '3' "
+                            f"(3' splice site), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                 elif operation == "C":  # Codon
-                    assert target_step == query_step
+                    if target_step != query_step:
+                        raise ValueError(
+                            f"Expected equal steps for operation 'C' (codon), "
+                            f"found steps target {target_step}, query {query_step}"
+                        )
                 elif operation == "D":  # Deletion
-                    assert query_step == 0
+                    if query_step != 0:
+                        raise ValueError(
+                            f"Expected a query step of 0 for operation 'D' "
+                            f"(deletion), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                     operation = "G"  # Gap; exonerate definition
                 elif operation == "I":  # Insertion
-                    assert target_step == 0
+                    if target_step != 0:
+                        raise ValueError(
+                            f"Expected a target step of 0 for operation 'I' "
+                            f"(insertion), found steps target {target_step}, "
+                            f"query {query_step}"
+                        )
                     operation = "G"  # Gap; exonerate definition
                 elif operation == "U":  # Non-equivalenced (unaligned) region
                     if target_step == 0:
-                        assert query_step > 0
+                        if query_step <= 0:
+                            raise ValueError(
+                                f"Expected a positive step for operation 'U' "
+                                f"(non-equivalenced region), found steps target "
+                                f"{target_step}, query {query_step}"
+                            )
                         i += 1
                         target_step, dummy = steps[i]
-                        assert dummy == 0
+                        if dummy != 0:
+                            raise ValueError(
+                                f"Expected the query-only step of operation 'U' "
+                                f"(non-equivalenced region) to be followed by a "
+                                f"target-only step, found steps target "
+                                f"{target_step}, query {dummy}"
+                            )
                     if query_step == 0:
-                        assert target_step > 0
+                        if target_step <= 0:
+                            raise ValueError(
+                                f"Expected a positive step for operation 'U' "
+                                f"(non-equivalenced region), found steps target "
+                                f"{target_step}, query {query_step}"
+                            )
                         i += 1
                         dummy, query_step = steps[i]
-                        assert dummy == 0
+                        if dummy != 0:
+                            raise ValueError(
+                                f"Expected the target-only step of operation 'U' "
+                                f"(non-equivalenced region) to be followed by a "
+                                f"query-only step, found steps target {dummy}, "
+                                f"query {query_step}"
+                            )
                     operation = operations[i]
-                    assert operation == "U"
+                    if operation != "U":
+                        raise ValueError(
+                            f"Expected operation 'U' (non-equivalenced region) to "
+                            f"span a target-only and a query-only step, found "
+                            f"operation '{operation}' for the second step"
+                        )
                     operation = "N"  # Non-equivalenced region; exonerate definition
                 elif operation == "S":  # Split codon
                     step = target_step
@@ -432,17 +548,29 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         self.metadata["Program"] = "exonerate"
         line = stream.readline()
         prefix = "Command line: "
-        assert line.startswith(prefix)
+        if not line.startswith(prefix):
+            raise ValueError(
+                f"Expected the first line to start with {prefix!r}, found:\n{line}"
+            )
         commandline = line[len(prefix) :].strip()
-        assert commandline.startswith("[")
-        assert commandline.endswith("]")
+        if not (commandline.startswith("[") and commandline.endswith("]")):
+            raise ValueError(
+                f"Expected the command line to be enclosed in square brackets, "
+                f"found:\n{line}"
+            )
         self.metadata["Command line"] = commandline[1:-1]
         line = stream.readline()
         prefix = "Hostname: "
-        assert line.startswith(prefix)
+        if not line.startswith(prefix):
+            raise ValueError(
+                f"Expected the second line to start with {prefix!r}, found:\n{line}"
+            )
         hostname = line[len(prefix) :].strip()
-        assert hostname.startswith("[")
-        assert hostname.endswith("]")
+        if not (hostname.startswith("[") and hostname.endswith("]")):
+            raise ValueError(
+                f"Expected the hostname to be enclosed in square brackets, "
+                f"found:\n{line}"
+            )
         self.metadata["Hostname"] = hostname[1:-1]
 
     @staticmethod
@@ -549,15 +677,29 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             if operation == "M":  # Match
                 pass
             elif operation == "5":  # 5' splice site
-                assert target_step == 2 or query_step == 2
+                if target_step != 2 and query_step != 2:
+                    raise ValueError(
+                        f"Expected a length of 2 for operation '5' (5' splice "
+                        f"site) in vulgar line, found query length {query_step} "
+                        f"and target length {target_step}"
+                    )
             elif operation == "I":  # Intron
                 # use SAM/BAM definitions of operations:
                 operation = "N"
             elif operation == "3":  # 3' splice site
-                assert target_step == 2 or query_step == 2
+                if target_step != 2 and query_step != 2:
+                    raise ValueError(
+                        f"Expected a length of 2 for operation '3' (3' splice "
+                        f"site) in vulgar line, found query length {query_step} "
+                        f"and target length {target_step}"
+                    )
             elif operation == "C":  # Codon
-                assert target_step % 3 == 0
-                assert query_step % 3 == 0
+                if target_step % 3 != 0 or query_step % 3 != 0:
+                    raise ValueError(
+                        f"Expected lengths that are multiples of 3 for operation "
+                        f"'C' (codon) in vulgar line, found query length "
+                        f"{query_step} and target length {target_step}"
+                    )
             elif operation == "G":  # Gap
                 # use SAM/BAM definitions of operations:
                 if query_step == 0:

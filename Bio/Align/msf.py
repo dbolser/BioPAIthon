@@ -201,7 +201,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
 
         # skip any remaining empty lines
         for line in stream:
-            assert line.strip() == ""
+            if line.strip():
+                raise ValueError(
+                    f"Expected only blank lines after the sequence data, "
+                    f"found {line!r}"
+                )
 
         length = max(len(seq) for seq in seqs)
         if length != aln_length:
