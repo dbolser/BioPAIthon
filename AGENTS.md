@@ -179,20 +179,23 @@ type checker.
   PR that deletes its baseline entry if it has one.
   `Tests/test_mypy_config.py` checks the shape of both, and that the file
   has no duplicate section: given one, mypy ignores the whole file and exits
-  0. A test cannot see history, so reviewers check that
+  0. It also checks that each section names a module in the tree, as mypy
+  ignores a misspelt one. A test cannot see history, so reviewers check that
   `git diff main -- .mypy.ini` removes no allowlist line.
 - **The hooks.** The `mypy` hook checks the whole tree, exactly as a bare
   `mypy` does, whenever `Bio/`, `BioSQL/` or `.mypy.ini` changes. That takes
   about 10 seconds cold on a CI runner, less with mypy's cache warm. The
   `mypy-downstream` hook runs `mypy --strict` over `Tests/downstream_typing/`
-  whenever `Bio/`, `BioSQL/` or that directory changes. Its files are
-  type-checked but never run: `assert_type` pins what users see, and a line
-  that must stay an error carries `# type: ignore[code]`, which fails once it
-  is unused. Both hooks have the id `mypy`, so `pre-commit run mypy` runs
-  both. Both pin `numpy==2.2.6`, the last release supporting Python 3.10,
-  which the CI style job uses, so local and CI results agree; bump it
-  deliberately. Under Python 3.14 the first hook install builds that numpy
-  from source, which takes several minutes, once.
+  whenever `Bio/`, `BioSQL/` or that directory changes. Both also run when
+  `.pre-commit-config.yaml` changes, such as a bump of mypy or of the numpy
+  pin below. The downstream files are type-checked but never run:
+  `assert_type` pins what users see, and a line that must stay an error
+  carries `# type: ignore[code]`, which fails once it is unused. Both hooks
+  have the id `mypy`, so `pre-commit run mypy` runs both. Both pin
+  `numpy==2.2.6`, the last release supporting Python 3.10, which the CI
+  style job uses, so local and CI results agree; bump it deliberately. Under
+  Python 3.14 the first hook install builds that numpy from source, which
+  takes several minutes, once.
 - **Conventions.** PEP 604 unions (`X | None`). No
   `from __future__ import annotations`, as upstream evaluates annotations
   eagerly: quote forward references and import them under

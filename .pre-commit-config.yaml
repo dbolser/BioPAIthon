@@ -49,15 +49,16 @@ repos:
     # and types_or only decide when they run, and verbose prints mypy's
     # summary even on success. numpy is pinned to the last release supporting
     # Python 3.10, which the CI style job uses, so local and CI results
-    # agree; bump it deliberately. Both hooks have the id "mypy", so
+    # agree; bump it deliberately. A change to this file alone (that pin, or
+    # rev above) runs both hooks too. Both hooks have the id "mypy", so
     # "pre-commit run mypy" runs both. See "Typing" in AGENTS.md.
     -   id: mypy
         # Bio and BioSQL, the "files" in .mypy.ini, as a bare "mypy" does.
         # The empty args drop the mirror's default --ignore-missing-imports.
         args: []
         pass_filenames: false
-        files: '^(Bio|BioSQL)/|^\.mypy\.ini$'
-        types_or: [python, pyi, ini]
+        files: '^(Bio|BioSQL)/|^\.mypy\.ini$|^\.pre-commit-config\.yaml$'
+        types_or: [python, pyi, ini, yaml]
         verbose: true
         additional_dependencies: [numpy==2.2.6]
     -   id: mypy
@@ -70,8 +71,8 @@ repos:
             Tests/downstream_typing,
         ]
         pass_filenames: false
-        files: '^(Bio|BioSQL)/|^Tests/downstream_typing/'
-        types_or: [python, pyi, ini]
+        files: '^(Bio|BioSQL)/|^Tests/downstream_typing/|^\.pre-commit-config\.yaml$'
+        types_or: [python, pyi, ini, yaml]
         verbose: true
         additional_dependencies: [numpy==2.2.6]
 -   repo: https://github.com/asottile/blacken-docs

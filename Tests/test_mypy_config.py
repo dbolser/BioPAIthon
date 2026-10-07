@@ -11,17 +11,20 @@ The file ends with two blocks of one-module sections:
 
 A slip in either can switch mypy off without anything going red. On a
 duplicate section mypy prints "section ... already exists", ignores the
-whole file and exits 0, so every global option is lost. These tests parse
-the file strictly and check the shape of both blocks. That entries are only
-ever removed from one block and added to the other is left to review, as a
-test cannot see history.
+whole file and exits 0, so every global option is lost. On a section naming
+no module, such as a misspelt one, mypy at most warns of an unused section
+and exits 0. These tests parse the file strictly, check the shape of both
+blocks, and check that each section names a module in the tree. That entries
+are only ever removed from one block and added to the other is left to
+review, as a test cannot see history.
 """
 
 import configparser
 import os
 import unittest
 
-MYPY_INI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".mypy.ini")
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+MYPY_INI = os.path.join(ROOT, ".mypy.ini")
 
 # The first line of each block's banner comment.
 BASELINE_BANNER = "# check_untyped_defs ratchet baseline."
@@ -51,6 +54,17 @@ def _blocks(text):
     baseline = _parse(text[baseline_start:allowlist_start], strict=False)
     allowlist = _parse(text[allowlist_start:], strict=False)
     return baseline.sections(), allowlist.sections()
+
+
+def _module_exists(module):
+    """Return True if the dotted module name has a source or stub file."""
+    path = os.path.join(ROOT, *module.split("."))
+    package = os.path.join(path, "__init__")
+    return any(
+        os.path.isfile(stem + suffix)
+        for stem in (path, package)
+        for suffix in (".py", ".pyi")
+    )
 
 
 @unittest.skipUnless(os.path.isfile(MYPY_INI), ".mypy.ini is not in the sdist")
@@ -97,6 +111,17 @@ class MypyConfigTests(unittest.TestCase):
             with self.subTest(section=name):
                 self.assertEqual(
                     dict(self.parser[name]), {"disallow_untyped_defs": "True"}
+                )
+
+    def test_sections_name_modules(self):
+        """Each section names a module in the tree, not a misspelt one."""
+        for name in self.baseline + self.allowlist:
+            with self.subTest(section=name):
+                self.assertTrue(name.startswith("mypy-"))
+                module = name.removeprefix("mypy-")
+                self.assertTrue(
+                    _module_exists(module),
+                    f"no file for {module}, so mypy ignores [{name}]",
                 )
 
     def test_blocks_sorted(self):
