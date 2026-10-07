@@ -67,7 +67,10 @@ already did: ``Bio.Data.CodonTable.TranslationError``, ``Bio.Nexus``'s
 ``PDBConstructionException`` and ``Bio.CAPS.AlignmentHasDifferentLengthsError``.
 Code that catches these classes by name is unaffected. The visible change is
 that ``except ValueError`` now catches them too, for example around
-``Seq.translate()`` or a NEXUS, Newick or PDB parse.
+``Seq.translate()`` or a NEXUS, Newick or PDB parse. This includes the library
+itself: a function given as the search target to a ``Bio.Phylo`` tree method
+such as ``find_clades`` or ``get_path`` that raises one of these now counts as
+"no match", as other ``ValueError`` exceptions already did.
 
 BioPAIthon now includes upstream Biopython's work towards 1.89 as of
 2 October 2026. The upstream section below lists only its platform support,
