@@ -7,7 +7,6 @@
 """Code for dealing with Codon Alignments."""
 
 __all__ = [
-    "BiopythonExperimentalWarning",
     "BiopythonWarning",
     "CodonAlignment",
     "CodonSeq",
@@ -20,19 +19,12 @@ import warnings
 from collections.abc import Iterable
 from collections.abc import Mapping
 
-from Bio import BiopythonExperimentalWarning
 from Bio import BiopythonWarning
 from Bio.codonalign.codonalignment import CodonAlignment
 from Bio.codonalign.codonalignment import mktest
 from Bio.codonalign.codonseq import CodonSeq
 from Bio.Data import CodonTable
 from Bio.SeqRecord import SeqRecord
-
-warnings.warn(
-    "Bio.codonalign is an experimental module which may undergo "
-    "significant changes prior to its future official release.",
-    BiopythonExperimentalWarning,
-)
 
 
 def build(

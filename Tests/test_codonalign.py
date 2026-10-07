@@ -5,23 +5,21 @@
 
 """Unit tests for the Bio.codonalign modules."""
 
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 import warnings
 
 from Bio import AlignIO
-from Bio import BiopythonExperimentalWarning
 from Bio import BiopythonWarning
+from Bio import codonalign
 from Bio import SeqIO
 from Bio.Align import MultipleSeqAlignment
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore", BiopythonExperimentalWarning)
-    from Bio import codonalign
-
 
 TEST_ALIGN_FILE1 = [("codonalign/nucl1.fa", "codonalign/pro1.aln"), "parse"]
 TEST_ALIGN_FILE2 = [("codonalign/nucl2.fa", "codonalign/pro2.aln"), "parse"]
@@ -35,6 +33,27 @@ TEST_ALIGN_FILE6 = [
 TEST_ALIGN_FILE7 = [("codonalign/drosophila.fasta", "codonalign/adh.aln"), "index"]
 
 temp_dir = tempfile.mkdtemp()
+
+
+class TestImport(unittest.TestCase):
+    def test_no_experimental_warning(self):
+        """Importing Bio.codonalign does not warn that it is experimental.
+
+        Run in a subprocess because this process has already imported it.
+        """
+        code = (
+            "import warnings\n"
+            "from Bio import BiopythonExperimentalWarning\n"
+            "warnings.simplefilter('error', BiopythonExperimentalWarning)\n"
+            "import Bio.codonalign\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class TestCodonSeq(unittest.TestCase):

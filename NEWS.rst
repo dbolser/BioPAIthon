@@ -59,6 +59,19 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.codonalign`` is no longer experimental. Since it arrived (as
+``Bio.CodonAlign``) in Biopython 1.64 in 2014, importing it has emitted a
+``BiopythonExperimentalWarning`` saying it "may undergo significant changes
+prior to its future official release". That release never came. BioPAIthon
+now commits to the module's API as it stands: from here on it follows the
+normal backwards-compatibility policy, so any change goes through a
+deprecation recorded in DEPRECATED.rst. Code that filters the warning with
+``Bio.BiopythonExperimentalWarning`` keeps working, with nothing left to
+filter. The class stays in ``Bio`` for marking new experimental code, but
+``Bio.codonalign`` no longer imports it, so
+``from Bio.codonalign import BiopythonExperimentalWarning`` now fails (see
+DEPRECATED.rst).
+
 The exceptions that report malformed input but subclassed ``Exception``
 directly now subclass ``ValueError``, like most of the library's parse errors
 already did: ``Bio.Data.CodonTable.TranslationError``, ``Bio.Nexus``'s
