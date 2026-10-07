@@ -588,10 +588,17 @@ entry-point groups so plugins work.
    installed distributions offer one name with different targets, neither is
    registered and one warning names both.
 5. **`replace=True` in SeqIO** drops the `SeqIO.convert` fast paths that use
-   the replaced role, so `convert` cannot silently ignore the override. It
-   keeps a built-in name's index proxy: the proxy still finds record
-   boundaries and keys, and the replacement parses each record. That is what
-   assigning into the private dict does today.
+   the replaced role, so `convert` cannot silently ignore the override. For
+   the same reason it drops the `sff`, `sff-trim` and `uniprot-xml` index
+   proxies, which parse with the built-in parser whatever the table holds;
+   `SeqIO.index` and `index_db` then refuse those names rather than return
+   built-in records. It keeps every other built-in index proxy: the proxy
+   still finds record boundaries and keys, and the replacement parses each
+   record. That is what assigning into the private dict does today. The
+   proxies that find records by a start marker (ace, embl, fasta, gb,
+   genbank, imgt, phd, pir, qual, swiss) take that marker from the
+   replacement, so it must set `record_start_marker`, as a subclass of the
+   built-in iterator does, or `SeqIO.index` raises.
 6. **`SeqIO.index` for a new name** works when the iterator is a
    `SequenceIterator` subclass that has `"t"` in its `modes`, sets
    `record_start_marker`, and overrides `parse_id_from_header` (public once
