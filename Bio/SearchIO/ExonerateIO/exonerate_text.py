@@ -95,17 +95,17 @@ def _stitch_rows(raw_rows):
     # deal with possible codon surprise!
     # (i.e. alignments with codons using cdna2genome model)
     # by creating additional rows to contain the codons
-    try:
-        max_len = max(len(x) for x in raw_rows)
-        for row in raw_rows:
-            assert len(row) == max_len
-    except AssertionError:
-        for idx, row in enumerate(raw_rows):
-            if len(row) != max_len:
-                # codons must be present in the query and hit (so +2)
-                assert len(row) + 2 == max_len
-                # add additional empty lines to contain codons
-                raw_rows[idx] = [" " * len(row[0])] + row + [" " * len(row[0])]
+    max_len = max(len(x) for x in raw_rows)
+    for idx, row in enumerate(raw_rows):
+        if len(row) != max_len:
+            # codons must be present in the query and hit (so +2)
+            if len(row) + 2 != max_len:
+                raise ValueError(
+                    f"Expected {max_len} or {max_len - 2} lines in each"
+                    f" alignment block, found {len(row)}:\n{row!r}"
+                )
+            # add additional empty lines to contain codons
+            raw_rows[idx] = [" " * len(row[0])] + row + [" " * len(row[0])]
 
     cmbn_rows = []
     for idx, row in enumerate(raw_rows[0]):
@@ -230,7 +230,11 @@ def _comp_intron_lens(seq_type, inter_blocks, raw_inter_lens):
     # and sets the opposing sequence type's intron (since this
     # line is present on the opposite sequence type line)
     has_intron_after = ["Intron" in x[seq_type] for x in inter_blocks]
-    assert len(has_intron_after) == len(raw_inter_lens)
+    if len(has_intron_after) != len(raw_inter_lens):
+        raise ValueError(
+            f"Expected {len(has_intron_after)} '... bp' lengths between the"
+            f" alignment's blocks, found {len(raw_inter_lens)}"
+        )
     # create list containing coord adjustments incorporating
     # intron lengths
     inter_lens = []
@@ -329,7 +333,11 @@ class ExonerateTextParser(_BaseExonerateParser):
             "query_strand",
             "hit_strand",
         ):
-            assert val_name in hsp, hsp
+            if val_name not in hsp:
+                raise ValueError(
+                    f"No {val_name} in the alignment header; expected"
+                    " 'Query range:' and 'Target range:' lines"
+                )
 
         # get the alignment rows
         # and stitch them so we have the full sequences in single strings

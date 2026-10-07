@@ -266,7 +266,8 @@ class InfernalTabParser(_BaseInfernalParser):
         """Initialize the class."""
         self.handle = handle
         if isinstance(_fmt, int):
-            assert _fmt in {1, 2, 3}
+            if _fmt not in {1, 2, 3}:
+                raise ValueError(f"_fmt must be 1, 2 or 3, not {_fmt!r}")
             self.fmt = _fmt
         else:
             self.fmt = _infer_tabular_format(handle=handle)

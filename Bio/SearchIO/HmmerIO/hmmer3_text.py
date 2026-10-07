@@ -183,7 +183,11 @@ class Hmmer3TextParser:
                 while True:
                     self.line = read_forward(self.handle)
                     if self.line.startswith("Internal pipeline"):
-                        assert len(hit_attr_list) == 0
+                        if hit_attr_list:
+                            raise ValueError(
+                                "Expected no hit table rows before 'No hits"
+                                f" detected', found {len(hit_attr_list)}"
+                            )
                         return []
             elif self.line.startswith("Domain annotation for each "):
                 hit_list = self._create_hits(hit_attr_list, qid, qdesc)
@@ -197,7 +201,11 @@ class Hmmer3TextParser:
             # if there's no description, set it to an empty string
             elif len(row) < 10:
                 row.append("")
-                assert len(row) == 10
+                if len(row) != 10:
+                    raise ValueError(
+                        "Expected at least 9 columns in the hit table row,"
+                        f" found {len(row) - 1}:\n{self.line!r}"
+                    )
             # create the hit object
             hit_attrs = {
                 "id": row[8],
@@ -226,9 +234,17 @@ class Hmmer3TextParser:
         while True:
             if self.line.startswith("Internal pipeline"):
                 # by this time we should've emptied the hit attr list
-                assert len(hit_attrs) == 0
+                if hit_attrs:
+                    raise ValueError(
+                        "No domain annotation found for hits"
+                        f" {[attrs['id'] for attrs in hit_attrs]!r}"
+                    )
                 return hit_list
-            assert self.line.startswith(">>")
+            if not self.line.startswith(">>"):
+                raise ValueError(
+                    "Expected a '>>' line starting the next hit's domain"
+                    f" annotation, found:\n{self.line!r}"
+                )
             hid, hdesc = self.line[len(">> ") :].split("  ", 1)
             hdesc = hdesc.strip()
 
@@ -266,7 +282,11 @@ class Hmmer3TextParser:
                     break
 
                 parsed = [x for x in self.line.strip().split(" ") if x]
-                assert len(parsed) == 16
+                if len(parsed) != 16:
+                    raise ValueError(
+                        "Expected 16 columns in the domain table row, found"
+                        f" {len(parsed)}:\n{self.line!r}"
+                    )
                 # parsed column order:
                 # index, is_included, bitscore, bias, evalue_cond, evalue
                 # hmmfrom, hmmto, query_ends, hit_ends, alifrom, alito,
@@ -332,7 +352,11 @@ class Hmmer3TextParser:
         while True:
             if self.line.startswith(">>") or self.line.startswith("Internal pipeline"):
                 return hsp_list
-            assert self.line.startswith("  == domain %i" % (dom_counter + 1))
+            if not self.line.startswith("  == domain %i" % (dom_counter + 1)):
+                raise ValueError(
+                    f"Expected '  == domain {dom_counter + 1}' for hit {hid!r},"
+                    f" found:\n{self.line!r}"
+                )
             # alias hsp to local var
             # but note that we're still changing the attrs of the actual
             # hsp inside the qresult as we're not creating a copy
@@ -360,8 +384,12 @@ class Hmmer3TextParser:
                     # string later.
                     if aln_prefix_len is None:
                         aln_prefix_len = len(regx.group(1))
-                    else:
-                        assert aln_prefix_len == len(regx.group(1))
+                    elif aln_prefix_len != len(regx.group(1)):
+                        raise ValueError(
+                            "Expected the alignment to start at column"
+                            f" {aln_prefix_len}, found {len(regx.group(1))}:"
+                            f"\n{self.line!r}"
+                        )
                     # the first hit/query self.line we encounter is the hmmseq
                     if len(hmmseq) == len(aliseq):
                         hmmseq += regx.group(2)
@@ -369,7 +397,12 @@ class Hmmer3TextParser:
                     # > or == len(aliseq)
                     elif len(hmmseq) > len(aliseq):
                         aliseq += regx.group(2)
-                    assert len(hmmseq) >= len(aliseq)
+                    if len(hmmseq) < len(aliseq):
+                        raise ValueError(
+                            "Aligned sequence is longer than the model sequence"
+                            f" above it ({len(aliseq)} > {len(hmmseq)}):"
+                            f"\n{self.line!r}"
+                        )
                 # check for start of new domain
                 elif (
                     self.line.startswith("  == domain")

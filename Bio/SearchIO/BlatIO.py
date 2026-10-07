@@ -331,7 +331,12 @@ def _create_hsp(hid, qid, psl):
         hstarts = psl["tstarts"]
     # set query and hit coords
     # this assumes each block has no gaps (which seems to be the case)
-    assert len(qstarts) == len(hstarts) == len(psl["blocksizes"])
+    if not len(qstarts) == len(hstarts) == len(psl["blocksizes"]):
+        raise ValueError(
+            f"PSL row for query {qid!r} and hit {hid!r} has"
+            f" {len(psl['blocksizes'])} block sizes, {len(qstarts)} query starts"
+            f" and {len(hstarts)} hit starts; expected the same number of each"
+        )
     query_range_all = list(
         zip(qstarts, [x + y for x, y in zip(qstarts, psl["blocksizes"])])
     )
@@ -343,12 +348,18 @@ def _create_hsp(hid, qid, psl):
     )
     # check length of sequences and coordinates, all must match
     if "tseqs" in psl and "qseqs" in psl:
-        assert (
+        if not (
             len(psl["tseqs"])
             == len(psl["qseqs"])
             == len(query_range_all)
             == len(hit_range_all)
-        )
+        ):
+            raise ValueError(
+                f"PSLX row for query {qid!r} and hit {hid!r} has"
+                f" {len(query_range_all)} blocks, {len(psl['qseqs'])} query"
+                f" sequences and {len(psl['tseqs'])} hit sequences; expected"
+                " one of each per block"
+            )
     else:
         assert len(query_range_all) == len(hit_range_all)
 
@@ -375,10 +386,17 @@ def _create_hsp(hid, qid, psl):
     # create hsp object
     hsp = HSP(frags)
     # check if start and end are set correctly
-    assert hsp.query_start == psl["qstart"]
-    assert hsp.query_end == psl["qend"]
-    assert hsp.hit_start == psl["tstart"]
-    assert hsp.hit_end == psl["tend"]
+    for column, from_blocks in (
+        ("qStart", hsp.query_start),
+        ("qEnd", hsp.query_end),
+        ("tStart", hsp.hit_start),
+        ("tEnd", hsp.hit_end),
+    ):
+        if from_blocks != psl[column.lower()]:
+            raise ValueError(
+                f"PSL row for query {qid!r} and hit {hid!r} has {column}"
+                f" {psl[column.lower()]}, but its blocks give {from_blocks}"
+            )
     # and check block spans as well
     hit_spans = [span / blocksize_multiplier for span in hsp.hit_span_all]
     assert hit_spans == hsp.query_span_all == psl["blocksizes"]

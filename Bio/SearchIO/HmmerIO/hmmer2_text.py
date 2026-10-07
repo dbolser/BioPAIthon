@@ -88,7 +88,12 @@ class Hmmer2TextParser:
                 continue
 
             assert state == "OPTIONS"
-            assert "program" in meta
+            if "program" not in meta:
+                raise ValueError(
+                    "Expected a program line such as 'hmmpfam - search one or"
+                    " more sequences against HMM database' before the options,"
+                    f" found:\n{self.line!r}"
+                )
 
             if self.line.count("-") == 32:
                 break

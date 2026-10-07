@@ -23,7 +23,12 @@ class _BaseInfernalParser:
             hit_dict[hid] = {"attrs": hit_attrs, "hsps": []}
         else:
             assert hit_dict[hid]["attrs"]["query_id"] == hit_attrs["query_id"]
-            assert hit_dict[hid]["attrs"]["description"] == hit_attrs["description"]
+            seen_description = hit_dict[hid]["attrs"]["description"]
+            if seen_description != hit_attrs["description"]:
+                raise ValueError(
+                    f"Hit {hid!r} has description {hit_attrs['description']!r},"
+                    f" expected {seen_description!r} as before"
+                )
 
         hit_dict[hid]["hsps"].append(hsp)
 

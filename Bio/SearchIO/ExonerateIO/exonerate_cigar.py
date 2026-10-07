@@ -8,6 +8,7 @@
 import re
 
 from ._base import _BaseExonerateParser
+from ._base import _check_header_matches
 from ._base import _STRAND_MAP
 from .exonerate_vulgar import ExonerateVulgarIndexer
 
@@ -40,15 +41,7 @@ class ExonerateCigarParser(_BaseExonerateParser):
         # if the file has c4 alignments
         # check if cigar values match our previously parsed header values
         if self.has_c4_alignment:
-            assert qresult["id"] == cigars.group(1)
-            assert hsp["query_start"] == cigars.group(2)
-            assert hsp["query_end"] == cigars.group(3)
-            assert hsp["query_strand"] == cigars.group(4)
-            assert hit["id"] == cigars.group(5)
-            assert hsp["hit_start"] == cigars.group(6)
-            assert hsp["hit_end"] == cigars.group(7)
-            assert hsp["hit_strand"] == cigars.group(8)
-            assert hsp["score"] == cigars.group(9)
+            _check_header_matches(header, cigars, self.line)
         else:
             qresult["id"] = cigars.group(1)
             hsp["query_start"] = cigars.group(2)

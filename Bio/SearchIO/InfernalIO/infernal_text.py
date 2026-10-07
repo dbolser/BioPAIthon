@@ -212,7 +212,11 @@ class InfernalTextParser(_BaseInfernalParser):
             elif self.line.startswith(div_hit_start):
                 # for --noali output, move to the beginning of the hit score table
                 if self._meta["show alignments in output"] == "no":
-                    assert not in_score_table
+                    if in_score_table:
+                        raise ValueError(
+                            "Expected a blank line ending the hit scores table,"
+                            f" found:\n{self.line!r}"
+                        )
                     self._read_until(lambda line: line.startswith(_DIV_TABLE_START))
                     self.line = read_forward(self.handle)
                     parsing_hits = in_score_table = True
@@ -260,7 +264,11 @@ class InfernalTextParser(_BaseInfernalParser):
 
         # parse the hit table
         row = [x for x in self.line.strip().split() if x]
-        assert len(row) == 16
+        if len(row) != 16:
+            raise ValueError(
+                "Expected 16 columns in the hit table row, found"
+                f" {len(row)}:\n{self.line!r}"
+            )
 
         # create hit and append to hit container
         hit_attrs = {"id": hid, "query_id": qid, "description": hdesc}
@@ -312,9 +320,13 @@ class InfernalTextParser(_BaseInfernalParser):
         if len(row) > 12:
             row[12] = " ".join(row[12:])
         # if there's no description, set it to an empty string
-        elif len(row) < 12:
+        elif len(row) < 13:
             row.append("")
-            assert len(row) == 12
+            if len(row) != 13:
+                raise ValueError(
+                    "Expected at least 12 columns in the hit scores table row,"
+                    f" found {len(row) - 1}: {row[:-1]!r}"
+                )
 
         # parse the attributes
         hit_attrs = {"id": row[5], "query_id": qid, "description": row[12]}
