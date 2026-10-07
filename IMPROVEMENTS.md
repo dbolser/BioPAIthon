@@ -570,7 +570,10 @@ than one instance.
 >   it is not a drop-in replacement. The bigMaf writer needs every
 >   alignment in memory and `.targets` set by hand (it ignores its
 >   `targets=` argument, `Bio/Align/bigmaf.py:130`), so it does not suit
->   the genome-scale bgzipped MAF that `MafIndex` is for.
+>   the genome-scale MAF files that `MafIndex` is for. `MafIndex` reads
+>   plain MAF only: `MafIndex.__init__` opens the file with the built-in
+>   `open(..., "rb")`, so "bgzip-aware" in the original text below is
+>   wrong.
 > - **No `Bio.Align.convert()`.** `Align.write(Align.parse(a, f), b, g)` is
 >   the whole function, and it would have to live in upstream's most-edited
 >   file.
@@ -615,7 +618,9 @@ than one instance.
 >   part-way into a file and `next()` followed by `for`.
 > - `len()` of a non-seekable stream raises `TypeError`, so `list()` falls
 >   back to plain iteration.
-> - `#=GR` lines must span the alignment, as `#=GC` lines already must.
+> - Each `#=GR` annotation must span the alignment, as each `#=GC`
+>   annotation already must. In an interleaved file this is checked after
+>   the blocks are joined, as `AlignIO` does.
 > - Repeated Stockholm names must form whole blocks: each block lists every
 >   sequence once. Anything else raises `ValueError`.
 > - `Bio.Align` gets no `phylip-sequential` name. Its reader already detects
