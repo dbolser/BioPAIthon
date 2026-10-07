@@ -209,7 +209,10 @@ class BaseXMLWriter(ABC):
                 feature = target.features[0]
                 coded_by = feature.qualifiers["coded_by"]
                 if coded_by.startswith("complement("):
-                    assert coded_by.endswith(")")
+                    if not coded_by.endswith(")"):
+                        raise ValueError(
+                            f"expected coded_by qualifier {coded_by!r} to end with ')'"
+                        )
                     coded_by = coded_by[11:-1]
                     strand = -1
                 else:
@@ -238,7 +241,10 @@ class BaseXMLWriter(ABC):
                 feature = query.features[0]
                 coded_by = feature.qualifiers["coded_by"]
                 if coded_by.startswith("complement("):
-                    assert coded_by.endswith(")")
+                    if not coded_by.endswith(")"):
+                        raise ValueError(
+                            f"expected coded_by qualifier {coded_by!r} to end with ')'"
+                        )
                     coded_by = coded_by[11:-1]
                     strand = -1
                 else:

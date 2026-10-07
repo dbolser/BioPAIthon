@@ -206,11 +206,22 @@ class XMLHandler:
     def _start_blastxml2(self, name, attributes):
         """Process the XML schema (before processing the element)."""
         uri, localname = name.split(" ")
-        assert uri == "http://www.ncbi.nlm.nih.gov"
-        assert localname in ("BlastXML2", "BlastOutput2")
+        if uri != "http://www.ncbi.nlm.nih.gov" or localname not in (
+            "BlastXML2",
+            "BlastOutput2",
+        ):
+            raise ValueError(
+                "expected root element BlastXML2 or BlastOutput2 in namespace "
+                "'http://www.ncbi.nlm.nih.gov', "
+                f"found {localname!r} in namespace {uri!r}"
+            )
         key = "%s schemaLocation" % XMLHandler.schema_namespace
         domain, url = attributes[key].split()
-        assert domain == "http://www.ncbi.nlm.nih.gov"
+        if domain != "http://www.ncbi.nlm.nih.gov":
+            raise ValueError(
+                "expected schemaLocation for namespace "
+                f"'http://www.ncbi.nlm.nih.gov', found {domain!r}"
+            )
         if XMLHandler._schema_methods is None:
             filename = os.path.basename(url)
             directory = Entrez.__path__[0]
@@ -228,129 +239,129 @@ class XMLHandler:
         self._characters = ""
 
     def _start_blastoutput(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_program(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_version(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_reference(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_db(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_blastoutput_query_id(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_blastoutput_query_def(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_mbstat(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_param(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_parameters(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
         self._records.param = {}
 
     def _start_matrix(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_expect(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_sc_match(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_sc_mismatch(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_include(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_gap_open(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_gap_extend(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_filter(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_cbs(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_db_gencode(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_gencode(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_bl2seq_mode(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_masking(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_range(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_from(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_to(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_pattern(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_entrez_query(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_iterations(self, name, attributes):
         self._records._cache = deque()
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_blastoutput_query_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_seq(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_iteration(self, name, attributes):
@@ -361,32 +372,32 @@ class XMLHandler:
         self._record = record
 
     def _start_iter_num(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_id(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_def(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hits(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hit(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
         self._alignments = Hit()
 
     def _start_num(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_description(self, name, attributes):
@@ -396,161 +407,161 @@ class XMLHandler:
         return
 
     def _start_id(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_def(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_taxid(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_sciname(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hsps(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_accession(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hsp(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
         self._hsp = _HSP_cache()
 
     def _start_bit_score(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_score(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_evalue(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_from(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_to(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_strand(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hit_from(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hit_to(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hit_strand(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_pattern_from(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_pattern_to(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_query_frame(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hit_frame(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_identity(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_positive(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_gaps(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_align_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_density(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_qseq(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hseq(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_midline(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_stat(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_message(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_statistics(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
         self._stat = {}
 
     def _start_db_num(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_db_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_hsp_len(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_eff_space(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_kappa(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_lambda(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_entropy(self, name, attributes):
-        assert self._characters.strip() == ""
+        self._check_no_text(name)
         self._characters = ""
 
     def _start_report(self, name, attributes):
@@ -566,7 +577,7 @@ class XMLHandler:
         return
 
     def _end_blastoutput(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         parser = self._parser
         parser.StartElementHandler = None
         parser.EndElementHandler = None
@@ -576,7 +587,7 @@ class XMLHandler:
         del self._parser
 
     def _end_blastoutput_xml2(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
 
     def _end_blastxml2(self, name):
         self._end_blastoutput(name)
@@ -617,21 +628,26 @@ class XMLHandler:
     def _end_query_seq(self, name):
         seq = Seq(self._characters)
         self._characters = ""
-        assert len(seq) == len(self._records.query.seq)
+        length = len(self._records.query.seq)
+        if len(seq) != length:
+            raise ValueError(
+                f"expected a query sequence of length {length} (the query length), "
+                f"found {len(seq)}: line {self._parser.CurrentLineNumber}"
+            )
         self._records.query.seq = seq
 
     def _end_mbstat(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
         self._records.mbstat = self._stat
         del self._stat
 
     def _end_param(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_parameters(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_matrix(self, name):
@@ -679,7 +695,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_query_masking(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
         location = self._location
         del self._location
@@ -714,11 +730,11 @@ class XMLHandler:
         self._characters = ""
 
     def _end_iterations(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_iteration(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
         if self._program == "psiblast" and name == "http://www.ncbi.nlm.nih.gov Search":
             # PSIBLAST XML2 uses both <Iteration> and <Search>; ignore one
@@ -746,11 +762,11 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hits(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_hit(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
         hit = self._alignments
         del self._alignments
@@ -803,7 +819,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hsps(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_num(self, name):
@@ -836,7 +852,11 @@ class XMLHandler:
 
     def _end_query_strand(self, name):
         query_strand = self._characters
-        assert query_strand == "Plus"
+        if query_strand != "Plus":
+            raise ValueError(
+                f"unexpected value {query_strand!r} in tag <query-strand> "
+                "(expected 'Plus')"
+            )
         self._hsp.query_strand = query_strand
         self._characters = ""
 
@@ -850,7 +870,11 @@ class XMLHandler:
 
     def _end_hit_strand(self, name):
         hit_strand = self._characters
-        assert hit_strand in ("Plus", "Minus")
+        if hit_strand not in ("Plus", "Minus"):
+            raise ValueError(
+                f"unexpected value {hit_strand!r} in tag <hit-strand> "
+                "(expected 'Plus' or 'Minus')"
+            )
         self._hsp.hit_strand = hit_strand
         self._characters = ""
 
@@ -930,8 +954,9 @@ class XMLHandler:
         self._characters = ""
 
     def _end_hsp(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
+        line = self._parser.CurrentLineNumber  # of </Hsp>, for error messages
         hsp = self._hsp
         del self._hsp
         program = self._program
@@ -953,14 +978,25 @@ class XMLHandler:
         try:
             align_len = hsp.align_len
         except AttributeError:  # PSIBLAST XML2
-            assert len(query_seq_aligned) == 0
-            assert len(target_seq_aligned) == 0
+            if query_seq_aligned or target_seq_aligned:
+                raise ValueError(
+                    "expected empty qseq and hseq in an HSP without align-len, "
+                    f"found lengths {len(query_seq_aligned)} and "
+                    f"{len(target_seq_aligned)}: line {line}"
+                )
             query_seq_data = None
             target.seq = Seq(None, target_length)
             coordinates = np.empty((2, 0), dtype=int)
         else:
-            assert len(query_seq_aligned) == align_len
-            assert len(target_seq_aligned) == align_len
+            if (
+                len(query_seq_aligned) != align_len
+                or len(target_seq_aligned) != align_len
+            ):
+                raise ValueError(
+                    f"expected qseq and hseq of length {align_len} (the align-len), "
+                    f"found lengths {len(query_seq_aligned)} and "
+                    f"{len(target_seq_aligned)}: line {line}"
+                )
             (
                 (
                     target_seq_data,
@@ -973,21 +1009,42 @@ class XMLHandler:
             query_start = hsp.query_from - 1
             query_end = hsp.query_to
             if program in ("blastx", "tblastx"):
-                assert query_end - query_start == 3 * len(query_seq_data)
+                if query_end - query_start != 3 * len(query_seq_data):
+                    raise ValueError(
+                        f"query-from {hsp.query_from} and query-to {hsp.query_to} "
+                        f"span {query_end - query_start} nucleotides, expected "
+                        f"{3 * len(query_seq_data)} to code for the "
+                        f"{len(query_seq_data)} residues in qseq: line {line}"
+                    )
                 location = SimpleLocation(0, len(query_seq_data))
                 coded_by = f"{query_id}:{hsp.query_from}..{hsp.query_to}"
                 query_frame = hsp.query_frame
                 if query_frame > 0:
-                    assert query_start % 3 == query_frame - 1
+                    if query_start % 3 != query_frame - 1:
+                        raise ValueError(
+                            f"query-from {hsp.query_from} implies query-frame "
+                            f"{query_start % 3 + 1}, found {query_frame}: line {line}"
+                        )
                 elif query_frame < 0:
-                    assert (query_length - query_end) % 3 == -query_frame - 1
+                    if (query_length - query_end) % 3 != -query_frame - 1:
+                        raise ValueError(
+                            f"query-to {hsp.query_to} on a query of length "
+                            f"{query_length} implies query-frame "
+                            f"{-((query_length - query_end) % 3 + 1)}, "
+                            f"found {query_frame}: line {line}"
+                        )
                     coded_by = f"complement({coded_by})"
                 qualifiers = {"coded_by": coded_by}
                 feature = SeqFeature(location, type="CDS", qualifiers=qualifiers)
                 query.features.append(feature)
             else:
                 coordinates[1, :] += query_start
-                assert query_end - query_start == len(query_seq_data)
+                if query_end - query_start != len(query_seq_data):
+                    raise ValueError(
+                        f"query-from {hsp.query_from} and query-to {hsp.query_to} "
+                        f"span {query_end - query_start} residues, expected "
+                        f"{len(query_seq_data)} to match qseq: line {line}"
+                    )
                 query_seq_data = {query_start: query_seq_data}
                 if program == "blastn":
                     try:
@@ -1012,14 +1069,24 @@ class XMLHandler:
                     target_start = hsp.hit_from - 1
                     target_end = hsp.hit_to
                     coordinates[0, :] += target_start
-                    assert target_end - target_start == len(target_seq_data)
+                    if target_end - target_start != len(target_seq_data):
+                        raise ValueError(
+                            f"hit-from {hsp.hit_from} and hit-to {hsp.hit_to} "
+                            f"span {target_end - target_start} residues, expected "
+                            f"{len(target_seq_data)} to match hseq: line {line}"
+                        )
                     target_seq_data = {target_start: target_seq_data}
                     target.seq = Seq(target_seq_data, target_length)
                 elif target_strand == "Minus":
                     target_start = hsp.hit_to - 1
                     target_end = hsp.hit_from
                     coordinates[0, :] = target_end - coordinates[0, :]
-                    assert target_end - target_start == len(target_seq_data)
+                    if target_end - target_start != len(target_seq_data):
+                        raise ValueError(
+                            f"hit-from {hsp.hit_from} and hit-to {hsp.hit_to} "
+                            f"span {target_end - target_start} residues, expected "
+                            f"{len(target_seq_data)} to match hseq: line {line}"
+                        )
                     target_seq_data = {target_length - target_end: target_seq_data}
                     seq = Seq(target_seq_data, target_length)
                     target.seq = seq.reverse_complement()
@@ -1027,20 +1094,41 @@ class XMLHandler:
                 target_start = hsp.hit_from - 1
                 target_end = hsp.hit_to
                 coordinates[0, :] += target_start
-                assert target_end - target_start == len(target_seq_data)
+                if target_end - target_start != len(target_seq_data):
+                    raise ValueError(
+                        f"hit-from {hsp.hit_from} and hit-to {hsp.hit_to} "
+                        f"span {target_end - target_start} residues, expected "
+                        f"{len(target_seq_data)} to match hseq: line {line}"
+                    )
                 target_seq_data = {target_start: target_seq_data}
                 target.seq = Seq(target_seq_data, target_length)
             elif program in ("tblastn", "tblastx"):
                 target_start = hsp.hit_from - 1
                 target_end = hsp.hit_to
-                assert target_end - target_start == 3 * len(target_seq_data)
+                if target_end - target_start != 3 * len(target_seq_data):
+                    raise ValueError(
+                        f"hit-from {hsp.hit_from} and hit-to {hsp.hit_to} "
+                        f"span {target_end - target_start} nucleotides, expected "
+                        f"{3 * len(target_seq_data)} to code for the "
+                        f"{len(target_seq_data)} residues in hseq: line {line}"
+                    )
                 location = SimpleLocation(0, target_length)
                 coded_by = f"{target_id}:{hsp.hit_from}..{hsp.hit_to}"
                 target_frame = hsp.hit_frame
                 if target_frame >= 0:
-                    assert target_start % 3 == target_frame - 1
+                    if target_start % 3 != target_frame - 1:
+                        raise ValueError(
+                            f"hit-from {hsp.hit_from} implies hit-frame "
+                            f"{target_start % 3 + 1}, found {target_frame}: line {line}"
+                        )
                 elif target_frame < 0:
-                    assert (target_length - target_end) % 3 == -target_frame - 1
+                    if (target_length - target_end) % 3 != -target_frame - 1:
+                        raise ValueError(
+                            f"hit-to {hsp.hit_to} on a hit of length "
+                            f"{target_length} implies hit-frame "
+                            f"{-((target_length - target_end) % 3 + 1)}, "
+                            f"found {target_frame}: line {line}"
+                        )
                     coded_by = f"complement({coded_by})"
                 qualifiers = {"coded_by": coded_by}
                 feature = SeqFeature(location, type="CDS", qualifiers=qualifiers)
@@ -1076,7 +1164,7 @@ class XMLHandler:
         self._alignments.append(alignment)
 
     def _end_stat(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
         self._record.stat = self._stat
         del self._stat
@@ -1086,7 +1174,7 @@ class XMLHandler:
         self._characters = ""
 
     def _end_statistics(self, name):
-        assert self._characters.strip() == ""
+        self._check_no_text(name, end=True)
         self._characters = ""
 
     def _end_db_num(self, name):
@@ -1151,7 +1239,12 @@ class XMLHandler:
 
     def _externalEntityRefHandler(self, context, base, systemId, publicId):
         """Handle the DTD declaration."""
-        assert context is None
+        if context is not None:
+            # a general entity reference, not the DTD named in the DOCTYPE
+            raise ValueError(
+                f"unexpected reference to external entity {systemId!r} outside "
+                f"the DOCTYPE declaration: line {self._parser.CurrentLineNumber}"
+            )
         assert base is None
         if systemId not in (
             "NCBI_BlastOutput.dtd",
@@ -1159,7 +1252,11 @@ class XMLHandler:
             "https://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd",
         ):
             raise ValueError("output from legacy BLAST program")
-        assert publicId == "-//NCBI//NCBI BlastOutput/EN"
+        if publicId != "-//NCBI//NCBI BlastOutput/EN":
+            raise ValueError(
+                "expected public identifier '-//NCBI//NCBI BlastOutput/EN' "
+                f"for the BLAST DTD, found {publicId!r}"
+            )
         if XMLHandler._dtd_methods is None:
             handler = DTDHandler()
             handler.parseFile("NCBI_BlastOutput.dtd")
@@ -1202,6 +1299,22 @@ class XMLHandler:
 
         """
         self._characters += characters
+
+    def _check_no_text(self, name, end=False):
+        """Raise ValueError if non-whitespace text precedes this tag (PRIVATE).
+
+        Pass end=True from an end-element handler, so that the message
+        names the closing tag.
+        """
+        text = self._characters.strip()
+        if text:
+            tag = name.split(" ")[-1]  # drop the XML2 namespace
+            slash = "/" if end else ""
+            parser = self._parser
+            raise ValueError(
+                f"unexpected text {text!r} before tag <{slash}{tag}>: "
+                f"line {parser.CurrentLineNumber}, column {parser.CurrentColumnNumber}"
+            )
 
     def __iter__(self):
         return self

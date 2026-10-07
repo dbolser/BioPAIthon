@@ -1279,13 +1279,21 @@ def qblast(
         else:
             break
     if format_type == "XML":
-        assert data.startswith(b"<?xml ")
+        expected = b"<?xml "
     elif format_type == "HTML":
-        assert data.startswith(b"<!DOCTYPE html ")
+        expected = b"<!DOCTYPE html "
     elif format_type in ("Text", "Tabular"):
-        assert data.startswith(b"<p><!--\nQBlastInfoBegin")
+        expected = b"<p><!--\nQBlastInfoBegin"
     elif format_type in ("XML2", "JSON2"):
-        assert data.startswith(b"PK\x03\x04")  # zipped file
+        expected = b"PK\x03\x04"  # zipped file
+    else:
+        expected = b""
+    if not data.startswith(expected):
+        stream.close()
+        raise ValueError(
+            f"expected {format_type} output from the BLAST server starting with "
+            f"{expected!r}, found {data[:100]!r}"
+        )
     stream.rid = rid
     stream.rtoe = rtoe
     return stream
