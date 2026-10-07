@@ -128,6 +128,21 @@ reading it as an attribute of ``Bio.PDB.internal_coords``, now gives a
 no longer provides the name. An ``except MissingAtomError`` clause never runs,
 so it can simply be deleted.
 
+Bio.SeqIO.PdbIO
+---------------
+**This deprecation is BioPAIthon's own; Biopython has not deprecated this.**
+The chain ids that the "cif-seqres" format of ``Bio.SeqIO`` gives by default
+are deprecated as of BioPAIthon 1.88. It names each chain by its mmCIF label
+id (``_pdbx_poly_seq_scheme.asym_id``), which the wwPDB assigns, whereas
+"cif-atom", "pdb-seqres", "pdb-atom" and ``Bio.PDB.MMCIFParser`` use the author
+id. A future release will make "cif-seqres" use the author id too. Until then
+``Bio.SeqIO.PdbIO.CifSeqresIterator`` takes an ``auth_chains`` argument:
+``auth_chains=True`` gives the author ids now, and ``auth_chains=False`` keeps
+the label ids. Left unset, it gives the label ids and raises a
+``BiopythonDeprecationWarning`` for any file in which the two differ.
+``Bio.SeqIO.parse`` cannot pass the argument, so call ``CifSeqresIterator``
+directly to set it.
+
 Bio.SeqIO.FastaIO
 -----------------
 Parsing a FASTA file using Bio.SeqIO.parse with ``format='fasta'`` interprets

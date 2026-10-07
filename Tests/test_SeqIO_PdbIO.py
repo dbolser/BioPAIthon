@@ -6,6 +6,7 @@
 
 import unittest
 import warnings
+from io import StringIO
 
 try:
     import numpy as np
@@ -24,9 +25,11 @@ except ImportError:
 
 import support
 
+from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
+from Bio.SeqIO.PdbIO import CifSeqresIterator
 
 
 def SeqresTestGenerator(extension, parser):
@@ -100,6 +103,84 @@ class TestPdbSeqres(SeqresTestGenerator("pdb", "pdb-seqres")):
 
 class TestCifSeqres(SeqresTestGenerator("cif", "cif-seqres")):
     """Test cif-seqres SeqIO driver."""
+
+
+class TestCifSeqresChainIds(unittest.TestCase):
+    """Test the choice between label and author chain ids in cif-seqres."""
+
+    def chains(self, records):
+        return [record.annotations["chain"] for record in records]
+
+    def test_default_warns_when_ids_differ(self):
+        """Keep the label ids by default, but warn if they are not author ids."""
+        # 4ZHL: label chain A is author chain U, label chain B is author chain P
+        with self.assertWarns(BiopythonDeprecationWarning):
+            records = list(SeqIO.parse("PDB/4ZHL.cif", "cif-seqres"))
+        self.assertEqual(self.chains(records), ["A", "B"])
+
+    def test_default_silent_when_ids_agree(self):
+        """Do not warn if the label and author ids are the same."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            records = list(SeqIO.parse("PDB/2BEG.cif", "cif-seqres"))
+        self.assertEqual(self.chains(records), ["A", "B", "C", "D", "E"])
+
+    def test_auth_chains(self):
+        """Name chains by author id with auth_chains=True, like cif-atom."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            records = list(CifSeqresIterator("PDB/4ZHL.cif", auth_chains=True))
+        self.assertEqual([r.id for r in records], ["4ZHL:P", "4ZHL:U"])
+        self.assertEqual(self.chains(records), ["P", "U"])
+        self.assertEqual(records[0].seq, "CPAYSRYIGC")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            atom_records = list(SeqIO.parse("PDB/4ZHL.cif", "cif-atom"))
+        self.assertEqual(self.chains(atom_records), ["P", "U"])
+
+    def test_label_chains(self):
+        """Name chains by label id without a warning with auth_chains=False."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            records = list(CifSeqresIterator("PDB/4ZHL.cif", auth_chains=False))
+        self.assertEqual([r.id for r in records], ["4ZHL:A", "4ZHL:B"])
+        self.assertEqual(self.chains(records), ["A", "B"])
+        self.assertEqual(records[1].seq, "CPAYSRYIGC")
+
+    def test_dbxrefs_follow_chain(self):
+        """Attach each cross-reference to the chain it belongs to."""
+        # 1LCD: the LacI protein is author chain A but label chain C, and its
+        # _struct_ref_seq entry names it by the author id.
+        laci = ["UNP:P03023", "UNP:LACI_ECOLI"]
+        records = list(CifSeqresIterator("PDB/1LCD.cif", auth_chains=False))
+        self.assertEqual([r.dbxrefs == laci for r in records], [False, False, True])
+        self.assertTrue(records[2].seq.startswith("MKPVTLYDVAEY"))
+        records = list(CifSeqresIterator("PDB/1LCD.cif", auth_chains=True))
+        self.assertEqual([r.dbxrefs == laci for r in records], [True, False, False])
+        # With author ids, the records match those read from the PDB file
+        pdb_records = list(SeqIO.parse("PDB/1LCD.pdb", "pdb-seqres"))
+        for record, pdb_record in zip(records, pdb_records, strict=True):
+            self.assertEqual(record.id, pdb_record.id)
+            self.assertEqual(record.annotations, pdb_record.annotations)
+            self.assertEqual(record.seq, pdb_record.seq)
+            self.assertEqual(record.dbxrefs, pdb_record.dbxrefs)
+
+    def test_no_author_ids(self):
+        """Fall back to the label ids if the file has no author ids."""
+        data = (
+            "data_TEST\n"
+            "loop_\n"
+            "_pdbx_poly_seq_scheme.asym_id\n"
+            "_pdbx_poly_seq_scheme.mon_id\n"
+            "A MET\n"
+            "A ALA\n"
+        )
+        for auth_chains in (None, True, False):
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", BiopythonDeprecationWarning)
+                records = list(CifSeqresIterator(StringIO(data), auth_chains))
+            self.assertEqual(self.chains(records), ["A"])
+            self.assertEqual(records[0].seq, "MA")
 
 
 def AtomTestGenerator(extension, parser):
