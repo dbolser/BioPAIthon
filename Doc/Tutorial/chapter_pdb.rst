@@ -133,13 +133,14 @@ with ``MMCIFParser``:
    >>> structure = MMCIFParser().get_structure("4CUP", filename)
 
 For direct access to the underlying data, such as the X coordinates, use
-``MMCIF2Dict`` on the same file:
+``MMCIF2Dict`` on the same file. It gives every value as a string, so
+convert the coordinates to numbers:
 
 .. code:: pycon
 
    >>> from Bio.PDB.MMCIF2Dict import MMCIF2Dict
    >>> mmcif_dict = MMCIF2Dict(filename)
-   >>> x_list = mmcif_dict["_atom_site.Cartn_x"]
+   >>> x_list = [float(x) for x in mmcif_dict["_atom_site.Cartn_x"]]
 
 Reading a PDB file
 ~~~~~~~~~~~~~~~~~~
