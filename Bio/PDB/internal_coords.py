@@ -263,12 +263,15 @@ this module:
     Capture residue and disorder/occupancy information, provides a
     no-whitespace key for .pic files, and implements rich comparison.
 
-Custom exception classes: :class:`HedronMatchError` and
-:class:`MissingAtomError`
+Custom exception class: :class:`HedronMatchError`
+
+``MissingAtomError`` is deprecated. Nothing raises it: missing atoms are
+tolerated, not treated as errors.
 """  # noqa
 
 import copy
 import re
+import warnings
 from collections import deque
 from collections import namedtuple
 from numbers import Integral
@@ -280,6 +283,7 @@ from typing import Union
 
 import numpy as np  # type: ignore
 
+from Bio import BiopythonDeprecationWarning
 from Bio.Data.PDBData import protein_letters_3to1
 from Bio.PDB.Atom import Atom
 from Bio.PDB.Atom import DisorderedAtom
@@ -4938,4 +4942,32 @@ class HedronMatchError(Exception):
 
 
 class MissingAtomError(Exception):
-    """Missing atom coordinates for hedron or dihedron."""
+    """Missing atom coordinates for hedron or dihedron (DEPRECATED).
+
+    Nothing raises this exception. Its one raise site, ``Edron.gen_acs``,
+    was removed in Biopython 1.80; missing atoms are now tolerated.
+    """
+
+
+# Take MissingAtomError out of the module namespace so that every access
+# goes through __getattr__ below and warns. Type checkers skip this block:
+# they keep seeing the class, and a module __getattr__ would make them
+# accept every unknown name in the module.
+if not TYPE_CHECKING:
+    _MissingAtomError = MissingAtomError
+    del MissingAtomError
+
+    def __getattr__(name):
+        """Warn on access to the deprecated MissingAtomError (PRIVATE)."""
+        if name == "MissingAtomError":
+            warnings.warn(
+                "Bio.PDB.internal_coords.MissingAtomError has been deprecated, "
+                "and we intend to remove it in a future release of BioPAIthon. "
+                "Nothing raises it, as missing atoms are tolerated rather than "
+                "treated as errors, so an 'except MissingAtomError' clause "
+                "never runs and can be deleted.",
+                BiopythonDeprecationWarning,
+                stacklevel=2,
+            )
+            return _MissingAtomError
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -24,7 +24,9 @@ from io import StringIO
 
 import support
 
+from Bio import BiopythonDeprecationWarning
 from Bio.File import as_handle
+from Bio.PDB import internal_coords
 from Bio.PDB.ic_rebuild import compare_residues
 from Bio.PDB.ic_rebuild import IC_duplicate
 from Bio.PDB.ic_rebuild import structure_rebuild_test
@@ -676,6 +678,31 @@ class Rebuild(unittest.TestCase):
             AtomKey(atom)
         with self.assertRaisesRegex(TypeError, "Atom Key init not recognised"):
             AtomKey(1.5)
+
+
+class DeprecatedMissingAtomError(unittest.TestCase):
+    """MissingAtomError stays importable, but warns as nothing raises it."""
+
+    def test_import_warns(self):
+        """Importing the name warns, attributed to the importing file."""
+        with self.assertWarns(BiopythonDeprecationWarning) as cm:
+            from Bio.PDB.internal_coords import MissingAtomError
+        self.assertIn("MissingAtomError has been deprecated", str(cm.warning))
+        self.assertEqual(cm.filename, __file__)
+        self.assertTrue(issubclass(MissingAtomError, Exception))
+        self.assertEqual(MissingAtomError.__name__, "MissingAtomError")
+
+    def test_attribute_access_warns(self):
+        """Each attribute access warns and returns the same class."""
+        with self.assertWarns(BiopythonDeprecationWarning):
+            first = internal_coords.MissingAtomError
+        with self.assertWarns(BiopythonDeprecationWarning):
+            second = internal_coords.MissingAtomError
+        self.assertIs(first, second)
+
+    def test_unknown_attribute(self):
+        """Other missing names still raise AttributeError."""
+        self.assertFalse(hasattr(internal_coords, "NoSuchName"))
 
 
 if __name__ == "__main__":
