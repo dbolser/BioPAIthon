@@ -294,7 +294,7 @@ class LinearDrawer(AbstractDrawer):
         track_crop = (
             trackunit_height * (1 - self.track_size) / 2.0
         )  # 'step back' in pixels
-        if track_crop < 0:
+        if not track_crop >= 0:
             raise ValueError(
                 "Cannot lay out the tracks: expected track_size and fragment_size "
                 "between 0 and 1, fragments at least 1 and positive track heights; "

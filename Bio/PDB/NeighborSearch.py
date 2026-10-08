@@ -46,7 +46,7 @@ class NeighborSearch:
         coord_list = [a.get_coord() for a in atom_list]
         # to Nx3 array of type float
         self.coords = np.array(coord_list, dtype="d")
-        if bucket_size <= 1:
+        if not bucket_size > 1:
             raise ValueError(f"bucket_size must be greater than 1, not {bucket_size}")
         if self.coords.shape[1] != 3:
             raise ValueError(

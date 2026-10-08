@@ -914,9 +914,13 @@ class DiagramTest(unittest.TestCase):
                         self.gdd.draw(format=fmt, start=0, end=len(self.record))
 
     def test_track_size_too_large(self):
-        """A track_size above 1 raises ValueError, not assert."""
-        with self.assertRaisesRegex(ValueError, "Cannot lay out the tracks"):
-            self.gdd.draw(format="linear", track_size=1.5, start=0, end=1000)
+        """A track_size above 1 or NaN raises ValueError, not assert."""
+        for track_size in (1.5, float("nan")):
+            with self.subTest(track_size=track_size):
+                with self.assertRaisesRegex(ValueError, "Cannot lay out the tracks"):
+                    self.gdd.draw(
+                        format="linear", track_size=track_size, start=0, end=1000
+                    )
 
     def test_del_tracks(self):
         """Delete track."""

@@ -80,10 +80,16 @@ class CEAlignerTests(unittest.TestCase):
 
     def test_invalid_parameters(self):
         """Out of range parameters raise ValueError, not assert."""
-        with self.assertRaisesRegex(ValueError, "window_size must be greater than 0"):
-            CEAligner(window_size=0)
-        with self.assertRaisesRegex(ValueError, "max_gap must be positive"):
-            CEAligner(max_gap=-1)
+        for bad in (0, float("nan")):
+            with self.subTest(window_size=bad):
+                with self.assertRaisesRegex(
+                    ValueError, "window_size must be greater than 0"
+                ):
+                    CEAligner(window_size=bad)
+        for bad in (-1, float("nan")):
+            with self.subTest(max_gap=bad):
+                with self.assertRaisesRegex(ValueError, "max_gap must be positive"):
+                    CEAligner(max_gap=bad)
 
     def test_cealigner_no_transform(self):
         """Test aligning 7CFN on 6WQA without transforming 7CFN."""

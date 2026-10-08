@@ -44,9 +44,9 @@ class CEAligner:
         max_gap : float, optional
             CE algorithm parameter. Maximum gap size. Default is 30.
         """
-        if window_size <= 0:
+        if not window_size > 0:
             raise ValueError(f"window_size must be greater than 0, not {window_size}")
-        if max_gap < 0:
+        if not max_gap >= 0:
             raise ValueError(f"max_gap must be positive (or zero), not {max_gap}")
 
         self.window_size = window_size
