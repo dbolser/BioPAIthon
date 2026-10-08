@@ -334,6 +334,8 @@ class ColourAliasTest(unittest.TestCase):
         for alias, us, function, args, get_color in cases:
             name = f"{function.__qualname__}({alias}=...)"
             with self.subTest(name):
+                # Alias last: add_feature applies **kwargs in order, so the
+                # alias only overrides the US spelling when it comes after it.
                 kwargs = {us: colors.blue, alias: colors.red}
                 result = self.assertAliasWarns(alias, function, *args, **kwargs)
                 self.assertEqual(get_color(result), colors.red)
