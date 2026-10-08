@@ -86,6 +86,8 @@ import itertools
 import re
 import string
 import warnings
+from typing import Any
+from typing import TYPE_CHECKING
 
 from Bio import BiopythonWarning
 from Bio.Restriction.PrintFormat import PrintFormat
@@ -2630,12 +2632,30 @@ AllEnzymes.update(NonComm)
 #
 names = [str(x) for x in AllEnzymes]
 locals().update(dict(zip(names, AllEnzymes)))
-__all__ = (
+#
+#   mypy reads __all__ only from literals. Given the whole tuple as one
+#   computed expression it would see no exports at all, and even
+#   "from Bio.Restriction import Analysis" would be an error. So the fixed
+#   names are a literal, and the enzyme names are added after.
+#
+__all__: tuple[str, ...] = (
     "FormattedSeq",
     "Analysis",
     "RestrictionBatch",
     "AllEnzymes",
     "CommOnly",
     "NonComm",
-) + tuple(names)
+)
+__all__ += tuple(names)
 del k, enzymes, TYPE, bases, bases2, names
+#
+#   Type checkers cannot see the enzymes, which only exist once the loop above
+#   has run. This __getattr__, which only they see, types any name the module
+#   does not define as Any, so "from Bio.Restriction import EcoRI" is not an
+#   error. The cost is that a misspelt enzyme is not an error either. If the
+#   enzymes are ever built lazily, by a real module __getattr__, that will
+#   replace this one and return RestrictionType.
+#
+if TYPE_CHECKING:
+
+    def __getattr__(name: str) -> Any: ...

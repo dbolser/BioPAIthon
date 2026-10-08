@@ -59,6 +59,24 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``from Bio.Restriction import EcoRI`` is no longer a type-checking error.
+The enzyme classes are built when ``Bio.Restriction`` is imported, so mypy
+could not see them and reported ``Module "Bio.Restriction" has no attribute
+"EcoRI"``, even without ``--strict``. It could not see ``Analysis``,
+``RestrictionBatch`` or ``AllEnzymes`` either, because ``__all__`` was one
+computed expression, which mypy does not read. ``Bio.Restriction`` and
+``Bio.Restriction.Restriction`` now have a ``__getattr__`` that only type
+checkers see, which types the enzymes as ``Any``, and ``__all__`` starts with
+a literal of the fixed names, which keep their real types. The cost is that
+any name these modules do not define is now ``Any`` to a type checker rather
+than an error. That covers a misspelt enzyme, but also, for example,
+``from Bio.Restriction import RestrictionType``, which still fails at runtime
+because the package does not export it; import it from
+``Bio.Restriction.Restriction`` instead. Import enzymes by name: after
+``from Bio.Restriction import *`` type checkers still cannot see them, as a
+star import does not use ``__getattr__``. Nothing changes at runtime:
+``import *`` gives the same names, and ``__all__`` holds the same tuple.
+
 ``import Bio.Phylo`` no longer imports NumPy, ``Bio.Align``, ``Bio.Nexus`` or
 rdflib, and is several times faster. Each tree format module is now imported
 the first time its format is used, so the Newick, NEXUS and NeXML formats work
