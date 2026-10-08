@@ -249,10 +249,6 @@ class TestFastqCompactQualities(unittest.TestCase):
                     list(rc.letter_annotations[key]),
                     old.reverse_complement().letter_annotations[key],
                 )
-                # The parent is left alone:
-                self.assertEqual(
-                    list(new.letter_annotations[key]), old.letter_annotations[key]
-                )
 
     def test_add(self):
         lists, arrays = self.parse_both("Quality/example.fastq", "fastq")

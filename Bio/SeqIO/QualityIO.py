@@ -1032,12 +1032,16 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
         self.compact = compact
 
     def _decode_quality(self, byte_scores):
-        """Decode translated quality bytes as unsigned integers.
+        """Decode translated quality bytes as integer scores.
 
-        Returns a list, or a signed byte array if the iterator was created
-        with ``compact=True``. Subclasses whose quality mapping emits negative
-        scores must override this method, as :class:`FastqSolexaIterator`
-        does below.
+        Returns a list of the bytes read as unsigned integers or, if the
+        iterator was created with ``compact=True``, a signed byte array,
+        ``array.array("b")``. The two agree on every value up to 127, and
+        FASTQ scores go no higher than 93.
+
+        Subclasses whose quality mapping emits negative scores must override
+        this method, as :class:`FastqSolexaIterator` does below. An override
+        should honour ``self.compact`` too, or ``compact=True`` has no effect.
         """
         if self.compact:
             return array.array("b", byte_scores)
