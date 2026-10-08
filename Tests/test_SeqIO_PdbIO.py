@@ -117,6 +117,10 @@ class TestCifSeqresChainIds(unittest.TestCase):
         with self.assertWarns(BiopythonDeprecationWarning):
             records = list(SeqIO.parse(support.DATA / "PDB" / "4ZHL.cif", "cif-seqres"))
         self.assertEqual(self.chains(records), ["A", "B"])
+        # A direct call is told which of its own lines to change
+        with self.assertWarns(BiopythonDeprecationWarning) as context:
+            CifSeqresIterator(support.DATA / "PDB" / "4ZHL.cif")
+        self.assertEqual(context.filename, __file__)
 
     def test_default_silent_when_ids_agree(self):
         """Do not warn if the label and author ids are the same."""

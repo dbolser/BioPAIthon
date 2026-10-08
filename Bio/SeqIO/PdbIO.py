@@ -488,6 +488,7 @@ class CifSeqresIterator(SequenceIterator):
                     "to keep the label ids and silence this warning, pass "
                     "auth_chains=False.",
                     BiopythonDeprecationWarning,
+                    stacklevel=2,
                 )
             auth_chains = False
 
