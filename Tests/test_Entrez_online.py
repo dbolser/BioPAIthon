@@ -21,6 +21,7 @@ import sys
 import unittest
 
 import requires_internet
+import support
 
 from Bio import Entrez
 from Bio import Medline
@@ -275,7 +276,14 @@ if __name__ == "__main__":
     # Bio.Entrez doctests.
     # TODO: Include the doctests via run_tests.py when online.
     unittest_suite = unittest.TestLoader().loadTestsFromName("test_Entrez_online")
-    doctest_suite = doctest.DocTestSuite(Entrez)
+    # The docstring examples open files relative to Tests/, so run them from
+    # there and restore the original directory afterwards.
+    original_dir = os.getcwd()
+    doctest_suite = doctest.DocTestSuite(
+        Entrez,
+        setUp=lambda test: os.chdir(support.DATA),
+        tearDown=lambda test: os.chdir(original_dir),
+    )
     suite = unittest.TestSuite((unittest_suite, doctest_suite))
     runner = unittest.TextTestRunner(sys.stdout, verbosity=2)
     runner.run(suite)

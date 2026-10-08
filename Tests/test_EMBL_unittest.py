@@ -7,7 +7,8 @@
 
 import unittest
 import warnings
-from os import path
+
+import support
 
 from Bio import BiopythonParserWarning
 from Bio import SeqIO
@@ -18,7 +19,7 @@ class EMBLTests(unittest.TestCase):
         """Test a ValueError is thrown by content after a CO line."""
 
         def parse_content_after_co():
-            rec = SeqIO.read(path.join("EMBL", "xx_after_co.embl"), "embl")
+            rec = SeqIO.read(support.DATA / "EMBL" / "xx_after_co.embl", "embl")
 
         self.assertRaises(ValueError, parse_content_after_co)
 
@@ -39,7 +40,7 @@ class EMBLTests(unittest.TestCase):
         # the coordinates 1740 added to the sequence as four extra letters.
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            rec = SeqIO.read("EMBL/embl_with_0_line.embl", "embl")
+            rec = SeqIO.read(support.DATA / "EMBL" / "embl_with_0_line.embl", "embl")
             self.assertEqual(
                 len(w),
                 0,
@@ -54,7 +55,7 @@ class EMBLTests(unittest.TestCase):
         # giving an unknown sequence!
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always", BiopythonParserWarning)
-            rec = SeqIO.read("EMBL/101ma_no_coords.embl", "embl")
+            rec = SeqIO.read(support.DATA / "EMBL" / "101ma_no_coords.embl", "embl")
             self.assertTrue(w, "Expected parser warning")
             self.assertEqual(
                 [str(_.message) for _ in w],
@@ -68,7 +69,7 @@ class EMBLTests(unittest.TestCase):
         """Test files with wrong DR lines."""
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always", BiopythonParserWarning)
-            record = SeqIO.read("EMBL/RepBase23.02.embl", "embl")
+            record = SeqIO.read(support.DATA / "EMBL" / "RepBase23.02.embl", "embl")
             self.assertTrue(w, "Expected parser warning")
             self.assertEqual(
                 [str(_.message) for _ in w], ["Malformed DR line in EMBL file."]

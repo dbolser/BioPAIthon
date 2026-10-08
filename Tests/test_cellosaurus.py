@@ -7,13 +7,15 @@
 
 import unittest
 
+import support
+
 from Bio.ExPASy import cellosaurus
 
 
 class TestCellosaurus(unittest.TestCase):
     def test_read(self):
         """Test read function."""
-        with open("Cellosaurus/cell_lines_1.txt") as handle:
+        with open(support.DATA / "Cellosaurus" / "cell_lines_1.txt") as handle:
             record = cellosaurus.read(handle)
         self.assertEqual(record["ID"], "#15310-LN")
         self.assertEqual(record["AC"], "CVCL_E548")
@@ -62,7 +64,7 @@ class TestCellosaurus(unittest.TestCase):
 
     def test_parse(self):
         """Test parsing function."""
-        with open("Cellosaurus/cell_lines_2.txt") as handle:
+        with open(support.DATA / "Cellosaurus" / "cell_lines_2.txt") as handle:
             records = cellosaurus.parse(handle)
             record = next(records)
             self.assertEqual(record["ID"], "XP3OS")
@@ -189,7 +191,7 @@ class TestCellosaurus(unittest.TestCase):
 
     def test__str__(self):
         """Test string function."""
-        with open("Cellosaurus/cell_lines_3.txt") as handle:
+        with open(support.DATA / "Cellosaurus" / "cell_lines_3.txt") as handle:
             record = cellosaurus.read(handle)
         text = (
             "ID: ZZ-R 127 AC: CVCL_5418 AS:  SY: ZZ-R DR: [('CCLV', 'CCLV-RIE 0127'), ('Wikidata', 'Q54996143')] RX: "

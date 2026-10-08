@@ -8,6 +8,8 @@
 
 import unittest
 
+import support
+
 from Bio.KEGG import Compound
 from Bio.KEGG import Enzyme
 from Bio.KEGG import Map
@@ -19,7 +21,7 @@ class EnzymeTests(unittest.TestCase):
 
     def test_sample(self):
         """enzyme.sample tests."""
-        with open("KEGG/enzyme.sample") as handle:
+        with open(support.DATA / "KEGG" / "enzyme.sample") as handle:
             records = list(Enzyme.parse(handle))
         self.assertEqual(len(records), 8)
         self.assertEqual(records[0].entry, "1.1.1.1")
@@ -89,7 +91,7 @@ class EnzymeTests(unittest.TestCase):
 
     def test_irregular(self):
         """enzyme.irregular tests."""
-        with open("KEGG/enzyme.irregular") as handle:
+        with open(support.DATA / "KEGG" / "enzyme.irregular") as handle:
             records = list(Enzyme.parse(handle))
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0].entry, "1.14.18.1")
@@ -97,14 +99,14 @@ class EnzymeTests(unittest.TestCase):
 
     def test_new(self):
         """enzyme.new tests."""
-        with open("KEGG/enzyme.new") as handle:
+        with open(support.DATA / "KEGG" / "enzyme.new") as handle:
             records = list(Enzyme.parse(handle))
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0].entry, "6.2.1.25")
 
     def test_4letter(self):
         """enzyme.4letter tests."""
-        with open("KEGG/enzyme.4letter") as handle:
+        with open(support.DATA / "KEGG" / "enzyme.4letter") as handle:
             records = list(Enzyme.parse(handle))
             self.assertEqual(len(records), 1)
         self.assertEqual(records[0].entry, "5.4.2.2")
@@ -113,7 +115,7 @@ class EnzymeTests(unittest.TestCase):
 
     def test_exceptions(self):
         """enzyme.exceptions tests."""
-        with open("KEGG/enzyme.sample") as handle:
+        with open(support.DATA / "KEGG" / "enzyme.sample") as handle:
             with self.assertRaises(ValueError) as context:
                 list(Enzyme.read(handle))
             self.assertIn(
@@ -130,7 +132,7 @@ class CompoundTests(unittest.TestCase):
 
     def test_sample(self):
         """compound.sample tests."""
-        with open("KEGG/compound.sample") as handle:
+        with open(support.DATA / "KEGG" / "compound.sample") as handle:
             records = list(Compound.parse(handle))
         self.assertEqual(len(records), 8)
         self.assertEqual(records[1].entry, "C00017")
@@ -163,14 +165,14 @@ class CompoundTests(unittest.TestCase):
 
     def test_irregular(self):
         """compound.irregular tests."""
-        with open("KEGG/compound.irregular") as handle:
+        with open(support.DATA / "KEGG" / "compound.irregular") as handle:
             records = list(Compound.parse(handle))
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0].entry, "C01454")
 
     def test_mass(self):
         """record.mass tests."""
-        with open("KEGG/compound.sample") as handle:
+        with open(support.DATA / "KEGG" / "compound.sample") as handle:
             records = list(Compound.parse(handle))
         self.assertEqual(records[0].entry, "C00023")
         self.assertEqual(records[0].mass, "55.9349")
@@ -186,7 +188,7 @@ class MapTests(unittest.TestCase):
     def test_map00950(self):
         """map00950.rea tests."""
         system = System()
-        with open("KEGG/map00950.rea") as handle:
+        with open(support.DATA / "KEGG" / "map00950.rea") as handle:
             for reaction in Map.parse(handle):
                 system.add_reaction(reaction)
         rxs = system.reactions()

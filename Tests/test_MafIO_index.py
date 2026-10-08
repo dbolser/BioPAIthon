@@ -19,6 +19,7 @@ import tempfile
 import unittest
 import warnings
 
+import support
 from seq_tests_common import SeqRecordTestBaseClass
 
 from Bio import SeqIO
@@ -78,7 +79,9 @@ if sqlite3:
 
         def test_old(self):
             idx = MafIndex(
-                "MAF/ucsc_mm9_chr10.mafindex", "MAF/ucsc_mm9_chr10.maf", "mm9.chr10"
+                support.DATA / "MAF" / "ucsc_mm9_chr10.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
+                "mm9.chr10",
             )
             self.assertEqual(len(idx), 48)
 
@@ -86,8 +89,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/ucsc_mm9_chr10.mafindex",
-                "MAF/ucsc_mm9_chr10.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
                 "mm9.chr11",
             )
 
@@ -95,8 +98,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/ucsc_mm9_chr10.mafindex",
-                "MAF/humor.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.mafindex",
+                support.DATA / "MAF" / "humor.maf",
                 "mm9.chr10",
             )
 
@@ -104,8 +107,8 @@ if sqlite3:
             self.assertRaises(
                 FileNotFoundError,
                 MafIndex,
-                "MAF/ucsc_mm9_chr11.mafindex",
-                "MAF/ucsc_mm9_chr11.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr11.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr11.maf",
                 "mm9.chr11",
             )
 
@@ -113,8 +116,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/wrong_version.idx",
-                "MAF/ucsc_mm9_chr10.maf",
+                support.DATA / "MAF" / "wrong_version.idx",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
                 "mm9.chr10",
             )
 
@@ -122,8 +125,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/unfinished.idx",
-                "MAF/ucsc_mm9_chr10.maf",
+                support.DATA / "MAF" / "unfinished.idx",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
                 "mm9.chr10",
             )
 
@@ -131,8 +134,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/corrupt.idx",
-                "MAF/ucsc_mm9_chr10.maf",
+                support.DATA / "MAF" / "corrupt.idx",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
                 "mm9.chr10",
             )
 
@@ -140,8 +143,8 @@ if sqlite3:
             self.assertRaises(
                 ValueError,
                 MafIndex,
-                "MAF/invalid.idx",
-                "MAF/ucsc_mm9_chr10.maf",
+                support.DATA / "MAF" / "invalid.idx",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
                 "mm9.chr10",
             )
 
@@ -157,18 +160,26 @@ if sqlite3:
                 shutil.rmtree(self.tmpdir)
 
         def test_good_small(self):
-            idx = MafIndex(self.tmpfile, "MAF/ucsc_mm9_chr10.maf", "mm9.chr10")
+            idx = MafIndex(
+                self.tmpfile, support.DATA / "MAF" / "ucsc_mm9_chr10.maf", "mm9.chr10"
+            )
             self.assertEqual(len(idx), 48)
             idx.close()
 
         def test_good_big(self):
-            idx = MafIndex(self.tmpfile, "MAF/ucsc_mm9_chr10_big.maf", "mm9.chr10")
+            idx = MafIndex(
+                self.tmpfile,
+                support.DATA / "MAF" / "ucsc_mm9_chr10_big.maf",
+                "mm9.chr10",
+            )
             self.assertEqual(len(idx), 983)
             idx.close()
 
         def test_close_releases_maf_handle(self):
             """close() must close the MAF file, not just the SQLite index."""
-            idx = MafIndex(self.tmpfile, "MAF/ucsc_mm9_chr10.maf", "mm9.chr10")
+            idx = MafIndex(
+                self.tmpfile, support.DATA / "MAF" / "ucsc_mm9_chr10.maf", "mm9.chr10"
+            )
             idx.close()
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always", ResourceWarning)
@@ -187,7 +198,7 @@ if sqlite3:
                 ValueError,
                 MafIndex,
                 self.tmpfile,
-                "MAF/bundle_without_target.maf",
+                support.DATA / "MAF" / "bundle_without_target.maf",
                 "mm9.chr10",
             )
 
@@ -196,7 +207,7 @@ if sqlite3:
                 ValueError,
                 MafIndex,
                 self.tmpfile,
-                "MAF/length_coords_mismatch.maf",
+                support.DATA / "MAF" / "length_coords_mismatch.maf",
                 "mm9.chr10",
             )
 
@@ -205,7 +216,9 @@ if sqlite3:
 
         def setUp(self):
             self.idx = MafIndex(
-                "MAF/ucsc_mm9_chr10.mafindex", "MAF/ucsc_mm9_chr10.maf", "mm9.chr10"
+                support.DATA / "MAF" / "ucsc_mm9_chr10.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
+                "mm9.chr10",
             )
             self.assertEqual(len(self.idx), 48)
 
@@ -345,7 +358,9 @@ if sqlite3:
 
         def setUp(self):
             self.idx = MafIndex(
-                "MAF/ucsc_mm9_chr10.mafindex", "MAF/ucsc_mm9_chr10.maf", "mm9.chr10"
+                support.DATA / "MAF" / "ucsc_mm9_chr10.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10.maf",
+                "mm9.chr10",
             )
             self.assertEqual(len(self.idx), 48)
 
@@ -650,8 +665,8 @@ if sqlite3:
 
         def setUp(self):
             self.idx = MafIndex(
-                "MAF/ucsc_mm9_chr10_bad.mafindex",
-                "MAF/ucsc_mm9_chr10_bad.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_bad.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_bad.maf",
                 "mm9.chr10",
             )
             self.assertEqual(len(self.idx), 48)
@@ -665,8 +680,8 @@ if sqlite3:
 
         def setUp(self):
             self.idx = MafIndex(
-                "MAF/ucsc_mm9_chr10_big.mafindex",
-                "MAF/ucsc_mm9_chr10_big.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_big.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_big.maf",
                 "mm9.chr10",
             )
             self.assertEqual(len(self.idx), 983)
@@ -728,7 +743,7 @@ if sqlite3:
                 1,
             )
 
-            cnksr3 = SeqIO.read("MAF/cnksr3.fa", "fasta").seq.upper()
+            cnksr3 = SeqIO.read(support.DATA / "MAF" / "cnksr3.fa", "fasta").seq.upper()
             mm9_seq = "".join(
                 [str(x.seq) for x in result if x.id.startswith("mm9")]
             ).replace("-", "")
@@ -740,8 +755,8 @@ if sqlite3:
 
         def setUp(self):
             self.idx = MafIndex(
-                "MAF/ucsc_mm9_chr10_bad.mafindex",
-                "MAF/ucsc_mm9_chr10_bad.maf",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_bad.mafindex",
+                support.DATA / "MAF" / "ucsc_mm9_chr10_bad.maf",
                 "mm9.chr10",
             )
             self.assertEqual(len(self.idx), 48)

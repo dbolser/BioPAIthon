@@ -9,12 +9,14 @@
 
 import unittest
 
+import support
+
 from Bio import Medline
 
 
 class TestMedline(unittest.TestCase):
     def test_read(self):
-        with open("Medline/pubmed_result1.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result1.txt") as handle:
             record = Medline.read(handle)
         self.assertEqual(record["PMID"], "12230038")
         self.assertEqual(record["OWN"], "NLM")
@@ -63,7 +65,7 @@ class TestMedline(unittest.TestCase):
         self.assertEqual(record["SO"], "Brief Bioinform. 2002 Sep;3(3):296-302.")
 
     def test_parse(self):
-        with open("Medline/pubmed_result2.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result2.txt") as handle:
             records = Medline.parse(handle)
             record = next(records)
             self.assertEqual(record["PMID"], "16403221")
@@ -345,7 +347,7 @@ class TestMedline(unittest.TestCase):
             self.assertRaises(StopIteration, next, records)
 
     def test_multiline_mesh(self):
-        with open("Medline/pubmed_result3.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result3.txt") as handle:
             record = Medline.read(handle)
             self.assertEqual(record["PMID"], "23039619")
         self.assertEqual(
@@ -367,7 +369,7 @@ class TestMedline(unittest.TestCase):
             Medline.read([])
 
     def test_read_more_than_one_record(self):
-        with open("Medline/pubmed_result2.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result2.txt") as handle:
             with self.assertRaisesRegex(
                 ValueError, "^More than one record found in handle$"
             ):

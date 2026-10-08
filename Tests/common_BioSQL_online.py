@@ -15,6 +15,7 @@ import warnings
 from io import StringIO
 
 import requires_internet
+import support
 from common_BioSQL import check_config
 from common_BioSQL import create_database
 from common_BioSQL import destroy_database
@@ -77,7 +78,7 @@ class TaxonomyTest(unittest.TestCase):
         self.db = self.server.new_database(db_name)
 
         # get the GenBank file we are going to put into it
-        self.iterator = SeqIO.parse("GenBank/cor6_6.gb", "gb")
+        self.iterator = SeqIO.parse(support.DATA / "GenBank" / "cor6_6.gb", "gb")
 
     def tearDown(self):
         self.server.close()

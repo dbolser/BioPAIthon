@@ -4,8 +4,9 @@
 """Tests for GenomeDiagram general functionality."""
 
 import math
-import os
 import unittest
+
+import support
 
 # Do we have ReportLab?  Raise error if not present.
 from Bio import MissingPythonDependencyError
@@ -283,7 +284,8 @@ class GraphTest(unittest.TestCase):
             start=0,
             end=points,
         )
-        gdd.write(os.path.join("Graphics", "line_graph.pdf"), "pdf")
+        # A str, as ReportLab (which writes the file) will not take a Path
+        gdd.write(str(support.DATA / "Graphics" / "line_graph.pdf"), "pdf")
         # Circular diagram
         gdd.draw(
             tracklines=False,
@@ -293,7 +295,7 @@ class GraphTest(unittest.TestCase):
             end=points,
             circle_core=0.5,
         )
-        gdd.write(os.path.join("Graphics", "line_graph_c.pdf"), "pdf")
+        gdd.write(str(support.DATA / "Graphics" / "line_graph_c.pdf"), "pdf")
 
     def test_slicing(self):
         """Check GraphData slicing."""
@@ -342,12 +344,12 @@ class LabelTest(unittest.TestCase):
             start=0,
             end=400,
         )
-        self.gdd.write(os.path.join("Graphics", name + ".pdf"), "pdf")
+        self.gdd.write(str(support.DATA / "Graphics" / (name + ".pdf")), "pdf")
         global renderPM
         if renderPM:
             try:
                 # For the tutorial this is useful:
-                self.gdd.write(os.path.join("Graphics", name + ".png"), "png")
+                self.gdd.write(str(support.DATA / "Graphics" / (name + ".png")), "png")
             except renderPM.RenderPMError:
                 # Probably a font problem, e.g.
                 # RenderPMError: Can't setFont(Times-Roman) missing the T1 files?
@@ -368,7 +370,7 @@ class LabelTest(unittest.TestCase):
                 start=0,
                 end=400,
             )
-            self.gdd.write(os.path.join("Graphics", name + "_c.pdf"), "pdf")
+            self.gdd.write(str(support.DATA / "Graphics" / (name + "_c.pdf")), "pdf")
 
     def add_track_with_sigils(self, **kwargs):
         """Add track with sigils."""
@@ -452,12 +454,12 @@ class SigilsTest(unittest.TestCase):
             start=0,
             end=400,
         )
-        self.gdd.write(os.path.join("Graphics", name + ".pdf"), "pdf")
+        self.gdd.write(str(support.DATA / "Graphics" / (name + ".pdf")), "pdf")
         global renderPM
         if renderPM:
             # For the tutorial this might be useful:
             try:
-                self.gdd.write(os.path.join("Graphics", name + ".png"), "png")
+                self.gdd.write(str(support.DATA / "Graphics" / (name + ".png")), "png")
             except renderPM.RenderPMError:
                 # Probably a font problem
                 renderPM = None
@@ -471,7 +473,7 @@ class SigilsTest(unittest.TestCase):
                 start=0,
                 end=400,
             )
-            self.gdd.write(os.path.join("Graphics", name + "_c.pdf"), "pdf")
+            self.gdd.write(str(support.DATA / "Graphics" / (name + "_c.pdf")), "pdf")
 
     def test_all_sigils(self):
         """All sigils."""
@@ -713,7 +715,7 @@ class DiagramTest(unittest.TestCase):
 
     def setUp(self):
         """Test setup, just loads a GenBank file as a SeqRecord."""
-        with open(os.path.join("GenBank", "NC_005816.gb")) as handle:
+        with open(support.DATA / "GenBank" / "NC_005816.gb") as handle:
             self.record = SeqIO.read(handle, "genbank")
 
         self.gdd = Diagram("Test Diagram")
@@ -793,7 +795,7 @@ class DiagramTest(unittest.TestCase):
         """Check how the write methods respond to output format arguments."""
         gdd = Diagram("Test Diagram")
         gdd.drawing = None  # Hack - need the ReportLab drawing object to be created.
-        filename = os.path.join("Graphics", "error.txt")
+        filename = str(support.DATA / "Graphics" / "error.txt")
         # We (now) allow valid formats in any case.
         for output in ["XXX", "xxx", None, 123, 5.9]:
             with self.assertRaises(ValueError):
@@ -876,14 +878,14 @@ class DiagramTest(unittest.TestCase):
             start=start,
             end=end,
         )
-        output_filename = os.path.join("Graphics", "GD_region_linear.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_region_linear.pdf")
         gdd.write(output_filename, "PDF")
 
         # Also check the write_to_string (bytes string) method matches,
         with open(output_filename, "rb") as handle:
             self.assertEqual(handle.read(), gdd.write_to_string("PDF"))
 
-        output_filename = os.path.join("Graphics", "GD_region_linear.svg")
+        output_filename = str(support.DATA / "Graphics" / "GD_region_linear.svg")
         gdd.write(output_filename, "SVG")
 
         # Circular with a particular start/end is a bit odd, but by setting
@@ -895,9 +897,9 @@ class DiagramTest(unittest.TestCase):
             start=start,
             end=end,
         )
-        output_filename = os.path.join("Graphics", "GD_region_circular.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_region_circular.pdf")
         gdd.write(output_filename, "PDF")
-        output_filename = os.path.join("Graphics", "GD_region_circular.svg")
+        output_filename = str(support.DATA / "Graphics" / "GD_region_circular.svg")
         gdd.write(output_filename, "SVG")
 
     def test_diagram_via_methods_pdf(self):
@@ -998,7 +1000,7 @@ class DiagramTest(unittest.TestCase):
             pagesize="A4",
             fragments=3,
         )
-        output_filename = os.path.join("Graphics", "GD_by_meth_linear.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_meth_linear.pdf")
         gdd.write(output_filename, "PDF")
 
         gdd.draw(
@@ -1008,7 +1010,7 @@ class DiagramTest(unittest.TestCase):
             pagesize=(20 * cm, 20 * cm),
             circular=True,
         )
-        output_filename = os.path.join("Graphics", "GD_by_meth_circular.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_meth_circular.pdf")
         gdd.write(output_filename, "PDF")
 
     def test_diagram_via_object_pdf(self):
@@ -1233,7 +1235,7 @@ class DiagramTest(unittest.TestCase):
         gdd.draw(
             format="circular", orientation="landscape", tracklines=0, pagesize="A0"
         )
-        output_filename = os.path.join("Graphics", "GD_by_obj_circular.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_obj_circular.pdf")
         gdd.write(output_filename, "PDF")
 
         gdd.circular = False
@@ -1245,7 +1247,7 @@ class DiagramTest(unittest.TestCase):
             start=3000,
             end=6300,
         )
-        output_filename = os.path.join("Graphics", "GD_by_obj_frag_circular.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_obj_frag_circular.pdf")
         gdd.write(output_filename, "PDF")
 
         gdd.draw(
@@ -1255,7 +1257,7 @@ class DiagramTest(unittest.TestCase):
             pagesize="A0",
             fragments=3,
         )
-        output_filename = os.path.join("Graphics", "GD_by_obj_linear.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_obj_linear.pdf")
         gdd.write(output_filename, "PDF")
 
         gdd.set_all_tracks("greytrack_labels", 2)
@@ -1268,7 +1270,7 @@ class DiagramTest(unittest.TestCase):
             start=3000,
             end=6300,
         )
-        output_filename = os.path.join("Graphics", "GD_by_obj_frag_linear.pdf")
+        output_filename = str(support.DATA / "Graphics" / "GD_by_obj_frag_linear.pdf")
         gdd.write(output_filename, "PDF")
 
 

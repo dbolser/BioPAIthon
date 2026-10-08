@@ -10,6 +10,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 # Biopython Bio.KEGG.KGML (?)
 from Bio.KEGG.KGML.KGML_parser import read
 
@@ -42,24 +44,24 @@ class KGMLPathwayTest(unittest.TestCase):
 
     def setUp(self):
         # Does our output director exist?  If not, create it
-        if not os.path.isdir("KEGG"):
-            os.mkdir("KEGG")
+        if not os.path.isdir(support.DATA / "KEGG"):
+            os.mkdir(support.DATA / "KEGG")
         # Define some data to work with as a list of tuples:
         # (infilename, outfilename, (entry_count, ortholog_count,
         # compound_count, map_counts), pathway_image,
         # show_image_map)
         self.data = [
             PathwayData(
-                os.path.join("KEGG", "ko01100.xml"),
+                support.DATA / "KEGG" / "ko01100.xml",
                 tempfile.gettempprefix() + ".ko01100.kgml",
                 (3628, 1726, 1746, 149),
-                os.path.join("KEGG", "map01100.png"),
+                support.DATA / "KEGG" / "map01100.png",
             ),
             PathwayData(
-                os.path.join("KEGG", "ko03070.xml"),
+                support.DATA / "KEGG" / "ko03070.xml",
                 tempfile.gettempprefix() + ".ko03070.kgml",
                 (81, 72, 8, 1),
-                os.path.join("KEGG", "map03070.png"),
+                support.DATA / "KEGG" / "map03070.png",
                 True,
             ),
         ]

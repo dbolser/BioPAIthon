@@ -11,6 +11,7 @@ import unittest
 from common_BioSQL import *  # noqa: F403
 
 # Import these explicitly to avoid flake8 F405 below:
+import support
 from common_BioSQL import check_config
 from common_BioSQL import temp_db_filename
 from seq_tests_common import SeqRecordTestBaseClass
@@ -55,12 +56,14 @@ class BackwardsCompatibilityTest(SeqRecordTestBaseClass):
     def test_backwards_compatibility(self):
         """Check can reuse an old BioSQL SQLite3 database."""
         original_records = []
-        for record in SeqIO.parse("GenBank/cor6_6.gb", "gb"):
+        for record in SeqIO.parse(support.DATA / "GenBank" / "cor6_6.gb", "gb"):
             if record.annotations["molecule_type"] == "mRNA":
                 record.annotations["molecule_type"] = "DNA"
             original_records.append(record)
         # now open a connection to load the database
-        server = BioSeqDatabase.open_database(driver=DBDRIVER, db="BioSQL/cor6_6.db")
+        server = BioSeqDatabase.open_database(
+            driver=DBDRIVER, db=support.DATA / "BioSQL" / "cor6_6.db"
+        )
         db = server["OLD"]
         self.assertEqual(len(db), len(original_records))
         # Now read them back...

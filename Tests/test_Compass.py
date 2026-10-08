@@ -6,18 +6,19 @@
 
 """Tests for parsing Compass output."""
 
-import os
 import unittest
+
+import support
 
 from Bio import Compass
 
 
 class CompassTest(unittest.TestCase):
     def setUp(self):
-        file_dir = os.path.join("Compass")
+        file_dir = support.DATA / "Compass"
         self.test_files = [
-            os.path.join(file_dir, "comtest1"),
-            os.path.join(file_dir, "comtest2"),
+            file_dir / "comtest1",
+            file_dir / "comtest2",
         ]
 
     def testCompassScanAndConsume(self):

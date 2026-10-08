@@ -10,6 +10,8 @@ import os
 import tempfile
 import unittest
 
+import support
+
 from Bio.NMR import NOEtools
 from Bio.NMR import xpktools
 
@@ -19,7 +21,7 @@ class NmrTests(unittest.TestCase):
 
     def test_xpktools(self):
         """Self test for NMR.xpktools."""
-        self.xpk_file = "NMR/noed.xpk"
+        self.xpk_file = support.DATA / "NMR" / "noed.xpk"
 
         self.peaklist = xpktools.Peaklist(self.xpk_file)
         # Peaklist attributes checks
@@ -71,10 +73,10 @@ class NmrTests(unittest.TestCase):
         Calculate and compare crosspeak peaklist files
         Adapted from Doc/examples/nmr/simplepredict.py by Robert Bussell, Jr.
         """
-        self.xpk_i_file = os.path.join("NMR", "noed.xpk")
+        self.xpk_i_file = support.DATA / "NMR" / "noed.xpk"
         # out_example.xpk is created by running Doc/examples/nmr/simplepredict.py
         # with noed.xpk as an input file.
-        self.xpk_expected = os.path.join("NMR", "out_example.xpk")
+        self.xpk_expected = support.DATA / "NMR" / "out_example.xpk"
 
         self.f_number, self.f_predicted = tempfile.mkstemp()
         os.close(self.f_number)

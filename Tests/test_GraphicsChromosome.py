@@ -11,12 +11,13 @@ Graphics.DisplayRepresentation classes.
 """
 # standard library
 
-import os
 import random
 import sys
 import unittest
 import warnings
 from io import StringIO
+
+import support
 
 from Bio import BiopythonWarning
 from Bio import MissingPythonDependencyError
@@ -170,7 +171,8 @@ class OrganismGraphicTest(unittest.TestCase):
     """Test the creation of all chromosomes of an organism."""
 
     def setUp(self):
-        self.test_file = os.path.join("Graphics", "organism.pdf")
+        # A str, as ReportLab (which writes the file) will not take a Path
+        self.test_file = str(support.DATA / "Graphics" / "organism.pdf")
 
     def test_simple_organism(self):
         """Test the basic functionality of drawing an organism."""
@@ -186,7 +188,7 @@ class OrganismGraphicTest(unittest.TestCase):
     def _simple_organism(self, filename, format):
         """Output a simple organism to given format."""
         test_organism = BasicChromosome.Organism(format)
-        test_file = os.path.join("Graphics", filename)
+        test_file = str(support.DATA / "Graphics" / filename)
 
         # add chromosomes
         for chr_name in ["I", "II", "III", "IV"]:
@@ -208,7 +210,7 @@ class OrganismGraphicTest(unittest.TestCase):
 
     def test_random_organism(self):
         """Generate an organism with random chromosome info."""
-        random_file = os.path.join("Graphics", "random_organism.pdf")
+        random_file = str(support.DATA / "Graphics" / "random_organism.pdf")
         pdf_organism = BasicChromosome.Organism()
 
         all_segs = []
@@ -270,11 +272,13 @@ class OrganismSubAnnotationsTest(unittest.TestCase):
 
     def test_simple_tRNA_tuples(self):
         """Test sub-annotations (as tuples) on a genome segment, tRNA for Arabidopsis."""
-        self.check_simple_tRNA("Graphics/tRNA_chrom.pdf", False)
+        self.check_simple_tRNA(str(support.DATA / "Graphics" / "tRNA_chrom.pdf"), False)
 
     def test_simple_tRNA_seqfeatures(self):
         """Test sub-annotations (as SeqFeatures) on a genome segment, tRNA for Arabidopsis."""
-        self.check_simple_tRNA("Graphics/tRNA_chrom_sf.pdf", True)
+        self.check_simple_tRNA(
+            str(support.DATA / "Graphics" / "tRNA_chrom_sf.pdf"), True
+        )
 
     def check_simple_tRNA(self, filename, use_seqfeatures=False):
         # Turn black code style off

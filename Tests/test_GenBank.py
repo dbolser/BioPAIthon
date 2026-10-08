@@ -7604,7 +7604,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_truncated_sequence_data_raises(self):
         """Truncated sequence data raises ValueError, not just a warning."""
-        path = "GenBank/noref.gb"
+        path = support.DATA / "GenBank" / "noref.gb"
         with open(path) as handle:
             lines = handle.read().splitlines(keepends=True)
         # Cut the record part way through the ORIGIN sequence block
@@ -7622,7 +7622,7 @@ class GenBankTests(unittest.TestCase):
 
     def test_locus_length_mismatch_raises(self):
         """LOCUS length disagreeing with the sequence raises ValueError."""
-        path = "GenBank/noref.gb"
+        path = support.DATA / "GenBank" / "noref.gb"
         with open(path) as handle:
             data = handle.read()
         data = data.replace(" 1622 bp ", " 1620 bp ", 1)
@@ -7637,7 +7637,9 @@ class GenBankTests(unittest.TestCase):
         # only warrant a warning (see Tests/GenBank/no_end_marker.gb).
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always", BiopythonParserWarning)
-            record = SeqIO.read("GenBank/no_end_marker.gb", "genbank")
+            record = SeqIO.read(
+                support.DATA / "GenBank" / "no_end_marker.gb", "genbank"
+            )
         self.assertIn(
             "Premature end of file in sequence data",
             [str(w.message) for w in caught],

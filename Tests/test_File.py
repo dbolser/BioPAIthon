@@ -17,6 +17,8 @@ import tempfile
 import unittest
 from io import StringIO
 
+import support
+
 from Bio import bgzf
 from Bio import File
 from Bio import MissingPythonDependencyError
@@ -31,19 +33,25 @@ class RandomAccess(unittest.TestCase):
 
     def test_plain(self):
         """Test plain text file."""
-        with File._open_for_random_access("Quality/example.fastq") as handle:
+        with File._open_for_random_access(
+            support.DATA / "Quality" / "example.fastq"
+        ) as handle:
             self.assertIn("r", handle.mode)
             self.assertIn("b", handle.mode)
 
     def test_bgzf(self):
         """Test BGZF compressed file."""
-        with File._open_for_random_access("Quality/example.fastq.bgz") as handle:
+        with File._open_for_random_access(
+            support.DATA / "Quality" / "example.fastq.bgz"
+        ) as handle:
             self.assertIsInstance(handle, bgzf.BgzfReader)
 
     def test_gzip(self):
         """Test gzip compressed file."""
         self.assertRaises(
-            ValueError, File._open_for_random_access, "Quality/example.fastq.gz"
+            ValueError,
+            File._open_for_random_access,
+            support.DATA / "Quality" / "example.fastq.gz",
         )
 
 
@@ -243,7 +251,7 @@ class IndexedSeqFileDictTests(unittest.TestCase):
 
     def test_str_of_populated_index(self):
         """A populated index prints its first key and the object type."""
-        index = SeqIO.index("Fasta/f002", "fasta")
+        index = SeqIO.index(support.DATA / "Fasta" / "f002", "fasta")
         try:
             first_key = next(iter(index))
             self.assertEqual(str(index), "{%r : SeqRecord(...), ...}" % first_key)
@@ -305,24 +313,30 @@ class SQLiteIndexTests(unittest.TestCase):
         File.sqlite3 = None
         try:
             with self.assertRaises(MissingPythonDependencyError):
-                SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+                SeqIO.index_db(
+                    self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+                )
         finally:
             File.sqlite3 = saved
 
     def test_unsupported_format_when_building(self):
         """Building an index for a format with no random access support fails."""
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index_db(self.index_filename, "Fasta/f002", "nonsense")
+            SeqIO.index_db(
+                self.index_filename, support.DATA / "Fasta" / "f002", "nonsense"
+            )
         self.assertIn("Unsupported format 'nonsense'", str(cm.exception))
 
     def test_repr(self):
         """The repr is the string handed in by Bio.SeqIO.index_db."""
-        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+        index = SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        )
         try:
             self.assertEqual(
                 repr(index),
                 "SeqIO.index_db(%r, filenames=%r, format='fasta', key_function=None)"
-                % (self.index_filename, ["Fasta/f002"]),
+                % (self.index_filename, [support.DATA / "Fasta" / "f002"]),
             )
         finally:
             index.close()
@@ -334,7 +348,9 @@ class SQLiteIndexTests(unittest.TestCase):
         index_db dictionary has to print exactly like the equivalent
         Bio.SeqIO.index one.
         """
-        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+        index = SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        )
         try:
             first_key = next(iter(index))
             self.assertEqual(str(index), "{%r : SeqRecord(...), ...}" % first_key)
@@ -343,8 +359,10 @@ class SQLiteIndexTests(unittest.TestCase):
 
     def test_str_matches_the_in_memory_index(self):
         """index_db and index print the same thing for the same file."""
-        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
-        in_memory = SeqIO.index("Fasta/f002", "fasta")
+        index = SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        )
+        in_memory = SeqIO.index(support.DATA / "Fasta" / "f002", "fasta")
         try:
             self.assertEqual(str(index), str(in_memory))
         finally:
@@ -365,7 +383,8 @@ class SQLiteIndexTests(unittest.TestCase):
 
     def test_str_of_searchio_index(self):
         """Bio.SearchIO.index_db names QueryResult, not SeqRecord."""
-        filename = "Blast/tab_2226_tblastn_001.txt"
+        # A str, as Bio.SearchIO.index_db does not take a lone Path
+        filename = str(support.DATA / "Blast" / "tab_2226_tblastn_001.txt")
         index = SearchIO.index_db(self.index_filename, filename, "blast-tab")
         in_memory = SearchIO.index(filename, "blast-tab")
         try:
@@ -378,20 +397,28 @@ class SQLiteIndexTests(unittest.TestCase):
 
     def test_unfinished_database(self):
         """An index whose count is still -1 was never finished being built."""
-        SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta").close()
+        SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        ).close()
         self._tamper("count", -1)
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+            SeqIO.index_db(
+                self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+            )
         self.assertIn("Unfinished/partial database", str(cm.exception))
 
     def test_corrupt_database_record_count(self):
         """The stored count must agree with the number of rows present."""
-        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+        index = SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        )
         rows = len(index)
         index.close()
         self._tamper("count", rows + 7)
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+            SeqIO.index_db(
+                self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+            )
         self.assertIn(
             "Corrupt database? %i entries not %i" % (rows, rows + 7), str(cm.exception)
         )
@@ -403,12 +430,16 @@ class SQLiteIndexTests(unittest.TestCase):
         con.commit()
         con.close()
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+            SeqIO.index_db(
+                self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+            )
         self.assertIn("Not a Biopython index database?", str(cm.exception))
 
     def test_unsupported_format_when_reloading(self):
         """An index naming a format we cannot random access is rejected."""
-        SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta").close()
+        SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        ).close()
         self._tamper("format", "nonsense")
         with self.assertRaises(ValueError) as cm:
             # No format given, so it is taken from the index itself
@@ -417,9 +448,13 @@ class SQLiteIndexTests(unittest.TestCase):
 
     def test_reload_with_different_filenames(self):
         """Reloading an index with a different file list is rejected."""
-        SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta").close()
+        SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        ).close()
         with self.assertRaises(ValueError) as cm:
-            SeqIO.index_db(self.index_filename, "Fasta/f001", "fasta")
+            SeqIO.index_db(
+                self.index_filename, support.DATA / "Fasta" / "f001", "fasta"
+            )
         self.assertIn("Index file has different filenames", str(cm.exception))
         # New style indexes record paths relative to the index file, so the
         # message must not blame the old relative-to-$PWD behaviour.
@@ -427,7 +462,9 @@ class SQLiteIndexTests(unittest.TestCase):
 
     def test_get_raw_with_missing_key(self):
         """get_raw reports a missing key with KeyError, as documented."""
-        index = SeqIO.index_db(self.index_filename, "Fasta/f002", "fasta")
+        index = SeqIO.index_db(
+            self.index_filename, support.DATA / "Fasta" / "f002", "fasta"
+        )
         try:
             self.assertRaises(KeyError, index.get_raw, "no-such-key")
         finally:
@@ -454,7 +491,8 @@ class SQLiteIndexTests(unittest.TestCase):
 
 def open_descriptors(path):
     """Return how many of this process's descriptors point at the given file."""
-    target = os.path.abspath(path)
+    # The /proc/self/fd links hold fully resolved paths, symlinks included
+    target = os.path.realpath(path)
     count = 0
     for name in os.listdir("/proc/self/fd"):
         try:
@@ -497,21 +535,29 @@ class SQLiteIndexHandlePoolTests(unittest.TestCase):
 
     def test_only_max_open_files_kept_open_while_building(self):
         """Building over more files than the pool allows closes the extras."""
-        index = self._index(["Fasta/f001", "Fasta/f002"], "fasta", max_open=1)
+        index = self._index(
+            [support.DATA / "Fasta" / "f001", support.DATA / "Fasta" / "f002"],
+            "fasta",
+            max_open=1,
+        )
         try:
             self.assertEqual(len(index._proxies), 1)
             self.assertEqual(len(index), 4)  # 1 record in f001, 3 in f002
             # The point of the pool is not to run out of file descriptors,
             # so the file dropped from it must really have been closed.
-            self.assertEqual(open_descriptors("Fasta/f001"), 1)
-            self.assertEqual(open_descriptors("Fasta/f002"), 0)
+            self.assertEqual(open_descriptors(support.DATA / "Fasta" / "f001"), 1)
+            self.assertEqual(open_descriptors(support.DATA / "Fasta" / "f002"), 0)
         finally:
             index.close()
-        self.assertEqual(open_descriptors("Fasta/f001"), 0)
+        self.assertEqual(open_descriptors(support.DATA / "Fasta" / "f001"), 0)
 
     def test_getitem_reopens_an_evicted_file(self):
         """Fetching from a closed file evicts a handle and reopens it."""
-        index = self._index(["Fasta/f001", "Fasta/f002"], "fasta", max_open=1)
+        index = self._index(
+            [support.DATA / "Fasta" / "f001", support.DATA / "Fasta" / "f002"],
+            "fasta",
+            max_open=1,
+        )
         try:
             keys = list(index)
             # Read from both files, forcing the pool to swap handles
@@ -523,7 +569,11 @@ class SQLiteIndexHandlePoolTests(unittest.TestCase):
 
     def test_get_raw_reopens_an_evicted_file(self):
         """get_raw can use the stored record length after reopening a file."""
-        index = self._index(["Fasta/f001", "Fasta/f002"], "fasta", max_open=1)
+        index = self._index(
+            [support.DATA / "Fasta" / "f001", support.DATA / "Fasta" / "f002"],
+            "fasta",
+            max_open=1,
+        )
         try:
             # Keys are ordered by file then offset, so the last one is the
             # last record of the second file: reading it needs both a fresh
@@ -532,8 +582,8 @@ class SQLiteIndexHandlePoolTests(unittest.TestCase):
             raw = index.get_raw(keys[-1])
             self.assertTrue(raw.startswith(b">" + keys[-1].encode()))
             self.assertEqual(list(index._proxies), [1])
-            self.assertEqual(open_descriptors("Fasta/f001"), 0)
-            self.assertEqual(open_descriptors("Fasta/f002"), 1)
+            self.assertEqual(open_descriptors(support.DATA / "Fasta" / "f001"), 0)
+            self.assertEqual(open_descriptors(support.DATA / "Fasta" / "f002"), 1)
             # And back the other way
             raw = index.get_raw(keys[0])
             self.assertTrue(raw.startswith(b">" + keys[0].encode()))
@@ -545,7 +595,14 @@ class SQLiteIndexHandlePoolTests(unittest.TestCase):
         """SFF indexes hold no record length, so get_raw must ask the proxy."""
         # The Roche index in an SFF file gives offsets but no lengths, so the
         # length column is zero and Bio.File cannot take its usual shortcut.
-        index = self._index(["Roche/greek.sff", "Roche/paired.sff"], "sff", max_open=1)
+        index = self._index(
+            [
+                support.DATA / "Roche" / "greek.sff",
+                support.DATA / "Roche" / "paired.sff",
+            ],
+            "sff",
+            max_open=1,
+        )
         try:
             # Keys come back ordered by file number, so the last one belongs
             # to the second file, which the pool will have closed.

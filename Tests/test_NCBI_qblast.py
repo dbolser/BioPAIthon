@@ -31,6 +31,7 @@ from unittest import mock
 from urllib.error import HTTPError
 
 import requires_internet
+import support
 
 from Bio import MissingExternalDependencyError
 
@@ -57,19 +58,20 @@ if not requires_internet.check.available:
         """Mimic an NCBI qblast response."""
         # Each use of NCBIWWW.qblast makes two urlopen calls with different responses:
         # a. the 'wait' page, and b. the result.
-        wait = ["Blast/mock_wait.html"]  # This mimics the 'wait' page
+        blast = support.DATA / "Blast"
+        wait = [blast / "mock_wait.html"]  # This mimics the 'wait' page
 
         # These mimic the results. Add new mock files here, if you add more tests.
         # Note: The test are run in alphabetical order, so place new files at the
         # correct position.
         response_list = [
-            "Blast/mock_actin.xml",  # result for test_blastp_nr_actin
-            "Blast/mock_disco.xml",  # result for test_discomegalast
-            "Blast/mock_orchid.xml",  # result for test_orchid_est
-            "Blast/mock_pcr.xml",  # result for test_pcr_primers
-            "Blast/mock_short_empty.xml",  # result for test_short_query # 1
-            "Blast/mock_short_result.xml",  # result for test_short_query # 2
-            "Blast/mock_short_result.xml",  # result for test_short_query # 3
+            blast / "mock_actin.xml",  # result for test_blastp_nr_actin
+            blast / "mock_disco.xml",  # result for test_discomegalast
+            blast / "mock_orchid.xml",  # result for test_orchid_est
+            blast / "mock_pcr.xml",  # result for test_pcr_primers
+            blast / "mock_short_empty.xml",  # result for test_short_query # 1
+            blast / "mock_short_result.xml",  # result for test_short_query # 2
+            blast / "mock_short_result.xml",  # result for test_short_query # 3
         ]
 
         # Generate a list of responses with the structure wait|result|wait|result...
@@ -333,7 +335,7 @@ class TestQblast(unittest.TestCase):
             self.assertTrue(found_result, msg=msg)
 
     def test_parse_qblast_ref_page(self):
-        with open("Blast/html_msgid_29_blastx_001.html", "rb") as f:
+        with open(support.DATA / "Blast" / "html_msgid_29_blastx_001.html", "rb") as f:
             handle = BytesIO(f.read())
         self.assertRaises(ValueError, NCBIWWW._parse_qblast_ref_page, handle)
 

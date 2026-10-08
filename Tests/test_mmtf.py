@@ -24,6 +24,8 @@ except ImportError:
         "Install mmtf-python to use Bio.PDB.mmtf"
     ) from None
 
+import support
+
 from Bio import BiopythonDeprecationWarning
 from Bio.PDB import PDBParser
 from Bio.PDB import Select
@@ -139,7 +141,9 @@ class ParseMMTF(unittest.TestCase):
 
     def test_4CUP(self):
         """Compare parsing 4CUP.mmtf and 4CUP.cif."""
-        self.check_mmtf_vs_cif("PDB/4CUP.mmtf", "PDB/4CUP.cif")
+        self.check_mmtf_vs_cif(
+            support.DATA / "PDB" / "4CUP.mmtf", support.DATA / "PDB" / "4CUP.cif"
+        )
 
 
 # TODO:
@@ -160,13 +164,13 @@ class SimpleParseMMTF(unittest.TestCase):
         """Parse 4ZHL.mmtf."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = MMTFParser.get_structure("PDB/4ZHL.mmtf")
+            structure = MMTFParser.get_structure(support.DATA / "PDB" / "4ZHL.mmtf")
 
     def test_1A80(self):
         """Parse 1A8O.mmtf."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            structure = MMTFParser.get_structure("PDB/1A8O.mmtf")
+            structure = MMTFParser.get_structure(support.DATA / "PDB" / "1A8O.mmtf")
 
 
 class WriteMMTF(unittest.TestCase):
@@ -175,7 +179,7 @@ class WriteMMTF(unittest.TestCase):
     def test_write(self):
         """Test a simple structure object is written out correctly to MMTF."""
         parser = MMCIFParser()
-        structure = parser.get_structure("1A8O", "PDB/1A8O.cif")
+        structure = parser.get_structure("1A8O", support.DATA / "PDB" / "1A8O.cif")
         io = MMTFIO()
         io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()
@@ -224,7 +228,9 @@ class WriteMMTF(unittest.TestCase):
     def test_multi_model_write(self):
         """Test multiple models are written out correctly to MMTF."""
         parser = PDBParser()
-        structure = parser.get_structure("1SSU_mod", "PDB/1SSU_mod.pdb")
+        structure = parser.get_structure(
+            "1SSU_mod", support.DATA / "PDB" / "1SSU_mod.pdb"
+        )
         io = MMTFIO()
         io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()
@@ -253,7 +259,7 @@ class WriteMMTF(unittest.TestCase):
 
     def test_selection_write(self):
         """Test the use of a Select subclass when writing MMTF files."""
-        structure = MMTFParser.get_structure("PDB/4CUP.mmtf")
+        structure = MMTFParser.get_structure(support.DATA / "PDB" / "4CUP.mmtf")
         io = MMTFIO()
         io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()

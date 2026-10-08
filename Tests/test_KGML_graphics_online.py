@@ -34,6 +34,7 @@ except ImportError:
 
 # Biopython Bio.KEGG.KGML
 import requires_internet
+import support
 
 # test_KGML_graphics module
 from test_KGML_graphics import PathwayData
@@ -53,8 +54,8 @@ class KGMLPathwayOnlineTest(unittest.TestCase):
 
     def setUp(self):
         # Does our output directory exist?  If not, create it
-        if not os.path.isdir("KEGG"):
-            os.mkdir("KEGG")
+        if not os.path.isdir(support.DATA / "KEGG"):
+            os.mkdir(support.DATA / "KEGG")
         # Define some data to work with as a list of tuples:
         # (infilename, outfilename, (entry_count, ortholog_count,
         # compound_count, map_counts), pathway_image,

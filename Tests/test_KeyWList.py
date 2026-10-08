@@ -4,8 +4,9 @@
 # as part of this package.
 """Tests for KeyWList."""
 
-import os.path
 import unittest
+
+import support
 
 from Bio.SwissProt import KeyWList
 
@@ -15,7 +16,7 @@ class KeyWListTest(unittest.TestCase):
 
     def test_parse(self):
         """Test parsing keywlist.txt works."""
-        filename = os.path.join("SwissProt", "keywlist.txt")
+        filename = support.DATA / "SwissProt" / "keywlist.txt"
         with open(filename) as handle:
             records = KeyWList.parse(handle)
 
@@ -64,7 +65,7 @@ class KeyWListTest(unittest.TestCase):
 
     def test_parse2(self):
         """Parsing keywlist2.txt (without header and footer)."""
-        filename = os.path.join("SwissProt", "keywlist2.txt")
+        filename = support.DATA / "SwissProt" / "keywlist2.txt"
         with open(filename) as handle:
             records = KeyWList.parse(handle)
 

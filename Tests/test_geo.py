@@ -7,12 +7,14 @@
 
 import unittest
 
+import support
+
 from Bio import Geo
 
 
 class TestGeo(unittest.TestCase):
     def test_soft_ex_dual(self):
-        path = "Geo/soft_ex_dual.txt"
+        path = support.DATA / "Geo" / "soft_ex_dual.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -867,7 +869,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][5], "1.60E+02")
 
     def test_soft_ex_affy(self):
-        path = "Geo/soft_ex_affy.txt"
+        path = support.DATA / "Geo" / "soft_ex_affy.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -1504,7 +1506,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(len(record.table_rows), 0)
 
     def test_GSE16(self):
-        path = "Geo/GSE16.txt"
+        path = support.DATA / "Geo" / "GSE16.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -1779,7 +1781,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][4], "3")
 
     def test_soft_ex_platform(self):
-        path = "Geo/soft_ex_platform.txt"
+        path = support.DATA / "Geo" / "soft_ex_platform.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -2126,7 +2128,7 @@ class TestGeo(unittest.TestCase):
             )
 
     def test_GSM700(self):
-        path = "Geo/GSM700.txt"
+        path = support.DATA / "Geo" / "GSM700.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -2337,7 +2339,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][2], "3026.47")
 
     def test_GSM645(self):
-        path = "Geo/GSM645.txt"
+        path = support.DATA / "Geo" / "GSM645.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -2755,7 +2757,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][13], "A")
 
     def test_soft_ex_series(self):
-        path = "Geo/soft_ex_series.txt"
+        path = support.DATA / "Geo" / "soft_ex_series.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -2827,7 +2829,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(len(record.table_rows), 0)
 
     def test_GSM691(self):
-        path = "Geo/GSM691.txt"
+        path = support.DATA / "Geo" / "GSM691.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -3036,7 +3038,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][2], "4187.02")
 
     def test_soft_ex_family(self):
-        path = "Geo/soft_ex_family.txt"
+        path = support.DATA / "Geo" / "soft_ex_family.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -4305,7 +4307,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(len(record.table_rows), 0)
 
     def test_GSM804(self):
-        path = "Geo/GSM804.txt"
+        path = support.DATA / "Geo" / "GSM804.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -4580,7 +4582,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(record.table_rows[20][4], "3")
 
     def test_soft_ex_affy_chp(self):
-        path = "Geo/soft_ex_affy_chp.txt"
+        path = support.DATA / "Geo" / "soft_ex_affy_chp.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
@@ -4851,7 +4853,7 @@ class TestGeo(unittest.TestCase):
             self.assertEqual(len(record.table_rows), 0)
 
     def test_record_str(self):
-        path = "Geo/GSM804.txt"
+        path = support.DATA / "Geo" / "GSM804.txt"
         with open(path, encoding="latin") as handle:
             records = Geo.parse(handle)
             record = next(records)
