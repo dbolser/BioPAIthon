@@ -516,40 +516,46 @@ points in the ecosystem. Existing `Tests/test_AlignIO_*.py` passing unchanged is
 the acceptance gate.
 **Effort L · Impact high**
 
-### 1.2 Five incompatible format-registration mechanisms, none extensible **[public API decided, not yet built]**
+### 1.2 Five incompatible format-registration mechanisms, none extensible **[shared registry FIXED, public hook decided but not built]**
 
-> **Status: the public contract is decided; no code has landed.** The
-> "Decided API" list below is the contract that the implementing PRs follow.
-> If the contract changes, this list changes first. The NumPy consequence
-> this section first reported is gone. PR #73 made SeqIO's format tables
-> lazy, so `import Bio.SeqIO` loads no format module. Nor does it load
-> NumPy, `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses
-> with NumPy uninstalled (re-checked on 2026-10-06), and
-> `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` guards it.
+> **Status: the shared registry has landed; the public hook is decided but
+> not built.** PR #149 added a private, lazy `FormatRegistry`
+> (`Bio/_io_registry.py`). SeqIO and `Bio.Align` now look format names up
+> through it, so a `Bio.Align` format name no longer has to be a module name.
+> `register_format()` and entry-point plugins are not built yet. The
+> "Decided API" list below is the contract they follow. If the contract
+> changes, this list changes first. The NumPy consequence this section first
+> reported is gone. PR #73 made SeqIO's format tables lazy, so
+> `import Bio.SeqIO` loads no format module. Nor does it load NumPy,
+> `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses with
+> NumPy uninstalled (re-checked on 2026-10-08).
+> `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` and
+> `test_io_registry.BuiltinTables.test_import_seqio_stays_light` guard it.
 
-`Bio/SeqIO/__init__.py:601-695` holds lazy `"Module.Class"` strings, resolved
-on first use by a private `_LazyFormatRegistry` (PR #73).
+`Bio/SeqIO/__init__.py:561-657` holds lazy `"Module.Class"` strings, and
+`Bio/Align/__init__.py:5319-5327` builds its table from the `formats` tuple.
+Both are `FormatRegistry` tables, resolved on first use (PR #149).
 `Bio/AlignIO/__init__.py:162-185` uses dicts of eagerly imported classes.
-`Bio/Align/__init__.py:5320-5330` derives a module path from the format string
-via `importlib`. `Bio/SearchIO/__init__.py:210-261` holds lazy
+`Bio/SearchIO/__init__.py:210-261` holds lazy
 `(module, class)` string tuples, which `get_processor`
 (`Bio/SearchIO/_utils.py:35-64`) imports on use. `Bio/Phylo/_io.py:21-33` is a
 dict of eagerly imported modules.
 
-Consequences: `Bio.Align` format names must be valid Python module names, which
-is *why* it cannot offer `phylip-relaxed` (§1.1) and why it says `tabular` where
-SeqIO says `fasta-m10`. Case handling differs — `Align.read(f, "FASTA")` works,
-`SeqIO.parse(f, "FASTA")` raises. There is no registration hook at all, so a
-downstream package must mutate private dicts. hybran, LMAT, recentrifuge and
-psico assign into `SeqIO._FormatToIterator`, and tfbayes into AlignIO's table.
+Consequences: until PR #149, `Bio.Align` format names had to be valid Python
+module names. That is *why* it could not offer `phylip-relaxed` (§1.1), and why
+it says `tabular` where SeqIO says `fasta-m10`. Case handling differs —
+`Align.read(f, "FASTA")` works, `SeqIO.parse(f, "FASTA")` raises. There is no
+registration hook at all, so a downstream package must mutate private dicts.
+hybran, LMAT, recentrifuge and psico assign into `SeqIO._FormatToIterator`, and
+tfbayes into AlignIO's table.
 Until PR #73 the eager imports also made NumPy a requirement for parsing FASTA
 (see the status note). `import Bio.AlignIO` still pulls in `Bio.Align` and
 NumPy.
 
-**Plan:** one private, lazy `FormatRegistry`, a `dict` subclass generalising
-SeqIO's `_LazyFormatRegistry`. It holds `"package.module"` or
-`"package.module:attr"` specs, the form entry points use, keyed on an explicit
-name so subtype names stay free-form. SeqIO and `Bio.Align`
+**Plan:** one private, lazy `FormatRegistry` (built in PR #149), a `dict`
+subclass generalising SeqIO's old `_LazyFormatRegistry`. It holds
+`"package.module"` or `"package.module:attr"` specs, the form entry points use,
+keyed on an explicit name so subtype names stay free-form. SeqIO and `Bio.Align`
 resolve through it, and `Bio.Phylo` optionally. Each keeps its existing private
 table name, case rules and error messages. AlignIO and SearchIO are
 deliberately left as they are. Lazy AlignIO tables would save little: most of
@@ -609,8 +615,8 @@ entry-point groups so plugins work.
      made before a replacement that changes ids.
 6. **`SeqIO.index` for a new name** works when the iterator is a
    `SequenceIterator` subclass that has `"t"` in its `modes`, sets
-   `record_start_marker`, and overrides `parse_id_from_header` (public once
-   PR #133 lands). Built-in names with no index proxy stay unsupported, and
+   `record_start_marker`, and overrides `parse_id_from_header` (a public hook
+   since PR #133). Built-in names with no index proxy stay unsupported, and
    the proxy classes stay private.
 7. **`Bio.Align.formats` lists built-in names only,** and stays unchanged.
    Registered and plugin names never appear in it.

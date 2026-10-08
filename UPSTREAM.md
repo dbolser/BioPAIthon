@@ -140,7 +140,9 @@ on `biopython/biopython` about it.**
   and `Bio.Align.register_format(name, module, *, replace=False)`, plus
   entry-point plugins in the groups `biopaithon.seqio.iterators`,
   `biopaithon.seqio.writers` and `biopaithon.align`. The contract is decided in
-  `IMPROVEMENTS.md` §1.2. No code has landed yet.
+  `IMPROVEMENTS.md` §1.2. The private registry it builds on has landed
+  ([#149](https://github.com/dbolser/BioPAIthon/pull/149)); the hook and the
+  plugins have not.
 - **Why upstream may care.** Upstream's format tables are private. It has no
   public registration hook and no entry points, and no open issue or pull
   request proposes one (searched 2026-10-06, `master` at `372c71069`,
