@@ -688,7 +688,7 @@ class ParserErrorTests(unittest.TestCase):
 
     def test_truncated_file(self):
         """Check a file truncated between entries is not reported as empty."""
-        with open("SwissProt/multi_ex.xml", "rb") as handle:
+        with open(support.DATA / "SwissProt" / "multi_ex.xml", "rb") as handle:
             data = handle.read()
         end = data.index(b"</entry>\n") + len(b"</entry>\n")
         records = SeqIO.parse(BytesIO(data[:end]), "uniprot-xml")

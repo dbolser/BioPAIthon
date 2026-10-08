@@ -1475,7 +1475,8 @@ class ParseIdFromHeaderContractTests(unittest.TestCase):
             )
             filenames = set()
             for pattern in IndexParseKeyAgreementTests.corpus[fmt]:
-                filenames.update(glob.glob(pattern))
+                found = glob.glob(pattern, root_dir=support.DATA)
+                filenames.update(support.DATA / name for name in found)
             checked = 0
             for filename in sorted(filenames):
                 with self.subTest(format=fmt, filename=filename):

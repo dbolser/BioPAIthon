@@ -547,7 +547,7 @@ class TestAbiFake(unittest.TestCase):
 class TestAbiCorrupt(unittest.TestCase):
     def test_data_past_end_of_file(self):
         """Test a directory entry pointing past the end of the file."""
-        with open(join("Abi", "310.ab1"), "rb") as handle:
+        with open(support.DATA / "Abi" / "310.ab1", "rb") as handle:
             data = handle.read()
         # Directory entry for APrN1, 13 bytes of cString data:
         self.assertEqual(data[218599:218603], b"APrN")

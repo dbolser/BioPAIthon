@@ -9,7 +9,6 @@
 import unittest
 import warnings
 from copy import deepcopy
-from os import path
 
 import support
 
@@ -386,10 +385,7 @@ class TestSeqFeature(unittest.TestCase):
 
     def test_slice_isolates_nested_qualifier_values(self):
         """UniProt stores ligands as a list of dicts; those must not be shared."""
-        record = SeqIO.read(
-            path.join(path.dirname(__file__), "SwissProt", "P62330.xml"),
-            "uniprot-xml",
-        )
+        record = SeqIO.read(support.DATA / "SwissProt" / "P62330.xml", "uniprot-xml")
         index = next(
             i for i, f in enumerate(record.features) if "ligands" in f.qualifiers
         )
