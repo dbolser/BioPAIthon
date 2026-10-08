@@ -68,6 +68,7 @@ https://biopython.org
 - Arup Ghosh <https://github.com/arupgsh>
 - Austin Varela <https://github.com/austinv11>
 - Aziz Khan <https://github.com/asntech>
+- Angus Barlow <https://github.com/barlowa124>
 - Barbara Mühlemann <https://github.com/bamueh>
 - Bart de Koning <bratdaking gmail>
 - Bart Grosman <https://github.com/Bartvelp>
