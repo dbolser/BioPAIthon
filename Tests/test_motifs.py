@@ -10,7 +10,7 @@
 
 import math
 import random
-import sysconfig
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -5272,8 +5272,10 @@ class MotifTestPWM(unittest.TestCase):
         self.assertAlmostEqual(pseudocounts["T"], 1.695582495781317, places=5)
 
 
-@unittest.skipUnless(
-    sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+# Run only while the GIL is off. A free-threaded build turns it back on when
+# an undeclared extension is imported, unless PYTHON_GIL=0 is set.
+@unittest.skipIf(
+    getattr(sys, "_is_gil_enabled", lambda: True)(), "requires the GIL to be disabled"
 )
 class ConcurrentCalculate(unittest.TestCase):
     """Concurrent PSSM scoring of a shared sequence matches serial scoring."""

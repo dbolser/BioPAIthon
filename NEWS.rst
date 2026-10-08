@@ -64,10 +64,12 @@ now declare that they can run without the global interpreter lock: those used
 by ``Bio.Nexus``, ``Bio.motifs``, ``Bio.SeqIO``'s ``twobit`` parser, and
 ``Bio.PDB``'s ``kdtrees``, ``ccealign`` and BinaryCIF modules. Importing an
 extension without that declaration turns the GIL back on for the whole
-process, with a ``RuntimeWarning``, so reading 2bit or NEXUS files no longer
-does so. ``Bio.motifs`` and ``Bio.PDB`` still import ``Bio.Align``, whose
-extensions are not declared yet, so for now they still turn the GIL on. A new
-CI job runs the test suite on Python 3.14t.
+process, with a ``RuntimeWarning``. Reading 2bit files with ``Bio.SeqIO``,
+or NEXUS files with ``Bio.Nexus``, no longer does so. ``Bio.motifs``,
+``Bio.PDB``, ``Bio.AlignIO``, ``Bio.Phylo`` and ``Bio.SeqIO``'s ``nexus``
+parser still import ``Bio.Align``, whose extensions are not declared yet, so
+for now they still turn the GIL on. A new CI job runs the test suite on Python
+3.14t.
 
 ``Bio.Seq`` is now fully type-annotated, so type checkers such as mypy see
 what its functions and methods return instead of ``Any``. A method of ``Seq``

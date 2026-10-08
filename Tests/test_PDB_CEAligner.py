@@ -323,8 +323,10 @@ class RunCEAlignResultTypeTests(unittest.TestCase):
         self.assertEqual(clone.length, result.length)
 
 
-@unittest.skipUnless(
-    sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+# Run only while the GIL is off. A free-threaded build turns it back on when
+# an undeclared extension is imported, unless PYTHON_GIL=0 is set.
+@unittest.skipIf(
+    getattr(sys, "_is_gil_enabled", lambda: True)(), "requires the GIL to be disabled"
 )
 class RunCEAlignThreadTests(unittest.TestCase):
     """Concurrent run_cealign calls on shared coordinates match serial calls.

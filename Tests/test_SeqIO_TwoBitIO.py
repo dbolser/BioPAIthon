@@ -1,7 +1,6 @@
 """Tests for SeqIO TwoBitIO module."""
 
 import sys
-import sysconfig
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
@@ -576,8 +575,10 @@ class TestBaseClassMethods(unittest.TestCase):
         self.assertEqual(self.seq2_twobit.defined_ranges, ((0, len(self.seq2_twobit)),))
 
 
-@unittest.skipUnless(
-    sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+# Run only while the GIL is off. A free-threaded build turns it back on when
+# an undeclared extension is imported, unless PYTHON_GIL=0 is set.
+@unittest.skipIf(
+    getattr(sys, "_is_gil_enabled", lambda: True)(), "requires the GIL to be disabled"
 )
 class ConcurrentConvert(unittest.TestCase):
     """Concurrent calls of the C helper on shared inputs match serial calls.
