@@ -8,8 +8,10 @@ Bio.SeqIO.index and Bio.SearchIO.index return these dictionaries, generic in
 the record type. Type-checked with the mypy.ini beside it, never run.
 """
 
+import os
 from collections.abc import Iterator
 from collections.abc import Mapping
+from typing import overload
 
 from typing_extensions import assert_type
 
@@ -66,4 +68,32 @@ class Proxy(_IndexedSeqFileProxy[SeqRecord]):
 assert_type(
     _IndexedSeqFileDict(Proxy(), None, "repr", "SeqRecord"),
     _IndexedSeqFileDict[SeqRecord],
+)
+
+
+# Bio.SeqIO.index_db and Bio.SearchIO.index_db pass a factory that is called
+# two ways: with a format alone, and with a format and a filename. Written
+# with an overload for each, it keeps the record type.
+@overload
+def proxy_factory(format: str) -> bool: ...
+
+
+@overload
+def proxy_factory(format: str, filename: str | os.PathLike[str]) -> Proxy: ...
+
+
+def proxy_factory(
+    format: str, filename: str | os.PathLike[str] | None = None
+) -> Proxy | bool:
+    """Say if a format is supported, or make a proxy for one file."""
+    if filename:
+        return Proxy()
+    return format == "fasta"
+
+
+assert_type(
+    _SQLiteManySeqFilesDict(
+        ":memory:", None, proxy_factory, "fasta", None, "repr", "SeqRecord"
+    ),
+    _SQLiteManySeqFilesDict[SeqRecord],
 )
