@@ -662,7 +662,9 @@ class Rebuild(unittest.TestCase):
 
     def test_atomkey_init_errors(self):
         """Test AtomKey rejects misordered or unrecognised arguments."""
-        structure = self.PDB_parser.get_structure("1A8O", "PDB/1A8O.pdb")
+        structure = self.PDB_parser.get_structure(
+            "1A8O", support.DATA / "PDB" / "1A8O.pdb"
+        )
         residue = structure[0]["A"][152]
         ric = IC_Residue(residue)
         atom = residue["CA"]
