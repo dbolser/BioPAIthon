@@ -502,9 +502,10 @@ than one instance.
 > `Bio.Align.convert()`, or migrate the internal consumers. This note
 > replaces the **Plan** in the original text, which is kept below for the
 > record. All numbers below were measured on 2026-10-06 on `main` and on
-> upstream `master` `372c71069`, which is also the merge-base. Line numbers
-> were re-checked on 2026-10-07, after PR #149. The commands that reproduce
-> them are in PR #142.
+> upstream `master` `372c71069`, which is also the merge-base. They were
+> re-checked on 2026-10-08, on `main` after PR #155 and on upstream `master`
+> `bb295f15a`; the two upstream commit counts are from that day, and line
+> numbers are `main`'s. The commands that reproduce them are in PR #142.
 >
 > **Why the shim is declined:**
 >
@@ -531,17 +532,19 @@ than one instance.
 >   names and writes 8 with `AlignIO`'s classes
 >   (`Bio/SeqIO/__init__.py:473-558`), so a shim would change SeqIO output
 >   too.
-> - **The sync cost runs the wrong way.** `Bio/AlignIO` has had 0 upstream
->   commits since the merge-base (`git rev-list --count
->   372c71069..upstream/master -- Bio/AlignIO`), but upstream sweeps still
->   touch it (open
->   [#5354](https://github.com/biopython/biopython/pull/5354) and
->   [#5219](https://github.com/biopython/biopython/pull/5219)), and
+> - **The sync cost runs the wrong way.** `Bio/AlignIO` has had 1 upstream
+>   commit since the merge-base (`git rev-list --count
+>   372c71069..upstream/master -- Bio/AlignIO`), and it was a sweep: ruff
+>   import sorting, which edits `NexusIO.py`
+>   ([#5360](https://github.com/biopython/biopython/pull/5360), merged
+>   2026-10-08). More sweeps that touch it are open
+>   ([#5219](https://github.com/biopython/biopython/pull/5219) and
+>   [#5361](https://github.com/biopython/biopython/pull/5361)), and
 >   upstream still fixes its bugs
 >   ([#5355](https://github.com/biopython/biopython/issues/5355)). Rewritten
 >   modules would turn each of those into a conflict. Closing the shim's
 >   gaps would also mean editing `Bio/Align/__init__.py`, upstream's
->   most-edited file: 66 upstream commits since 2023 (`git rev-list --count
+>   most-edited file: 67 upstream commits since 2023 (`git rev-list --count
 >   --since=2023-01-01 upstream/master -- Bio/Align/__init__.py`).
 > - **Deleting the modules would break this fork's own rule** — "Nothing has
 >   been removed here that upstream still ships" (see "Where this fork
@@ -569,7 +572,7 @@ than one instance.
 >   and searching mm9.chr10 3,014,000–3,015,000 returns 7 alignments. But
 >   it is not a drop-in replacement. The bigMaf writer needs every
 >   alignment in memory and `.targets` set by hand (it ignores its
->   `targets=` argument, `Bio/Align/bigmaf.py:130`), so it does not suit
+>   `targets=` argument, `Bio/Align/bigmaf.py:135`), so it does not suit
 >   the genome-scale MAF files that `MafIndex` is for. `MafIndex` reads
 >   plain MAF only: `MafIndex.__init__` opens the file with the built-in
 >   `open(..., "rb")`, so "bgzip-aware" in the original text below is
@@ -637,9 +640,9 @@ than one instance.
 > | Stockholm, EMBOSS, MAF, Mauve | Annotation key names. Stockholm `secondary_structure` and `GS:`/`GC:` prefixes against `secondary structure` and no prefix; EMBOSS `identity` against `Identity`. For MAF and Mauve, `AlignIO` keeps start, size and strand in each record's `annotations`, `Bio.Align` in `coordinates`. | kept |
 > | Nexus, Stockholm | All-gap columns. `Alignment` cannot hold one, so `Bio.Align` drops them: `test_Nexus_input.nex` has 48 columns in `AlignIO` and 46 in `Bio.Align`. | kept |
 > | MAF | `.` in an `s` line. `AlignIO` reads it as the reference letter, `Bio.Align` as a gap. `AlignIO`'s reading contradicts the line's size: in `Tests/MAF/humor.maf`, mm3 has size 3,424 but `AlignIO`'s row has 5,166 residues (`Bio.Align`'s has 3,424). | kept; reported upstream as a behaviour choice (upstream row 27) |
-> | MAF | Size check. `Bio.Align` raises when an `s` line's size does not match its sequence (`Bio/Align/maf.py:440-444`); `AlignIO` does not check. | kept |
+> | MAF | Size check. `Bio.Align` raises when an `s` line's size does not match its sequence (`Bio/Align/maf.py:472-476`); `AlignIO` does not check. | kept |
 > | MAF | `Bio.Align` needs the `##maf` header line (`Bio/Align/maf.py:305-306`). `Tests/MAF/ucsc_mm9_chr10_big.maf` has none: 983 alignments in `AlignIO`, `ValueError` in `Bio.Align`. | out of scope (rare input) |
-> | Mauve | Different id model. `AlignIO` ids are `1/0-5670` (sequence number and range); `Bio.Align` ids are `0`, `1`, with the file name in the description. `Bio.Align` also checks each sequence against its stated range, so `simple_short.xmfa`, whose sequences are cut short, hits an `assert` there and reads in `AlignIO`. | kept |
+> | Mauve | Different id model. `AlignIO` ids are `1/0-5670` (sequence number and range); `Bio.Align` ids are `0`, `1`, with the file name in the description. `Bio.Align` also checks each sequence against its stated range, so `simple_short.xmfa`, whose sequences are cut short, raises `ValueError` there and reads in `AlignIO`. | kept |
 > | EMBOSS | Reverse strand (`-sreverse`). `AlignIO` raises on `Tests/Emboss/water_reverse1-4.txt` ([#1376](https://github.com/biopython/biopython/issues/1376), open since 2017); `Bio.Align` reads them. | out of scope (an `AlignIO` fix) |
 > | MSF | Strictness and error messages differ. `Tests/msf/DOA_prot.msf`, whose header says length 62 where the sequences have 250, reads only in `Bio.Align` (with a warning). | kept |
 > | Clustal | Several alignments in one file. `AlignIO` reads them; `Bio.Align` raises at the second header. | out of scope (rare input) |
@@ -648,10 +651,10 @@ than one instance.
 > | PHYLIP | `AlignIO` ignores the header's length (`Bio/AlignIO/PhylipIO.py:206`), so `phylip` and `phylip-relaxed` can misread silently: relaxed short names read under `phylip` give rows of 3 residues with ids `s1 AAAAAAA`, and names repeated in a later block end up inside the sequence. `Bio.Align` raises on both. Every silent misread found was `AlignIO`'s, so `Bio.Align`'s auto-detection is not changed to match. | reported upstream, not fixed here (upstream row 29) |
 > | PHYLIP | Interleaved without blank lines between blocks. `AlignIO` reads it; `Bio.Align` raises (it does not misread). | out of scope |
 > | Stockholm | Interleaved blocks. `Bio.Align` makes one row per sequence line: `simple.sth` raises, an equal-width two-block file silently reads as 4×5 instead of 2×10, and duplicate names become extra rows. | fixed by `align-stockholm-blocks` (planned); upstream row 25 |
-> | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:295`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed by `align-stockholm-gr` (planned); upstream row 28 |
+> | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:299`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed by `align-stockholm-gr` (planned); upstream row 28 |
 > | Stockholm | `#=GF SQ` must match the number of sequences in `Bio.Align` (`Bio/Align/stockholm.py:233`), so `funny.sth` raises; `AlignIO` ignores it. Deliberate ([#3747](https://github.com/biopython/biopython/issues/3747)). | kept |
 > | all | Non-seekable streams. `Bio.Align.parse` seeks, so stdin and pipes raise `io.UnsupportedOperation`; `AlignIO` reads them. | fixed by `align-parse-nonseekable` (planned); upstream row 24 |
-> | FASTA `-m 10` | Only `AlignIO` has `fasta-m10` (`Bio/AlignIO/__init__.py:165`): `Tests/Fasta/output001.m10` reads as 4 alignments there. `Bio.Align` has no such format. Its `tabular` reads FASTA's `-m 8CB` and `-m 8CC` output, not `-m 10`, and raises `AssertionError` on that file. | out of scope (not one of the eight formats both stacks implement) |
+> | FASTA `-m 10` | Only `AlignIO` has `fasta-m10` (`Bio/AlignIO/__init__.py:165`): `Tests/Fasta/output001.m10` reads as 4 alignments there. `Bio.Align` has no such format. Its `tabular` reads FASTA's `-m 8CB` and `-m 8CC` output, not `-m 10`, and raises `ValueError` on that file. | out of scope (not one of the eight formats both stacks implement) |
 > | writers | Only nexus output is byte-identical. Clustal, PHYLIP, Stockholm, MAF and Mauve output differ, and `AlignIO` cannot write EMBOSS or MSF. | kept: both sets of writers stay |
 
 Eight formats implemented twice — ~3,300 lines in `Bio/AlignIO/` duplicating

@@ -104,14 +104,16 @@ Verified unreported in the GitHub tracker and still present on upstream
 | 29 | `AlignIO`'s PHYLIP readers ignore the header's length | `PhylipIterator` parses it (`Bio/AlignIO/PhylipIO.py:206`) and never uses it, so `phylip` and `phylip-relaxed` can misread silently. `AlignIO.read(StringIO("2 10\ns1 AAAAAAAAAA\ns2 CCCCCCCCCC\n"), "phylip")` gives 2 rows of 3 residues, with ids `s1 AAAAAAA` and `s2 CCCCCCC`. Names repeated in a later block end up inside the sequence (`AAAAs1AAAA`). `Bio.Align` raises on both. **Not fixed here**: it is an `AlignIO` change, outside §1.1's new scope. |
 
 Rows 24–29 come from the §1.1 re-scope in `IMPROVEMENTS.md`. They were checked
-on 2026-10-06 against upstream `master` `372c71069`, where the code each row
-describes is the same as in this fork, and against the GitHub tracker, which
-has nothing filed for any of them. The nearest are
+on 2026-10-06 against upstream `master` `372c71069`, and again on 2026-10-08
+against `bb295f15a`. The code each row describes has not changed upstream, and
+it behaves as in this fork. The GitHub tracker has nothing filed for any of
+them. The nearest are
 [#4147](https://github.com/biopython/biopython/issues/4147) (seeking a SeqIO
 iterator) and [#358](https://github.com/biopython/biopython/issues/358) (`.`
 against `-` in Stockholm), and neither is the same defect. Line numbers are
-this fork's. They match upstream's except in `Bio/Align/__init__.py`, which
-row 24 cites by name.
+upstream's, at `bb295f15a`, because the planned fixes will move or remove
+these lines here. This fork's differ in `Bio/Align/__init__.py`, which row 24
+cites by name, and in `stockholm.py` and `phylip.py`, which PR #155 edited.
 
 ## Needs work before it can be filed
 
