@@ -4,10 +4,11 @@
 # package.
 """Pin the exceptions raised for unknown, unsupported or malformed format names.
 
-Bio.SeqIO, Bio.AlignIO and Bio.Align each check a format name in their own way
-and word their own messages.  These tables record, through the public API
-only, what each entry point raises today, so that a change to how formats are
-looked up cannot alter an exception type or message without a test noticing.
+Bio.SeqIO, Bio.AlignIO, Bio.Align and Bio.Phylo each check a format name in
+their own way and word their own messages.  These tables record, through the
+public API only, what each entry point raises today, so that a change to how
+formats are looked up cannot alter an exception type or message without a test
+noticing.
 
 Some rows pin quirks rather than designs: format(record, "txt") raises
 KeyError, Bio.AlignIO accepts "123" where Bio.SeqIO rejects it, and
@@ -23,6 +24,7 @@ import support
 
 from Bio import Align
 from Bio import AlignIO
+from Bio import Phylo
 from Bio import SeqIO
 from Bio import StreamModeError
 from Bio.Seq import Seq
@@ -32,6 +34,7 @@ FASTA = support.DATA / "Fasta" / "f002"
 SWISS = support.DATA / "SwissProt" / "F2CXE6.txt"
 EMBOSS = support.DATA / "Emboss" / "needle.txt"
 CLUSTAL = support.DATA / "Clustalw" / "opuntia.aln"
+NEWICK = support.DATA / "Nexus" / "int_node_labels.nwk"
 
 NOT_A_STRING = "Need a string for the file format (lower case)"
 NO_FORMAT = "Format required (lower case string)"
@@ -282,6 +285,35 @@ class AlignFormatErrors(FormatErrorTestCase):
             )
         with self.subTest(call="format(alignment, fmt)"):
             self.check_table(lambda fmt: format(alignment, fmt), table)
+
+
+class PhyloFormatErrors(FormatErrorTestCase):
+    """Bio.Phylo's entry points, which match a format name exactly."""
+
+    table = [
+        ("nope", KeyError, "nope"),
+        ("NEWICK", KeyError, "NEWICK"),
+    ]
+
+    def test_parse(self):
+        self.check_table(lambda fmt: next(Phylo.parse(NEWICK, fmt)), self.table)
+
+    def test_read(self):
+        self.check_table(lambda fmt: Phylo.read(NEWICK, fmt), self.table)
+
+    def test_write(self):
+        tree = Phylo.read(NEWICK, "newick")
+        self.check_table(lambda fmt: Phylo.write(tree, StringIO(), fmt), self.table)
+
+    def test_convert_input_format(self):
+        self.check_table(
+            lambda fmt: Phylo.convert(NEWICK, fmt, StringIO(), "newick"), self.table
+        )
+
+    def test_convert_output_format(self):
+        self.check_table(
+            lambda fmt: Phylo.convert(NEWICK, "newick", StringIO(), fmt), self.table
+        )
 
 
 if __name__ == "__main__":

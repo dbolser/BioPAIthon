@@ -2,9 +2,10 @@
 # choice of the "Biopython License Agreement" or the "BSD 3-Clause License".
 # Please see the LICENSE file that should have been included as part of this
 # package.
-"""Tests for the lazy format tables shared by Bio.SeqIO and Bio.Align."""
+"""Tests for the lazy format tables of Bio.SeqIO, Bio.Align and Bio.Phylo."""
 
 import importlib
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -19,12 +20,15 @@ from io import StringIO
 import support
 
 from Bio import Align
+from Bio import MissingPythonDependencyError
+from Bio import Phylo
 from Bio import SeqIO
 from Bio._io_registry import _resolve
 from Bio._io_registry import FormatRegistry
 from Bio.Align import clustal
 
 CLUSTAL = support.DATA / "Clustalw" / "opuntia.aln"
+NEWICK = support.DATA / "Nexus" / "int_node_labels.nwk"
 
 # Modules written to a temporary directory, so that each test knows whether
 # they have been imported yet.
@@ -267,6 +271,30 @@ class BuiltinTables(unittest.TestCase):
                 self.assertIs(module, importlib.import_module(f"Bio.Align.{fmt}"))
                 self.assertTrue(hasattr(module, "AlignmentIterator"))
 
+    def test_phylo(self):
+        table = Phylo._io.supported_formats
+        self.assertIsInstance(table, FormatRegistry)
+        expected = {
+            "newick": "NewickIO",
+            "nexus": "NexusIO",
+            "phyloxml": "PhyloXMLIO",
+            "nexml": "NeXMLIO",
+        }
+        # cdao is offered wherever rdflib is installed, even an rdflib that
+        # CDAOIO cannot use; using it then raises MissingPythonDependencyError.
+        if importlib.util.find_spec("rdflib") is not None:
+            expected["cdao"] = "CDAOIO"
+        self.assertEqual(list(table), list(expected))
+        for fmt, name in expected.items():
+            with self.subTest(fmt=fmt):
+                try:
+                    module = table[fmt]
+                except MissingPythonDependencyError as err:
+                    self.skipTest(str(err))
+                self.assertIs(module, importlib.import_module(f"Bio.Phylo.{name}"))
+                self.assertTrue(callable(module.parse))
+                self.assertTrue(callable(module.write))
+
     def test_import_seqio_stays_light(self):
         """Importing Bio.SeqIO needs neither Bio.Align nor importlib.metadata."""
         code = (
@@ -282,6 +310,75 @@ class BuiltinTables(unittest.TestCase):
             cwd=support.DATA,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+
+class PhyloImportsFormatsOnDemand(unittest.TestCase):
+    """Bio.Phylo imports a tree format module only when it is used.
+
+    Each check runs in a fresh interpreter, since this one has already
+    imported whatever the rest of the test suite needed.
+    """
+
+    def run_python(self, code):
+        result = subprocess.run(
+            [sys.executable, "-W", "ignore", "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=support.DATA,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_reading_newick_stays_light(self):
+        """Reading a Newick tree needs none of NumPy, Bio.Align, Bio.Nexus or rdflib."""
+        self.run_python(
+            "import sys\n"
+            "from Bio import Phylo\n"
+            f"Phylo.read({str(NEWICK)!r}, 'newick')\n"
+            "heavy = ['numpy', 'Bio.Align', 'Bio.Nexus', 'rdflib']\n"
+            "loaded = [name for name in heavy if name in sys.modules]\n"
+            "assert not loaded, 'reading Newick pulled in %s' % loaded\n"
+        )
+
+    def test_submodules_are_still_attributes(self):
+        """Each submodule that importing Bio.Phylo used to bind is still there."""
+        self.run_python(
+            "import Bio.Phylo\n"
+            "names = ['BaseTree', 'CDAO', 'NeXML', 'NeXMLIO', 'Newick', 'NewickIO',"
+            " 'NexusIO', 'PhyloXML', 'PhyloXMLIO', '_cdao_owl', '_io', '_utils']\n"
+            "for name in names:\n"
+            "    module = getattr(Bio.Phylo, name)\n"
+            "    assert module.__name__ == 'Bio.Phylo.' + name, module\n"
+        )
+
+    def test_without_rdflib(self):
+        """Without rdflib, cdao is not offered and CDAOIO is not an attribute."""
+        self.run_python(
+            "import sys\n"
+            "sys.modules['rdflib'] = None  # as if rdflib were not installed\n"
+            "import Bio.Phylo\n"
+            "from Bio import MissingPythonDependencyError\n"
+            "assert 'cdao' not in Bio.Phylo._io.supported_formats\n"
+            "assert not hasattr(Bio.Phylo, 'CDAOIO')\n"
+            "try:\n"
+            "    Bio.Phylo.CDAOIO\n"
+            "except AttributeError as err:\n"
+            "    assert isinstance(err.__cause__, MissingPythonDependencyError)\n"
+            "try:\n"
+            "    from Bio.Phylo import CDAOIO\n"
+            "except MissingPythonDependencyError:\n"
+            "    pass\n"
+            "else:\n"
+            "    raise AssertionError('imported CDAOIO without rdflib')\n"
+        )
+
+    def test_rdflib_imported_without_spec(self):
+        """An rdflib already in sys.modules without a __spec__ counts as present."""
+        self.run_python(
+            "import sys, types\n"
+            "sys.modules['rdflib'] = types.ModuleType('rdflib')  # no __spec__\n"
+            "import Bio.Phylo\n"
+            "assert 'cdao' in Bio.Phylo._io.supported_formats\n"
+        )
 
 
 class SeqIOErrorWhileResolving(unittest.TestCase):
