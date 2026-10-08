@@ -129,20 +129,24 @@ class TestFastqCompactQualities(unittest.TestCase):
         "fastq-solexa": QualityIO.FastqSolexaIterator,
     }
     files = [
-        ("Quality/example.fastq", "fastq", "phred_quality"),
-        ("Quality/longreads_original_sanger.fastq", "fastq", "phred_quality"),
+        (support.DATA / "Quality" / "example.fastq", "fastq", "phred_quality"),
         (
-            "Quality/sanger_full_range_original_sanger.fastq",
+            support.DATA / "Quality" / "longreads_original_sanger.fastq",
+            "fastq",
+            "phred_quality",
+        ),
+        (
+            support.DATA / "Quality" / "sanger_full_range_original_sanger.fastq",
             "fastq-sanger",
             "phred_quality",
         ),
         (
-            "Quality/illumina_full_range_original_illumina.fastq",
+            support.DATA / "Quality" / "illumina_full_range_original_illumina.fastq",
             "fastq-illumina",
             "phred_quality",
         ),
         (
-            "Quality/solexa_full_range_original_solexa.fastq",
+            support.DATA / "Quality" / "solexa_full_range_original_solexa.fastq",
             "fastq-solexa",
             "solexa_quality",
         ),
@@ -251,7 +255,9 @@ class TestFastqCompactQualities(unittest.TestCase):
                 )
 
     def test_add(self):
-        lists, arrays = self.parse_both("Quality/example.fastq", "fastq")
+        lists, arrays = self.parse_both(
+            support.DATA / "Quality" / "example.fastq", "fastq"
+        )
         combined = arrays[0] + arrays[1]
         qualities = combined.letter_annotations["phred_quality"]
         self.assertIs(type(qualities), array.array)
@@ -266,7 +272,9 @@ class TestFastqCompactQualities(unittest.TestCase):
 
     def test_upper_lower(self):
         record = next(
-            QualityIO.FastqPhredIterator("Quality/example.fastq", compact=True)
+            QualityIO.FastqPhredIterator(
+                support.DATA / "Quality" / "example.fastq", compact=True
+            )
         )
         before = list(record.letter_annotations["phred_quality"])
         for method in ("upper", "lower"):
@@ -283,7 +291,9 @@ class TestFastqCompactQualities(unittest.TestCase):
 
     def test_letter_annotations_validation(self):
         record = next(
-            QualityIO.FastqPhredIterator("Quality/example.fastq", compact=True)
+            QualityIO.FastqPhredIterator(
+                support.DATA / "Quality" / "example.fastq", compact=True
+            )
         )
         with self.assertRaises(TypeError):
             record.letter_annotations["phred_quality"] = array.array("b", [1, 2])
@@ -296,7 +306,9 @@ class TestFastqCompactQualities(unittest.TestCase):
 
     def test_pickle(self):
         record = next(
-            QualityIO.FastqSolexaIterator("Quality/solexa_faked.fastq", compact=True)
+            QualityIO.FastqSolexaIterator(
+                support.DATA / "Quality" / "solexa_faked.fastq", compact=True
+            )
         )
         clone = pickle.loads(pickle.dumps(record))
         self.assertEqual(clone.letter_annotations, record.letter_annotations)
