@@ -5,10 +5,15 @@
 # Please see the LICENSE file that should have been included as part of this
 # package.
 
-"""Large file parsing of Genepop files.
+"""Large file parsing of Genepop files (DEPRECATED).
 
 The standard parser loads the whole file into memory. This parser
 provides an iterator over data.
+
+This module is deprecated and will be removed in a future release of
+BioPAIthon. Please use ``Bio.PopGen.GenePop.read`` instead, or
+``Bio.PopGen.GenePop.FileParser`` to work through a large file without
+loading it all into memory.
 
 Classes:
 - LargeRecord - Holds GenePop data.
@@ -17,6 +22,18 @@ Functions:
 - read - Parses a GenePop record (file) into a Record object.
 
 """
+
+import warnings
+
+from Bio import BiopythonDeprecationWarning
+
+warnings.warn(
+    "Bio.PopGen.GenePop.LargeFileParser has been deprecated, and we intend to "
+    "remove it in a future release of BioPAIthon. Please use "
+    "Bio.PopGen.GenePop.read instead, or Bio.PopGen.GenePop.FileParser to "
+    "work through a large file without loading it all into memory.",
+    BiopythonDeprecationWarning,
+)
 
 
 def get_indiv(line):

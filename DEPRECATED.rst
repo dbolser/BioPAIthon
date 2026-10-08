@@ -83,6 +83,17 @@ From now on one should use the following commands:
 Biopython modules, methods, functions
 =====================================
 
+Bio.PopGen.GenePop.LargeFileParser
+----------------------------------
+**This deprecation is BioPAIthon's own; Biopython has not deprecated this
+module.** Deprecated in BioPAIthon 1.88. Nothing in BioPAIthon uses it,
+it had no tests, and the Tutorial does not mention it. Please use
+``Bio.PopGen.GenePop.read`` instead, or ``Bio.PopGen.GenePop.FileParser``
+(which takes a file name rather than a handle) to work through a large file
+without loading it all into memory. Code that calls the module's
+``get_indiv`` directly should note that it reports a missing allele as ``0``,
+whereas ``Bio.PopGen.GenePop.get_indiv`` reports it as ``None``.
+
 Bio.Blast.NCBIWWW and Bio.Blast.NCBIXML
 ---------------------------------------
 **This deprecation is BioPAIthon's own.** Biopython has not deprecated these

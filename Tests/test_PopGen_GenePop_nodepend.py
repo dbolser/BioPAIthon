@@ -7,13 +7,16 @@
 """Tests for PopGen GenePop nodepend module."""
 
 import gc
+import importlib
 import os
+import sys
 import tempfile
 import unittest
 import warnings
 
 import support
 
+from Bio import BiopythonDeprecationWarning
 from Bio.PopGen import GenePop
 from Bio.PopGen.GenePop import FileParser
 
@@ -289,6 +292,33 @@ class UtilsTest(unittest.TestCase):
         self.assertNotEqual(rec.loci_list[0], first_loci)
         rec.remove_locus_by_position(0)
         self.assertEqual(len(rec.loci_list), initial_loci - 2)
+
+
+class LargeFileParserDeprecationTest(unittest.TestCase):
+    """Check the module-level deprecation warning of LargeFileParser.
+
+    The warning fires only when the module is first executed, so the module
+    is removed from ``sys.modules`` and imported afresh.
+    """
+
+    def test_import_warns_and_names_replacements(self):
+        """A fresh import warns BiopythonDeprecationWarning, naming successors."""
+        module_name = "Bio.PopGen.GenePop.LargeFileParser"
+        sys.modules.pop(module_name, None)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            importlib.import_module(module_name)
+        messages = [
+            str(w.message)
+            for w in caught
+            if issubclass(w.category, BiopythonDeprecationWarning)
+        ]
+        self.assertEqual(
+            len(messages), 1, "expected exactly one BiopythonDeprecationWarning"
+        )
+        self.assertIn(f"{module_name} has been deprecated", messages[0])
+        self.assertIn("Bio.PopGen.GenePop.read", messages[0])
+        self.assertIn("Bio.PopGen.GenePop.FileParser", messages[0])
 
 
 if __name__ == "__main__":
