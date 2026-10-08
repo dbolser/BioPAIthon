@@ -23,6 +23,7 @@ the diagram: http://www.reportlab.com
 from reportlab.lib import colors
 
 # GenomeDiagram imports
+from ._Colors import _warn_colour_alias
 from ._FeatureSet import FeatureSet
 from ._GraphSet import GraphSet
 
@@ -127,12 +128,12 @@ class Track:
          - greytrack_font_rotation   Int describing the angle through which to
            rotate the grey track labels (Linear only)
          - greytrack_font_color     colors.Color describing the color to draw
-           the grey track labels (overridden by backwards compatible argument
-           with UK spelling, colour).
+           the grey track labels (overridden by deprecated argument
+           with UK spelling, greytrack_font_colour).
          - scale     Boolean, 1 if a scale is to be drawn on the track
          - scale_color  colors.Color to draw the elements of the scale
-           (overridden by backwards compatible argument with UK
-           spelling, colour).
+           (overridden by deprecated argument with UK spelling,
+           scale_colour).
          - scale_font    String describing the font to use for the scale labels
          - scale_fontsize    Int describing the size of the scale label font
          - scale_fontangle   Int describing the angle at which to draw the scale
@@ -159,8 +160,10 @@ class Track:
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if greytrack_font_colour is not None:
+            _warn_colour_alias("greytrack_font_colour", "greytrack_font_color")
             greytrack_font_color = greytrack_font_colour
         if scale_colour is not None:
+            _warn_colour_alias("scale_colour", "scale_color")
             scale_color = scale_colour
 
         self._next_id = 0  # This will count sets as they are added to the track

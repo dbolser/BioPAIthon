@@ -27,6 +27,7 @@ the diagram: http://www.reportlab.com
 
 from reportlab.lib import colors
 
+from ._Colors import _warn_colour_alias
 from ._Graph import GraphData
 
 
@@ -72,11 +73,11 @@ class GraphSet:
          - style     String ('bar', 'heat', 'line') describing how the graph
            will be drawn
          - color    colors.Color describing the color to draw all or 'high'
-           (some styles) data (overridden by backwards compatible
-           argument with UK spelling, colour).
-         - altcolor  colors.Color describing the color to draw 'low' (some
-           styles) data (overridden by backwards compatible argument
+           (some styles) data (overridden by deprecated argument
            with UK spelling, colour).
+         - altcolor  colors.Color describing the color to draw 'low' (some
+           styles) data (overridden by deprecated argument with UK
+           spelling, altcolour).
          - linewidth     Float describing linewidth for graph
          - center        Float setting the value at which the x-axis
            crosses the y-axis (overridden by backwards
@@ -86,8 +87,10 @@ class GraphSet:
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
         if altcolour is not None:
+            _warn_colour_alias("altcolour", "altcolor")
             altcolor = altcolour
         if centre is not None:
             center = centre

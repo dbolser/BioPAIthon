@@ -5,6 +5,7 @@
 
 import math
 import unittest
+import warnings
 
 import support
 
@@ -36,12 +37,18 @@ except ImportError:
 
 from reportlab import rl_config
 
+from Bio import BiopythonDeprecationWarning
 from Bio import SeqIO
 from Bio.Graphics.GenomeDiagram import CrossLink
 from Bio.Graphics.GenomeDiagram import Diagram
+from Bio.Graphics.GenomeDiagram import Feature
 from Bio.Graphics.GenomeDiagram import FeatureSet
 from Bio.Graphics.GenomeDiagram import GraphSet
 from Bio.Graphics.GenomeDiagram import Track
+from Bio.Graphics.GenomeDiagram._AbstractDrawer import draw_arrow
+from Bio.Graphics.GenomeDiagram._AbstractDrawer import draw_box
+from Bio.Graphics.GenomeDiagram._AbstractDrawer import draw_polygon
+from Bio.Graphics.GenomeDiagram._CircularDrawer import CircularDrawer
 from Bio.Graphics.GenomeDiagram._Colors import ColorTranslator
 from Bio.Graphics.GenomeDiagram._Graph import GraphData
 from Bio.SeqFeature import SeqFeature
@@ -242,6 +249,135 @@ class ColorsTest(unittest.TestCase):
             translator.translate(2),
             "Did not correctly translate colour from user-defined colour scheme",
         )
+
+
+class ColourAliasTest(unittest.TestCase):
+    """Check the deprecated UK spelling aliases still work, and warn."""
+
+    def setUp(self):
+        """Make a diagram with one feature, for the circular drawer."""
+        self.feature = SeqFeature(SimpleLocation(0, 100, strand=+1))
+        self.diagram = Diagram()
+        self.diagram.new_track(1).new_set().add_feature(self.feature)
+
+    def assertAliasWarns(self, alias, function, *args, **kwargs):
+        """Check calling function warns that alias is deprecated; return result."""
+        with self.assertWarns(BiopythonDeprecationWarning) as cm:
+            result = function(*args, **kwargs)
+        self.assertIn(repr(alias), str(cm.warning))
+        # stacklevel attributes the warning to the caller, not to Bio.Graphics
+        self.assertEqual(cm.filename, __file__)
+        return result
+
+    def assertSilent(self, function, *args, **kwargs):
+        """Check calling function gives no deprecation warning; return result."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            return function(*args, **kwargs)
+
+    def test_keyword_arguments(self):
+        """Check each UK spelling keyword argument overrides the US one."""
+        drawer = CircularDrawer(self.diagram)
+        cases = [
+            # alias, US spelling, callable, positional args, get the color back
+            ("colour", "color", ColorTranslator().translate, (), lambda c: c),
+            ("colour", "color", Feature, (), lambda f: f.color),
+            (
+                "colour",
+                "color",
+                FeatureSet().add_feature,
+                (self.feature,),
+                lambda f: f.color,
+            ),
+            ("colour", "color", GraphData, (), lambda g: g.poscolor),
+            ("altcolour", "altcolor", GraphData, (), lambda g: g.negcolor),
+            ("colour", "color", GraphSet().new_graph, ([],), lambda g: g.poscolor),
+            (
+                "altcolour",
+                "altcolor",
+                GraphSet().new_graph,
+                ([],),
+                lambda g: g.negcolor,
+            ),
+            (
+                "greytrack_font_colour",
+                "greytrack_font_color",
+                Track,
+                (),
+                lambda t: t.greytrack_fontcolor,
+            ),
+            ("scale_colour", "scale_color", Track, (), lambda t: t.scale_color),
+            ("colour", "color", draw_box, ((0, 0), (1, 1)), lambda p: p.fillColor),
+            (
+                "colour",
+                "color",
+                draw_polygon,
+                ([(0, 0), (1, 0), (1, 1)],),
+                lambda p: p.fillColor,
+            ),
+            ("colour", "color", draw_arrow, ((0, 0), (9, 1)), lambda p: p.fillColor),
+            (
+                "colour",
+                "color",
+                drawer._draw_arc,
+                (10, 20, 0, 1),
+                lambda p: p.fillColor,
+            ),
+            (
+                "colour",
+                "color",
+                drawer._draw_arc_arrow,
+                (10, 20, 0, 1),
+                lambda p: p.fillColor,
+            ),
+        ]
+        for alias, us, function, args, get_color in cases:
+            name = f"{function.__qualname__}({alias}=...)"
+            with self.subTest(name):
+                # Alias last: add_feature applies **kwargs in order, so the
+                # alias only overrides the US spelling when it comes after it.
+                kwargs = {us: colors.blue, alias: colors.red}
+                result = self.assertAliasWarns(alias, function, *args, **kwargs)
+                self.assertEqual(get_color(result), colors.red)
+                result = self.assertSilent(function, *args, **{us: colors.red})
+                self.assertEqual(get_color(result), colors.red)
+
+    def test_set_colour_method(self):
+        """Check Feature.set_colour works like Feature.set_color."""
+        feature = Feature()
+        self.assertAliasWarns("set_colour", feature.set_colour, colors.red)
+        self.assertEqual(feature.color, colors.red)
+        self.assertSilent(feature.set_color, colors.blue)
+        self.assertEqual(feature.color, colors.blue)
+
+    def test_add_feature_warning_as_error(self):
+        """Check add_feature adds nothing if the colour warning is an error."""
+        feature_set = FeatureSet()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            with self.assertRaises(BiopythonDeprecationWarning):
+                feature_set.add_feature(self.feature, colour=colors.red)
+        self.assertEqual(feature_set.features, {})
+        self.assertEqual(feature_set.next_id, 0)
+
+    def test_drawing_is_silent(self):
+        """Check drawing a diagram does not use the deprecated aliases."""
+        feature_set = self.diagram.tracks[1].get_sets()[0]
+        for sigil in ("BOX", "ARROW", "BIGARROW", "OCTO", "JAGGY"):
+            for strand in (+1, -1):
+                feature = SeqFeature(SimpleLocation(10, 90, strand=strand))
+                feature_set.add_feature(feature, sigil=sigil, label=True)
+        graph_track = self.diagram.new_track(2, greytrack=True, scale=True)
+        graph_set = graph_track.new_set("graph")
+        for style in ("bar", "line", "heat"):
+            graph_set.new_graph([(0, -1), (50, 2), (100, 1)], style=style)
+        self.diagram.cross_track_links.append(
+            CrossLink((self.diagram.tracks[1], 10, 20), (graph_track, 30, 40))
+        )
+        for format in ("linear", "circular"):
+            with self.subTest(format=format):
+                self.assertSilent(self.diagram.draw, format=format, start=0, end=100)
+                self.assertTrue(self.diagram.drawing.contents)
 
 
 class GraphTest(unittest.TestCase):
@@ -855,11 +991,10 @@ class DiagramTest(unittest.TestCase):
                 color = "white"  # for testing the automatic black border!
             else:
                 color = "red"
-            # Checking it can cope with the old UK spelling colour.
-            # Also show the labels perpendicular to the track.
+            # Show the labels perpendicular to the track.
             gds_features.add_feature(
                 feature,
-                colour=color,
+                color=color,
                 url=url,
                 sigil="ARROW",
                 label_position=None,

@@ -26,6 +26,7 @@ the diagram: http://www.reportlab.com
 
 import re
 
+from ._Colors import _warn_colour_alias
 from ._Feature import Feature
 
 
@@ -57,6 +58,9 @@ class FeatureSet:
         Add a Bio.SeqFeature object to the diagram (will be stored
         internally in a Feature wrapper).
         """
+        # Warn before adding anything, in case the warning is an error
+        if "colour" in kwargs:
+            _warn_colour_alias("colour", "color")
         id = self.next_id  # get id number
         f = Feature(self, id, feature)
         self.features[id] = f  # add feature

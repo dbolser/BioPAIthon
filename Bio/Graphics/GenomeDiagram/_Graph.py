@@ -25,6 +25,8 @@ from math import sqrt
 
 from reportlab.lib import colors
 
+from ._Colors import _warn_colour_alias
+
 
 class GraphData:
     """Graph Data.
@@ -62,18 +64,20 @@ class GraphData:
          - style String describing the presentation style ('bar', 'line',
            'heat')
          - color   colors.Color describing the color to draw all or the
-           'high' (some styles) values (overridden by backwards
-           compatible argument with UK spelling, colour).
+           'high' (some styles) values (overridden by deprecated
+           argument with UK spelling, colour).
          - altcolor colors.Color describing the color to draw the 'low'
-           values (some styles only) (overridden by backwards
-           compatible argument with UK spelling, colour).
+           values (some styles only) (overridden by deprecated
+           argument with UK spelling, altcolour).
          - center Value at which x-axis crosses y-axis.
 
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
         if altcolour is not None:
+            _warn_colour_alias("altcolour", "altcolor")
             altcolor = altcolour
 
         self.id = id  # Unique identifier for the graph

@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Graphics.GenomeDiagram``'s UK spelling aliases now raise a
+``BiopythonDeprecationWarning``. They were deprecated in Biopython 1.55, in
+2010, but never warned. They are the ``colour`` and ``altcolour`` arguments
+(for example ``FeatureSet.add_feature(feature, colour=...)`` and
+``GraphSet.new_graph``), ``Track``'s ``greytrack_font_colour`` and
+``scale_colour`` arguments, and the ``Feature.set_colour`` method. They still
+work, and are due to be removed in the release after this one. Use the US
+spellings (``color``, ``altcolor``, ``greytrack_font_color``, ``scale_color``
+and ``set_color``) instead; see DEPRECATED.rst.
+
 The FASTQ parsers ``FastqPhredIterator``, ``FastqSolexaIterator`` and
 ``FastqIlluminaIterator`` in ``Bio.SeqIO.QualityIO`` take a new opt-in
 keyword, ``compact=True``, which stores each read's qualities as a signed

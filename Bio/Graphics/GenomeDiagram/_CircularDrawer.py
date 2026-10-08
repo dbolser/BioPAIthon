@@ -30,6 +30,7 @@ from ._AbstractDrawer import _stroke_and_fill_colors
 from ._AbstractDrawer import AbstractDrawer
 from ._AbstractDrawer import draw_polygon
 from ._AbstractDrawer import intermediate_points
+from ._Colors import _warn_colour_alias
 from ._FeatureSet import FeatureSet
 from ._GraphSet import GraphSet
 
@@ -1107,8 +1108,8 @@ class CircularDrawer(AbstractDrawer):
            (in radians)
          - endangle      Float angle subtended by end of arc at drawing center
            (in radians)
-         - color        colors.Color object for arc (overridden by backwards
-           compatible argument with UK spelling, colour).
+         - color        colors.Color object for arc (overridden by deprecated
+           argument with UK spelling, colour).
 
         Returns a closed path object describing an arced box corresponding to
         the passed values.  For very small angles, a simple four sided
@@ -1116,6 +1117,7 @@ class CircularDrawer(AbstractDrawer):
         """
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
 
         strokecolor, color = _stroke_and_fill_colors(color, border)
@@ -1412,6 +1414,7 @@ class CircularDrawer(AbstractDrawer):
         """Draw an arrow along an arc (PRIVATE)."""
         # Let the UK spelling (colour) override the USA spelling (color)
         if colour is not None:
+            _warn_colour_alias("colour", "color")
             color = colour
 
         strokecolor, color = _stroke_and_fill_colors(color, border)
