@@ -454,8 +454,10 @@ class CircularDrawer(AbstractDrawer):
 
         trackobjA = cross_link._trackA(list(self._parent.tracks.values()))
         trackobjB = cross_link._trackB(list(self._parent.tracks.values()))
-        assert trackobjA is not None
-        assert trackobjB is not None
+        if trackobjA is None:
+            raise ValueError("Cross-link feature A is not in any track of this diagram")
+        if trackobjB is None:
+            raise ValueError("Cross-link feature B is not in any track of this diagram")
         if trackobjA == trackobjB:
             raise NotImplementedError
 

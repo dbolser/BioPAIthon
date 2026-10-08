@@ -58,6 +58,11 @@ class Atom_Element(unittest.TestCase):
         self.assertEqual("D", atoms[4].element)  # Deuterium
         self.assertEqual("CA", atoms[8].element)  # Calcium
 
+    def test_lower_case_element(self):
+        """A non upper case element raises ValueError, not assert."""
+        with self.assertRaisesRegex(ValueError, "upper case element, not 'Fe'"):
+            Atom.Atom("FE", None, None, None, " ", "FE  ", 1, element="Fe")
+
     def test_assign_unknown_element(self):
         """Unknown element is assigned 'X'."""
         with warnings.catch_warnings():

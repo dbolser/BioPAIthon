@@ -13,6 +13,7 @@ live in ``test_PDB_PDBList.py``.
 
 import gzip
 import importlib
+import io
 import os
 import tempfile
 import unittest
@@ -103,6 +104,32 @@ class URLConstructionTests(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             self.pdblist.retrieve_assembly_file("127d", 1, file_format="xml")
         self.assertIn("'xml' is not supported", str(context.exception))
+
+
+class MalformedInputTests(unittest.TestCase):
+    """Bad status files and directories raise ValueError, not assert."""
+
+    def fake_urlopen(self, *lines):
+        return mock.patch.object(
+            pdb_list_module, "urlopen", return_value=io.BytesIO(b"".join(lines))
+        )
+
+    def test_status_list_bad_code(self):
+        with self.fake_urlopen(b"1abc\n", b"12345\n"):
+            with self.assertRaisesRegex(ValueError, "4 character PDB code"):
+                PDBList.get_status_list("https://example.invalid/added.pdb")
+
+    def test_obsolete_list_bad_code(self):
+        with self.fake_urlopen(b"OBSLTE    14-JAN-04 1HKEX    1UUZ\n"):
+            with self.assertRaisesRegex(ValueError, "4 character PDB code"):
+                PDBList(verbose=False).get_all_obsolete()
+
+    def test_update_pdb_without_local_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            pdblist = PDBList(pdb=missing, verbose=False)
+            with self.assertRaisesRegex(ValueError, "is not a directory"):
+                pdblist.update_pdb()
 
 
 if __name__ == "__main__":

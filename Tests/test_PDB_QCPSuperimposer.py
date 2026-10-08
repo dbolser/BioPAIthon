@@ -59,6 +59,12 @@ class QCPSuperimposerTest(unittest.TestCase):
         self.assertIsNone(sup.rms)
         self.assertIsNone(sup.init_rms)
 
+    def test_set_atoms_size_mismatch(self):
+        """Atom lists of different sizes raise ValueError, not assert."""
+        sup = QCPSuperimposer()
+        with self.assertRaisesRegex(ValueError, "differ in size: 2 and 1"):
+            sup.set_atoms([None, None], [None])
+
     def test_run(self):
         """Test QCP on dummy data."""
         sup = QCPSuperimposer()

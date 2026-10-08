@@ -11,6 +11,8 @@ import unittest
 from io import BytesIO
 from textwrap import dedent
 from unittest.mock import call, Mock
+from xml.etree import ElementTree as ET
+from xml.parsers import expat
 
 import support
 
@@ -8911,6 +8913,84 @@ class UrlSecurityCheckTest(unittest.TestCase):
                 call("https://host.invalid/404.dtd"),
             ],
         )
+
+
+class MalformedInputTest(unittest.TestCase):
+    """Malformed XML, DTDs and XML Schemas raise ValueError.
+
+    These were asserts, so under python -O the checks vanished.
+    """
+
+    esummary_header = (
+        b'<?xml version="1.0" encoding="UTF-8" ?>\n'
+        b'<!DOCTYPE eSummaryResult PUBLIC "-//NLM//DTD esummary v1 20041029//EN"'
+        b' "https://eutils.ncbi.nlm.nih.gov/eutils/dtd/20041029/esummary-v1.dtd">\n'
+    )
+
+    def new_handler(self):
+        return Entrez.Parser.DataHandler(
+            validate=True, escape=False, ignore_errors=False
+        )
+
+    def test_wrong_mathml_namespace(self):
+        with open(support.DATA / "Entrez" / "pubmed6.xml", "rb") as stream:
+            data = stream.read()
+        data = data.replace(
+            b'xmlns:mml="http://www.w3.org/1998/Math/MathML"',
+            b'xmlns:mml="http://example.org/MathML"',
+        )
+        with self.assertRaisesRegex(ValueError, "for prefix 'mml'"):
+            Entrez.read(BytesIO(data))
+
+    def test_string_item_inside_integer_item(self):
+        data = self.esummary_header + (
+            b"<eSummaryResult><DocSum><Id>1</Id>"
+            b'<Item Name="Count" Type="Integer">'
+            b'<Item Name="Source" Type="String">x</Item>'
+            b"</Item></DocSum></eSummaryResult>"
+        )
+        with self.assertRaisesRegex(ValueError, "inside an Integer Item"):
+            Entrez.read(BytesIO(data))
+
+    def test_string_element_inside_integer_item(self):
+        data = self.esummary_header + (
+            b"<eSummaryResult><DocSum><Id>1</Id>"
+            b'<Item Name="Count" Type="Integer"><Id>2</Id></Item>'
+            b"</DocSum></eSummaryResult>"
+        )
+        with self.assertRaisesRegex(ValueError, "Found element 'Id' inside"):
+            Entrez.read(BytesIO(data))
+
+    def test_unexpected_xml_schema(self):
+        schema = (
+            '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+            '<xs:element name="Thing"><xs:simpleType/></xs:element>'
+            "</xs:schema>"
+        )
+        with self.assertRaisesRegex(ValueError, "Expected xs:complexType"):
+            self.new_handler().parse_xsd(ET.fromstring(schema))
+
+    def test_unsupported_dtd_content_model(self):
+        name = (expat.model.XML_CTYPE_NAME, expat.model.XML_CQUANT_NONE)
+        optional_name = (expat.model.XML_CTYPE_NAME, expat.model.XML_CQUANT_OPT)
+        # <!ELEMENT Thing (A, B)*>
+        model = (
+            expat.model.XML_CTYPE_SEQ,
+            expat.model.XML_CQUANT_REP,
+            None,
+            ((*name, "A", ()), (*name, "B", ())),
+        )
+        with self.assertRaisesRegex(ValueError, "repeated with '\\+'"):
+            self.new_handler().elementDecl("Thing", model)
+        # <!ELEMENT Thing (A?, B)+>
+        model = (
+            expat.model.XML_CTYPE_SEQ,
+            expat.model.XML_CQUANT_PLUS,
+            None,
+            ((*optional_name, "A", ()), (*name, "B", ())),
+        )
+        with self.assertRaisesRegex(ValueError, "expected A exactly once"):
+            self.new_handler().elementDecl("Thing", model)
 
 
 if __name__ == "__main__":

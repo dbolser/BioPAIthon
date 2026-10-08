@@ -17,6 +17,7 @@ import os
 import tempfile
 import unittest
 import warnings
+from io import StringIO
 
 import support
 
@@ -29,6 +30,7 @@ from Bio.PDB import Select
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 from Bio.PDB.PDBExceptions import PDBIOException
 from Bio.PDB.PDBExceptions import PDBIOWarning
+from Bio.PDB.PDBIO import _format_b_factor
 from Bio.PDB.PDBIO import _MAX_B_FACTOR
 
 
@@ -472,6 +474,23 @@ class WriteTest(unittest.TestCase):
         test_b_factor(42424.4242, 42424)
 
         test_b_factor(_MAX_B_FACTOR + 10, _MAX_B_FACTOR, assert_warn=True)
+
+    def test_pdbio_write_b_factor_too_negative(self):
+        """A B factor too negative for the 6 character field is an error."""
+        self.assertEqual(_format_b_factor(-999.9), "-999.9")
+        with self.assertRaisesRegex(ValueError, "does not fit the 6 character"):
+            _format_b_factor(-1000.0)
+        with self.assertRaisesRegex(ValueError, "does not fit the 6 character"):
+            _format_b_factor(-999.96)  # rounds to -1000.0
+
+        structure = self.parser.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.pdb"
+        )
+        next(structure.get_atoms()).bfactor = -1000.0
+        self.io.set_structure(structure)
+        with self.assertRaisesRegex(PDBIOException, "does not fit") as cm:
+            self.io.save(StringIO())
+        self.assertIsInstance(cm.exception.__cause__, ValueError)
 
     def test_pdbio_write_formatting(self):
         structure = self.parser.get_structure(

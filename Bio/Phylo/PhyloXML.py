@@ -194,7 +194,8 @@ class Phylogeny(PhyloElement, BaseTree.Tree):
         other=None,
     ):
         """Initialize values for phylogenetic tree object."""
-        assert isinstance(rooted, bool)
+        if not isinstance(rooted, bool):
+            raise TypeError(f"rooted must be True or False, not {rooted!r}")
         self.root = root
         self.rooted = rooted
         self.rerootable = rerootable

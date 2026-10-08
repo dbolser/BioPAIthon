@@ -123,6 +123,21 @@ class StructureAlignTests(unittest.TestCase):
                 f"Duo mismatch at position {i}: {duo_msa} vs {duo_align}",
             )
 
+    def test_bad_arguments(self):
+        """A mismatched alignment or a non-aligner raise errors, not assert."""
+        p = PDBParser(QUIET=1)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            m1 = p.get_structure("1", support.DATA / "PDB" / "2XHE.pdb")[0]
+            m2 = p.get_structure("2", support.DATA / "PDB" / "1A8O.pdb")[0]
+        with open(support.DATA / "PDB" / "alignment_file.fa") as handle:
+            alignment = Align.read(handle, "fasta")
+        # Rows swapped, so each model is checked against the other's sequence
+        with self.assertRaisesRegex(ValueError, "where the structure has"):
+            StructureAlignment(alignment, m1, m2, si=1, sj=0)
+        with self.assertRaisesRegex(TypeError, "must be a PairwiseAligner"):
+            StructureAlignment(None, m1, m2, aligner="blastp")
+
     def test_custom_vs_automatic_alignment(self):
         """Test that custom PairwiseAligner alignment vs automatic alignment work identically.
 

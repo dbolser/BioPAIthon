@@ -58,7 +58,8 @@ class CrossLink:
     def _trackA(self, tracks):
         try:
             track, start, end = self.featureA
-            assert track in tracks
+            if track not in tracks:
+                raise ValueError(f"Cross-link track {track} is not in this diagram")
             return track
         except TypeError:
             for track in tracks:
@@ -89,7 +90,8 @@ class CrossLink:
     def _trackB(self, tracks):
         try:
             track, start, end = self.featureB
-            assert track in tracks
+            if track not in tracks:
+                raise ValueError(f"Cross-link track {track} is not in this diagram")
             return track
         except TypeError:
             for track in tracks:

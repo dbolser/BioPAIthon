@@ -36,6 +36,7 @@ from Bio.PDB import DSSP
 from Bio.PDB import make_dssp_dict
 from Bio.PDB import MMCIFParser
 from Bio.PDB import PDBParser
+from Bio.PDB.DSSP import ss_to_index
 
 VERSION_2_2_0 = (2, 2, 0)
 
@@ -146,6 +147,20 @@ class DSSP_tool_test(unittest.TestCase):
 
 class DSSP_test(unittest.TestCase):
     """Tests for DSSP parsing etc which don't need the binary tool."""
+
+    def test_unknown_file_type(self):
+        """An unknown file type raises ValueError before running anything."""
+        structure = PDBParser(QUIET=True).get_structure(
+            "2BEG", support.DATA / "PDB" / "2BEG.pdb"
+        )
+        with self.assertRaisesRegex(ValueError, "must be PDB, mmCIF or DSSP, not XYZ"):
+            DSSP(structure[0], support.DATA / "PDB" / "2BEG.xyz")
+
+    def test_ss_to_index_unknown_symbol(self):
+        """An unknown secondary structure symbol raises ValueError."""
+        self.assertEqual(ss_to_index("E"), 1)
+        with self.assertRaisesRegex(ValueError, "H, E or C, not 'X'"):
+            ss_to_index("X")
 
     def test_DSSP_file(self):
         """Test parsing of pregenerated DSSP."""

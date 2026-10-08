@@ -6,6 +6,7 @@
 """Test for the SwissProt parser on SwissProt files."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -6782,6 +6783,64 @@ class TestSwissProt(unittest.TestCase):
         datafile = support.DATA / "SwissProt" / filename
         with open(datafile) as test_handle:
             record = SwissProt.read(test_handle)
+
+
+class TestMalformedLines(unittest.TestCase):
+    """Malformed lines raise SwissProtParserError, a ValueError.
+
+    These were asserts, so under python -O the checks vanished.
+    """
+
+    def setUp(self):
+        with open(support.DATA / "SwissProt" / "P68308.txt") as handle:
+            self.text = handle.read()
+        SwissProt.read(StringIO(self.text))  # the unmodified record is fine
+
+    def check(self, old, new, message):
+        self.assertIn(old, self.text)
+        handle = StringIO(self.text.replace(old, new, 1))
+        with self.assertRaisesRegex(ValueError, message) as cm:
+            SwissProt.read(handle)
+        self.assertIsInstance(cm.exception, SwissProt.SwissProtParserError)
+
+    def test_reference_line_before_rn(self):
+        self.check("RN   [1]\n", "", "RP line before any RN line")
+
+    def test_rn_without_brackets(self):
+        self.check("RN   [1]", "RN   1", "Expected reference number in brackets")
+
+    def test_rn_evidence_without_braces(self):
+        self.check("RN   [1]", "RN   [1] ECO:0000313", "Expected evidence in braces")
+
+    def test_sq_line(self):
+        self.check("SQ   SEQUENCE   115 AA;", "SQ   SEQUENCE   115;", "SQ line")
+
+    def test_gn_key(self):
+        self.check("GN   Synonyms=", "GN   Nicknames=", "found 'Nicknames'")
+
+    def test_dt_without_release(self):
+        self.check(
+            "DT   25-OCT-2004, integrated into UniProtKB/Swiss-Prot.",
+            "DT   01-FEB-1995 (Created)",
+            "Could not find Rel. in DT line",
+        )
+
+    def test_ox_taxonomy_type(self):
+        self.check("OX   NCBI_TaxID=9770;", "OX   Other_TaxID=9770;", "NCBI_TaxID")
+
+    def test_oh_taxonomy_type(self):
+        self.check(
+            "OX   NCBI_TaxID=9770;\n",
+            "OX   NCBI_TaxID=9770;\nOH   Other_TaxID=9606; Homo sapiens.\n",
+            "Expected NCBI_TaxID= in OH line",
+        )
+
+    def test_oh_layout(self):
+        self.check(
+            "OX   NCBI_TaxID=9770;\n",
+            "OX   NCBI_TaxID=9770;\nOH   NCBI_TaxID=9606 Homo sapiens.\n",
+            "in OH line, found 'OH   NCBI_TaxID=9606 Homo sapiens.'$",
+        )
 
 
 if __name__ == "__main__":

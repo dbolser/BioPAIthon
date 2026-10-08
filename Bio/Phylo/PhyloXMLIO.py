@@ -532,10 +532,13 @@ class Parser:
 
     def color(self, elem):
         """Create branch color object."""
-        red, green, blue = (
-            _get_child_text(elem, color, int) for color in ("red", "green", "blue")
-        )
-        return PX.BranchColor(red, green, blue)
+        values = []
+        for channel in ("red", "green", "blue"):
+            value = _get_child_text(elem, channel, int)
+            if value is None:
+                raise PhyloXMLError(f"Expected a {channel} value in color, found none")
+            values.append(value)
+        return PX.BranchColor(*values)
 
     def confidence(self, elem):
         """Create confidence object."""
@@ -712,7 +715,8 @@ class Writer:
 
     def __init__(self, phyloxml):
         """Build an ElementTree from a PhyloXML object."""
-        assert isinstance(phyloxml, PX.Phyloxml), "Not a Phyloxml object"
+        if not isinstance(phyloxml, PX.Phyloxml):
+            raise TypeError(f"Expected a Phyloxml object, not {type(phyloxml)}")
         self._tree = ElementTree.ElementTree(self.phyloxml(phyloxml))
 
     def write(self, file, encoding=DEFAULT_ENCODING, indent=True):

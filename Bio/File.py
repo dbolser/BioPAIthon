@@ -115,9 +115,11 @@ def _open_for_random_access(
             # If it is BGZF, we support that
             return bgzf.BgzfReader(mode="rb", fileobj=handle)
         except ValueError as e:
-            assert "BGZF" in str(e)
-            # Not a BGZF file after all,
             handle.close()
+            if "BGZF" not in str(e):
+                # A damaged BGZF file rather than a plain gzip one
+                raise
+            # Not a BGZF file after all,
             raise ValueError(
                 "Gzipped files are not suitable for indexing, "
                 "please use BGZF (blocked gzip format) instead."

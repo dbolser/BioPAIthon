@@ -249,7 +249,8 @@ class Chromosome(_ChromosomeComponent):
             self.start_y_position,
             self.end_y_position,
         ):
-            assert position != -1, "Need to set drawing coordinates."
+            if position == -1:
+                raise ValueError("Need to set drawing coordinates.")
 
         # first draw all of the sub-sections of the chromosome -- this
         # will actually be the picture of the chromosome
@@ -433,7 +434,8 @@ class ChromosomeSegment(_ChromosomeComponent):
             self.start_y_position,
             self.end_y_position,
         ):
-            assert position != -1, "Need to set drawing coordinates."
+            if position == -1:
+                raise ValueError("Need to set drawing coordinates.")
 
         self._draw_subcomponents(cur_drawing)  # Anything behind
         self._draw_segment(cur_drawing)
@@ -710,7 +712,11 @@ class AnnotatedChromosomeSegment(ChromosomeSegment):
                     fill_color = _color_trans.translate(f[5])
                 else:
                     fill_color = color
-            assert 0 <= start <= end <= self.bp_length
+            if not 0 <= start <= end <= self.bp_length:
+                raise ValueError(
+                    f"Feature {start}-{end} does not fit the segment, "
+                    f"which is {self.bp_length} bp long"
+                )
             if strand == +1:
                 # Right side only
                 x = segment_x + segment_width * 0.6

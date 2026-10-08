@@ -144,6 +144,16 @@ class Exposure(unittest.TestCase):
         self.assertEqual(1, len(residues[-1].xtra))
         self.assertEqual(38, residues[-1].xtra["EXP_CN"])
 
+    def test_negative_offset(self):
+        """A negative or NaN offset raises ValueError, not assert."""
+        for cls in (HSExposureCA, HSExposureCB, ExposureCN):
+            for offset in (-1, float("nan")):
+                with self.subTest(cls=cls.__name__, offset=offset):
+                    with self.assertRaisesRegex(
+                        ValueError, "offset must not be negative"
+                    ):
+                        cls(self.model, self.radius, offset=offset)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

@@ -105,7 +105,8 @@ class Atom:
         self.serial_number = serial_number
         # Dictionary that keeps additional properties
         self.xtra: dict = {}
-        assert not element or element == element.upper(), element
+        if element and element != element.upper():
+            raise ValueError(f"Expected an upper case element, not {element!r}")
         self.element = self._assign_element(element)
         self.mass = self._assign_atom_mass()
         self.pqr_charge = pqr_charge

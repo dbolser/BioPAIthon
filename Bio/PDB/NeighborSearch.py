@@ -46,8 +46,12 @@ class NeighborSearch:
         coord_list = [a.get_coord() for a in atom_list]
         # to Nx3 array of type float
         self.coords = np.array(coord_list, dtype="d")
-        assert bucket_size > 1
-        assert self.coords.shape[1] == 3
+        if not bucket_size > 1:
+            raise ValueError(f"bucket_size must be greater than 1, not {bucket_size}")
+        if self.coords.shape[1] != 3:
+            raise ValueError(
+                f"Expected 3D atom coordinates, found {self.coords.shape[1]}D"
+            )
         self.kdt = KDTree(self.coords, bucket_size)
 
     # Private

@@ -1252,6 +1252,13 @@ Root:  16
         tree_a_val = "((A 6,(B 9,(C 8,C 4))),t2,((E 0,E 7),(F 1,(G 5,G 3))));"
         self.assertEqual(t.to_string(ladderize="LEFT"), "tree a_tree = " + tree_a_val)
 
+    def test_two_string_taxonomies(self):
+        """Two non-numeric values on one node raise TreeError, not assert."""
+        with self.assertRaisesRegex(
+            Trees.TreeError, "Two string taxonomies 'x' and 'y'"
+        ):
+            Trees.Tree("((A,B)x:y:0.1,C);")
+
     def test_large_newick(self):
         with open(
             os.path.join(self.testfile_dir, "int_node_labels.nwk")

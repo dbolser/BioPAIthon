@@ -7630,6 +7630,73 @@ class GenBankTests(unittest.TestCase):
             SeqIO.read(StringIO(data), "genbank")
         self.assertIn("Expected sequence length 1620, found 1622", str(cm.exception))
 
+    def read_noref_modified(self, old, new):
+        """Read GenBank/noref.gb with one piece of text replaced."""
+        with open(support.DATA / "GenBank" / "noref.gb") as handle:
+            data = handle.read()
+        self.assertIn(old, data)
+        return StringIO(data.replace(old, new, 1))
+
+    def test_location_with_trailing_text_warns(self):
+        """A location with trailing text warns and becomes None, not assert."""
+        handle = self.read_noref_modified(
+            "     source          1..1622\n", "     source          1..1622abc\n"
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            record = SeqIO.read(handle, "genbank")
+        self.assertEqual(
+            [str(w.message) for w in caught],
+            [
+                "Could not parse feature location '1..1622abc'; "
+                "setting feature location to None."
+            ],
+        )
+        self.assertIs(caught[0].category, BiopythonParserWarning)
+        self.assertEqual(record.features[0].type, "source")
+        self.assertIsNone(record.features[0].location)
+
+    def test_contig_after_sequence_raises(self):
+        """A CONTIG line after the sequence raises ValueError, not assert."""
+        handle = self.read_noref_modified(
+            "     1621 aa\n//", "     1621 aa\nCONTIG      join(AF035812.1:1..1622)\n//"
+        )
+        with self.assertRaisesRegex(ValueError, "Expected '//' at the end"):
+            SeqIO.read(handle, "genbank")
+
+    def test_qualifier_continuation_before_qualifier_raises(self):
+        """A feature line that is not a /qualifier raises ValueError."""
+        handle = self.read_noref_modified(
+            "     source          1..1622\n",
+            "     source          1..1622\n                     stray text\n",
+        )
+        with self.assertRaisesRegex(ValueError, "Expected a qualifier starting"):
+            SeqIO.read(handle, "genbank")
+
+    def test_reference_bases_without_parentheses_raises(self):
+        """REFERENCE bases not in parentheses raise ValueError."""
+        handle = self.read_noref_modified(
+            "COMMENT ",
+            "REFERENCE   1  bases 1 to 1622\n"
+            "  AUTHORS   Nobody,A.\n"
+            "  TITLE     Direct Submission\n"
+            "  JOURNAL   Unpublished\n"
+            "COMMENT ",
+        )
+        with self.assertRaisesRegex(ValueError, "reference bases in parentheses"):
+            SeqIO.read(handle, "genbank")
+
+    def test_cds_with_two_translations_raises(self):
+        """A CDS with two /translation qualifiers raises ValueError."""
+        handle = self.read_noref_modified(
+            '                     /protein_id="NP_006132.1"\n',
+            '                     /protein_id="NP_006132.1"\n'
+            '                     /translation="MA"\n',
+        )
+        scanner = GenBank.Scanner.GenBankScanner()
+        with self.assertRaisesRegex(ValueError, "Multiple translations"):
+            list(scanner.parse_cds_features(handle))
+
     def test_missing_end_marker_complete_record_parses(self):
         """A complete record missing the // terminator parses with a warning."""
         # Deliberate behaviour since 2013: files whose sequence data is

@@ -599,7 +599,10 @@ class _FeatureConsumer(_BaseGenBankConsumer):
         1  (residues 1 to 182)
         """
         # first remove the parentheses
-        assert content.endswith(")"), content
+        if not content.endswith(")"):
+            raise ValueError(
+                f"Expected reference bases in parentheses, found {content!r}"
+            )
         ref_base_info = content[1:-1]
 
         all_locations = []

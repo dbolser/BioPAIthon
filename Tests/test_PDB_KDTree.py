@@ -77,6 +77,22 @@ class NeighborTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Expected a 3-dimensional NumPy array"):
             ns.search(array([0.0, 0.0]), 5.0)
 
+    def test_invalid_arguments(self):
+        """Bad bucket size or coordinates raise ValueError, not assert."""
+
+        class FlatAtom:
+            def get_coord(self):
+                return array([1.0, 2.0])
+
+        for bad in (1, float("nan")):
+            with self.subTest(bucket_size=bad):
+                with self.assertRaisesRegex(
+                    ValueError, "bucket_size must be greater than 1"
+                ):
+                    NeighborSearch([FlatAtom()], bucket_size=bad)
+        with self.assertRaisesRegex(ValueError, "Expected 3D atom coordinates"):
+            NeighborSearch([FlatAtom(), FlatAtom()])
+
 
 class KDTreeTest(unittest.TestCase):
     nr_points = 5000  # number of points used in test

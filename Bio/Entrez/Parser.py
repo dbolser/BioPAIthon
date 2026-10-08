@@ -540,13 +540,17 @@ class DataHandler(metaclass=DataHandlerMeta):
             # startNamespaceDeclHandler and endNamespaceDeclHandler were called
             # to find out their first and last invocation for each namespace.
             if prefix == "mml":
-                assert uri == "http://www.w3.org/1998/Math/MathML"
+                expected, found = "http://www.w3.org/1998/Math/MathML", uri
             elif prefix == "xlink":
-                assert uri == "http://www.w3.org/1999/xlink"
+                expected, found = "http://www.w3.org/1999/xlink", uri
             elif prefix == "ali":
-                assert uri.rstrip("/") == "http://www.niso.org/schemas/ali/1.0"
+                expected, found = "http://www.niso.org/schemas/ali/1.0", uri.rstrip("/")
             else:
                 raise ValueError(f"Unknown prefix '{prefix}' with uri '{uri}'")
+            if found != expected:
+                raise ValueError(
+                    f"Expected uri '{expected}' for prefix '{prefix}', not '{uri}'"
+                )
             self.namespace_level[prefix] += 1
             self.namespace_prefix[uri] = prefix
 
@@ -654,7 +658,11 @@ class DataHandler(metaclass=DataHandlerMeta):
                 self.parser.CharacterDataHandler = self.characterDataHandler
                 self.attributes = attrs
             elif itemtype in ("String", "Unknown", "Date", "Enumerator"):
-                assert self.attributes is None
+                if self.attributes is not None:
+                    # Only an open Integer Item leaves attributes set here
+                    raise ValueError(
+                        f"Found {itemtype} Item '{name}' inside an Integer Item"
+                    )
                 self.attributes = attrs
                 self.parser.StartElementHandler = self.startRawElementHandler
                 self.parser.EndElementHandler = self.endStringElementHandler
@@ -670,7 +678,9 @@ class DataHandler(metaclass=DataHandlerMeta):
             self.parser.CharacterDataHandler = self.characterDataHandler
             assert self.allowed_tags is None
             self.allowed_tags = self.strings[tag]
-            assert self.attributes is None
+            if self.attributes is not None:
+                # Only an open Integer Item leaves attributes set here
+                raise ValueError(f"Found element '{tag}' inside an Integer Item")
             self.attributes = attrs
         elif tag in self.constructors:
             cls, allowed_tags = self.constructors[tag]
@@ -861,11 +871,22 @@ class DataHandler(metaclass=DataHandlerMeta):
             attribute_keys = []
             keys = []
             multiple = []
-            assert element.tag == prefix + "element"
+            if element.tag != prefix + "element":
+                raise ValueError(
+                    f"Expected xs:element in XML Schema, found {element.tag}"
+                )
             name = element.attrib["name"]
-            assert len(element) == 1
+            if len(element) != 1:
+                raise ValueError(
+                    f"Expected one child in XML Schema element {name}, "
+                    f"found {len(element)}"
+                )
             complexType = element[0]
-            assert complexType.tag == prefix + "complexType"
+            if complexType.tag != prefix + "complexType":
+                raise ValueError(
+                    f"Expected xs:complexType in XML Schema element {name}, "
+                    f"found {complexType.tag}"
+                )
             for component in complexType:
                 tag = component.tag
                 if tag == prefix + "attribute":
@@ -874,28 +895,51 @@ class DataHandler(metaclass=DataHandlerMeta):
                 elif tag == prefix + "sequence":
                     maxOccurs = component.attrib.get("maxOccurs", "1")
                     for key in component:
-                        assert key.tag == prefix + "element"
+                        if key.tag != prefix + "element":
+                            raise ValueError(
+                                "Expected xs:element in xs:sequence of XML Schema "
+                                f"element {name}, found {key.tag}"
+                            )
                         ref = key.attrib["ref"]
                         keys.append(ref)
                         if maxOccurs != "1" or key.attrib.get("maxOccurs", "1") != "1":
                             multiple.append(ref)
                 elif tag == prefix + "simpleContent":
-                    assert len(component) == 1
+                    if len(component) != 1:
+                        raise ValueError(
+                            "Expected one child in xs:simpleContent of XML Schema "
+                            f"element {name}, found {len(component)}"
+                        )
                     extension = component[0]
-                    assert extension.tag == prefix + "extension"
-                    assert extension.attrib["base"] == "xs:string"
+                    if extension.tag != prefix + "extension":
+                        raise ValueError(
+                            "Expected xs:extension in xs:simpleContent of XML "
+                            f"Schema element {name}, found {extension.tag}"
+                        )
+                    if extension.attrib["base"] != "xs:string":
+                        raise ValueError(
+                            "Expected base xs:string in XML Schema element "
+                            f"{name}, found {extension.attrib['base']}"
+                        )
                     for attribute in extension:
-                        assert attribute.tag == prefix + "attribute"
+                        if attribute.tag != prefix + "attribute":
+                            raise ValueError(
+                                "Expected xs:attribute in xs:extension of XML "
+                                f"Schema element {name}, found {attribute.tag}"
+                            )
                         # we could distinguish by type; keeping string for now
                         attribute_keys.append(attribute.attrib["name"])
                     isSimpleContent = True
+            if keys and isSimpleContent:
+                raise ValueError(
+                    f"XML Schema element {name} has both xs:simpleContent "
+                    "and child elements"
+                )
             allowed_tags = frozenset(keys)
             if len(keys) == 1 and keys == multiple:
-                assert not isSimpleContent
                 args = (allowed_tags,)
                 self.constructors[name] = (ListElement, args)
             elif len(keys) >= 1:
-                assert not isSimpleContent
                 repeated_tags = frozenset(multiple)
                 args = (allowed_tags, repeated_tags)
                 self.constructors[name] = (DictionaryElement, args)
@@ -958,10 +1002,19 @@ class DataHandler(metaclass=DataHandlerMeta):
             allowed_tags = frozenset(child[2] for child in children)
             if model[0] == expat.model.XML_CTYPE_SEQ:
                 if len(children) > 1:
-                    assert model[1] == expat.model.XML_CQUANT_PLUS
+                    if model[1] != expat.model.XML_CQUANT_PLUS:
+                        raise ValueError(
+                            f"Unsupported DTD declaration for element {name}: "
+                            "expected a sequence repeated with '+', found '*'"
+                        )
                     first_child = children[0]
-                    assert first_child[1] == expat.model.XML_CQUANT_NONE
                     first_tag = first_child[2]
+                    if first_child[1] != expat.model.XML_CQUANT_NONE:
+                        raise ValueError(
+                            f"Unsupported DTD declaration for element {name}: "
+                            f"expected {first_tag} exactly once at the start of "
+                            "each repeat"
+                        )
                     args = allowed_tags, first_tag
                     self.constructors[name] = (OrderedListElement, args)
                     return

@@ -7,6 +7,7 @@
 
 import unittest
 import warnings
+from io import StringIO
 
 import support
 
@@ -74,6 +75,47 @@ class EMBLTests(unittest.TestCase):
             self.assertEqual(
                 [str(_.message) for _ in w], ["Malformed DR line in EMBL file."]
             )
+
+
+class MalformedInputTests(unittest.TestCase):
+    """Malformed EMBL and IMGT input raises ValueError.
+
+    These were asserts, so under python -O the checks vanished; a truncated
+    IMGT feature then made the parser loop forever.
+    """
+
+    def read_modified(self, filename, fmt, old, new):
+        with open(support.DATA / "EMBL" / filename) as handle:
+            data = handle.read()
+        self.assertIn(old, data)
+        return SeqIO.read(StringIO(data.replace(old, new, 1)), fmt)
+
+    def test_length_unit(self):
+        with self.assertRaisesRegex(ValueError, "Expected sequence length in BP"):
+            self.read_modified("AAA03323.embl", "embl", "1545 BP.", "1545 XX.")
+
+    def test_length_field(self):
+        with self.assertRaisesRegex(ValueError, "Invalid sequence length string"):
+            self.read_modified("AAA03323.embl", "embl", "1545 BP.", "1545.")
+
+    def test_imgt_feature_line_not_ft(self):
+        with self.assertRaisesRegex(ValueError, "Expected an FT line"):
+            self.read_modified(
+                "A04195.imgt", "imgt", "FT   INIT-CODON", "CC   INIT-CODON"
+            )
+
+    def test_imgt_blank_line_in_feature(self):
+        with self.assertRaisesRegex(
+            ValueError, "Expected an FT line in the 'L-REGION'"
+        ):
+            self.read_modified("A04195.imgt", "imgt", "/partial\n", "/partial\n\n")
+
+    def test_imgt_truncated_in_feature(self):
+        with open(support.DATA / "EMBL" / "A04195.imgt") as handle:
+            data = handle.read()
+        data = data[: data.index("/partial\n") + len("/partial\n")]
+        with self.assertRaisesRegex(ValueError, "Premature end of file in the"):
+            SeqIO.read(StringIO(data), "imgt")
 
 
 if __name__ == "__main__":

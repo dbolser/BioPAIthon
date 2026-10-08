@@ -18,6 +18,7 @@
 
 import subprocess
 import unittest
+from unittest import mock
 
 try:
     import numpy as np
@@ -67,6 +68,21 @@ class NACCESS_test(unittest.TestCase):
         model = p.get_structure("1A8O", pdbfile)[0]
         naccess = NACCESS(model, pdbfile)
         self.assertEqual(len(naccess), 66)
+
+    def test_NACCESS_residue_mismatch(self):
+        """NACCESS output disagreeing with the model raises ValueError."""
+        with (
+            open(support.DATA / "PDB" / "1A8O.rsa") as rsa,
+            open(support.DATA / "PDB" / "1A8O.asa") as asa,
+        ):
+            output = (rsa.readlines(), asa.readlines())
+        model = PDBParser(QUIET=True).get_structure(
+            "1A8O", support.DATA / "PDB" / "1A8O.pdb"
+        )[0]
+        model["A"][152].resname = "GLU"  # NACCESS says ASP
+        with mock.patch("Bio.PDB.NACCESS.run_naccess", return_value=output):
+            with self.assertRaisesRegex(ValueError, "NACCESS output has ASP"):
+                NACCESS(model)
 
 
 if __name__ == "__main__":
