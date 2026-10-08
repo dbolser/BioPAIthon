@@ -68,7 +68,8 @@ handle" on a file ending in one. Records separated by one merged into a single
 record, as did all the records in a list of lines from ``str.splitlines()``,
 whose separators are empty strings. A line of six or more spaces between
 records raised ``KeyError``. Inside a record, a line of six or more spaces is
-still a blank continuation line.
+still a blank continuation line, as it has been since Biopython 1.84, so two
+records separated by such a line still come out as one.
 
 ``PairwiseAligner`` no longer reads freed memory when Python code that it
 calls reconfigures it. A gap function that replaced the aligner's

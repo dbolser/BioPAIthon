@@ -402,6 +402,21 @@ class TestMedline(unittest.TestCase):
             with self.subTest(tail=tail):
                 self.assertEqual(Medline.read(io.StringIO(text + tail)), record)
 
+    def test_read_blank_continuation_line(self):
+        # A line of six or more spaces inside a field is a blank continuation
+        # line, not the end of the record (upstream issue #4557, whose record
+        # had a line of 88 spaces and CRLF inside its abstract)
+        with open("Medline/pubmed_result1.txt") as handle:
+            text = handle.read()
+        record = Medline.read(io.StringIO(text))
+        record["AB"] = record["AB"].replace("analysis. This", "analysis. \n This")
+        for blank in ("      \n", " " * 88 + "\r\n"):
+            with self.subTest(blank=blank):
+                padded = text.replace(
+                    "analysis. This", "analysis.\n" + blank + "      This"
+                )
+                self.assertEqual(Medline.read(io.StringIO(padded)), record)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
