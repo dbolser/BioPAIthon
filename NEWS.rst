@@ -156,6 +156,13 @@ uses, so following the documentation with ``Align.read(source=...)`` raised
 ``TypeError``. Documentation only; no behaviour changes, and the keyword
 stays ``handle`` to match upstream Biopython.
 
+``SequenceIterator.parse_id_from_header`` in ``Bio.SeqIO.Interfaces`` is now
+a documented public hook for format authors; it was marked private. Given the
+raw first line of a record as bytes, it returns the ``record.id`` the parser
+gives that record. ``Bio.SeqIO.index`` and ``index_db`` use it to key records
+without parsing them, so the two must agree. The FASTA, QUAL, PIR, PHD and ACE
+parsers implement it.
+
 The ``gfa1`` and ``gfa2`` parsers in ``Bio.SeqIO`` now issue their warnings
 about malformed input (a wrong ``LN`` length or ``SH`` checksum, a bad tag
 name or type, a blank line) as ``BiopythonParserWarning``, like the other

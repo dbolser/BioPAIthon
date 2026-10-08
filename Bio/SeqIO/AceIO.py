@@ -27,11 +27,12 @@ class AceIterator(SequenceIterator):
 
     @classmethod
     def parse_id_from_header(cls, line):
-        """Return the record id given the raw CO line (bytes) (PRIVATE).
+        """Return the record id given the raw ``CO`` line (bytes).
 
-        Mirrors Bio.Sequencing.Ace.Contig.__init__, where the contig name is
-        the second word of the CO line.  Used by the Bio.SeqIO indexing code
-        so that index keys match ``record.id``.
+        The id is the contig name, the second word of the line, which is
+        the rule Bio.Sequencing.Ace.Contig.__init__ applies to the contig
+        ``__next__`` reads.  See SequenceIterator.parse_id_from_header in
+        Bio.SeqIO.Interfaces for the contract this implements.
         """
         return line.split()[1].decode()
 

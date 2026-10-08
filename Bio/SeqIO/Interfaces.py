@@ -57,17 +57,33 @@ class SequenceIterator(ABC, Generic[AnyStr]):
 
     @classmethod
     def parse_id_from_header(cls, line: bytes) -> str:
-        """Return the record id this parser would assign to a record (PRIVATE).
+        """Return the record id this parser would assign to a record.
 
-        Argument line is the raw first line of a record (as bytes, matching
-        ``record_start_marker``).
+        This is a hook for format authors.  For formats indexed by scanning
+        for record starts, Bio.SeqIO.index and Bio.SeqIO.index_db use it to
+        find each record's key without parsing the record: they read the
+        file in binary mode, looking for lines which ``record_start_marker``
+        matches at the start, and pass each such line to this method.
 
-        This is used by the Bio.SeqIO indexing machinery so that index keys
-        are derived by the same rule which gives ``record.id`` when parsing,
-        rather than by an independent re-implementation.  Formats where the
-        id is taken from later lines of the record (e.g. GenBank, EMBL)
-        do not implement this and instead have a dedicated random access
-        proxy in Bio.SeqIO._index.
+        Argument line is that raw header line, as bytes, exactly as read
+        from the file.  It begins with the record marker (for example
+        ``b">"`` for FASTA) and still ends with its line terminator, if
+        it has one, which may be Windows style as well as Unix style.
+
+        Returns the record id as a str.  This must be the same ``record.id``
+        which parsing the file with this class gives the record starting at
+        that line, because Bio.SeqIO.index relies on that equivalence: if
+        they differ, looking a record up by its index key fails.  The safest
+        way to guarantee it is to apply the same rule as ``__next__``.  Only
+        header lines the parser itself accepts need to be handled; for any
+        other line an exception may be raised, which propagates to the
+        caller of Bio.SeqIO.index.
+
+        If not overridden, this raises NotImplementedError.  Formats where
+        the id is not determined by the first line alone (e.g. GenBank and
+        EMBL, which take it from later lines of the record) leave it that
+        way, and have a dedicated random access proxy in Bio.SeqIO._index
+        instead.
         """
         raise NotImplementedError(
             f"{cls.__name__} does not define how to derive a record id"
