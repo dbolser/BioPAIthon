@@ -6,9 +6,11 @@
 
 """Tests for PopGen GenePop nodepend module."""
 
+import gc
 import os
 import tempfile
 import unittest
+import warnings
 
 import support
 
@@ -138,7 +140,7 @@ class FileParserTest(unittest.TestCase):
             self.assertFalse(rec.skip_population(), msg="Too much populations")
             for i in range(self.pops_indivs[index][0]):
                 continue
-            rec._handle.close()  # TODO - Needs a proper fix
+            rec.close()
 
     def test_wrong_file_parser(self):
         """Testing the ability to deal with wrongly formatted files."""
@@ -178,7 +180,84 @@ class FileParserTest(unittest.TestCase):
             self.assertEqual(rec.loci_list[1:], rec5.loci_list)
 
             os.remove(ftemp.name)
-            rec._handle.close()
+            rec.close()
+
+    def assertNoLeak(self, fname, func):
+        """Assert that calling func leaves no file handle on fname open."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            func()
+            gc.collect()
+        leaks = [
+            str(w.message)
+            for w in caught
+            if issubclass(w.category, ResourceWarning)
+            and os.path.basename(fname) in str(w.message)
+        ]
+        self.assertEqual(leaks, [])
+
+    def test_context_manager(self):
+        """Leaving a with block closes the file handle."""
+        fname = self.files[0]
+
+        def use_record():
+            with FileParser.read(fname) as rec:
+                self.assertIsInstance(rec, FileParser.FileRecord)
+                self.assertEqual(len(rec.loci_list), 3)
+                self.assertTrue(rec.skip_population())
+            self.assertRaises(ValueError, rec.get_individual)
+
+        self.assertNoLeak(fname, use_record)
+
+    def test_close(self):
+        """close() closes the file handle and can be called twice."""
+        fname = self.files[0]
+
+        def close_twice():
+            rec = FileParser.read(fname)
+            rec.close()
+            rec.close()
+            self.assertRaises(ValueError, rec.get_individual)
+
+        self.assertNoLeak(fname, close_twice)
+
+    def test_wrong_file_parser_closes(self):
+        """A file that fails to parse is closed before the error is raised."""
+        fname = support.DATA / "PopGen" / "README"
+
+        def read_bad_file():
+            self.assertRaises(ValueError, FileParser.read, fname)
+
+        self.assertNoLeak(fname, read_bad_file)
+
+    def test_binary_file_closes(self):
+        """A file that cannot be decoded is closed before the error is raised."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fname = os.path.join(tmpdir, "binary.gen")
+            with open(fname, "wb") as handle:
+                handle.write(bytes(range(256)))
+
+            def read_binary_file():
+                # UnicodeDecodeError, from readline(), is a ValueError subclass
+                self.assertRaises(ValueError, FileParser.read, fname)
+
+            self.assertNoLeak(fname, read_binary_file)
+
+    def test_remove_features_close_copy(self):
+        """The remove_* methods close the copy of the file they read."""
+        fname = self.files[0]
+
+        def remove_features():
+            with tempfile.TemporaryDirectory() as tmpdir:
+                out = os.path.join(tmpdir, "out.gen")
+                with FileParser.read(fname) as rec:
+                    rec.remove_population(0, out)
+                    rec.remove_locus_by_position(0, out)
+                    rec.remove_loci_by_position([0], out)
+                    rec.remove_locus_by_name(rec.loci_list[0], out)
+                    rec.remove_loci_by_name([rec.loci_list[0]], out)
+
+        self.assertNoLeak(fname, remove_features)
 
 
 class UtilsTest(unittest.TestCase):

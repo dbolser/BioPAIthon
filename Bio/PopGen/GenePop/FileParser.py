@@ -46,6 +46,7 @@ class FileRecord:
     Methods:
     - get_individual     Returns the next individual of the current population.
     - skip_population    Skips the current population.
+    - close              Closes the file handle.
 
     skip_population skips the individuals of the current population, returns
     True if there are more populations.
@@ -60,6 +61,9 @@ class FileRecord:
         ('Ind2', [(2,None), (3,3), (None,None)]
         ('Other1', [(1,1),  (4,3), (200,200)]
 
+    The record keeps the file open while you read it. Call close() when done,
+    or use the record as a context manager to close it on leaving the block.
+
     """
 
     def __init__(self, fname):
@@ -68,6 +72,18 @@ class FileRecord:
         self.loci_list = []
         self.fname = fname
         self.start_read()
+
+    def __enter__(self):
+        """Return the record for use in a with statement."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        """Close the file handle on leaving the with statement."""
+        self.close()
+
+    def close(self):
+        """Close the file handle. Calling it again does nothing."""
+        self._handle.close()
 
     def __str__(self):
         """Return (reconstructs) a GenePop textual representation.
@@ -110,22 +126,26 @@ class FileRecord:
     def start_read(self):
         """Start parsing a file containing a GenePop file."""
         self._handle = open(self.fname)
-        self.comment_line = self._handle.readline().rstrip()
-        # We can now have one loci per line or all loci in a single line
-        # separated by either space or comma+space...
-        # We will remove all commas on loci... that should not be a problem
-        sample_loci_line = self._handle.readline().rstrip().replace(",", "")
-        all_loci = sample_loci_line.split(" ")
-        self.loci_list.extend(all_loci)
-        for line in self._handle:
-            line = line.rstrip()
-            if line.upper() == "POP":
-                break
-            self.loci_list.append(line)
-        else:
-            raise ValueError(
-                "No population data found, file probably not GenePop related"
-            )
+        try:
+            self.comment_line = self._handle.readline().rstrip()
+            # We can now have one loci per line or all loci in a single line
+            # separated by either space or comma+space...
+            # We will remove all commas on loci... that should not be a problem
+            sample_loci_line = self._handle.readline().rstrip().replace(",", "")
+            all_loci = sample_loci_line.split(" ")
+            self.loci_list.extend(all_loci)
+            for line in self._handle:
+                line = line.rstrip()
+                if line.upper() == "POP":
+                    break
+                self.loci_list.append(line)
+            else:
+                raise ValueError(
+                    "No population data found, file probably not GenePop related"
+                )
+        except BaseException:
+            self._handle.close()
+            raise
         # self._after_pop = True
         self.current_pop = 0
         self.current_ind = 0
@@ -196,8 +216,7 @@ class FileRecord:
          - fname - file to be created with population removed
 
         """
-        old_rec = read(self.fname)
-        with open(fname, "w") as f:
+        with read(self.fname) as old_rec, open(fname, "w") as f:
             f.write(self.comment_line + "\n")
             for locus in old_rec.loci_list:
                 f.write(locus + "\n")
@@ -239,8 +258,7 @@ class FileRecord:
          - fname - file to be created with locus removed
 
         """
-        old_rec = read(self.fname)
-        with open(fname, "w") as f:
+        with read(self.fname) as old_rec, open(fname, "w") as f:
             f.write(self.comment_line + "\n")
             loci_list = old_rec.loci_list
             del loci_list[pos]
@@ -280,8 +298,7 @@ class FileRecord:
          - fname - file to be created with locus removed
 
         """
-        old_rec = read(self.fname)
-        with open(fname, "w") as f:
+        with read(self.fname) as old_rec, open(fname, "w") as f:
             f.write(self.comment_line + "\n")
             loci_list = old_rec.loci_list
             positions.sort()
