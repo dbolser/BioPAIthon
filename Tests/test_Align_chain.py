@@ -7,6 +7,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import Alignment
@@ -33,7 +35,7 @@ class TestAlign_dna_rna(unittest.TestCase):
 
     def setUp(self):
         data = {}
-        with SeqIO.parse("Blat/dna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "dna.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 assert name == "chr3"
@@ -44,7 +46,7 @@ class TestAlign_dna_rna(unittest.TestCase):
                 assert len(sequence) == end - start
                 data[start] = sequence
         self.dna = data
-        with SeqIO.parse("Blat/rna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "rna.fa", "fasta") as records:
             self.rna = {record.id: record.seq for record in records}
 
     def check_alignments(self, alignments):
@@ -1439,7 +1441,7 @@ AlignmentCounts object with
 
     def test_reading(self):
         """Test parsing dna_rna.chain."""
-        path = "Blat/dna_rna.chain"
+        path = support.DATA / "Blat" / "dna_rna.chain"
         with Align.parse(path, "chain") as alignments:
             self.check_alignments(alignments)
             alignments = iter(alignments)
@@ -1462,7 +1464,7 @@ AlignmentCounts object with
 
     def test_writing(self):
         """Test writing the alignments in dna_rna.chain."""
-        path = "Blat/dna_rna.chain"
+        path = support.DATA / "Blat" / "dna_rna.chain"
         stream = StringIO()
         with Align.parse(path, "chain") as alignments:
             n = Align.write(alignments, stream, "chain")
@@ -1474,14 +1476,14 @@ AlignmentCounts object with
 
 class TestAlign_dna(unittest.TestCase):
 
-    with SeqIO.parse("Blat/fasta_34.fa", "fasta") as records:
+    with SeqIO.parse(support.DATA / "Blat" / "fasta_34.fa", "fasta") as records:
         queries = {record.id: str(record.seq) for record in records}
 
     def test_reading_psl_34_001(self):
         """Test parsing psl_34_001.chain."""
         # The chain file psl_34_001.chain was generated from the PSL file using:
         # pslToChain psl_34_001.psl psl_34_001.chain
-        path = "Blat/psl_34_001.chain"
+        path = support.DATA / "Blat" / "psl_34_001.chain"
         with Align.parse(path, "chain") as alignments:
             self.check_reading_psl_34_001(alignments)
 
@@ -3352,7 +3354,7 @@ AlignmentCounts object with
 
     def test_writing_chain_34_001(self):
         """Test writing the alignments in psl_34_001.chain."""
-        path = "Blat/psl_34_001.chain"
+        path = support.DATA / "Blat" / "psl_34_001.chain"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -3367,13 +3369,13 @@ AlignmentCounts object with
         """Test parsing psl_34_002.chain."""
         # The chain file psl_34_002.chain was generated from the PSL file using:
         # pslToChain psl_34_002.psl psl_34_002.chain
-        path = "Blat/psl_34_002.chain"
+        path = support.DATA / "Blat" / "psl_34_002.chain"
         with Align.parse(path, "chain") as alignments:
             self.assertRaises(StopIteration, next, alignments)
 
     def test_writing_psl_34_002(self):
         """Test writing the alignments in psl_34_002.chain."""
-        path = "Blat/psl_34_002.chain"
+        path = support.DATA / "Blat" / "psl_34_002.chain"
         stream = StringIO()
         with Align.parse(path, "chain") as alignments:
             n = Align.write(alignments, stream, "chain")
@@ -3386,7 +3388,7 @@ AlignmentCounts object with
         """Test parsing psl_34_003.chain."""
         # The chain file psl_34_003.chain was generated from the PSL file using:
         # pslToChain psl_34_003.psl psl_34_003.chain
-        path = "Blat/psl_34_003.chain"
+        path = support.DATA / "Blat" / "psl_34_003.chain"
         with Align.parse(path, "chain") as alignments:
             self.check_reading_psl_34_003(alignments)
 
@@ -3649,7 +3651,7 @@ AlignmentCounts object with
     def test_writing_psl_34_003(self):
         """Test writing the alignments in psl_34_003.chain."""
         stream = StringIO()
-        path = "Blat/psl_34_003.chain"
+        path = support.DATA / "Blat" / "psl_34_003.chain"
         with Align.parse(path, "chain") as alignments:
             n = Align.write(alignments, stream, "chain")
         self.assertEqual(n, 3)
@@ -3661,7 +3663,7 @@ AlignmentCounts object with
         """Test parsing psl_34_004.chain."""
         # The chain file psl_34_004.chain was generated from the PSL file using:
         # pslToChain psl_34_004.psl psl_34_004.chain
-        path = "Blat/psl_34_004.chain"
+        path = support.DATA / "Blat" / "psl_34_004.chain"
         with Align.parse(path, "chain") as alignments:
             self.check_reading_psl_34_004(alignments)
 
@@ -5283,7 +5285,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_004(self):
         """Test writing the alignments in psl_34_004.chain."""
-        path = "Blat/psl_34_004.chain"
+        path = support.DATA / "Blat" / "psl_34_004.chain"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -5298,7 +5300,7 @@ AlignmentCounts object with
         """Test parsing psl_34_005.chain."""
         # The chain file psl_34_005.chain was generated from the PSL file using:
         # pslToChain psl_34_005.psl psl_34_005.chain
-        path = "Blat/psl_34_005.chain"
+        path = support.DATA / "Blat" / "psl_34_005.chain"
         with Align.parse(path, "chain") as alignments:
             self.check_reading_psl_34_005(alignments)
 
@@ -7172,7 +7174,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_005(self):
         """Test writing the alignments in psl_34_005.chain."""
-        path = "Blat/psl_34_005.chain"
+        path = support.DATA / "Blat" / "psl_34_005.chain"
         stream = StringIO()
         with Align.parse(path, "chain") as alignments:
             n = Align.write(alignments, stream, "chain")

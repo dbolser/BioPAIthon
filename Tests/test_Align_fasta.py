@@ -9,6 +9,8 @@ from io import StringIO
 
 import numpy as np
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 
@@ -37,7 +39,7 @@ class TestFASTAReadingWriting(unittest.TestCase):
             self.assertEqual(alignment[i], saved_alignment[i])
 
     def test_clustalw(self):
-        path = "Clustalw/clustalw.fa"
+        path = support.DATA / "Clustalw" / "clustalw.fa"
         with open(path) as stream:
             alignments = Align.parse(stream, "fasta")
             self.check_clustalw(alignments)
@@ -194,7 +196,7 @@ AlignmentCounts object with
         self.assertEqual(counts.positives, 126)
 
     def test_msaprobs(self):
-        path = "Clustalw/msaprobs.fa"
+        path = support.DATA / "Clustalw" / "msaprobs.fa"
         # This example was obtained from
         # http://virgil.ruc.dk/kurser/Sekvens/Treedraw.htm
         # and converted to aligned FASTA format.
@@ -418,7 +420,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_muscle(self):
-        path = "Clustalw/muscle.fa"
+        path = support.DATA / "Clustalw" / "muscle.fa"
         with open(path) as stream:
             alignments = Align.parse(stream, "fasta")
             alignment = next(alignments)
@@ -574,7 +576,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_kalign(self):
-        path = "Clustalw/kalign.fa"
+        path = support.DATA / "Clustalw" / "kalign.fa"
         with open(path) as stream:
             alignments = Align.parse(stream, "fasta")
             alignment = next(alignments)
@@ -675,7 +677,7 @@ AlignmentCounts object with
         self.check_reading_writing(path)
 
     def test_probcons(self):
-        path = "Clustalw/probcons.fa"
+        path = support.DATA / "Clustalw" / "probcons.fa"
         # example taken from the PROBCONS documentation,
         # and converted to aligned FASTA format.
         with open(path) as stream:

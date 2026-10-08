@@ -8,6 +8,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 
 try:
@@ -46,7 +48,7 @@ class TestNexusReading(unittest.TestCase):
             )
 
     def test_nexus1(self):
-        path = "Nexus/test_Nexus_input.nex"
+        path = support.DATA / "Nexus" / "test_Nexus_input.nex"
         with Align.parse(path, "nexus") as alignments:
             self.check_nexus1(alignments)
             alignments = iter(alignments)
@@ -296,7 +298,7 @@ AlignmentCounts object with
             next(alignments)
 
     def test_nexus2(self):
-        path = "Nexus/codonposset.nex"
+        path = support.DATA / "Nexus" / "codonposset.nex"
         with Align.parse(path, "nexus") as alignments:
             self.check_nexus2(alignments)
         self.check_reading_writing(path)

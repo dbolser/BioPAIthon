@@ -16,9 +16,10 @@ Right now we've got tests for:
 """
 
 # standard library
-import os
 import unittest
 from io import StringIO
+
+import support
 
 from Bio import Align
 from Bio import AlignIO
@@ -201,7 +202,7 @@ TATACATTAAAGGAGGGGGATGCGGATAAATGGAAAGGCGAAAGAAAGAATATATATATA------ATATATTTCAAATT
 >gi|6273291|gb|AF191665.1|AF191 gi|6273291|gb|AF191665.1|AF191
 TATACATTAAAGGAGGGGGATGCGGATAAATGGAAAGGCGAAAGAAAGAATATATATATATATATAATATATTTCAAATTCCCTTATATATCCAAATATAAAAATATCTAATAAATTAGATGAATATCAAAGAATCTATTGATTTAGTGTACCAGA
 """
-        path = os.path.join(os.getcwd(), "Clustalw", "opuntia.aln")
+        path = support.DATA / "Clustalw" / "opuntia.aln"
         msa = AlignIO.read(path, "clustal")
         opuntia_clustal = opuntia_clustal_header + opuntia_clustal_body
         self.assertEqual(format(msa, "clustal"), opuntia_clustal)
@@ -282,7 +283,7 @@ gi|671626|emb|CAA85685.1|           -
 
 """  # noqa : W291
 
-        path = os.path.join(os.curdir, "Clustalw", "clustalw.aln")
+        path = support.DATA / "Clustalw" / "clustalw.aln"
         msa = AlignIO.read(path, "clustal")
         clustalw_clustal = clustalw_clustal_header + clustalw_clustal_body
         self.assertEqual(format(msa, "clustal"), clustalw_clustal)
@@ -292,7 +293,7 @@ gi|671626|emb|CAA85685.1|           -
 
     def test_read_write_clustal(self):
         """Test the base alignment stuff."""
-        path = os.path.join(os.getcwd(), "Clustalw", "opuntia.aln")
+        path = support.DATA / "Clustalw" / "opuntia.aln"
         msa = AlignIO.read(path, "clustal")
         self.assertEqual(len(msa), 7)
         seq_record = msa[0]
@@ -861,7 +862,7 @@ XX
         self.assertAlmostEqual(relative_entropy[7], 1.4083272214176723)
 
     def test_read_fasta(self):
-        path = os.path.join(os.curdir, "Quality", "example.fasta")
+        path = support.DATA / "Quality" / "example.fasta"
         msa = AlignIO.read(path, "fasta")
         self.assertEqual(len(msa), 3)
         seq_record = msa[0]

@@ -9,6 +9,8 @@ import unittest
 from io import StringIO
 from tempfile import NamedTemporaryFile
 
+import support
+
 from Bio import Align
 from Bio.Align import substitution_matrices
 
@@ -28,7 +30,7 @@ class TestEmboss(unittest.TestCase):
     def test_pair_example(self):
         # Alignment file obtained from EMBOSS:
         # http://emboss.sourceforge.net/docs/themes/alnformats/align.pair
-        path = "Emboss/water.txt"
+        path = support.DATA / "Emboss" / "water.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Wed Jan 16 17:23:19 2002")
@@ -174,7 +176,7 @@ AlignmentCounts object with
 
     def test_local_water2(self):
         """Test parsing a local alignment."""
-        path = "Emboss/water2.txt"
+        path = support.DATA / "Emboss" / "water2.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Sat Apr 04 2009 22:08:44")
@@ -287,7 +289,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_matcher_simple(self):
-        path = "Emboss/matcher_simple.txt"
+        path = support.DATA / "Emboss" / "matcher_simple.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "matcher")
             self.assertEqual(alignments.metadata["Rundate"], "Tue  8 Dec 2009 11:48:35")
@@ -405,7 +407,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_matcher_pair(self):
-        path = "Emboss/matcher_pair.txt"
+        path = support.DATA / "Emboss" / "matcher_pair.txt"
         with Align.parse(path, "emboss") as alignments:
             self.check_matcher_pair(alignments)
             alignments = iter(alignments)
@@ -1000,7 +1002,7 @@ AlignmentCounts object with
         # (http://emboss.sourceforge.net/docs/themes/alnformats/align.pair)
         # if we include 3 sequences to align against, and we use the -nobrief
         # command line option.
-        path = "Emboss/needle_nobrief_multiple.pair"
+        path = support.DATA / "Emboss" / "needle_nobrief_multiple.pair"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "needle")
             self.assertEqual(alignments.metadata["Rundate"], "Fri 23 Jul 2021 22:45:41")
@@ -1445,7 +1447,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_pair_example2(self):
-        path = "Emboss/needle.txt"
+        path = support.DATA / "Emboss" / "needle.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "needle")
             self.assertEqual(alignments.metadata["Rundate"], "Sun 27 Apr 2007 17:20:35")
@@ -2154,7 +2156,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_pair_example3(self):
-        path = "Emboss/needle_overhang.txt"
+        path = support.DATA / "Emboss" / "needle_overhang.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "needle")
             self.assertEqual(alignments.metadata["Rundate"], "Mon 14 Jul 2008 11:45:42")
@@ -2321,7 +2323,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_needle_asis(self):
-        path = "Emboss/needle_asis.txt"
+        path = support.DATA / "Emboss" / "needle_asis.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "needle")
             self.assertEqual(alignments.metadata["Rundate"], "Mon 14 Jul 2008 11:37:15")
@@ -2712,7 +2714,7 @@ AlignmentCounts object with
 
     def test_water_reverse1(self):
         # water -asequence seqA.fa -bsequence seqB.fa -gapopen 10 -gapextend 0.5 -sreverse1 -outfile water_reverse1.txt
-        path = "Emboss/water_reverse1.txt"
+        path = support.DATA / "Emboss" / "water_reverse1.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Sat 22 Oct 2022 23:47:41")
@@ -2837,7 +2839,7 @@ AlignmentCounts object with
 
     def test_water_reverse2(self):
         # water -asequence seqA.fa -bsequence seqB.fa -gapopen 10 -gapextend 0.5 -sreverse2 -outfile water_reverse2.txt
-        path = "Emboss/water_reverse2.txt"
+        path = support.DATA / "Emboss" / "water_reverse2.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Sun 23 Oct 2022 00:06:18")
@@ -2961,7 +2963,7 @@ AlignmentCounts object with
 
     def test_water_reverse3(self):
         # water -asequence seqA.fa -bsequence seqB.fa -gapopen 10 -gapextend 0.5 -sreverse1 -outfile water_reverse3.txt
-        path = "Emboss/water_reverse3.txt"
+        path = support.DATA / "Emboss" / "water_reverse3.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Sat 22 Oct 2022 22:56:03")
@@ -3072,7 +3074,7 @@ AlignmentCounts object with
 
     def test_water_reverse4(self):
         # water -asequence seqA.fa -bsequence seqB.fa -gapopen 10 -gapextend 0.5 -sreverse2 -outfile water_reverse4.txt
-        path = "Emboss/water_reverse4.txt"
+        path = support.DATA / "Emboss" / "water_reverse4.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "water")
             self.assertEqual(alignments.metadata["Rundate"], "Sat 22 Oct 2022 22:56:15")
@@ -3181,7 +3183,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_pair_aln_full_blank_line(self):
-        path = "Emboss/emboss_pair_aln_full_blank_line.txt"
+        path = support.DATA / "Emboss" / "emboss_pair_aln_full_blank_line.txt"
         with Align.parse(path, "emboss") as alignments:
             self.assertEqual(alignments.metadata["Program"], "stretcher")
             self.assertEqual(alignments.metadata["Rundate"], "Tue 15 May 2018 17:01:31")

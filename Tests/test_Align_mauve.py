@@ -4,9 +4,10 @@
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for Bio.Align.mauve module."""
-import os
 import unittest
 from io import StringIO
+
+import support
 
 from Bio import Align
 from Bio import SeqIO
@@ -28,7 +29,7 @@ class TestCombinedFile(unittest.TestCase):
     # progressiveMauve combined.fa --output=combined.xmfa
 
     filename = "combined.fa"
-    path = os.path.join("Mauve", filename)
+    path = support.DATA / "Mauve" / filename
     with SeqIO.parse(path, "fasta") as records:
         sequences = {str(index): record.seq for index, record in enumerate(records)}
     del filename
@@ -36,7 +37,7 @@ class TestCombinedFile(unittest.TestCase):
     del records
 
     def test_parse(self):
-        path = os.path.join("Mauve", "combined.xmfa")
+        path = support.DATA / "Mauve" / "combined.xmfa"
         with open(path) as stream:
             alignments = Align.parse(stream, "mauve")
             self.check_alignments(alignments)
@@ -699,7 +700,7 @@ AlignmentCounts object with
             self.assertEqual(alignment[0], "C")
 
     def test_write_read(self):
-        path = os.path.join("Mauve", "combined.xmfa")
+        path = support.DATA / "Mauve" / "combined.xmfa"
         with open(path) as stream:
             data = stream.read()
 
@@ -721,7 +722,7 @@ class TestSeparateFiles(unittest.TestCase):
     sequences = {}
     for species in ("equCab1", "canFam2", "mm9"):
         filename = f"{species}.fa"
-        path = os.path.join("Mauve", filename)
+        path = support.DATA / "Mauve" / filename
         record = SeqIO.read(path, "fasta")
         sequences[filename] = record.seq
         del filename
@@ -729,7 +730,7 @@ class TestSeparateFiles(unittest.TestCase):
         del record
 
     def test_parse(self):
-        path = os.path.join("Mauve", "separate.xmfa")
+        path = support.DATA / "Mauve" / "separate.xmfa"
         saved_alignments = []
         with open(path) as stream:
             alignments = Align.parse(stream, "mauve")
@@ -1032,7 +1033,7 @@ AlignmentCounts object with
             self.assertEqual(alignment[0], "CTGGCGTCCGGAGCTGGGACGT")
 
     def test_write_read(self):
-        path = os.path.join("Mauve", "separate.xmfa")
+        path = support.DATA / "Mauve" / "separate.xmfa"
         with open(path) as stream:
             data = stream.read()
 

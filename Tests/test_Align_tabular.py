@@ -4,9 +4,10 @@
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for Bio.Align.tabular module."""
-import os
 import unittest
 from tempfile import NamedTemporaryFile
+
+import support
 
 from Bio import Align
 from Bio.Align import substitution_matrices
@@ -30,7 +31,7 @@ class TestFastaProtein(unittest.TestCase):
         "MPMILGYWNVRGLTHPIRMLLEYTDSSYDEKRYTMGDAPDFDRSQWLNEKFKLGLDFPNLPYLIDGSHKITQSNAILRYLARKHHLDGETEEERIRADIVENQVMDTRMQLIMLCYNPDFEKQKPEFLKTIPEKMKLYSEFLGKRPWFAGDKVTYVDFLAYDILDQYRMFEPKCLDAFPNLRDFLARFEGLKKISAYMKSSRYIATPIFSKMAHWSNK"
     )
 
-    filename = os.path.join("Fasta", "protein_lib.fa")
+    filename = support.DATA / "Fasta" / "protein_lib.fa"
     with SeqIO.parse(filename, "fasta") as records:
         targets = {record.id: record.seq.upper() for record in records}
 
@@ -38,7 +39,7 @@ class TestFastaProtein(unittest.TestCase):
         # Alignment file obtained by running
         # fasta36 -q -m 8CB seq/mgstm1.aa seq/prot_test.lseg
         # in the fasta36 source distribution
-        path = "Fasta/protein_m8CB.txt"
+        path = support.DATA / "Fasta" / "protein_m8CB.txt"
         with Align.parse(path, "tabular") as alignments:
             self.check_m8CB(alignments)
             alignments = iter(alignments)
@@ -1498,7 +1499,7 @@ AlignmentCounts object with
         # Alignment file obtained by running
         # fasta36 -q -m 8CB seq/mgstm1.aa seq/prot_test.lseg
         # in the fasta36 source distribution
-        path = "Fasta/protein_m8CC.txt"
+        path = support.DATA / "Fasta" / "protein_m8CC.txt"
         with Align.parse(path, "tabular") as alignments:
             self.check_m8CC(alignments)
 
@@ -2945,7 +2946,7 @@ class TestFastaNucleotide(unittest.TestCase):
         "ATGCCTATGATACTGGGATACTGGAACGTCCGCGGACTGACACACCCGATCCGCATGCTCCTGGAATACACAGACTCAAGCTATGATGAGAAGAGATACACCATGGGTGACGCTCCCGACTTTGACAGAAGCCAGTGGCTGAATGAGAAGTTCAAGCTGGGCCTGGACTTTCCCAATCTGCCTTACTTGATCGATGGATCACACAAGATCACCCAGAGCAATGCCATCCTGCGCTACCTTGCCCGAAAGCACCACCTGGATGGAGAGACAGAGGAGGAGAGGATCCGTGCAGACATTGTGGAGAACCAGGTCATGGACACCCGCATGCAGCTCATCATGCTCTGTTACAACCCTGACTTTGAGAAGCAGAAGCCAGAGTTCTTGAAGACCATCCCTGAGAAAATGAAGCTCTACTCTGAGTTCCTGGGCAAGAGGCCATGGTTTGCAGGGGACAAGGTCACCTATGTGGATTTCCTTGCTTATGACATTCTTGACCAGTACCGTATGTTTGAGCCCAAGTGCCTGGACGCCTTCCCAAACCTGAGGGACTTCCTGGCCCGCTTCGAGGGCCTCAAGAAGATCTCTGCCTACATGAAGAGTAGCCGCTACATCGCAACACCTATATTTTCAAAGATGGCCCACTGGAGTAACAAGTAG"
     )
 
-    filename = os.path.join("Fasta", "nucleotide_lib.fa")
+    filename = support.DATA / "Fasta" / "nucleotide_lib.fa"
     with SeqIO.parse(filename, "fasta") as records:
         targets = {record.id: record.seq.upper() for record in records}
 
@@ -2953,7 +2954,7 @@ class TestFastaNucleotide(unittest.TestCase):
         # Alignment file obtained by running
         # fasta36 -m 8CB seq/mgstm1.nt seq/gst.nlib
         # in the fasta36 source distribution
-        path = "Fasta/nucleotide_m8CB.txt"
+        path = support.DATA / "Fasta" / "nucleotide_m8CB.txt"
         with Align.parse(path, "tabular") as alignments:
             self.check_m8CB(alignments)
 
@@ -4418,7 +4419,7 @@ AlignmentCounts object with
         # Alignment file obtained by running
         # fasta36 -m 8CC seq/mgstm1.nt seq/gst.nlib
         # in the fasta36 source distribution
-        path = "Fasta/nucleotide_m8CC.txt"
+        path = support.DATA / "Fasta" / "nucleotide_m8CC.txt"
         with Align.parse(path, "tabular") as alignments:
             self.check_m8CC(alignments)
 
@@ -5909,31 +5910,31 @@ q1\ts1\tACGT
             next(alignments)
 
     def test_2226_tblastn_001(self):
-        path = "Blast/tab_2226_tblastn_001.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_001.txt"
         with open(path) as stream:
             with self.assertRaisesRegex(ValueError, "Missing header."):
                 Align.parse(stream, "tabular")
 
     def test_2226_tblastn_002(self):
-        path = "Blast/tab_2226_tblastn_002.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_002.txt"
         with open(path) as stream:
             with self.assertRaisesRegex(ValueError, "Empty file."):
                 Align.parse(stream, "tabular")
 
     def test_2226_tblastn_003(self):
-        path = "Blast/tab_2226_tblastn_003.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_003.txt"
         with open(path) as stream:
             with self.assertRaisesRegex(ValueError, "Missing header."):
                 Align.parse(stream, "tabular")
 
     def test_2226_tblastn_004(self):
-        path = "Blast/tab_2226_tblastn_004.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_004.txt"
         with open(path) as stream:
             with self.assertRaisesRegex(ValueError, "Missing header."):
                 Align.parse(stream, "tabular")
 
     def test_2226_tblastn_005(self):
-        path = "Blast/tab_2226_tblastn_005.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_005.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -6732,7 +6733,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2226_tblastn_007(self):
-        path = "Blast/tab_2226_tblastn_007.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_007.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -6949,7 +6950,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2226_tblastn_008(self):
-        path = "Blast/tab_2226_tblastn_008.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_008.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -7554,13 +7555,13 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2226_tblastn_009(self):
-        path = "Blast/tab_2226_tblastn_009.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_009.txt"
         with open(path) as stream:
             with self.assertRaisesRegex(ValueError, "Missing header."):
                 Align.parse(stream, "tabular")
 
     def test_2226_tblastn_010(self):
-        path = "Blast/tab_2226_tblastn_010.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_010.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -8255,7 +8256,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2226_tblastn_011(self):
-        path = "Blast/tab_2226_tblastn_011.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_011.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -9728,7 +9729,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2226_tblastn_012(self):
-        path = "Blast/tab_2226_tblastn_012.txt"
+        path = support.DATA / "Blast" / "tab_2226_tblastn_012.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -10529,7 +10530,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2228_tblastn_001(self):
-        path = "Blast/tab_2228_tblastn_001.txt"
+        path = support.DATA / "Blast" / "tab_2228_tblastn_001.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTN")
@@ -11132,7 +11133,7 @@ AlignmentCounts object with
                 next(alignments)
 
     def test_2228_tblastx_001(self):
-        path = "Blast/tab_2228_tblastx_001.txt"
+        path = support.DATA / "Blast" / "tab_2228_tblastx_001.txt"
         with open(path) as stream:
             alignments = Align.parse(stream, "tabular")
             self.assertEqual(alignments.metadata["Program"], "TBLASTX")

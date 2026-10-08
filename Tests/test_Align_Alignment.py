@@ -6,7 +6,6 @@
 """Tests for the Alignment class in Bio.Align."""
 
 import inspect
-import os
 import re
 import sys
 import unittest
@@ -20,6 +19,8 @@ except ImportError:
     raise MissingPythonDependencyError(
         "Install numpy if you want to use Bio.Align."
     ) from None
+
+import support
 
 from Bio import Align
 from Bio import SeqIO
@@ -1313,10 +1314,10 @@ seq1              0 ACTT 4
         )
 
     def test_substitutions(self):
-        path = os.path.join("Align", "ecoli.fa")
+        path = support.DATA / "Align" / "ecoli.fa"
         record = SeqIO.read(path, "fasta")
         target = record.seq
-        path = os.path.join("Align", "bsubtilis.fa")
+        path = support.DATA / "Align" / "bsubtilis.fa"
         record = SeqIO.read(path, "fasta")
         query = record.seq
         coordinates = np.array(
@@ -1478,7 +1479,7 @@ query             0 ACCTACGCG-G--- 10
 
 class TestMultipleAlignment(unittest.TestCase):
     def setUp(self):
-        path = "Clustalw/opuntia.aln"
+        path = support.DATA / "Clustalw" / "opuntia.aln"
         with open(path) as stream:
             self.alignment = Align.read(stream, "clustal")
 
@@ -2512,7 +2513,7 @@ gi|627329         0 TATATATATAAATATATTTC 20
 
 class TestAlignment_format(unittest.TestCase):
     def setUp(self):
-        path = "Clustalw/muscle.a2m"
+        path = support.DATA / "Clustalw" / "muscle.a2m"
         with open(path) as stream:
             alignments = Align.parse(stream, "a2m")
             alignment = next(alignments)
@@ -3669,11 +3670,11 @@ class TestAlign_mapall(unittest.TestCase):
         for old_assembly, new_assembly in assemblies:
             new_assembly_capitalized = new_assembly[0].upper() + new_assembly[1:]
             filename = f"{old_assembly}To{new_assembly_capitalized}.chain"
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             alignment = Align.read(path, "chain")
             alignments.append(alignment)
             filename = "%s.fa" % new_assembly
-            path = os.path.join("Align", filename)
+            path = support.DATA / "Align" / filename
             record = SeqIO.read(path, "fasta")
             chromosome, location = record.id.split(":")
             start, end = location.split("-")
@@ -3685,7 +3686,7 @@ class TestAlign_mapall(unittest.TestCase):
             name = f"{new_assembly}.{chromosome}"
             record = SeqRecord(seq, id=name)
             records.append(record)
-        path = os.path.join("Blat", "panTro5.maf")
+        path = support.DATA / "Blat" / "panTro5.maf"
         alignment = Align.read(path, "maf")
         self.assertEqual(
             str(alignment),
@@ -3754,7 +3755,9 @@ class TestAlign_read_parse_write(unittest.TestCase):
 
     def test_read_by_keyword(self):
         """Pass read its arguments by their documented names."""
-        alignment = Align.read(handle="Clustalw/opuntia.aln", fmt="clustal")
+        alignment = Align.read(
+            handle=support.DATA / "Clustalw" / "opuntia.aln", fmt="clustal"
+        )
         self.assertEqual(alignment.shape, (7, 156))
 
 

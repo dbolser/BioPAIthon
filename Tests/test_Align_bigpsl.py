@@ -6,6 +6,8 @@
 import tempfile
 import unittest
 
+import support
+
 from Bio import Align
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -27,7 +29,7 @@ except ImportError:
 
 class TestAlign_declaration(unittest.TestCase):
     def test_declaration(self):
-        with open("Blat/bigPsl.as") as stream:
+        with open(support.DATA / "Blat" / "bigPsl.as") as stream:
             declaration = stream.read()
         self.assertEqual(str(Align.bigpsl.declaration), declaration)
 
@@ -39,7 +41,7 @@ class TestAlign_dna_rna(unittest.TestCase):
 
     def setUp(self):
         data = {}
-        with SeqIO.parse("Blat/dna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "dna.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 assert name == "chr3"
@@ -50,9 +52,9 @@ class TestAlign_dna_rna(unittest.TestCase):
                 assert len(sequence) == end - start
                 data[start] = sequence
         self.dna = data
-        with SeqIO.parse("Blat/rna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "rna.fa", "fasta") as records:
             self.rna = {record.id: record.seq for record in records}
-        self.path = "Blat/dna_rna.psl.bb"
+        self.path = support.DATA / "Blat" / "dna_rna.psl.bb"
 
     def test_reading(self):
         """Test parsing dna_rna.psl.bb."""
@@ -530,7 +532,7 @@ AlignmentCounts object with
 
 class TestAlign_dna(unittest.TestCase):
 
-    with SeqIO.parse("Blat/fasta_34.fa", "fasta") as records:
+    with SeqIO.parse(support.DATA / "Blat" / "fasta_34.fa", "fasta") as records:
         queries = {record.id: record.seq for record in records}
 
     def test_reading_psl_34_001(self):
@@ -539,13 +541,13 @@ class TestAlign_dna(unittest.TestCase):
         # pslToBigPsl -fa=fasta_34.fa psl_34_001.psl stdout | sort -k1,1 -k2,2n > psl_34_001.bigPslInput
         # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as psl_34_001.bigPslInput hg19.chrom.sizes psl_34_001.psl.bb
 
-        path = "Blat/psl_34_001.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_001.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_34_001(alignments)
 
     def test_writing_psl_34_001(self):
         """Test writing psl_34_001.psl.bb."""
-        path = "Blat/psl_34_001.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_001.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -2324,13 +2326,13 @@ AlignmentCounts object with
         # pslToBigPsl -fa=fasta_34.fa psl_34_003.psl stdout | sort -k1,1 -k2,2n > psl_34_003.bigPslInput
         # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as psl_34_003.bigPslInput hg19.chrom.sizes psl_34_003.psl.bb
 
-        path = "Blat/psl_34_003.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_003.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_34_003(alignments)
 
     def test_writing_psl_34_003(self):
         """Test writing psl_34_003.psl.bb."""
-        path = "Blat/psl_34_003.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_003.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -2593,13 +2595,13 @@ AlignmentCounts object with
         # The bigPsl file psl_34_004.psl.bb was generated using these commands:
         # pslToBigPsl -fa=fasta_34.fa psl_34_004.psl stdout | sort -k1,1 -k2,2n > psl_34_004.bigPslInput
         # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as psl_34_004.bigPslInput hg19.chrom.sizes psl_34_004.psl.bb
-        path = "Blat/psl_34_004.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_004.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_34_004(alignments)
 
     def test_writing_psl_34_004(self):
         """Test writing psl_34_004.psl.bb."""
-        path = "Blat/psl_34_004.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_004.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -4141,13 +4143,13 @@ AlignmentCounts object with
         # pslToBigPsl -fa=fasta_34.fa psl_34_005.psl stdout | sort -k1,1 -k2,2n > psl_34_005.bigPslInput
         # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as psl_34_005.bigPslInput hg19.chrom.sizes psl_34_005.psl.bb
 
-        path = "Blat/psl_34_005.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_005.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_34_005(alignments)
 
     def test_writing_psl_34_005(self):
         """Test writing psl_34_005.psl.bb."""
-        path = "Blat/psl_34_005.psl.bb"
+        path = support.DATA / "Blat" / "psl_34_005.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -5923,7 +5925,7 @@ AlignmentCounts object with
 
 class TestAlign_dnax_prot(unittest.TestCase):
 
-    with SeqIO.parse("Blat/CAG33136.1.fasta", "fasta") as records:
+    with SeqIO.parse(support.DATA / "Blat" / "CAG33136.1.fasta", "fasta") as records:
         queries = {record.id: record.seq for record in records}
 
     def test_reading_psl_35_001(self):
@@ -5932,13 +5934,13 @@ class TestAlign_dnax_prot(unittest.TestCase):
         # pslToBigPsl -fa=CAG33136.1.fasta psl_35_001.psl stdout | sort -k1,1 -k2,2n > psl_35_001.bigPslInput
         # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as psl_35_001.bigPslInput hg38.chrom.sizes psl_35_001.psl.bb
 
-        path = "Blat/psl_35_001.psl.bb"
+        path = support.DATA / "Blat" / "psl_35_001.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_35_001(alignments)
 
     def test_writing_psl_35_001(self):
         """Test writing psl_35_001.psl.bb."""
-        path = "Blat/psl_35_001.psl.bb"
+        path = support.DATA / "Blat" / "psl_35_001.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -6759,7 +6761,7 @@ AlignmentCounts object with
         # See below for a description of the file balAcu1.fa.
         # We use this file here so we can check the SeqFeatures.
         self.dna = {}
-        with SeqIO.parse("Blat/balAcu1.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "balAcu1.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 start, end = start_end.split("-")
@@ -6767,13 +6769,13 @@ AlignmentCounts object with
                 end = int(end)
                 sequence = str(record.seq)
                 self.dna[name] = Seq({start: sequence}, length=end)
-        path = "Blat/psl_35_002.psl.bb"
+        path = support.DATA / "Blat" / "psl_35_002.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_psl_35_002(alignments)
 
     def test_writing_psl_35_002(self):
         """Test writing psl_35_002.psl.bb."""
-        path = "Blat/psl_35_002.psl.bb"
+        path = support.DATA / "Blat" / "psl_35_002.psl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", fa=True)
@@ -6791,13 +6793,13 @@ class TestAlign_bigpsl(unittest.TestCase):
 
     def test_reading(self):
         """Test parsing bigPsl.bb."""
-        path = "Blat/bigPsl.bb"
+        path = support.DATA / "Blat" / "bigPsl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.check_alignments(alignments)
 
     def test_writing(self):
         """Test writing bigPsl.bb."""
-        path = "Blat/bigPsl.bb"
+        path = support.DATA / "Blat" / "bigPsl.bb"
         with tempfile.TemporaryFile() as output:
             with Align.parse(path, "bigpsl") as alignments:
                 Align.write(alignments, output, "bigpsl", cds=True)
@@ -12852,7 +12854,7 @@ class TestAlign_searching(unittest.TestCase):
     # bedToBigBed -type=bed12+13 -tab -as=bigPsl.as bigbedtest.bigPslInput bigbedtest.chrom.sizes bigbedtest.psl.bb
 
     def test_search_chromosome(self):
-        path = "Blat/bigbedtest.psl.bb"
+        path = support.DATA / "Blat" / "bigbedtest.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             self.assertEqual(alignments.declaration, Align.bigpsl.declaration)
             selected_alignments = alignments.search("chr2")
@@ -12860,7 +12862,7 @@ class TestAlign_searching(unittest.TestCase):
             self.assertEqual(names, ["name4", "name5", "name6", "name7"])
 
     def test_search_region(self):
-        path = "Blat/bigbedtest.psl.bb"
+        path = support.DATA / "Blat" / "bigbedtest.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             selected_alignments = alignments.search("chr2", 105, 1000)
             names = [alignment.query.id for alignment in selected_alignments]
@@ -12885,7 +12887,7 @@ class TestAlign_searching(unittest.TestCase):
             self.assertEqual(names, ["name7"])
 
     def test_search_position(self):
-        path = "Blat/bigbedtest.psl.bb"
+        path = support.DATA / "Blat" / "bigbedtest.psl.bb"
         with Align.parse(path, "bigpsl") as alignments:
             selected_alignments = alignments.search("chr1", 250)
             names = [alignment.query.id for alignment in selected_alignments]
@@ -12893,7 +12895,7 @@ class TestAlign_searching(unittest.TestCase):
 
     def test_three_iterators(self):
         """Create three iterators and use them concurrently."""
-        path = "Blat/bigbedtest.psl.bb"
+        path = support.DATA / "Blat" / "bigbedtest.psl.bb"
         with Align.parse(path, "bigpsl") as alignments1:
             alignments2 = alignments1.search("chr2")
             alignments3 = alignments1.search("chr2", 110, 1000)

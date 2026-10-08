@@ -4,12 +4,13 @@
 # as part of this package.
 """Tests for Align.bed module."""
 
-import os
 import tempfile
 import unittest
 from io import StringIO
 
 import numpy as np
+
+import support
 
 from Bio import Align
 from Bio import SeqIO
@@ -24,7 +25,7 @@ class TestAlign_dna_rna(unittest.TestCase):
 
     def setUp(self):
         data = {}
-        with SeqIO.parse("Blat/dna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "dna.fa", "fasta") as records:
             for record in records:
                 name, start_end = record.id.split(":")
                 assert name == "chr3"
@@ -35,7 +36,7 @@ class TestAlign_dna_rna(unittest.TestCase):
                 assert len(sequence) == end - start
                 data[start] = sequence
         self.dna = Seq(data, length=198295559)  # hg38 chr3
-        with SeqIO.parse("Blat/rna.fa", "fasta") as records:
+        with SeqIO.parse(support.DATA / "Blat" / "rna.fa", "fasta") as records:
             self.rna = {record.id: record.seq for record in records}
 
     def check_alignments(self, alignments):
@@ -1369,7 +1370,7 @@ AlignmentCounts object with
 
     def test_reading(self):
         """Test parsing dna_rna.bed."""
-        path = "Blat/dna_rna.bed"
+        path = support.DATA / "Blat" / "dna_rna.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_alignments(alignments)
             alignments = iter(alignments)
@@ -1385,7 +1386,7 @@ AlignmentCounts object with
 
     def test_writing(self):
         """Test writing the alignments in dna_rna.bed."""
-        path = "Blat/dna_rna.bed"
+        path = support.DATA / "Blat" / "dna_rna.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -1401,7 +1402,7 @@ AlignmentCounts object with
 class TestAlign_dna(unittest.TestCase):
     def test_reading_psl_34_001(self):
         """Test parsing psl_34_001.bed."""
-        path = "Blat/psl_34_001.bed"
+        path = support.DATA / "Blat" / "psl_34_001.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_reading_psl_34_001(alignments)
 
@@ -3244,7 +3245,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_001(self):
         """Test writing the alignments in psl_34_001.bed."""
-        path = "Blat/psl_34_001.bed"
+        path = support.DATA / "Blat" / "psl_34_001.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -3258,7 +3259,7 @@ AlignmentCounts object with
 
     def test_reading_psl_34_003(self):
         """Test parsing psl_34_003.bed."""
-        path = "Blat/psl_34_003.bed"
+        path = support.DATA / "Blat" / "psl_34_003.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_reading_psl_34_003(alignments)
 
@@ -3516,7 +3517,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_003(self):
         """Test writing the alignments in psl_34_003.bed."""
-        path = "Blat/psl_34_003.bed"
+        path = support.DATA / "Blat" / "psl_34_003.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -3530,7 +3531,7 @@ AlignmentCounts object with
 
     def test_reading_psl_34_004(self):
         """Test parsing psl_34_004.bed."""
-        path = "Blat/psl_34_004.bed"
+        path = support.DATA / "Blat" / "psl_34_004.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_reading_psl_34_004(alignments)
 
@@ -5124,7 +5125,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_004(self):
         """Test writing the alignments in psl_34_004.bed."""
-        path = "Blat/psl_34_004.bed"
+        path = support.DATA / "Blat" / "psl_34_004.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -5138,7 +5139,7 @@ AlignmentCounts object with
 
     def test_reading_psl_34_005(self):
         """Test parsing psl_34_005.bed."""
-        path = "Blat/psl_34_005.bed"
+        path = support.DATA / "Blat" / "psl_34_005.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_reading_psl_34_005(alignments)
 
@@ -6981,7 +6982,7 @@ AlignmentCounts object with
 
     def test_writing_psl_34_005(self):
         """Test writing the alignments in psl_34_005.bed."""
-        path = "Blat/psl_34_005.bed"
+        path = support.DATA / "Blat" / "psl_34_005.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -6997,7 +6998,7 @@ AlignmentCounts object with
 class TestAlign_dnax_prot(unittest.TestCase):
     def test_reading_psl_35_001(self):
         """Test parsing psl_35_001.bed."""
-        path = "Blat/psl_35_001.bed"
+        path = support.DATA / "Blat" / "psl_35_001.bed"
         with Align.parse(path, "bed") as alignments:
             self.check_alignments(alignments)
 
@@ -9294,7 +9295,7 @@ AlignmentCounts object with
 
     def test_writing_psl_35_001(self):
         """Test writing the alignments in psl_35_001.bed."""
-        path = "Blat/psl_35_001.bed"
+        path = support.DATA / "Blat" / "psl_35_001.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -9308,7 +9309,7 @@ AlignmentCounts object with
 
     def test_reading_psl_35_002(self):
         """Test parsing psl_35_002.bed."""
-        path = "Blat/psl_35_002.bed"
+        path = support.DATA / "Blat" / "psl_35_002.bed"
         with Align.parse(path, "bed") as alignments:
             alignment = next(alignments)
             self.assertEqual(alignment.score, 972)
@@ -11780,7 +11781,7 @@ AlignmentCounts object with
 
     def test_writing_psl_35_002(self):
         """Test writing the alignments in psl_35_002.bed."""
-        path = "Blat/psl_35_002.bed"
+        path = support.DATA / "Blat" / "psl_35_002.bed"
         with open(path) as stream:
             original_data = stream.read()
         stream = StringIO()
@@ -11798,7 +11799,7 @@ class TestAlign_bed12(unittest.TestCase):
         """Test parsing alignments in file formats BED3 through BED12."""
         for bedN in (3, 4, 5, 6, 7, 8, 9, 12):
             filename = "bed%d.bed" % bedN
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             with Align.parse(path, "bed") as alignments:
                 self.check_alignments(alignments, bedN, filename)
 
@@ -12134,7 +12135,7 @@ AlignmentCounts object with
         """Test writing the alignments in bed12.bed as BED3 through BED12."""
         for bedN in (3, 4, 5, 6, 7, 8, 9, 12):
             filename = "bed%d.bed" % bedN
-            path = os.path.join("Blat", filename)
+            path = support.DATA / "Blat" / filename
             with open(path) as stream:
                 original_data = stream.read()
             stream = StringIO()
@@ -12205,7 +12206,7 @@ query             0 --TTC-GCTAGC-TG--- 11
 
 
 class TestAlign_searching(unittest.TestCase):
-    path = "Blat/bigbedtest.bed"
+    path = support.DATA / "Blat" / "bigbedtest.bed"
 
     def check_alignments(self, alignments):
         alignment = next(alignments)

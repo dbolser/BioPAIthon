@@ -17,6 +17,8 @@ except ImportError:
     ) from None
 
 
+import support
+
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import Alignment
@@ -569,9 +571,13 @@ dna               3 AAAAAAAAAAAATTT 18
 class TestBuildAndIO(unittest.TestCase):
     def test1(self):
         aligner = CodonAligner()
-        protein_alignment = Align.read("codonalign/pro1.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "pro1.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 3)
-        with SeqIO.parse("codonalign/nucl1.fa", "fasta") as nucleotide_records:
+        with SeqIO.parse(
+            support.DATA / "codonalign" / "nucl1.fa", "fasta"
+        ) as nucleotide_records:
             codon_alignments = []
             nucleotide_record = next(nucleotide_records)
             protein_record = protein_alignment.sequences[0]
@@ -743,9 +749,13 @@ ENSG00000108691:ENST0000022583      -----
 
     def test2(self):
         aligner = CodonAligner()
-        protein_alignment = Align.read("codonalign/pro2.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "pro2.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 3)
-        with SeqIO.parse("codonalign/nucl2.fa", "fasta") as nucleotide_records:
+        with SeqIO.parse(
+            support.DATA / "codonalign" / "nucl2.fa", "fasta"
+        ) as nucleotide_records:
             codon_alignments = []
             nucleotide_record = next(nucleotide_records)
             protein_record = protein_alignment.sequences[0]
@@ -1493,10 +1503,14 @@ ENSG00000176953:ENST0000032080      --------------------------------------------
 
     def test3(self):
         aligner = CodonAligner()
-        protein_alignment = Align.read("codonalign/pro3.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "pro3.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 10)
         try:
-            nucleotide_records = SeqIO.index("codonalign/nucl3.fa", "fasta")
+            nucleotide_records = SeqIO.index(
+                support.DATA / "codonalign" / "nucl3.fa", "fasta"
+            )
             codon_alignments = []
             protein_record = protein_alignment.sequences[0]
             nucleotide_record = nucleotide_records[protein_record.id]
@@ -3766,10 +3780,14 @@ isotig12566                         ----------------
 
     def test4(self):
         aligner = CodonAligner()
-        protein_alignment = Align.read("codonalign/pro4.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "pro4.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 10)
         try:
-            nucleotide_records = SeqIO.index("codonalign/nucl4.fa", "fasta")
+            nucleotide_records = SeqIO.index(
+                support.DATA / "codonalign" / "nucl4.fa", "fasta"
+            )
             codon_alignments = []
             protein_record = protein_alignment.sequences[0]
             nucleotide_record = nucleotide_records[protein_record.id]
@@ -6040,9 +6058,13 @@ isotig12566                         ----------------
     def test5(self):
         aligner = CodonAligner()
         # aligner.frameshift_score = -10.0
-        protein_alignment = Align.read("codonalign/pro5.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "pro5.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 3)
-        with SeqIO.parse("codonalign/nucl5.fa", "fasta") as nucleotide_records:
+        with SeqIO.parse(
+            support.DATA / "codonalign" / "nucl5.fa", "fasta"
+        ) as nucleotide_records:
             codon_alignments = []
             nucleotide_record = next(nucleotide_records)
             protein_record = protein_alignment.sequences[0]
@@ -6548,10 +6570,14 @@ pro3             60 CACTCTTTTCTCATGACCATCCAG 84
 class Test_dn_ds(unittest.TestCase):
     def test_dn_ds(self):
         aligner = CodonAligner()
-        protein_alignment = Align.read("codonalign/egfr_pro.aln", "clustal")
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "egfr_pro.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 6)
         try:
-            nucleotide_records = SeqIO.index("codonalign/egfr_nucl.fa", "fasta")
+            nucleotide_records = SeqIO.index(
+                support.DATA / "codonalign" / "egfr_nucl.fa", "fasta"
+            )
             codon_alignments = []
             protein_record = protein_alignment.sequences[0]
             self.assertEqual(protein_record.id, "gi|17136534|ref|NP_476758.1|")
@@ -8645,8 +8671,12 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
 class Test_MK(unittest.TestCase):
     def test_mk(self):
         aligner = CodonAligner()
-        nucleotide_records = SeqIO.index("codonalign/drosophila.fasta", "fasta")
-        protein_alignment = Align.read("codonalign/adh.aln", "clustal")
+        nucleotide_records = SeqIO.index(
+            support.DATA / "codonalign" / "drosophila.fasta", "fasta"
+        )
+        protein_alignment = Align.read(
+            support.DATA / "codonalign" / "adh.aln", "clustal"
+        )
         self.assertEqual(len(protein_alignment.sequences), 27)
         codon_alignments = []
         protein_record = protein_alignment.sequences[0]

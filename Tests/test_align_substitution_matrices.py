@@ -20,6 +20,8 @@ except ImportError:
         "Install NumPy if you want to use Bio.Align.substitution_matrices."
     ) from None
 
+import support
+
 from Bio import SeqIO
 from Bio.Align import substitution_matrices
 from Bio.Data import IUPACData
@@ -131,7 +133,7 @@ Z  0.0
 
     def test_read_write(self):
         """Test reading and writing substitution matrices."""
-        path = os.path.join("Align", "hg38.chrom.sizes")
+        path = support.DATA / "Align" / "hg38.chrom.sizes"
         sizes = substitution_matrices.read(path, np.int64)
         # Note that sum(sizes) below is larger than 2147483647, and won't
         # fit in an int on a 32-bits machine.
@@ -153,14 +155,14 @@ Z  0.0
     def test_nucleotide_freq(self):
         """Test nucleotide frequency calculations."""
         counts = Counter()
-        path = os.path.join("Align", "ecoli.fa")
+        path = support.DATA / "Align" / "ecoli.fa"
         with SeqIO.parse(path, "fasta") as records:
             for record in records:
                 for nucleotide in record.seq:
                     counts[nucleotide] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, sorted(nucleotide_alphabet))
-        path = os.path.join("Align", "ecoli.txt")
+        path = support.DATA / "Align" / "ecoli.txt"
         frequencies = substitution_matrices.read(path)
         self.assertEqual(frequencies.alphabet, nucleotide_alphabet)
         self.assertEqual(frequencies.shape, (len(nucleotide_alphabet),))
@@ -178,14 +180,14 @@ Z  0.0
         self.assertAlmostEqual(frequencies["G"], 0.315175097276264)
         self.assertAlmostEqual(frequencies["T"], 0.204928664072632)
         counts = Counter()
-        path = os.path.join("Align", "bsubtilis.fa")
+        path = support.DATA / "Align" / "bsubtilis.fa"
         with SeqIO.parse(path, "fasta") as records:
             for record in records:
                 for nucleotide in record.seq:
                     counts[nucleotide] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, sorted(nucleotide_alphabet))
-        path = os.path.join("Align", "bsubtilis.txt")
+        path = support.DATA / "Align" / "bsubtilis.txt"
         frequencies = substitution_matrices.read(path)
         self.assertEqual(frequencies.alphabet, nucleotide_alphabet)
         self.assertEqual(frequencies.shape, (len(nucleotide_alphabet),))
@@ -206,14 +208,14 @@ Z  0.0
     def test_protein_freq(self):
         """Test amino acid frequency calculations."""
         counts = Counter()
-        path = os.path.join("Align", "cow.fa")
+        path = support.DATA / "Align" / "cow.fa"
         with SeqIO.parse(path, "fasta") as records:
             for record in records:
                 for aminoacid in record.seq:
                     counts[aminoacid] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, list(protein_alphabet))
-        path = os.path.join("Align", "cow.txt")
+        path = support.DATA / "Align" / "cow.txt"
         frequencies = substitution_matrices.read(path)
         self.assertEqual(frequencies.alphabet, protein_alphabet)
         self.assertEqual(frequencies.shape, (len(protein_alphabet),))
@@ -247,14 +249,14 @@ Z  0.0
         self.assertAlmostEqual(frequencies["W"], 0.015625000)
         self.assertAlmostEqual(frequencies["Y"], 0.031971154)
         counts = Counter()
-        path = os.path.join("Align", "pig.fa")
+        path = support.DATA / "Align" / "pig.fa"
         with SeqIO.parse(path, "fasta") as records:
             for record in records:
                 for aminoacid in record.seq:
                     counts[aminoacid] += 1
         letters = sorted(counts.keys())
         self.assertEqual(letters, list(protein_alphabet))
-        path = os.path.join("Align", "pig.txt")
+        path = support.DATA / "Align" / "pig.txt"
         frequencies = substitution_matrices.read(path)
         self.assertEqual(frequencies.alphabet, protein_alphabet)
         self.assertEqual(frequencies.shape, (len(protein_alphabet),))
@@ -318,8 +320,8 @@ class TestScoringMatrices(unittest.TestCase):
         # BLOSUM62 matrix.
         aligner.match = 6
         aligner.mismatch = -1
-        cow_path = "Align/cow.fa"
-        pig_path = "Align/pig.fa"
+        cow_path = support.DATA / "Align" / "cow.fa"
+        pig_path = support.DATA / "Align" / "pig.fa"
         with SeqIO.parse(cow_path, "fasta") as cow_records:
             with SeqIO.parse(pig_path, "fasta") as pig_records:
                 for cow_record, pig_record in zip(cow_records, pig_records):

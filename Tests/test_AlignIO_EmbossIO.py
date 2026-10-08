@@ -8,20 +8,22 @@
 import unittest
 from io import StringIO
 
+import support
+
 from Bio.AlignIO.EmbossIO import EmbossIterator
 
 # http://emboss.sourceforge.net/docs/themes/alnformats/align.simple
-with open("Emboss/alignret.txt") as handle:
+with open(support.DATA / "Emboss" / "alignret.txt") as handle:
     simple_example = handle.read()
 
 # http://emboss.sourceforge.net/docs/themes/alnformats/align.pair
-with open("Emboss/water.txt") as handle:
+with open(support.DATA / "Emboss" / "water.txt") as handle:
     pair_example = handle.read()
 
-with open("Emboss/needle.txt") as handle:
+with open(support.DATA / "Emboss" / "needle.txt") as handle:
     pair_example2 = handle.read()
 
-with open("Emboss/needle_overhang.txt") as handle:
+with open(support.DATA / "Emboss" / "needle_overhang.txt") as handle:
     pair_example3 = handle.read()
 
 
