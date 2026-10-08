@@ -167,7 +167,11 @@ class ClustalIterator(AlignmentIterator):
                     end = start + len(fields[1])
                     seq_cols = slice(start, end)
                     del start, end
-                assert fields[1] == line[seq_cols]
+                if fields[1] != line[seq_cols]:
+                    raise ValueError(
+                        f"Expected sequence in columns {seq_cols.start + 1} to"
+                        f" {seq_cols.stop}, as in the first line, not:\n{line!r}"
+                    )
 
                 if len(fields) == 3:
                     # This MAY be an old style file with a letter count...
@@ -184,14 +188,24 @@ class ClustalIterator(AlignmentIterator):
             elif line[0] == " ":
                 # Sequence consensus line...
                 assert len(ids) == len(seqs)
-                assert len(ids) > 0
+                if not ids:
+                    raise ValueError(
+                        f"Expected sequence lines before consensus line:\n{line!r}"
+                    )
+                # Set by the first sequence line:
                 assert seq_cols is not None
                 consensus = line[seq_cols]
-                assert not line[: seq_cols.start].strip()
-                assert not line[seq_cols.stop :].strip()
+                if line[: seq_cols.start].strip() or line[seq_cols.stop :].strip():
+                    raise ValueError(
+                        f"Expected consensus only in columns {seq_cols.start + 1}"
+                        f" to {seq_cols.stop}, not:\n{line!r}"
+                    )
                 # Check for blank line (or end of file)
                 line = handle.readline()
-                assert line.strip() == ""
+                if line.strip():
+                    raise ValueError(
+                        f"Expected blank line after consensus line, not:\n{line!r}"
+                    )
                 break
             else:
                 # No consensus
@@ -204,10 +218,17 @@ class ClustalIterator(AlignmentIterator):
         assert seq_cols is not None
 
         # Confirm all same length
-        for s in seqs:
-            assert len(s) == len(seqs[0])
-        if consensus:
-            assert len(consensus) == len(seqs[0])
+        for seq_id, s in zip(ids, seqs):
+            if len(s) != len(seqs[0]):
+                raise ValueError(
+                    f"Expected {len(seqs[0])} columns for {seq_id} in the first"
+                    f" block, found {len(s)}"
+                )
+        if consensus and len(consensus) != len(seqs[0]):
+            raise ValueError(
+                f"Expected {len(seqs[0])} columns for the consensus in the first"
+                f" block, found {len(consensus)}"
+            )
 
         # Loop over any remaining blocks...
         done = False
@@ -253,7 +274,11 @@ class ClustalIterator(AlignmentIterator):
 
                 # Append the sequence
                 seqs[i] += fields[1]
-                assert len(seqs[i]) == len(seqs[0])
+                if len(seqs[i]) != len(seqs[0]):
+                    raise ValueError(
+                        f"Expected {len(seqs[0])} columns so far for {ids[i]},"
+                        f" found {len(seqs[i])}:\n{line!r}"
+                    )
 
                 if len(fields) == 3:
                     # This MAY be an old style file with a letter count...
@@ -272,12 +297,20 @@ class ClustalIterator(AlignmentIterator):
                 line = handle.readline()
             # There should now be a consensus line
             if consensus:
-                assert line[0] == " "
+                if not line.startswith(" "):
+                    raise ValueError(f"Expected consensus line, not:\n{line!r}")
                 assert seq_cols is not None
                 consensus += line[seq_cols]
-                assert len(consensus) == len(seqs[0])
-                assert not line[: seq_cols.start].strip()
-                assert not line[seq_cols.stop :].strip()
+                if len(consensus) != len(seqs[0]):
+                    raise ValueError(
+                        f"Expected {len(seqs[0])} columns so far for the consensus,"
+                        f" found {len(consensus)}:\n{line!r}"
+                    )
+                if line[: seq_cols.start].strip() or line[seq_cols.stop :].strip():
+                    raise ValueError(
+                        f"Expected consensus only in columns {seq_cols.start + 1}"
+                        f" to {seq_cols.stop}, not:\n{line!r}"
+                    )
                 # Read in the next line
                 line = handle.readline()
 

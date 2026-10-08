@@ -66,6 +66,48 @@ class TestAlignIO_exceptions(unittest.TestCase):
                 (AttributeError, TypeError), AlignIO.write, [records], handle, t_format
             )
 
+    def test_maf_seq_count_mismatch(self):
+        """Check MAF parsing rejects a block with other than seq_count records."""
+        handle = StringIO(
+            "##maf version=1\n"
+            "\n"
+            "a score=1.0\n"
+            "s hg18.chr7    27578828 10 + 158545518 AAA-GGGAATG\n"
+            "s panTro1.chr6 28741140 10 + 161576975 AAA-GGGAATG\n"
+            "\n"
+        )
+        with self.assertRaises(ValueError) as cm:
+            list(AlignIO.parse(handle, "maf", seq_count=3))
+        self.assertEqual(
+            "Found 2 records in this alignment, told to expect 3", str(cm.exception)
+        )
+
+    def test_stockholm_sequence_after_end(self):
+        """Check Stockholm sequences after // need a new header.
+
+        Under python -O the old assert vanished and seqC silently joined
+        the alignment the // line had closed.
+        """
+        handle = StringIO("# STOCKHOLM 1.0\nseqA ACGT\nseqB ACGT\n//\nseqC ACGT\n//\n")
+        with self.assertRaises(ValueError) as cm:
+            list(AlignIO.parse(handle, "stockholm"))
+        self.assertIn("Expected '# STOCKHOLM 1.0' header", str(cm.exception))
+        self.assertIn("seqC ACGT", str(cm.exception))
+
+    def test_stockholm_repeated_accession(self):
+        """Check a Stockholm sequence cannot have two #=GS AC lines."""
+        handle = StringIO(
+            "# STOCKHOLM 1.0\n"
+            "#=GS seqA AC P00001\n"
+            "#=GS seqA AC P00002\n"
+            "seqA ACGT\n"
+            "seqB ACGT\n"
+            "//\n"
+        )
+        with self.assertRaises(ValueError) as cm:
+            AlignIO.read(handle, "stockholm")
+        self.assertIn("Expected one #=GS AC line for seqA, found 2", str(cm.exception))
+
 
 class TestAlignIO_reading(unittest.TestCase):
     def simple_alignment_comparison(self, alignments, alignments2, fmt):

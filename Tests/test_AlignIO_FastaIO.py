@@ -5,6 +5,7 @@
 """Unit tests for the Bio.AlignIO.FastaIO module."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -871,6 +872,67 @@ class FastaIOTests(unittest.TestCase):
             self.assertEqual(alignments[6][1].seq, "AAGAAGGTAAAAGA")
             self.assertEqual(alignments[6][1].id, "gi|297689475|ref|XM_002822130.1|")
             self.assertEqual(alignments[6][1].annotations["original_length"], 1158)
+
+
+class FastaM10MalformedTests(unittest.TestCase):
+    """Malformed -m 10 output must raise ValueError, even under python -O."""
+
+    def parse_mutated(self, old, new):
+        """Parse output001.m10 with the first occurrence of old replaced by new."""
+        with open(support.DATA / "Fasta" / "output001.m10") as handle:
+            data = handle.read()
+        self.assertIn(old, data)
+        return list(FastaIO.FastaM10Iterator(StringIO(data.replace(old, new, 1))))
+
+    def test_query_header_for_another_query(self):
+        """The >>> query header line must name the query just started."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse_mutated(
+                ">>>gi|10955263|ref|NP_052604.1|, 107 aa",
+                ">>>gi|10955264|ref|NP_052605.1|, 107 aa",
+            )
+        self.assertIn(
+            "Expected query header line for 'gi|10955263|ref|NP_052604.1|'",
+            str(cm.exception),
+        )
+
+    def test_match_alignment_line_for_another_match(self):
+        """The second > line of an alignment must name the current match."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse_mutated(
+                ">gi|152973457|ref|YP_001338508.1| ..\n",
+                ">gi|152973588|ref|YP_001338639.1| ..\n",
+            )
+        self.assertIn(
+            "Expected match alignment line for 'gi|152973457|ref|YP_001338508.1|'",
+            str(cm.exception),
+        )
+
+    def test_alignment_line_without_id(self):
+        """A bare '>' alignment line names no sequence."""
+        for old, expected in [
+            (">gi|10955263| ..\n", "Expected query alignment line"),
+            (">gi|152973457|ref|YP_001338508.1| ..\n", "Expected match alignment line"),
+        ]:
+            with self.subTest(old=old):
+                with self.assertRaises(ValueError) as cm:
+                    self.parse_mutated(old, ">\n")
+                self.assertIn(expected, str(cm.exception))
+
+    def test_consensus_line_before_sequences(self):
+        """A ; al_cons line can only follow the match sequence."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse_mutated("; sw_overlap: 108\n", "; sw_overlap: 108\n; al_cons:\n")
+        self.assertIn("Consensus line must follow", str(cm.exception))
+
+    def test_no_hits_line_inside_alignment(self):
+        """A '!! No ...' line cannot appear once a match has started."""
+        with self.assertRaises(ValueError) as cm:
+            self.parse_mutated(
+                "; fa_frame: f\n",
+                "; fa_frame: f\n!! No library sequences with E() < 1\n",
+            )
+        self.assertIn("'No hits' line must come after", str(cm.exception))
 
 
 if __name__ == "__main__":

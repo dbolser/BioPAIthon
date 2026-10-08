@@ -408,6 +408,13 @@ class MsfBadSequenceBlocks(unittest.TestCase):
             parse_msf(self.build60(blocks))
         self.assertIn("Expected sequence for Beta", str(cm.exception))
 
+    def test_name_without_sequence(self):
+        """A sequence line must carry residues after the name."""
+        blocks = ((self.FULL_BLOCK[0], "Beta"),)
+        with self.assertRaises(ValueError) as cm:
+            parse_msf(self.build60(blocks))
+        self.assertIn("Expected sequence after 'Beta'", str(cm.exception))
+
     def test_wrong_name_in_block(self):
         """Sequence lines must appear in the order given by the name block."""
         blocks = ((self.FULL_BLOCK[0], "Gamma  " + "MKVLAAGIVL " * 4 + "MKVLAAGIVL"),)
