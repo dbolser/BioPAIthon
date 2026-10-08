@@ -31,10 +31,10 @@ supported_formats = FormatRegistry(
 # installed.  find_spec() checks without importing it, but raises ValueError
 # for an rdflib already imported without a __spec__, such as a test double.
 try:
-    has_rdflib = find_spec("rdflib") is not None
+    _has_rdflib = find_spec("rdflib") is not None
 except ValueError:
-    has_rdflib = True
-if has_rdflib:
+    _has_rdflib = True
+if _has_rdflib:
     supported_formats["cdao"] = "Bio.Phylo.CDAOIO"
 
 

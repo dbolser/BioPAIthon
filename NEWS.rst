@@ -65,11 +65,12 @@ the first time its format is used, so the Newick, NEXUS and NeXML formats work
 on a machine where NumPy is not installed; before, importing ``Bio.Phylo``
 failed there. PhyloXML still needs NumPy. The format modules remain reachable
 as ``Bio.Phylo.NewickIO``, ``Bio.Phylo.PhyloXML`` and so on, as before. Code
-that relied on ``import Bio.Phylo`` importing ``Bio.Align`` or ``Bio.Nexus`` as
-a side effect must now import them itself. The ``cdao`` format is now offered
-whenever rdflib is installed, so with an rdflib that cannot be used (older than
-3.2.1, from 2012, or one that fails to import) reading or writing ``cdao``
-raises ``MissingPythonDependencyError`` rather than ``KeyError``.
+that relied on ``import Bio.Phylo`` importing other modules as a side effect,
+such as ``Bio.Align``, ``Bio.Nexus`` or ``Bio.SeqRecord``, must now import them
+itself. The ``cdao`` format is now offered whenever rdflib is installed, so
+with an rdflib that cannot be used (older than 3.2.1, from 2012, or one that
+fails to import) reading or writing ``cdao`` raises
+``MissingPythonDependencyError`` rather than ``KeyError``.
 
 Several parsers and functions that rejected bad input with a bare
 ``Exception`` now raise ``ValueError``, so ``except ValueError`` catches
