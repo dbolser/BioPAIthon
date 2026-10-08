@@ -4,6 +4,7 @@
 # package.
 """Type stubs for the C extension Bio.Align._codonaligner."""
 
+from typing import Any
 from typing import final
 from typing import SupportsFloat
 from typing import SupportsIndex
@@ -11,9 +12,12 @@ from typing import type_check_only
 from typing import TypeAlias
 
 from _typeshed import ReadableBuffer
+from numpy.typing import NDArray
 
 # What the score setters accept: they convert with PyFloat_AsDouble.
 _Score: TypeAlias = SupportsFloat | SupportsIndex
+# numpy's stubs give ndarray __buffer__ only on Python 3.12+.
+_Buffer: TypeAlias = ReadableBuffer | NDArray[Any]
 
 # The C module does not export this class; its tp_name is "Path generator".
 # Each path is a (target, query) tuple of coordinates.
@@ -31,17 +35,17 @@ class CodonAligner:
     # translated in each of the three frames.
     def score(
         self,
-        sA: ReadableBuffer,
-        sB0: ReadableBuffer,
-        sB1: ReadableBuffer,
-        sB2: ReadableBuffer,
+        sA: _Buffer,
+        sB0: _Buffer,
+        sB1: _Buffer,
+        sB2: _Buffer,
     ) -> float: ...
     def align(
         self,
-        sA: ReadableBuffer,
-        sB0: ReadableBuffer,
-        sB1: ReadableBuffer,
-        sB2: ReadableBuffer,
+        sA: _Buffer,
+        sB0: _Buffer,
+        sB1: _Buffer,
+        sB2: _Buffer,
     ) -> tuple[float, PathGenerator]: ...
     @property
     def match_score(self) -> float: ...

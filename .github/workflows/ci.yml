@@ -177,8 +177,8 @@ jobs:
   # hooks in the style job, run on the source tree, cannot: stubtest compares
   # the .pyi stubs of the C extensions with the compiled modules, and the
   # downstream check fails if py.typed or a stub was not installed. Both run
-  # outside the checkout, so that Bio comes from site-packages. See "Typing"
-  # in AGENTS.md.
+  # outside the checkout, so that Bio comes from site-packages. To run
+  # stubtest locally, see Tests/downstream_typing/stubtest_allowlist.txt.
   typing:
     timeout-minutes: 15
     needs: [style]

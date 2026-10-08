@@ -11,9 +11,10 @@ from numpy.typing import NDArray
 
 class Array(NDArray[Any]):
     def __array_finalize__(self, obj: NDArray[Any] | None, /) -> None: ...
-    # None only on an array that never had an alphabet set, such as a view
-    # of a plain ndarray; Bio.Align.substitution_matrices.Array always sets
-    # one. The alphabet can be set only once.
+    # None only on an array that never had an alphabet set, such as one
+    # built directly, as in _arraycore.Array((2, 2)), or a view of one;
+    # Bio.Align.substitution_matrices.Array always sets one. The alphabet can
+    # be set only once.
     @property
     def alphabet(self) -> Sequence[Any] | Any: ...
     @alphabet.setter
