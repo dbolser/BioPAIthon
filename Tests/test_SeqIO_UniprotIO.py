@@ -5,11 +5,11 @@
 # as part of this package.
 """Test for the Uniprot parser on Uniprot XML files."""
 
-import os
 import unittest
 from io import BytesIO
 from xml.etree import ElementTree
 
+import support
 from seq_tests_common import SeqRecordTestBaseClass
 
 from Bio import SeqIO
@@ -24,7 +24,7 @@ class ParserTests(SeqRecordTestBaseClass):
         filename = "uni001"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as handle:
             with self.assertRaises(ValueError) as cm:
@@ -147,7 +147,7 @@ class ParserTests(SeqRecordTestBaseClass):
         filename = "uni003"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as handle:
             with self.assertRaises(ValueError) as cm:
@@ -475,7 +475,7 @@ class ParserTests(SeqRecordTestBaseClass):
         filename = "sp016"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as handle:
             seq_record = SeqIO.read(handle, "swiss")
@@ -494,7 +494,7 @@ class ParserTests(SeqRecordTestBaseClass):
         filename = "P60904.txt"
         # test the record parser
 
-        datafile = os.path.join("SwissProt", filename)
+        datafile = support.DATA / "SwissProt" / filename
 
         with open(datafile) as handle:
             seq_record = SeqIO.read(handle, "swiss")
@@ -508,7 +508,7 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_P62330_ligand(self):
         """Test parsing of <ligand> in UniProt XML (P62330)."""
-        record = SeqIO.read("SwissProt/P62330.xml", "uniprot-xml")
+        record = SeqIO.read(support.DATA / "SwissProt" / "P62330.xml", "uniprot-xml")
         all_ligands = []
         for f in record.features:
             all_ligands.extend(f.qualifiers.get("ligands", []))
@@ -518,7 +518,9 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_multiligand_binding_site(self):
         """Test parsing of binding site with multiple ligands in UniProt XML."""
-        record = SeqIO.read("SwissProt/multiligand.xml", "uniprot-xml")
+        record = SeqIO.read(
+            support.DATA / "SwissProt" / "multiligand.xml", "uniprot-xml"
+        )
         sites = [
             f
             for f in record.features
@@ -584,14 +586,14 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_Q13639(self):
         """Compare SwissProt text and uniprot XML versions of Q13639."""
-        old = SeqIO.read("SwissProt/Q13639.txt", "swiss")
-        new = SeqIO.read("SwissProt/Q13639.xml", "uniprot-xml")
+        old = SeqIO.read(support.DATA / "SwissProt" / "Q13639.txt", "swiss")
+        new = SeqIO.read(support.DATA / "SwissProt" / "Q13639.xml", "uniprot-xml")
         self.compare_txt_xml(old, new)
 
     def test_H2CNN8(self):
         """Compare SwissProt text and uniprot XML versions of H2CNN8."""
-        old = SeqIO.read("SwissProt/H2CNN8.txt", "swiss")
-        new = SeqIO.read("SwissProt/H2CNN8.xml", "uniprot-xml")
+        old = SeqIO.read(support.DATA / "SwissProt" / "H2CNN8.txt", "swiss")
+        new = SeqIO.read(support.DATA / "SwissProt" / "H2CNN8.xml", "uniprot-xml")
         self.compare_txt_xml(old, new)
 
     def test_F2CXE6(self):
@@ -599,8 +601,8 @@ class ParserTests(SeqRecordTestBaseClass):
         # This evil record has a semi-colon in the gene name,
         # GN   Name=HvPIP2;8 {ECO:0000313|EMBL:BAN04711.1};
         # <gene><name type="primary" evidence="3">HvPIP2;8</name></gene>
-        old = SeqIO.read("SwissProt/F2CXE6.txt", "swiss")
-        new = SeqIO.read("SwissProt/F2CXE6.xml", "uniprot-xml")
+        old = SeqIO.read(support.DATA / "SwissProt" / "F2CXE6.txt", "swiss")
+        new = SeqIO.read(support.DATA / "SwissProt" / "F2CXE6.xml", "uniprot-xml")
         self.compare_txt_xml(old, new)
         # TODO - Why the mismatch gene_name vs gene_name_primary?
         # TODO - Handle evidence codes on GN line (see GitHub isse #416)
@@ -614,7 +616,9 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_P84001(self):
         """Parse mass spec structured comment with unknown loc."""
-        xml = list(SeqIO.parse("SwissProt/P84001.xml", "uniprot-xml"))[0]
+        xml = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "P84001.xml", "uniprot-xml")
+        )[0]
         self.assertEqual(xml.id, "P84001")
         self.assertEqual(len(xml.annotations["comment_massspectrometry"]), 1)
         self.assertEqual(
@@ -624,10 +628,16 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_multi_ex(self):
         """Compare SwissProt text and uniprot XML versions of several examples."""
-        txt_list = list(SeqIO.parse("SwissProt/multi_ex.txt", "swiss"))
-        xml_list = list(SeqIO.parse("SwissProt/multi_ex.xml", "uniprot-xml"))
-        fas_list = list(SeqIO.parse("SwissProt/multi_ex.fasta", "fasta"))
-        with open("SwissProt/multi_ex.list") as handle:
+        txt_list = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "multi_ex.txt", "swiss")
+        )
+        xml_list = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "multi_ex.xml", "uniprot-xml")
+        )
+        fas_list = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "multi_ex.fasta", "fasta")
+        )
+        with open(support.DATA / "SwissProt" / "multi_ex.list") as handle:
             ids = [x.strip() for x in handle]
         self.assertEqual(len(txt_list), len(ids))
         self.assertEqual(len(txt_list), len(fas_list))
@@ -640,12 +650,18 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_multi_ex_index(self):
         """Index SwissProt text and uniprot XML versions of several examples."""
-        txt_list = list(SeqIO.parse("SwissProt/multi_ex.txt", "swiss"))
-        xml_list = list(SeqIO.parse("SwissProt/multi_ex.xml", "uniprot-xml"))
-        with open("SwissProt/multi_ex.list") as handle:
+        txt_list = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "multi_ex.txt", "swiss")
+        )
+        xml_list = list(
+            SeqIO.parse(support.DATA / "SwissProt" / "multi_ex.xml", "uniprot-xml")
+        )
+        with open(support.DATA / "SwissProt" / "multi_ex.list") as handle:
             ids = [x.strip() for x in handle]
-        txt_index = SeqIO.index("SwissProt/multi_ex.txt", "swiss")
-        xml_index = SeqIO.index("SwissProt/multi_ex.xml", "uniprot-xml")
+        txt_index = SeqIO.index(support.DATA / "SwissProt" / "multi_ex.txt", "swiss")
+        xml_index = SeqIO.index(
+            support.DATA / "SwissProt" / "multi_ex.xml", "uniprot-xml"
+        )
         self.assertEqual(sorted(txt_index), sorted(ids))
         self.assertEqual(sorted(xml_index), sorted(ids))
         # Check SeqIO.parse() versus SeqIO.index() for plain text "swiss"
@@ -661,7 +677,7 @@ class ParserTests(SeqRecordTestBaseClass):
 
     def test_submittedName_allowed(self):
         """Checks if parser supports new XML Element (submittedName)."""
-        with open("SwissProt/R5HY77.xml", "rb") as handle:
+        with open(support.DATA / "SwissProt" / "R5HY77.xml", "rb") as handle:
             for entry in SeqIO.parse(handle, "uniprot-xml"):
                 self.assertEqual(entry.id, "R5HY77")
                 self.assertEqual(entry.description, "Elongation factor Ts")
@@ -672,7 +688,7 @@ class ParserErrorTests(unittest.TestCase):
 
     def test_truncated_file(self):
         """Check a file truncated between entries is not reported as empty."""
-        with open("SwissProt/multi_ex.xml", "rb") as handle:
+        with open(support.DATA / "SwissProt" / "multi_ex.xml", "rb") as handle:
             data = handle.read()
         end = data.index(b"</entry>\n") + len(b"</entry>\n")
         records = SeqIO.parse(BytesIO(data[:end]), "uniprot-xml")

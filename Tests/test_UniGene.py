@@ -6,6 +6,8 @@
 
 import unittest
 
+import support
+
 from Bio import UniGene
 
 
@@ -13,7 +15,7 @@ class TestUniGene(unittest.TestCase):
     def test_parse(self):
         # Start of the UniGene file for Equus caballus downloaded from:
         # ftp://ftp.ncbi.nih.gov/repository/UniGene/Equus_caballus
-        with open("UniGene/Eca.1.2425.data") as handle:
+        with open(support.DATA / "UniGene" / "Eca.1.2425.data") as handle:
             records = UniGene.parse(handle)
 
             # First record
@@ -864,7 +866,7 @@ class TestUniGene(unittest.TestCase):
     def test_read(self):
         # Start of the UniGene file for Homo sapiens downloaded from:
         # ftp://ftp.ncbi.nih.gov/repository/UniGene/Homo_sapiens
-        with open("UniGene/Hs.2.data") as handle:
+        with open(support.DATA / "UniGene" / "Hs.2.data") as handle:
             record = UniGene.read(handle)
         self.assertEqual(record.ID, "Hs.2")
         self.assertEqual(
@@ -1199,11 +1201,11 @@ class TestUniGene(unittest.TestCase):
 
     def test_read_value_error(self):
         # Test More than one SwissProt record found
-        with open("UniGene/Eca.1.2425.data") as handle:
+        with open(support.DATA / "UniGene" / "Eca.1.2425.data") as handle:
             self.assertRaises(ValueError, UniGene.read, handle)
 
         # Test No SwissProt record found, reached the end of record
-        with open("UniGene/Hs.2.data") as handle:
+        with open(support.DATA / "UniGene" / "Hs.2.data") as handle:
             UniGene.read(handle)
             self.assertRaises(ValueError, UniGene.read, handle)
 

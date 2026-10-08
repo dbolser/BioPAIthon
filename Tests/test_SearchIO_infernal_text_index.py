@@ -8,9 +8,9 @@
 
 """Tests for SearchIO InfernalIO infernal-text indexing"""
 
-import os
 import unittest
 
+import support
 from search_tests_common import CheckIndex
 from search_tests_common import CheckRaw
 
@@ -20,7 +20,7 @@ class InfernalTabRawCases(CheckRaw):
 
     def test_infernal_text_1q(self):
         """Test infernal-text raw string retrieval, cmsearch, one query (U2_Yeast)."""
-        filename = os.path.join("Infernal", "cmsearch_114_U2_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_U2_Yeast.txt"
         raw = """# cmsearch :: search CM(s) against a sequence database
 # INFERNAL 1.1.4 (Dec 2020)
 # Copyright (C) 2020 Howard Hughes Medical Institute.
@@ -87,7 +87,7 @@ Total CM hits reported:                                          1  (4.636e-06);
 
     def test_infernal_text_mq_first(self):
         """Test infernal-text raw string retrieval, cmsearch, multiple queries, first (IRES_5S_U2_Yeast)."""
-        filename = os.path.join("Infernal", "cmsearch_114_IRES_5S_U2_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_IRES_5S_U2_Yeast.txt"
         raw = """# cmsearch :: search CM(s) against a sequence database
 # INFERNAL 1.1.4 (Dec 2020)
 # Copyright (C) 2020 Howard Hughes Medical Institute.
@@ -137,7 +137,7 @@ Total CM hits reported:                                          0  (0); include
 
     def test_infernal_text_mq_middle(self):
         """Test infernal-text raw string retrieval, cmsearch, multiple queries, middle (IRES_5S_U2_Yeast)."""
-        filename = os.path.join("Infernal", "cmsearch_114_IRES_5S_U2_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_IRES_5S_U2_Yeast.txt"
         raw = """# cmsearch :: search CM(s) against a sequence database
 # INFERNAL 1.1.4 (Dec 2020)
 # Copyright (C) 2020 Howard Hughes Medical Institute.
@@ -344,7 +344,7 @@ Total CM hits reported:                                          8  (3.966e-05);
 
     def test_infernal_text_mq_last(self):
         """Test infernal-text raw string retrieval, cmsearch, multiple queries, last (IRES_5S_U2_Yeast)."""
-        filename = os.path.join("Infernal", "cmsearch_114_IRES_5S_U2_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_IRES_5S_U2_Yeast.txt"
         raw = """# cmsearch :: search CM(s) against a sequence database
 # INFERNAL 1.1.4 (Dec 2020)
 # Copyright (C) 2020 Howard Hughes Medical Institute.
@@ -509,17 +509,17 @@ class Hmmer3TextIndexCases(CheckIndex):
 
     def test_infernal_text_1q_0m(self):
         """Test infernal-text indexing, cmsearch, one queries, no hits"""
-        filename = os.path.join("Infernal", "cmsearch_114_IRES_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_IRES_Yeast.txt"
         self.check_index(filename, self.fmt)
 
     def test_infernal_text_1q_mm(self):
         """Test infernal-text indexing, cmsearch, one queries, multiple hits"""
-        filename = os.path.join("Infernal", "cmsearch_114_5S_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_5S_Yeast.txt"
         self.check_index(filename, self.fmt)
 
     def test_infernal_text_mq(self):
         """Test infernal-text indexing, cmsearch, multiple queries"""
-        filename = os.path.join("Infernal", "cmsearch_114_IRES_5S_U2_Yeast.txt")
+        filename = support.DATA / "Infernal" / "cmsearch_114_IRES_5S_U2_Yeast.txt"
         self.check_index(filename, self.fmt)
 
 

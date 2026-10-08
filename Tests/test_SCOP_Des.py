@@ -7,12 +7,14 @@
 
 import unittest
 
+import support
+
 from Bio.SCOP import Des
 
 
 class DesTests(unittest.TestCase):
     def setUp(self):
-        self.filename = "./SCOP/dir.des.scop.txt_test"
+        self.filename = support.DATA / "SCOP" / "dir.des.scop.txt_test"
 
     def testParse(self):
         """Test if all records in a DES file are being read."""

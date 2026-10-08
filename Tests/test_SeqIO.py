@@ -6114,6 +6114,9 @@ class LazyFormatRegistries(unittest.TestCase):
         file must not import them either; this is what lets Bio.SeqIO read
         sequences on a machine where NumPy is not installed.
         """
+        # An absolute path, so the subprocess can keep the caller's working
+        # directory (and with it any relative PYTHONPATH that finds Bio).
+        fasta = os.fspath(support.DATA / "Fasta" / "f002")
         code = (
             "import sys\n"
             "import Bio.SeqIO\n"
@@ -6121,7 +6124,7 @@ class LazyFormatRegistries(unittest.TestCase):
             " 'urllib.request', 'xml.sax']\n"
             "loaded = [name for name in heavy if name in sys.modules]\n"
             "assert not loaded, 'import Bio.SeqIO pulled in %s' % loaded\n"
-            "records = list(Bio.SeqIO.parse('Fasta/f002', 'fasta'))\n"
+            f"records = list(Bio.SeqIO.parse({fasta!r}, 'fasta'))\n"
             "assert len(records) == 3, len(records)\n"
             "loaded = [name for name in heavy if name in sys.modules]\n"
             "assert not loaded, 'parsing FASTA pulled in %s' % loaded\n"
@@ -6130,7 +6133,6 @@ class LazyFormatRegistries(unittest.TestCase):
             [sys.executable, "-c", code],
             capture_output=True,
             text=True,
-            cwd=os.path.dirname(os.path.abspath(__file__)),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 

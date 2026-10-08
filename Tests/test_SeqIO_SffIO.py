@@ -11,6 +11,8 @@ import unittest
 import warnings
 from io import BytesIO
 
+import support
+
 from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.SeqIO.SffIO import _sff_do_slow_index
@@ -68,7 +70,9 @@ class TestUAN(unittest.TestCase):
     """Test annotations."""
 
     def setUp(self):
-        self.records = list(SeqIO.parse("Roche/E3MFGYR02_random_10_reads.sff", "sff"))
+        self.records = list(
+            SeqIO.parse(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "sff")
+        )
         self.test_annotations = {}
         for line in test_data.splitlines():
             fields = re.split(r"\s+", line.strip())
@@ -107,7 +111,7 @@ class TestUAN(unittest.TestCase):
 
 
 class TestErrors(unittest.TestCase):
-    with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+    with open(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "rb") as handle:
         good = handle.read()
 
     def test_empty(self):
@@ -246,7 +250,9 @@ class TestErrors(unittest.TestCase):
     def test_unknown_index(self):
         # TODO - Add SFF file with no index,
         # self.assertEqual(str(err), "No index present in this SFF file")
-        with open("Roche/E3MFGYR02_alt_index_in_middle.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff", "rb"
+        ) as handle:
             with self.assertRaises(ValueError) as cm:
                 values = _sff_find_roche_index(handle)
         self.assertIn(
@@ -296,7 +302,7 @@ class TestErrors(unittest.TestCase):
         )
 
     def test_no_manifest_xml(self):
-        with open("Roche/E3MFGYR02_no_manifest.sff", "rb") as handle:
+        with open(support.DATA / "Roche" / "E3MFGYR02_no_manifest.sff", "rb") as handle:
             with self.assertRaises(ValueError) as cm:
                 xml = ReadRocheXmlManifest(handle)
             self.assertEqual(str(cm.exception), "No XML manifest found")
@@ -306,12 +312,12 @@ class TestIndex(unittest.TestCase):
     """Test SFF index."""
 
     def test_manifest(self):
-        filename = "Roche/E3MFGYR02_random_10_reads.sff"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff"
         with open(filename, "rb") as handle:
             metadata = ReadRocheXmlManifest(handle)
 
     def test_both_ways(self):
-        filename = "Roche/E3MFGYR02_random_10_reads.sff"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff"
         with open(filename, "rb") as handle:
             index1 = sorted(_sff_read_roche_index(handle))
         with open(filename, "rb") as handle:
@@ -326,7 +332,7 @@ class TestIndex(unittest.TestCase):
 
 
 class TestAlternativeIndexes(unittest.TestCase):
-    filename = "Roche/E3MFGYR02_random_10_reads.sff"
+    filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff"
     with open(filename, "rb") as handle:
         sff = list(SffIterator(handle))
 
@@ -337,27 +343,37 @@ class TestAlternativeIndexes(unittest.TestCase):
             self.assertEqual(old.seq, new.seq)
 
     def test_alt_index_at_end(self):
-        with open("Roche/E3MFGYR02_alt_index_at_end.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff", "rb"
+        ) as handle:
             sff2 = list(SffIterator(handle))
         self.check_same(sff2)
 
     def test_alt_index_at_start(self):
-        with open("Roche/E3MFGYR02_alt_index_at_start.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff", "rb"
+        ) as handle:
             sff2 = list(SffIterator(handle))
         self.check_same(sff2)
 
     def test_alt_index_in_middle(self):
-        with open("Roche/E3MFGYR02_alt_index_in_middle.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff", "rb"
+        ) as handle:
             sff2 = list(SffIterator(handle))
         self.check_same(sff2)
 
     def test_index_at_start(self):
-        with open("Roche/E3MFGYR02_index_at_start.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_index_at_start.sff", "rb"
+        ) as handle:
             sff2 = list(SffIterator(handle))
         self.check_same(sff2)
 
     def test_index_in_middle(self):
-        with open("Roche/E3MFGYR02_index_in_middle.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_index_in_middle.sff", "rb"
+        ) as handle:
             sff2 = list(SffIterator(handle))
         self.check_same(sff2)
 
@@ -376,7 +392,9 @@ class TestConcatenated(unittest.TestCase):
         import gzip
 
         count = 0
-        with gzip.open("Roche/E3MFGYR02_random_10_reads.sff.gz", "rb") as fh:
+        with gzip.open(
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff.gz", "rb"
+        ) as fh:
             for record in SeqIO.parse(fh, "sff"):
                 count += 1
         self.assertEqual(10, count)
@@ -385,7 +403,9 @@ class TestConcatenated(unittest.TestCase):
         count = 0
         caught = False
         try:
-            for record in SeqIO.parse("Roche/invalid_greek_E3MFGYR02.sff", "sff"):
+            for record in SeqIO.parse(
+                support.DATA / "Roche" / "invalid_greek_E3MFGYR02.sff", "sff"
+            ):
                 count += 1
         except ValueError as err:
             self.assertIn(
@@ -401,7 +421,9 @@ class TestConcatenated(unittest.TestCase):
 
     def test_index1(self):
         with self.assertRaises(ValueError) as cm:
-            d = SeqIO.index("Roche/invalid_greek_E3MFGYR02.sff", "sff")
+            d = SeqIO.index(
+                support.DATA / "Roche" / "invalid_greek_E3MFGYR02.sff", "sff"
+            )
         err = str(cm.exception)
         self.assertIn(
             "Additional data at end of SFF file, perhaps "
@@ -413,7 +435,9 @@ class TestConcatenated(unittest.TestCase):
         count = 0
         caught = False
         try:
-            for record in SeqIO.parse("Roche/invalid_paired_E3MFGYR02.sff", "sff"):
+            for record in SeqIO.parse(
+                support.DATA / "Roche" / "invalid_paired_E3MFGYR02.sff", "sff"
+            ):
                 count += 1
         except ValueError as err:
             self.assertIn(
@@ -430,7 +454,9 @@ class TestConcatenated(unittest.TestCase):
 
     def test_index2(self):
         with self.assertRaises(ValueError) as cm:
-            d = SeqIO.index("Roche/invalid_paired_E3MFGYR02.sff", "sff")
+            d = SeqIO.index(
+                support.DATA / "Roche" / "invalid_paired_E3MFGYR02.sff", "sff"
+            )
         self.assertIn(
             "Your SFF file is invalid, post index 5 byte "
             "null padding region ended '.sff' which could "
@@ -444,20 +470,20 @@ class TestSelf(unittest.TestCase):
     """These tests were originally defined in SffIO.py as self-tests."""
 
     def test_read(self):
-        filename = "Roche/E3MFGYR02_random_10_reads.sff"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff"
         with open(filename, "rb") as handle:
             sff = list(SffIterator(handle))
         with open(filename, "rb") as handle:
             sff_trim = list(SffIterator(handle, trim=True))
 
-        filename = "Roche/E3MFGYR02_random_10_reads_no_trim.fasta"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads_no_trim.fasta"
         fasta_no_trim = list(SeqIO.parse(filename, "fasta"))
-        filename = "Roche/E3MFGYR02_random_10_reads_no_trim.qual"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads_no_trim.qual"
         qual_no_trim = list(SeqIO.parse(filename, "qual"))
 
-        filename = "Roche/E3MFGYR02_random_10_reads.fasta"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.fasta"
         fasta_trim = list(SeqIO.parse(filename, "fasta"))
-        filename = "Roche/E3MFGYR02_random_10_reads.qual"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.qual"
         qual_trim = list(SeqIO.parse(filename, "qual"))
 
         for s, sT, f, q, fT, qT in zip(
@@ -479,7 +505,7 @@ class TestSelf(unittest.TestCase):
             )
 
     def test_write(self):
-        filename = "Roche/E3MFGYR02_random_10_reads.sff"
+        filename = support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff"
         with open(filename, "rb") as handle:
             metadata = ReadRocheXmlManifest(handle)
         with open(filename, "rb") as handle:
@@ -501,14 +527,14 @@ class TestSelf(unittest.TestCase):
         del data
 
     def test_index(self):
-        filename = "Roche/greek.sff"
+        filename = support.DATA / "Roche" / "greek.sff"
         with open(filename, "rb") as a_handle, open(filename, "rb") as b_handle:
             index1 = sorted(_sff_read_roche_index(a_handle))
             index2 = sorted(_sff_do_slow_index(b_handle))
             self.assertEqual(index1, index2)
 
     def test_read_wrong(self):
-        filename = "Roche/greek.sff"
+        filename = support.DATA / "Roche" / "greek.sff"
         with open(filename, "rb") as handle:
             self.assertRaises(ValueError, ReadRocheXmlManifest, handle)
 
@@ -542,9 +568,11 @@ if False:
     if padding:
         padding = 8 - padding
     index += chr(0) * padding
-    with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+    with open(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "rb") as handle:
         records = list(SffIterator(handle))
-    with open("Roche/E3MFGYR02_alt_index_at_start.sff", "w") as out_handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff", "w"
+    ) as out_handle:
         w = SffWriter(out_handle, index=False, xml=None)
         # Fake the header...
         w._number_of_reads = len(records)
@@ -561,11 +589,15 @@ if False:
         w.handle.write(index)
         for record in records:
             w.write_record(record)
-    with open("Roche/E3MFGYR02_alt_index_at_start.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff", "rb"
+    ) as handle:
         records2 = list(SffIterator(handle))
     for old, new in zip(records, records2):
         assert old.seq == new.seq
-    with open("Roche/E3MFGYR02_alt_index_at_start.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_start.sff", "rb"
+    ) as handle:
         i = list(_sff_do_slow_index(handle))
 
     # Ugly bit of code to make a fake index in middle
@@ -574,9 +606,11 @@ if False:
     if padding:
         padding = 8 - padding
     index += chr(0) * padding
-    with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+    with open(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "rb") as handle:
         records = list(SffIterator(handle))
-    with open("Roche/E3MFGYR02_alt_index_in_middle.sff", "w") as out_handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff", "w"
+    ) as out_handle:
         w = SffWriter(out_handle, index=False, xml=None)
         # Fake the header...
         w._number_of_reads = len(records)
@@ -595,17 +629,23 @@ if False:
             w.write_record(record)
         out_handle.seek(0)
         w.write_header()  # this time with index info
-    with open("Roche/E3MFGYR02_alt_index_in_middle.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff", "rb"
+    ) as handle:
         records2 = list(SffIterator(handle))
     for old, new in zip(records, records2):
         assert old.seq == new.seq
-    with open("Roche/E3MFGYR02_alt_index_in_middle.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_in_middle.sff", "rb"
+    ) as handle:
         j = list(_sff_do_slow_index(handle))
 
     # Ugly bit of code to make a fake index at end
-    with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+    with open(support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "rb") as handle:
         records = list(SffIterator(handle))
-    with open("Roche/E3MFGYR02_alt_index_at_end.sff", "w") as out_handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff", "w"
+    ) as out_handle:
         w = SffWriter(out_handle, index=False, xml=None)
         # Fake the header...
         w._number_of_reads = len(records)
@@ -622,13 +662,19 @@ if False:
         out_handle.write(index)
         out_handle.seek(0)
         w.write_header()  # this time with index info
-    with open("Roche/E3MFGYR02_alt_index_at_end.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff", "rb"
+    ) as handle:
         records2 = list(SffIterator(handle))
     for old, new in zip(records, records2):
         assert old.seq == new.seq
     with unittest.TestCase.assertRaises(None, ValueError):
-        with open("Roche/E3MFGYR02_alt_index_at_end.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff", "rb"
+        ) as handle:
             print(ReadRocheXmlManifest(handle))
-    with open("Roche/E3MFGYR02_alt_index_at_end.sff", "rb") as handle:
+    with open(
+        support.DATA / "Roche" / "E3MFGYR02_alt_index_at_end.sff", "rb"
+    ) as handle:
         k = list(_sff_do_slow_index(handle))
     print("Done")

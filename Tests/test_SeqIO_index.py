@@ -1283,7 +1283,9 @@ class MalformedFileTests(unittest.TestCase):
         Once record offsets have been yielded from the index, falling back
         on scanning the reads would yield those records a second time.
         """
-        with open("Roche/E3MFGYR02_random_10_reads.sff", "rb") as handle:
+        with open(
+            support.DATA / "Roche" / "E3MFGYR02_random_10_reads.sff", "rb"
+        ) as handle:
             data = handle.read()
         # Bytes 20 to 24 of the header are the big endian number of reads.
         # Claiming 9 reads makes the Roche index parser stop one entry short
@@ -1388,7 +1390,8 @@ class IndexParseKeyAgreementTests(unittest.TestCase):
         for fmt in sorted(self.corpus):
             filenames = set()
             for pattern in self.corpus[fmt]:
-                filenames.update(glob.glob(pattern))
+                found = glob.glob(pattern, root_dir=support.DATA)
+                filenames.update(support.DATA / name for name in found)
             self.assertTrue(filenames, msg=f"No fixture files found for {fmt}")
             checked[fmt] = 0
             for filename in sorted(filenames):
@@ -1472,7 +1475,8 @@ class ParseIdFromHeaderContractTests(unittest.TestCase):
             )
             filenames = set()
             for pattern in IndexParseKeyAgreementTests.corpus[fmt]:
-                filenames.update(glob.glob(pattern))
+                found = glob.glob(pattern, root_dir=support.DATA)
+                filenames.update(support.DATA / name for name in found)
             checked = 0
             for filename in sorted(filenames):
                 with self.subTest(format=fmt, filename=filename):

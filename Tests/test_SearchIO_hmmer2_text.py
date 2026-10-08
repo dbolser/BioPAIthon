@@ -7,7 +7,8 @@
 """Tests for SearchIO hmmer2 text module."""
 
 import unittest
-from os import path
+
+import support
 
 from Bio.SearchIO import parse
 from Bio.SearchIO import read
@@ -18,7 +19,7 @@ class HmmpfamTests(unittest.TestCase):
 
     def test_hmmpfam_21(self):
         """Test parsing hmmpfam 2.1 file (text_21_hmmpfam_001.out)."""
-        results = parse(path.join("Hmmer", "text_21_hmmpfam_001.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_21_hmmpfam_001.out", self.fmt)
         res = next(results)
         self.assertEqual("roa1_drome", res.id)
         self.assertEqual("<unknown description>", res.description)
@@ -83,7 +84,7 @@ class HmmpfamTests(unittest.TestCase):
 
     def test_hmmpfam_22(self):
         """Test parsing hmmpfam 2.2 file (text_22_hmmpfam_001.out)."""
-        results = parse(path.join("Hmmer", "text_22_hmmpfam_001.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_22_hmmpfam_001.out", self.fmt)
         res = next(results)
         self.assertEqual("gi|1522636|gb|AAC37060.1|", res.id)
         self.assertEqual(
@@ -138,7 +139,7 @@ class HmmpfamTests(unittest.TestCase):
 
     def test_hmmpfam_23(self):
         """Test parsing hmmpfam 2.3 file (text_23_hmmpfam_001.out)."""
-        results = parse(path.join("Hmmer", "text_23_hmmpfam_001.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_23_hmmpfam_001.out", self.fmt)
         res = next(results)
         self.assertEqual("gi|90819130|dbj|BAE92499.1|", res.id)
         self.assertEqual("glutamate synthase [Porphyra yezoensis]", res.description)
@@ -185,7 +186,7 @@ class HmmpfamTests(unittest.TestCase):
 
     def test_hmmpfam_23_no_match(self):
         """Test parsing hmmpfam 2.3 file (text_23_hmmpfam_002.out)."""
-        results = parse(path.join("Hmmer", "text_23_hmmpfam_002.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_23_hmmpfam_002.out", self.fmt)
         res = next(results)
 
         self.assertEqual("SEQ0001", res.id)
@@ -198,7 +199,7 @@ class HmmpfamTests(unittest.TestCase):
 
     def test_hmmpfam_23_missing_consensus(self):
         """Test parsing hmmpfam 2.3 file (text_23_hmmpfam_003.out)."""
-        results = parse(path.join("Hmmer", "text_23_hmmpfam_003.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_23_hmmpfam_003.out", self.fmt)
         res = next(results)
 
         self.assertEqual("small_input", res.id)
@@ -249,14 +250,16 @@ class HmmpfamTests(unittest.TestCase):
 
         file (text_23_hmmpfam_004.out)
         """
-        results = parse(path.join("Hmmer", "text_23_hmmpfam_004.out"), self.fmt)
+        results = parse(support.DATA / "Hmmer" / "text_23_hmmpfam_004.out", self.fmt)
         res = next(results)
         self.assertEqual("PKSI-KS", res[0].id)
         self.assertEqual("PKSI-FK", res[1].id)
 
     def test_hmmpfam_24(self):
         """Test parsing hmmpfam 2.4 file (text_24_hmmpfam_001.out)."""
-        results = list(parse(path.join("Hmmer", "text_24_hmmpfam_001.out"), self.fmt))
+        results = list(
+            parse(support.DATA / "Hmmer" / "text_24_hmmpfam_001.out", self.fmt)
+        )
         self.assertEqual(5, len(results))
 
         # first qresult
@@ -357,7 +360,7 @@ class HmmsearchTests(unittest.TestCase):
 
     def test_hmmsearch_20(self):
         """Test parsing hmmsearch 2.0 file (text_20_hmmsearch_001.out)."""
-        res = read(path.join("Hmmer", "text_20_hmmsearch_001.out"), self.fmt)
+        res = read(support.DATA / "Hmmer" / "text_20_hmmsearch_001.out", self.fmt)
 
         # first query
         self.assertEqual("SEED", res.id)
@@ -441,7 +444,7 @@ class HmmsearchTests(unittest.TestCase):
 
     def test_hmmsearch_22(self):
         """Test parsing hmmsearch 2.2 file (text_22_hmmsearch_001.out)."""
-        res = read(path.join("Hmmer", "text_22_hmmsearch_001.out"), self.fmt)
+        res = read(support.DATA / "Hmmer" / "text_22_hmmsearch_001.out", self.fmt)
 
         # first query
         self.assertEqual("Peptidase_C1", res.id)

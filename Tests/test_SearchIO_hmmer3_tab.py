@@ -5,19 +5,20 @@
 
 """Tests for SearchIO HmmerIO hmmer3-tab parser."""
 
-import os
 import unittest
+
+import support
 
 from Bio.SearchIO import parse
 
 # test case files are in the Blast directory
-TEST_DIR = "Hmmer"
+TEST_DIR = support.DATA / "Hmmer"
 FMT = "hmmer3-tab"
 
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 class HmmscanCases(unittest.TestCase):

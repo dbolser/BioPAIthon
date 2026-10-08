@@ -7,7 +7,8 @@
 import unittest
 from io import BytesIO
 from os.path import basename
-from os.path import join
+
+import support
 
 from Bio import SeqIO
 
@@ -215,12 +216,16 @@ test_data_fake = {
 
 def open_files(test_array):
     for trace in test_array:
-        test_array[trace]["handle"] = open(join(*test_array[trace]["path"]), "rb")
+        test_array[trace]["handle"] = open(
+            support.DATA.joinpath(*test_array[trace]["path"]), "rb"
+        )
 
 
 def open_files_wrong_mode(test_array):
     for trace in test_array:
-        test_array[trace]["handle"] = open(join(*test_array[trace]["path"]))
+        test_array[trace]["handle"] = open(
+            support.DATA.joinpath(*test_array[trace]["path"])
+        )
 
 
 def close_files(test_array):
@@ -282,7 +287,7 @@ class TestAbi(unittest.TestCase):
 
     def test_no_smpl1(self):
         """Test parsing of ABIF file without the normally expected SMPL1 tag."""
-        record = SeqIO.read("Abi/no_smpl1.ab1", "abi")
+        record = SeqIO.read(support.DATA / "Abi" / "no_smpl1.ab1", "abi")
         self.assertEqual(record.id, "<unknown id>")
         raw_keys = record.annotations["abif_raw"]
         self.assertCountEqual(
@@ -314,7 +319,7 @@ class TestAbi(unittest.TestCase):
     # fmt: off
     def test_raw(self):
         """Test access to raw ABIF tags."""
-        record = SeqIO.read("Abi/A6_1-DB3.ab1", "abi")
+        record = SeqIO.read(support.DATA / "Abi" / "A6_1-DB3.ab1", "abi")
         self.assertCountEqual(record.annotations,
                               ["polymer", "run_finish", "sample_well", "run_start",
                                "machine_model", "dye", "abif_raw", "molecule_type"])
@@ -498,7 +503,7 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\r
 class TestAbiNonAscii(unittest.TestCase):
     def test_nonascii_tag(self):
         """Test that we can handle non-ascii tags."""
-        record = SeqIO.read(join("Abi", "nonascii_encoding.ab1"), "abi")
+        record = SeqIO.read(support.DATA / "Abi" / "nonascii_encoding.ab1", "abi")
         # CMNT1 is the non-ascii tag.
         self.assertEqual(
             record.annotations["abif_raw"]["CMNT1"],
@@ -542,7 +547,7 @@ class TestAbiFake(unittest.TestCase):
 class TestAbiCorrupt(unittest.TestCase):
     def test_data_past_end_of_file(self):
         """Test a directory entry pointing past the end of the file."""
-        with open(join("Abi", "310.ab1"), "rb") as handle:
+        with open(support.DATA / "Abi" / "310.ab1", "rb") as handle:
             data = handle.read()
         # Directory entry for APrN1, 13 bytes of cString data:
         self.assertEqual(data[218599:218603], b"APrN")

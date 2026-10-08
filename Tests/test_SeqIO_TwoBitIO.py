@@ -6,6 +6,8 @@ from unittest import mock
 
 import numpy as np
 
+import support
+
 from Bio import SeqIO
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
@@ -18,12 +20,12 @@ class Parsing(unittest.TestCase):
     """Test parsing 2bit files."""
 
     def setUp(self):
-        path = "TwoBit/sequence.fa"
+        path = support.DATA / "TwoBit" / "sequence.fa"
         with SeqIO.parse(path, "fasta") as records:
             self.records = list(records)
 
     def test_littleendian(self, step=5):
-        path = "TwoBit/sequence.littleendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.littleendian.2bit"
         with open(path, "rb") as stream:
             records = SeqIO.parse(stream, "twobit")
             self.assertEqual(records.byteorder, "little")
@@ -40,7 +42,7 @@ class Parsing(unittest.TestCase):
                         self.assertEqual(repr(seq1[i:j]), repr(seq2[i:j]))
 
     def test_bigendian(self, step=5):
-        path = "TwoBit/sequence.bigendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.bigendian.2bit"
         with open(path, "rb") as stream:
             records = SeqIO.parse(stream, "twobit")
             self.assertEqual(len(records), 6)
@@ -58,7 +60,7 @@ class Parsing(unittest.TestCase):
 
     def test_extended_slices_and_indices(self):
         """Check slicing and indexing against an in-memory Seq."""
-        path = "TwoBit/sequence.littleendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.littleendian.2bit"
         with open(path, "rb") as stream:
             records = SeqIO.parse(stream, "twobit")
             for record1, record2 in zip(self.records, records):
@@ -82,7 +84,7 @@ class Parsing(unittest.TestCase):
 
     def test_sparse_slice_reads_only_selected_span(self):
         """Check a sparse slice reads bytes up to its last element, not its stop."""
-        path = "TwoBit/sequence.littleendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.littleendian.2bit"
         with open(path, "rb") as stream:
             seq = next(SeqIO.parse(stream, "twobit")).seq
             with mock.patch.object(np, "fromfile", wraps=np.fromfile) as fromfile:
@@ -103,7 +105,7 @@ class Parsing(unittest.TestCase):
             _twoBitIO.convert(b"\x00", 0, 4, 0, blocks, blocks)
 
     def test_sequence_long(self):
-        path = "TwoBit/sequence.long.2bit"
+        path = support.DATA / "TwoBit" / "sequence.long.2bit"
         with open(path, "rb") as stream:
             with self.assertRaises(ValueError) as cm:
                 SeqIO.parse(stream, "twobit")
@@ -117,14 +119,14 @@ class TestComparisons(unittest.TestCase):
     """Test comparisons of sequences read from 2bit files to Seq and other objects."""
 
     def setUp(self):
-        path = "TwoBit/sequence.bigendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.bigendian.2bit"
         self.stream = open(path, "rb")
         records = SeqIO.parse(self.stream, "twobit")
         record1 = next(records)
         record2 = next(records)
         self.seq1a = record1.seq
         self.seq2a = record2.seq
-        path = "TwoBit/sequence.fa"
+        path = support.DATA / "TwoBit" / "sequence.fa"
         with SeqIO.parse(path, "fasta") as records:
             record1 = next(records)
             record2 = next(records)
@@ -329,14 +331,14 @@ class TestBaseClassMethods(unittest.TestCase):
     """Test if methods from the base class are called correctly."""
 
     def setUp(self):
-        path = "TwoBit/sequence.bigendian.2bit"
+        path = support.DATA / "TwoBit" / "sequence.bigendian.2bit"
         self.stream = open(path, "rb")
         records = SeqIO.parse(self.stream, "twobit")
         self.record1_twobit = next(records)
         self.seq1_twobit = self.record1_twobit.seq
         self.record2_twobit = next(records)
         self.seq2_twobit = self.record2_twobit.seq
-        path = "TwoBit/sequence.fa"
+        path = support.DATA / "TwoBit" / "sequence.fa"
         with SeqIO.parse(path, "fasta") as records:
             self.record1_fasta = next(records)
             self.record2_fasta = next(records)

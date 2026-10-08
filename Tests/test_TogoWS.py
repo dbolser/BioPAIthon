@@ -11,6 +11,7 @@ from io import StringIO
 from urllib.error import HTTPError
 
 import requires_internet
+import support
 
 from Bio import Medline
 
@@ -599,7 +600,7 @@ class TogoConvert(unittest.TestCase):
 
     def test_genbank_to_fasta(self):
         """Conversion of GenBank to FASTA."""
-        filename = "GenBank/NC_005816.gb"
+        filename = support.DATA / "GenBank" / "NC_005816.gb"
         old = SeqIO.read(filename, "gb")
         with open(filename) as handle:
             new = SeqIO.read(TogoWS.convert(handle, "genbank", "fasta"), "fasta")

@@ -5,20 +5,21 @@
 
 """Tests for SearchIO BlastIO parsers."""
 
-import os
 import unittest
+
+import support
 
 from Bio.SearchIO import parse
 from Bio.SearchIO.BlastIO.blast_tab import _LONG_SHORT_MAP as all_fields
 
 # test case files are in the Blast directory
-TEST_DIR = "Blast"
+TEST_DIR = support.DATA / "Blast"
 FMT = "blast-tab"
 
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 class BlastTabCases(unittest.TestCase):

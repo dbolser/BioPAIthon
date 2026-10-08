@@ -5,19 +5,20 @@
 
 """Tests for SearchIO BlatIO parsers."""
 
-import os
 import unittest
+
+import support
 
 from Bio.SearchIO import parse
 
 # test case files are in the Blast directory
-TEST_DIR = "Blat"
+TEST_DIR = support.DATA / "Blat"
 FMT = "blat-psl"
 
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 class BlatPslCases(unittest.TestCase):

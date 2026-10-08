@@ -62,6 +62,7 @@ import warnings
 # This is the same mechanism used for run_tests.py --offline
 # to skip tests requiring the network.
 import requires_internet
+import support
 
 from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonExperimentalWarning
@@ -79,20 +80,9 @@ if "--offline" in sys.argv:
 # Cache this to restore the cwd at the end of the tests
 original_path = os.path.abspath(".")
 
-if os.path.basename(sys.argv[0]) == "test_Tutorial.py":
-    # sys.argv[0] will be (relative) path to test_Tutorial.py - use this to allow, e.g.
-    # [base]$ python Tests/test_Tutorial.py
-    # [Tests/]$ python test_Tutorial.py
-    tutorial_base = os.path.abspath(
-        os.path.join(os.path.dirname(sys.argv[0]), "../Doc/")
-    )
-    tutorial = os.path.join(tutorial_base, "Tutorial/index.rst")
-else:
-    # Probably called via run_tests.py so current directory should (now) be Tests/
-    # but may have been changed by run_tests.py so can't infer from sys.argv[0] with e.g.
-    # [base]$ python Tests/run_tests.py test_Tutorial
-    tutorial_base = os.path.abspath("../Doc/")
-    tutorial = os.path.join(tutorial_base, "Tutorial/index.rst")
+# Doc/ sits next to Tests/, wherever this is run from
+tutorial_base = os.fspath(support.DATA.parent / "Doc")
+tutorial = os.path.join(tutorial_base, "Tutorial/index.rst")
 if not os.path.isfile(tutorial):
     from Bio import MissingExternalDependencyError
 

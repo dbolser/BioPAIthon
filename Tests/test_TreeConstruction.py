@@ -11,6 +11,8 @@ import unittest
 from io import StringIO
 from itertools import combinations
 
+import support
+
 from Bio import Align
 from Bio import AlignIO
 from Bio import Phylo
@@ -142,7 +144,7 @@ class DistanceCalculatorTest(unittest.TestCase):
     """Test DistanceCalculator."""
 
     def test_known_matrices_msa(self):
-        msa = AlignIO.read("TreeConstruction/msa.phy", "phylip")
+        msa = AlignIO.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
 
         calculator = DistanceCalculator("identity")
         dm = calculator.get_distance(msa)
@@ -161,7 +163,7 @@ class DistanceCalculatorTest(unittest.TestCase):
         self.assertEqual(dm["Alpha", "Beta"], 1 - 53 / 84)
 
     def test_known_matrices(self):
-        aln = Align.read("TreeConstruction/msa.phy", "phylip")
+        aln = Align.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
 
         calculator = DistanceCalculator("identity")
         dm = calculator.get_distance(aln)
@@ -208,11 +210,13 @@ class DistanceTreeConstructorTest(unittest.TestCase):
     """Test DistanceTreeConstructor."""
 
     def setUp(self):
-        self.msa = AlignIO.read("TreeConstruction/msa.phy", "phylip")
+        self.msa = AlignIO.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
         calculator = DistanceCalculator("blosum62")
         self.dm_msa = calculator.get_distance(self.msa)
         self.constructor_msa = DistanceTreeConstructor(calculator)
-        self.alignment = Align.read("TreeConstruction/msa.phy", "phylip")
+        self.alignment = Align.read(
+            support.DATA / "TreeConstruction" / "msa.phy", "phylip"
+        )
         calculator = DistanceCalculator("blosum62")
         self.dm = calculator.get_distance(self.alignment)
         self.constructor = DistanceTreeConstructor(calculator)
@@ -222,7 +226,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/upgma.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # ref_tree.close()
 
@@ -231,7 +235,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/upgma.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # check for equal distance of all terminal nodes from the root
         ref_tree.root_at_midpoint()
@@ -246,7 +250,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # ref_tree.close()
 
@@ -259,7 +263,9 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         min_tree = self.constructor.nj(self.min_dm)
         self.assertIsInstance(min_tree, BaseTree.Tree)
 
-        ref_min_tree = Phylo.read("./TreeConstruction/nj_min.tre", "newick")
+        ref_min_tree = Phylo.read(
+            support.DATA / "TreeConstruction" / "nj_min.tre", "newick"
+        )
         self.assertTrue(Consensus._equal_topology(min_tree, ref_min_tree))
 
     def test_nj(self):
@@ -267,7 +273,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # ref_tree.close()
 
@@ -280,7 +286,9 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         min_tree = self.constructor.nj(self.min_dm)
         self.assertIsInstance(min_tree, BaseTree.Tree)
 
-        ref_min_tree = Phylo.read("./TreeConstruction/nj_min.tre", "newick")
+        ref_min_tree = Phylo.read(
+            support.DATA / "TreeConstruction" / "nj_min.tre", "newick"
+        )
         self.assertTrue(Consensus._equal_topology(min_tree, ref_min_tree))
 
     def test_built_tree_msa(self):
@@ -288,7 +296,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # ref_tree.close()
 
@@ -297,7 +305,7 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         self.assertIsInstance(tree, BaseTree.Tree)
         # tree_file = StringIO()
         # Phylo.write(tree, tree_file, 'newick')
-        ref_tree = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        ref_tree = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         self.assertTrue(Consensus._equal_topology(tree, ref_tree))
         # ref_tree.close()
 
@@ -306,8 +314,8 @@ class ParsimonyScorerTest(unittest.TestCase):
     """Test ParsimonyScorer."""
 
     def test_get_score_msa(self):
-        aln = AlignIO.read("TreeConstruction/msa.phy", "phylip")
-        tree = Phylo.read("./TreeConstruction/upgma.tre", "newick")
+        aln = AlignIO.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
+        tree = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
         scorer = ParsimonyScorer()
         score = scorer.get_score(tree, aln)
         self.assertEqual(score, 2 + 1 + 2 + 2 + 1 + 1 + 1 + 3)
@@ -376,8 +384,8 @@ class ParsimonyScorerTest(unittest.TestCase):
         self.assertEqual(score, 3 + 1 + 3 + 3 + 2 + 1 + 2 + 5)
 
     def test_get_score(self):
-        aln = Align.read("TreeConstruction/msa.phy", "phylip")
-        tree = Phylo.read("./TreeConstruction/upgma.tre", "newick")
+        aln = Align.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
+        tree = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
         scorer = ParsimonyScorer()
         score = scorer.get_score(tree, aln)
         self.assertEqual(score, 2 + 1 + 2 + 2 + 1 + 1 + 1 + 3)
@@ -450,7 +458,7 @@ class NNITreeSearcherTest(unittest.TestCase):
     """Test NNITreeSearcher."""
 
     def test_get_neighbors(self):
-        tree = Phylo.read("./TreeConstruction/upgma.tre", "newick")
+        tree = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
         alphabet = ["A", "T", "C", "G"]
         step_matrix = [[0], [2.5, 0], [2.5, 1, 0], [1, 2.5, 2.5, 0]]
         matrix = _Matrix(alphabet, step_matrix)
@@ -465,9 +473,9 @@ class ParsimonyTreeConstructorTest(unittest.TestCase):
     """Test ParsimonyTreeConstructor."""
 
     def test_build_tree_msa(self):
-        aln = AlignIO.read("TreeConstruction/msa.phy", "phylip")
-        tree1 = Phylo.read("./TreeConstruction/upgma.tre", "newick")
-        tree2 = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        aln = AlignIO.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
+        tree1 = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
+        tree2 = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         alphabet = ["A", "T", "C", "G"]
         step_matrix = [[0], [2.5, 0], [2.5, 1, 0], [1, 2.5, 2.5, 0]]
         matrix = _Matrix(alphabet, step_matrix)
@@ -484,9 +492,9 @@ class ParsimonyTreeConstructorTest(unittest.TestCase):
         Phylo.write(best_tree, os.path.join(temp_dir, "pars3.tre"), "newick")
 
     def test_build_tree(self):
-        aln = Align.read("TreeConstruction/msa.phy", "phylip")
-        tree1 = Phylo.read("./TreeConstruction/upgma.tre", "newick")
-        tree2 = Phylo.read("./TreeConstruction/nj.tre", "newick")
+        aln = Align.read(support.DATA / "TreeConstruction" / "msa.phy", "phylip")
+        tree1 = Phylo.read(support.DATA / "TreeConstruction" / "upgma.tre", "newick")
+        tree2 = Phylo.read(support.DATA / "TreeConstruction" / "nj.tre", "newick")
         alphabet = ["A", "T", "C", "G"]
         step_matrix = [[0], [2.5, 0], [2.5, 1, 0], [1, 2.5, 2.5, 0]]
         matrix = _Matrix(alphabet, step_matrix)

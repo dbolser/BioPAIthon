@@ -5,15 +5,16 @@
 
 """Tests for SearchIO BlastIO parsers."""
 
-import os
 import unittest
 import warnings
+
+import support
 
 from Bio import BiopythonParserWarning
 from Bio.SearchIO import parse
 
 # test case files are in the Blast directory
-TEST_DIR = "Blast"
+TEST_DIR = support.DATA / "Blast"
 FMT = "blast-xml"
 
 REFERENCE = (
@@ -26,7 +27,7 @@ REFERENCE = (
 
 def get_file(filename):
     """Return the path of a test file."""
-    return os.path.join(TEST_DIR, filename)
+    return TEST_DIR / filename
 
 
 class BlastnXmlCases(unittest.TestCase):

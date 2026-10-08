@@ -15,6 +15,8 @@ try:
 except ImportError:
     np = None  # type: ignore
 
+import support
+
 from Bio import SeqIO
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
@@ -353,7 +355,7 @@ Seq('ABCDEFGHIJKLMNOPQRSTUVWZYX')"""
 
     def test_add_seqrecord(self):
         """Simple left addition of SeqRecord from genbank file."""
-        other = SeqIO.read("GenBank/dbsource_wrap.gb", "gb")
+        other = SeqIO.read(support.DATA / "GenBank" / "dbsource_wrap.gb", "gb")
         other.dbxrefs = ["dummy"]
         rec = self.record + other
         self.assertEqual(len(rec), len(self.record) + len(other))

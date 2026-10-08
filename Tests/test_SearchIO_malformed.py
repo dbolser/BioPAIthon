@@ -16,6 +16,8 @@ import tempfile
 import unittest
 from io import StringIO
 
+import support
+
 import Bio
 from Bio import SearchIO
 from Bio.SearchIO import HSP
@@ -54,7 +56,7 @@ class BlastXmlIndex(unittest.TestCase):
 
     def test_iteration_not_at_line_start(self):
         text = edited(
-            "Blast/xml_2226_blastp_001.xml",
+            support.DATA / "Blast" / "xml_2226_blastp_001.xml",
             "    <Iteration>\n",
             "    <x/><Iteration>\n",
         )
@@ -66,7 +68,7 @@ class BlastXmlIndex(unittest.TestCase):
 
     def test_iteration_opened_on_closing_line(self):
         text = edited(
-            "Blast/xml_2226_blastp_001.xml",
+            support.DATA / "Blast" / "xml_2226_blastp_001.xml",
             "</Iteration>\n    <Iteration>",
             "</Iteration><Iteration>",
         )
@@ -75,7 +77,7 @@ class BlastXmlIndex(unittest.TestCase):
         self.assertIn("Found <Iteration> before the </Iteration>", str(cm.exception))
 
     def test_truncated_iteration(self):
-        with open("Blast/xml_2226_blastp_001.xml") as handle:
+        with open(support.DATA / "Blast" / "xml_2226_blastp_001.xml") as handle:
             text = handle.read()
         text = text[: text.index("</Iteration>")]
         with self.assertRaises(ValueError) as cm:
@@ -84,7 +86,7 @@ class BlastXmlIndex(unittest.TestCase):
 
     def test_iteration_without_query_def(self):
         text = edited(
-            "Blast/xml_2226_blastp_001.xml",
+            support.DATA / "Blast" / "xml_2226_blastp_001.xml",
             "      <Iteration_query-def>random_s00</Iteration_query-def>\n",
             "",
         )
@@ -98,7 +100,7 @@ class BlatPsl(unittest.TestCase):
 
     def test_qstart_disagrees_with_blocks(self):
         text = edited(
-            "Blat/psl_34_001.psl",
+            support.DATA / "Blat" / "psl_34_001.psl",
             "hg18_dna\t33\t11\t27\tchr4",
             "hg18_dna\t33\t12\t27\tchr4",
         )
@@ -108,7 +110,7 @@ class BlatPsl(unittest.TestCase):
 
     def test_too_many_hit_starts(self):
         text = edited(
-            "Blat/psl_34_001.psl",
+            support.DATA / "Blat" / "psl_34_001.psl",
             "1\t16,\t11,\t61646095,\n",
             "1\t16,\t11,\t61646095,61646200,\n",
         )
@@ -124,7 +126,7 @@ class Exonerate(unittest.TestCase):
 
     def test_vulgar_score_disagrees_with_header(self):
         text = edited(
-            "Exonerate/exn_22_q_multiple.exn",
+            support.DATA / "Exonerate" / "exn_22_q_multiple.exn",
             "560974 + 4485 M 897 897",
             "560974 + 4486 M 897 897",
         )
@@ -135,7 +137,7 @@ class Exonerate(unittest.TestCase):
 
     def test_cigar_hit_id_disagrees_with_header(self):
         text = edited(
-            "Exonerate/exn_22_q_multiple.exn",
+            support.DATA / "Exonerate" / "exn_22_q_multiple.exn",
             "cigar: gi|296142823|ref|NM_001178508.1| 0 897 + gi|330443482|",
             "cigar: gi|296142823|ref|NM_001178508.1| 0 897 + gi|330443483|",
         )
@@ -145,7 +147,7 @@ class Exonerate(unittest.TestCase):
 
     def test_unknown_vulgar_label(self):
         text = edited(
-            "Exonerate/exn_22_m_est2genome_vulgar.exn",
+            support.DATA / "Exonerate" / "exn_22_m_est2genome_vulgar.exn",
             "6150 M 1230 1230",
             "6150 X 1230 1230",
         )
@@ -155,7 +157,7 @@ class Exonerate(unittest.TestCase):
 
     def test_text_header_without_query_range(self):
         text = edited(
-            "Exonerate/exn_22_m_affine_local.exn",
+            support.DATA / "Exonerate" / "exn_22_m_affine_local.exn",
             "   Query range: 0 -> 1230\n",
             "",
         )
@@ -170,9 +172,11 @@ class Exonerate(unittest.TestCase):
         AssertionError from an assert, so under ``python -O`` it never
         added them and failed with IndexError.
         """
-        code = """\
+        # An absolute path, so the subprocess need not run in Tests/.
+        exn = os.fspath(support.DATA / "Exonerate" / "exn_22_m_cdna2genome.exn")
+        code = f"""\
 from Bio import SearchIO
-for qresult in SearchIO.parse("Exonerate/exn_22_m_cdna2genome.exn", "exonerate-text"):
+for qresult in SearchIO.parse({exn!r}, "exonerate-text"):
     for hit in qresult:
         for hsp in hit:
             print(hsp.query_range_all, hsp.hit_range_all)
@@ -203,7 +207,9 @@ class FastaM10(unittest.TestCase):
     """The query and hit of a FASTA -m 10 alignment must be the same type."""
 
     def test_query_and_hit_types_differ(self):
-        text = edited("Fasta/output002.m10", "; sq_type: p", "; sq_type: D")
+        text = edited(
+            support.DATA / "Fasta" / "output002.m10", "; sq_type: p", "; sq_type: D"
+        )
         with self.assertRaises(ValueError) as cm:
             parse_all(text, "fasta-m10")
         self.assertIn("Query sequence type 'D' does not match", str(cm.exception))
@@ -214,7 +220,7 @@ class Hmmer(unittest.TestCase):
 
     def test_hmmer3_domain_numbered_out_of_order(self):
         text = edited(
-            "Hmmer/text_30_hmmscan_001.out",
+            support.DATA / "Hmmer" / "text_30_hmmscan_001.out",
             "  == domain 2    score: -1.8 bits",
             "  == domain 3    score: -1.8 bits",
         )
@@ -223,7 +229,7 @@ class Hmmer(unittest.TestCase):
         self.assertIn("Expected '  == domain 2'", str(cm.exception))
 
     def test_hmmer3_domtab_row_too_short(self):
-        with open("Hmmer/domtab_30_hmmscan_001.out") as handle:
+        with open(support.DATA / "Hmmer" / "domtab_30_hmmscan_001.out") as handle:
             lines = handle.readlines()
         lines[3] = " ".join(lines[3].split()[:20]) + "\n"
         with self.assertRaises(ValueError) as cm:
@@ -234,7 +240,7 @@ class Hmmer(unittest.TestCase):
 
     def test_hmmer2_without_program_line(self):
         text = edited(
-            "Hmmer/text_22_hmmpfam_001.out",
+            support.DATA / "Hmmer" / "text_22_hmmpfam_001.out",
             "hmmpfam - search one or more sequences against HMM database\n",
             "",
         )
@@ -248,7 +254,7 @@ class Infernal(unittest.TestCase):
 
     def test_text_hit_table_row_too_short(self):
         text = edited(
-            "Infernal/cmsearch_114_U2_Yeast_full.txt",
+            support.DATA / "Infernal" / "cmsearch_114_U2_Yeast_full.txt",
             "681747 - .. 0.91    no 0.33\n",
             "681747 - .. 0.91    no\n",
         )
@@ -261,7 +267,7 @@ class Infernal(unittest.TestCase):
     def test_text_scores_table_row_without_description(self):
         # A target with no description gives a 12-column row, which is valid.
         text = edited(
-            "Infernal/cmsearch_114_U2_Yeast_noali.txt",
+            support.DATA / "Infernal" / "cmsearch_114_U2_Yeast_noali.txt",
             "681747 -  cm    no 0.33  TPA_inf: Saccharomyces cerevisiae S288C"
             " chromosome II,\n",
             "681747 -  cm    no 0.33\n",
@@ -273,7 +279,7 @@ class Infernal(unittest.TestCase):
 
     def test_text_scores_table_row_too_short(self):
         text = edited(
-            "Infernal/cmsearch_114_U2_Yeast_noali.txt",
+            support.DATA / "Infernal" / "cmsearch_114_U2_Yeast_noali.txt",
             "681747 -  cm    no 0.33  TPA_inf: Saccharomyces cerevisiae S288C"
             " chromosome II,\n",
             "681747 -  cm    no\n",
@@ -287,7 +293,7 @@ class Infernal(unittest.TestCase):
 
     def test_tab_hit_descriptions_differ(self):
         text = edited(
-            "Infernal/cmsearch_114_5S_Yeast.tbl",
+            support.DATA / "Infernal" / "cmsearch_114_5S_Yeast.tbl",
             "489469      +    no    1 0.52   0.0   88.8   1.6e-18 !   TPA_inf:"
             " Saccharomyces cerevisiae S288C chromosome XII,",
             "489469      +    no    1 0.52   0.0   88.8   1.6e-18 !   TPA_inf:"
@@ -300,7 +306,7 @@ class Infernal(unittest.TestCase):
         )
 
     def test_tab_unknown_format_number(self):
-        with open("Infernal/cmsearch_114_5S_Yeast.tbl") as handle:
+        with open(support.DATA / "Infernal" / "cmsearch_114_5S_Yeast.tbl") as handle:
             text = handle.read()
         with self.assertRaises(ValueError) as cm:
             parse_all(text, "infernal-tab", _fmt=4)

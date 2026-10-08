@@ -7,12 +7,14 @@
 
 import unittest
 
+import support
+
 from Bio.SCOP import Hie
 
 
 class HieTests(unittest.TestCase):
     def setUp(self):
-        self.filename = "./SCOP/dir.hie.scop.txt_test"
+        self.filename = support.DATA / "SCOP" / "dir.hie.scop.txt_test"
 
     def testParse(self):
         """Test if all records in a HIE file are being read."""

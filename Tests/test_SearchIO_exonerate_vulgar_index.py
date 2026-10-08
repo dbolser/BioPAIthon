@@ -5,9 +5,9 @@
 
 """Tests for SearchIO exonerate-vulgar indexing."""
 
-import os
 import unittest
 
+import support
 from search_tests_common import CheckIndex
 
 
@@ -16,12 +16,12 @@ class ExonerateVulgarIndexCases(CheckIndex):
 
     def test_exn_22_m_est2genome(self):
         """Test exonerate-vulgar indexing, single."""
-        filename = os.path.join("Exonerate", "exn_22_o_vulgar.exn")
+        filename = support.DATA / "Exonerate" / "exn_22_o_vulgar.exn"
         self.check_index(filename, self.fmt)
 
     def test_exn_22_q_multiple(self):
         """Test exonerate-vulgar indexing, single."""
-        filename = os.path.join("Exonerate", "exn_22_q_multiple_vulgar.exn")
+        filename = support.DATA / "Exonerate" / "exn_22_q_multiple_vulgar.exn"
         self.check_index(filename, self.fmt)
 
 
