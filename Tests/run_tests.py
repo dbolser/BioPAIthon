@@ -22,8 +22,10 @@ Command line options::
 
 By default, all tests are run, including the docstring tests.  Any other
 argument is passed to pytest unchanged, e.g. -x, -k EXPRESSION or a node ID
-such as test_Seq_objs.py::StringMethodTests.  The legacy --doctest and
--g/--generate options are accepted and ignored.
+such as test_Seq_objs.py::StringMethodTests.  So is the word after any of
+pytest's own long options, as it may be that option's value (as in
+--junitxml report.xml); put test names before such options.  The legacy
+--doctest and -g/--generate options are accepted and ignored.
 
 The pytest equivalent of ``python run_tests.py --offline`` is
 ``python -m pytest --offline``, which also works from the repository root.
@@ -41,6 +43,15 @@ VALUE_OPTIONS = {"-c", "-k", "-m", "-n", "-o", "-p", "-r", "-W"}
 
 IGNORED_OPTIONS = {"--doctest", "-g", "--generate"}
 
+# The long options of the old run_tests.py, none of which takes a value.
+LEGACY_LONG_OPTIONS = {
+    "--offline",
+    "--check-skips",
+    "--verbose",
+    "--doctest",
+    "--generate",
+}
+
 INSTALL_HINT = """\
 run_tests.py now runs the test suite with pytest, which is not installed.
 Install it with:  python -m pip install pytest
@@ -52,18 +63,25 @@ def pytest_args(argv):
     """Translate run_tests.py arguments into pytest arguments (PRIVATE)."""
     args = []
     selected = False
-    expect_value = False
-    for arg in argv:
-        if expect_value:
+    for previous, arg in zip(["", *argv], argv):
+        if previous in VALUE_OPTIONS:
+            # The value of a pytest option, as in -k test_translation.
             args.append(arg)
-            expect_value = False
         elif arg in IGNORED_OPTIONS:
             print(f"Ignoring {arg}, which no longer has any effect.")
         elif arg.startswith("-"):
             # Including --offline, --check-skips and -v/--verbose, which
             # mean the same to pytest (see Tests/conftest.py).
             args.append(arg)
-            expect_value = arg in VALUE_OPTIONS
+        elif (
+            previous.startswith("--")
+            and "=" not in previous
+            and previous not in LEGACY_LONG_OPTIONS
+        ):
+            # Perhaps the value of one of pytest's long options, as in
+            # --junitxml report.xml, so never rewritten as a test name.
+            args.append(arg)
+            selected = selected or "::" in arg or os.path.exists(arg)
         elif arg == "doctest":
             args.append(os.path.join(TESTS_DIR, "test_docstrings.py"))
             selected = True
@@ -76,9 +94,7 @@ def pytest_args(argv):
             args.append(os.path.join(TESTS_DIR, "test_docstrings.py") + "::" + arg)
             selected = True
         else:
-            # Anything else goes to pytest unchanged: a node ID, a path, or
-            # the value of a long option, as in --tb short or --basetemp
-            # test_tmp (which names no test module).
+            # Anything else goes to pytest unchanged: a node ID or a path.
             args.append(arg)
             selected = selected or "::" in arg or os.path.exists(arg)
     if not selected:

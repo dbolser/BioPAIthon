@@ -13,7 +13,8 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
   Tests/expected_skips.txt.
 - A module may skip only by raising MissingExternalDependencyError (or its
   subclass MissingPythonDependencyError) while being imported.  The same
-  exceptions raised later, from code under test, are failures.
+  exceptions raised later, from code under test, are failures.  A run in
+  which every selected module skips this way succeeds.
 - Tests run from the Tests/ directory.  LANG is restored before each module
   is imported, and its tests run with any LANG it set on import.
 - A test module with no tests, or one that leaves the current directory
@@ -163,6 +164,8 @@ _IMPORT_SKIPS = pytest.StashKey[dict]()
 _UNEXPECTED_SKIPS = pytest.StashKey[list]()
 # The LANG a module left on import, kept for its own tests.
 _MODULE_LANG = pytest.StashKey[str]()
+# Whether any test was deselected, as by -k or --deselect.
+_DESELECTED = pytest.StashKey[bool]()
 
 
 def pytest_addoption(parser):
@@ -370,8 +373,22 @@ def _module_hygiene(request):
         pytest.fail(f"Current directory changed\nWas: {cwd}\nNow: {now}", pytrace=False)
 
 
+def pytest_deselected(items):
+    if items:
+        items[0].config.stash[_DESELECTED] = True
+
+
 def pytest_sessionfinish(session):
     config = session.config
+    if (
+        session.exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED
+        and config.stash[_IMPORT_SKIPS]
+        and not config.stash.get(_DESELECTED, False)
+    ):
+        # Every selected module skipped at import for a missing dependency,
+        # which run_tests.py counted as success (pytest exits 5, "no tests
+        # ran").  A run that deselected every test still exits 5.
+        session.exitstatus = pytest.ExitCode.OK
     if not config.getoption("--check-skips"):
         return
     expected = set()

@@ -113,6 +113,21 @@ class ShimTests(unittest.TestCase):
             pytest_args(["--basetemp", "test_tmp", "--junitxml", "test_out.py"]),
             ["--basetemp", "test_tmp", "--junitxml", "test_out.py", TESTS_DIR],
         )
+        # Words that name test modules, which these options would delete or
+        # overwrite if they were rewritten as paths into Tests/.
+        self.assertEqual(
+            pytest_args(["--basetemp", "test_Seq_objs", "--junitxml", "x.py"])[:4],
+            ["--basetemp", "test_Seq_objs", "--junitxml", "x.py"],
+        )
+        self.assertEqual(
+            pytest_args(["--junitxml", "test_Seq_objs.py"])[:2],
+            ["--junitxml", "test_Seq_objs.py"],
+        )
+        # The old runner's own long options take no value.
+        self.assertEqual(
+            pytest_args(["--junitxml=out.xml", "--offline", "test_Seq_objs"]),
+            ["--junitxml=out.xml", "--offline", self.path("test_Seq_objs.py")],
+        )
 
     def test_node_ids_pass_through(self):
         node = "test_Seq_objs.py::StringMethodTests"
@@ -328,6 +343,30 @@ class ProbeTests(unittest.TestCase):
         )
         self.assertEqual(returncode, 0, output)
         self.assertIn("2 passed", output)
+
+    def test_only_import_skips_exit_ok(self):
+        """A run in which every module skips at import succeeds, as before."""
+        files = {
+            "test_probe_external.py": """\
+                from Bio import MissingExternalDependencyError
+                raise MissingExternalDependencyError("no probe tool")
+            """,
+        }
+        returncode, output = self.run_pytest(files)
+        self.assertEqual(returncode, 0, output)
+        self.assertIn("1 skipped", output)
+        # A run that deselects every test still exits 5, "no tests ran".
+        files[
+            "test_probe_ok.py"
+        ] = """\
+            import unittest
+            class Ok(unittest.TestCase):
+                def test_ok(self):
+                    pass
+        """
+        returncode, output = self.run_pytest(files, "-k", "no_such_test")
+        self.assertEqual(returncode, 5, output)
+        self.assertIn("1 skipped, 1 deselected", output)
 
     def test_classes_run_in_unittest_order(self):
         returncode, output = self.run_pytest(
