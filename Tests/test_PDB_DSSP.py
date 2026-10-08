@@ -150,9 +150,11 @@ class DSSP_test(unittest.TestCase):
 
     def test_unknown_file_type(self):
         """An unknown file type raises ValueError before running anything."""
-        structure = PDBParser(QUIET=True).get_structure("2BEG", "PDB/2BEG.pdb")
+        structure = PDBParser(QUIET=True).get_structure(
+            "2BEG", support.DATA / "PDB" / "2BEG.pdb"
+        )
         with self.assertRaisesRegex(ValueError, "must be PDB, mmCIF or DSSP, not XYZ"):
-            DSSP(structure[0], "PDB/2BEG.xyz")
+            DSSP(structure[0], support.DATA / "PDB" / "2BEG.xyz")
 
     def test_ss_to_index_unknown_symbol(self):
         """An unknown secondary structure symbol raises ValueError."""

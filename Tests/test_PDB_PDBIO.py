@@ -480,8 +480,12 @@ class WriteTest(unittest.TestCase):
         self.assertEqual(_format_b_factor(-999.9), "-999.9")
         with self.assertRaisesRegex(ValueError, "does not fit the 6 character"):
             _format_b_factor(-1000.0)
+        with self.assertRaisesRegex(ValueError, "does not fit the 6 character"):
+            _format_b_factor(-999.96)  # rounds to -1000.0
 
-        structure = self.parser.get_structure("example", "PDB/1A8O.pdb")
+        structure = self.parser.get_structure(
+            "example", support.DATA / "PDB" / "1A8O.pdb"
+        )
         next(structure.get_atoms()).bfactor = -1000.0
         self.io.set_structure(structure)
         with self.assertRaisesRegex(PDBIOException, "does not fit") as cm:

@@ -10,6 +10,7 @@ import platform  # for Windows hack, see issue #3944
 import sys  # for Windows hack
 import tempfile
 import unittest
+from io import BytesIO
 from itertools import chain
 
 import support
@@ -653,6 +654,17 @@ class MethodTests(unittest.TestCase):
             PX.BranchColor.from_hex(0xFF8000)
         with self.assertRaisesRegex(ValueError, "e.g. #000000, not 'FF8000'"):
             PX.BranchColor.from_hex("FF8000")
+
+    def test_color_missing_channel(self):
+        """A color element without one of its channels raises PhyloXMLError."""
+        with open(EX_MADE) as handle:
+            data = handle.read()
+        self.assertIn("<red>128</red>", data)
+        data = data.replace("<red>128</red>", "", 1)
+        with self.assertRaisesRegex(
+            PhyloXMLIO.PhyloXMLError, "Expected a red value in color, found none"
+        ):
+            PhyloXMLIO.read(BytesIO(data.encode()))
 
     # Type conversions
 

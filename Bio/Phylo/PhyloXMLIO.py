@@ -532,10 +532,13 @@ class Parser:
 
     def color(self, elem):
         """Create branch color object."""
-        red, green, blue = (
-            _get_child_text(elem, color, int) for color in ("red", "green", "blue")
-        )
-        return PX.BranchColor(red, green, blue)
+        values = []
+        for channel in ("red", "green", "blue"):
+            value = _get_child_text(elem, channel, int)
+            if value is None:
+                raise PhyloXMLError(f"Expected a {channel} value in color, found none")
+            values.append(value)
+        return PX.BranchColor(*values)
 
     def confidence(self, elem):
         """Create confidence object."""

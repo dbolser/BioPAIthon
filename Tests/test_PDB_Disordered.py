@@ -21,6 +21,7 @@ from Bio.PDB import PDBIO
 from Bio.PDB import PDBParser
 from Bio.PDB.Atom import Atom
 from Bio.PDB.Atom import DisorderedAtom
+from Bio.PDB.PDBExceptions import PDBConstructionException
 from Bio.PDB.Residue import Residue
 
 
@@ -281,12 +282,12 @@ class TestDisordered(unittest.TestCase):
         disres = s[1]["A"][(" ", 10, " ")]
 
     def test_add_duplicate_disordered_residue(self):
-        """Adding a residue name twice raises ValueError, not assert."""
+        """Adding a residue name twice raises PDBConstructionException."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            s = self.parser.get_structure("a", "PDB/a_structure.pdb")
+            s = self.parser.get_structure("a", support.DATA / "PDB" / "a_structure.pdb")
         disres = s[1]["A"][(" ", 10, " ")]  # GLY and SER
-        with self.assertRaisesRegex(ValueError, "GLY is already in"):
+        with self.assertRaisesRegex(PDBConstructionException, "GLY is already in"):
             disres.disordered_add(Residue((" ", 10, " "), "GLY", "    "))
         self.assertEqual(sorted(disres.child_dict), ["GLY", "SER"])
 

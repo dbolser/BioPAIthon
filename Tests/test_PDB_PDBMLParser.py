@@ -8,6 +8,7 @@ returned by the mmCIF parser for any PDB structure.
 import gzip
 import unittest
 import warnings
+from io import StringIO
 
 import support
 
@@ -52,6 +53,22 @@ class TestPDBMLParser(unittest.TestCase):
                     mmcif_structure = mmcif_parser.get_structure(entry, mmcif_file)
                     pdbml_structure = pdbml_parser.get_structure(pdbml_file)
                 self.assertEqual(mmcif_structure, pdbml_structure)
+
+    def test_unexpected_atom_site_child(self):
+        """A child of atom_siteCategory other than atom_site raises ValueError."""
+        with open(support.DATA / "PDB" / "3JQH.xml") as handle:
+            data = handle.read()
+        old_start, old_end = '<PDBx:atom_site id="1">', "</PDBx:atom_site>"
+        self.assertIn(old_start, data)
+        data = data.replace(old_start, '<PDBx:other_site id="1">', 1)
+        data = data.replace(old_end, "</PDBx:other_site>", 1)
+        with self.assertRaisesRegex(
+            ValueError,
+            "Expected {http://pdbml.pdb.org/schema/pdbx-v50.xsd}atom_site in "
+            "atom_siteCategory, found {http://pdbml.pdb.org/schema/pdbx-v50.xsd}"
+            "other_site",
+        ):
+            PDBMLParser().get_structure(StringIO(data))
 
 
 if __name__ == "__main__":

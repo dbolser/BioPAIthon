@@ -7632,10 +7632,29 @@ class GenBankTests(unittest.TestCase):
 
     def read_noref_modified(self, old, new):
         """Read GenBank/noref.gb with one piece of text replaced."""
-        with open("GenBank/noref.gb") as handle:
+        with open(support.DATA / "GenBank" / "noref.gb") as handle:
             data = handle.read()
         self.assertIn(old, data)
         return StringIO(data.replace(old, new, 1))
+
+    def test_location_with_trailing_text_warns(self):
+        """A location with trailing text warns and becomes None, not assert."""
+        handle = self.read_noref_modified(
+            "     source          1..1622\n", "     source          1..1622abc\n"
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            record = SeqIO.read(handle, "genbank")
+        self.assertEqual(
+            [str(w.message) for w in caught],
+            [
+                "Could not parse feature location '1..1622abc'; "
+                "setting feature location to None."
+            ],
+        )
+        self.assertIs(caught[0].category, BiopythonParserWarning)
+        self.assertEqual(record.features[0].type, "source")
+        self.assertIsNone(record.features[0].location)
 
     def test_contig_after_sequence_raises(self):
         """A CONTIG line after the sequence raises ValueError, not assert."""

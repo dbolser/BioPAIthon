@@ -6839,7 +6839,7 @@ class TestMalformedLines(unittest.TestCase):
         self.check(
             "OX   NCBI_TaxID=9770;\n",
             "OX   NCBI_TaxID=9770;\nOH   NCBI_TaxID=9606 Homo sapiens.\n",
-            "in OH line",
+            "in OH line, found 'OH   NCBI_TaxID=9606 Homo sapiens.'$",
         )
 
 

@@ -378,7 +378,8 @@ def _read(handle):
             cols = value.split()
             if len(cols) != 7:
                 raise SwissProtParserError(
-                    f"Expected 7 fields in SQ line, found {len(cols)}", line=line
+                    f"Expected 7 fields in SQ line, found {len(cols)}: {line.rstrip()!r}",
+                    line=line,
                 )
             # Do more checking here?
             record.seqinfo = int(cols[1]), int(cols[3]), cols[5]
@@ -505,7 +506,9 @@ def _read_dt(record, line):
             if "REL." in uprcols[index]:
                 rel_index = index
         if rel_index < 0:
-            raise SwissProtParserError("Could not find Rel. in DT line", line=line)
+            raise SwissProtParserError(
+                f"Could not find Rel. in DT line {line.rstrip()!r}", line=line
+            )
         version_index = rel_index + 1
         # get the version information
         str_version = cols[version_index].rstrip(",")
@@ -606,11 +609,14 @@ def _read_ox(record, line):
 def _read_oh(record, line):
     # Line type OH (Organism Host) for viral hosts
     if not line[5:].startswith("NCBI_TaxID="):
-        raise SwissProtParserError("Expected NCBI_TaxID= in OH line", line=line)
+        raise SwissProtParserError(
+            f"Expected NCBI_TaxID= in OH line, found {line.rstrip()!r}", line=line
+        )
     text = line[16:].rstrip()
     if not (text.endswith(".") and text.count(";") == 1):
         raise SwissProtParserError(
-            "Expected 'NCBI_TaxID=<id>; <organism>.' in OH line", line=line
+            f"Expected 'NCBI_TaxID=<id>; <organism>.' in OH line, found {line.rstrip()!r}",
+            line=line,
         )
     taxid, name = text[:-1].split(";")
     record.host_taxonomy_id.append(taxid.strip())
