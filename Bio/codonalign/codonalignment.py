@@ -11,11 +11,10 @@ the core class to deal with codon alignment in biopython.
 """
 
 import warnings
-from math import erfc
-from math import sqrt
 
 from Bio import BiopythonWarning
 from Bio.Align import MultipleSeqAlignment
+from Bio.Align.analysis import _mktest
 from Bio.codonalign.codonseq import _get_codon_list
 from Bio.codonalign.codonseq import cal_dn_ds
 from Bio.codonalign.codonseq import CodonSeq
@@ -238,10 +237,9 @@ def mktest(codon_alns, codon_table=None, alpha=0.05):
      - codon_alns  - list of CodonAlignment to compare (each
        CodonAlignment object corresponds to gene sampled from a species)
 
-    Return the p-value of test result.
+    Return the p-value of test result. Codon positions with a gap in any
+    sequence are skipped, as in ``Bio.Align.analysis.mktest``.
     """
-    import copy
-
     if codon_table is None:
         codon_table = CodonTable.generic_by_id[1]
     if not all(isinstance(i, CodonAlignment) for i in codon_alns):
@@ -252,10 +250,6 @@ def mktest(codon_alns, codon_table=None, alpha=0.05):
             "CodonAlignment object for mktest should be of equal length."
         )
     codon_num = codon_aln_len[0] // 3
-    # prepare codon_dict (taking stop codon as an extra amino acid)
-    codon_dict = copy.deepcopy(codon_table.forward_table)
-    for stop in codon_table.stop_codons:
-        codon_dict[stop] = "stop"
     # prepare codon_lst
     codon_lst = []
     for codon_aln in codon_alns:
@@ -268,272 +262,9 @@ def mktest(codon_alns, codon_table=None, alpha=0.05):
         for j in codon_lst:
             uniq_codon = {k[i] for k in j}
             uniq_codons.append(uniq_codon)
-        codon_set.append(uniq_codons)
-    syn_fix, nonsyn_fix, syn_poly, nonsyn_poly = 0, 0, 0, 0
-    G, nonsyn_G = _get_codon2codon_matrix(codon_table=codon_table)
-    for i in codon_set:
-        all_codon = i[0].union(*i[1:])
-        if "-" in all_codon or len(all_codon) == 1:
-            continue
-        fix_or_not = all(len(k) == 1 for k in i)
-        if fix_or_not:
-            # fixed
-            nonsyn_subgraph = _get_subgraph(all_codon, nonsyn_G)
-            subgraph = _get_subgraph(all_codon, G)
-            this_non = _count_replacement(all_codon, nonsyn_subgraph)
-            this_syn = _count_replacement(all_codon, subgraph) - this_non
-            nonsyn_fix += this_non
-            syn_fix += this_syn
-        else:
-            # not fixed
-            nonsyn_subgraph = _get_subgraph(all_codon, nonsyn_G)
-            subgraph = _get_subgraph(all_codon, G)
-            this_non = _count_replacement(all_codon, nonsyn_subgraph)
-            this_syn = _count_replacement(all_codon, subgraph) - this_non
-            nonsyn_poly += this_non
-            syn_poly += this_syn
-    return _G_test([syn_fix, nonsyn_fix, syn_poly, nonsyn_poly])
-
-
-def _get_codon2codon_matrix(codon_table):
-    """Get codon codon substitution matrix (PRIVATE).
-
-    Elements in the matrix are number of synonymous and nonsynonymous
-    substitutions required for the substitution.
-    """
-    import copy
-
-    base_tuple = ("A", "T", "C", "G")
-    codons = [
-        i
-        for i in list(codon_table.forward_table.keys()) + codon_table.stop_codons
-        if "U" not in i
-    ]
-    # set up codon_dict considering stop codons
-    codon_dict = copy.deepcopy(codon_table.forward_table)
-    for stop in codon_table.stop_codons:
-        codon_dict[stop] = "stop"
-    # count site
-    num = len(codons)
-    G = {}  # graph for substitution
-    nonsyn_G = {}  # graph for nonsynonymous substitution
-    graph = {}
-    graph_nonsyn = {}
-    for i, codon in enumerate(codons):
-        graph[codon] = {}
-        graph_nonsyn[codon] = {}
-        for p, b in enumerate(codon):
-            for j in base_tuple:
-                tmp_codon = codon[0:p] + j + codon[p + 1 :]
-                if codon_dict[codon] != codon_dict[tmp_codon]:
-                    graph_nonsyn[codon][tmp_codon] = 1
-                    graph[codon][tmp_codon] = 1
-                else:
-                    if codon != tmp_codon:
-                        graph_nonsyn[codon][tmp_codon] = 0.1
-                        graph[codon][tmp_codon] = 1
-    for codon1 in codons:
-        nonsyn_G[codon1] = {}
-        G[codon1] = {}
-        for codon2 in codons:
-            if codon1 == codon2:
-                nonsyn_G[codon1][codon2] = 0
-                G[codon1][codon2] = 0
-            else:
-                nonsyn_G[codon1][codon2] = _dijkstra(graph_nonsyn, codon1, codon2)
-                G[codon1][codon2] = _dijkstra(graph, codon1, codon2)
-    return G, nonsyn_G
-
-
-def _dijkstra(graph, start, end):
-    """Dijkstra's algorithm Python implementation (PRIVATE).
-
-    Algorithm adapted from
-    http://thomas.pelletier.im/2010/02/dijkstras-algorithm-python-implementation/.
-    However, an obvious bug in::
-
-        if D[child_node] >(<) D[node] + child_value:
-
-    is fixed.
-    This function will return the distance between start and end.
-
-    Arguments:
-     - graph: Dictionary of dictionary (keys are vertices).
-     - start: Start vertex.
-     - end: End vertex.
-
-    Output:
-       List of vertices from the beginning to the end.
-
-    """
-    D = {}  # Final distances dict
-    P = {}  # Predecessor dict
-    # Fill the dicts with default values
-    for node in graph.keys():
-        D[node] = 100  # Vertices are unreachable
-        P[node] = ""  # Vertices have no predecessors
-    D[start] = 0  # The start vertex needs no move
-    unseen_nodes = list(graph.keys())  # All nodes are unseen
-    while len(unseen_nodes) > 0:
-        # Select the node with the lowest value in D (final distance)
-        shortest = None
-        node = ""
-        for temp_node in unseen_nodes:
-            if shortest is None:
-                shortest = D[temp_node]
-                node = temp_node
-            elif D[temp_node] < shortest:
-                shortest = D[temp_node]
-                node = temp_node
-        # Remove the selected node from unseen_nodes
-        unseen_nodes.remove(node)
-        # For each child (ie: connected vertex) of the current node
-        for child_node, child_value in graph[node].items():
-            if D[child_node] > D[node] + child_value:
-                D[child_node] = D[node] + child_value
-                # To go to child_node, you have to go through node
-                P[child_node] = node
-        if node == end:
-            break
-    # Set a clean path
-    path = []
-    # We begin from the end
-    node = end
-    distance = 0
-    # While we are not arrived at the beginning
-    while node != start:
-        if path.count(node) == 0:
-            path.insert(0, node)  # Insert the predecessor of the current node
-            node = P[node]  # The current node becomes its predecessor
-        else:
-            break
-    path.insert(0, start)  # Finally, insert the start vertex
-    for i in range(len(path) - 1):
-        distance += graph[path[i]][path[i + 1]]
-    return distance
-
-
-def _count_replacement(codon_set, G):
-    """Count replacement needed for a given codon_set (PRIVATE)."""
-    from math import floor
-
-    if len(codon_set) == 1:
-        return 0, 0
-    elif len(codon_set) == 2:
-        codons = list(codon_set)
-        return floor(G[codons[0]][codons[1]])
-    else:
-        codons = list(codon_set)
-        return _prim(G)
-
-
-def _prim(G):
-    """Prim's algorithm to find minimum spanning tree (PRIVATE).
-
-    Code is adapted from
-    http://programmingpraxis.com/2010/04/09/minimum-spanning-tree-prims-algorithm/
-    """
-    from collections import defaultdict
-    from heapq import heapify
-    from heapq import heappop
-    from heapq import heappush
-    from math import floor
-
-    nodes = []
-    edges = []
-    for i in G.keys():
-        nodes.append(i)
-        for j in G[i]:
-            if (i, j, G[i][j]) not in edges and (j, i, G[i][j]) not in edges:
-                edges.append((i, j, G[i][j]))
-    conn = defaultdict(list)
-    for n1, n2, c in edges:
-        conn[n1].append((c, n1, n2))
-        conn[n2].append((c, n2, n1))
-    mst = []  # minimum spanning tree
-    used = {nodes[0]}
-    usable_edges = conn[nodes[0]][:]
-    heapify(usable_edges)
-    while usable_edges:
-        cost, n1, n2 = heappop(usable_edges)
-        if n2 not in used:
-            used.add(n2)
-            mst.append((n1, n2, cost))
-            for e in conn[n2]:
-                if e[2] not in used:
-                    heappush(usable_edges, e)
-    length = 0
-    for p in mst:
-        length += floor(p[2])
-    return length
-
-
-def _get_subgraph(codons, G):
-    """Get the subgraph that contains all codons in list (PRIVATE)."""
-    subgraph = {}
-    for i in codons:
-        subgraph[i] = {}
-        for j in codons:
-            if i != j:
-                subgraph[i][j] = G[i][j]
-    return subgraph
-
-
-def _G_test(site_counts):
-    """G test for 2x2 contingency table (PRIVATE).
-
-    Arguments:
-     - site_counts - [syn_fix, nonsyn_fix, syn_poly, nonsyn_poly]
-
-    Return the upper tail probability of ``G = 2 sum(O ln(O/E))`` under a
-    chi-square distribution with one degree of freedom.
-
-    Empty cells are handled as follows. An observed count of zero contributes
-    nothing to the sum, following the usual convention that ``lim x->0 of
-    x ln(x) = 0``. That is enough to keep the sum defined, because an expected
-    count can only be zero when its row or column total is zero, and then the
-    observed count in that cell must be zero as well. A table with an empty
-    row or column is degenerate: every remaining observed count then equals
-    its expected count exactly, so ``G`` is zero and the returned p-value is
-    one. The same value is returned for an all-zero table, for which the
-    expected counts are not defined at all; this is the table produced by an
-    alignment with no substitutions to count.
-
-    >>> print("%0.6f" % _G_test([17, 7, 42, 2]))
-    0.004924
-    >>> print("%0.6f" % _G_test([0, 0, 0, 0]))
-    1.000000
-    >>> print("%0.6f" % _G_test([3, 5, 0, 0]))
-    1.000000
-    """
-    # TODO:
-    #   Apply continuity correction for Chi-square test.
-    from math import log
-
-    G = 0
-    tot = sum(site_counts)
-    if tot == 0:
-        # No counts at all; the expected counts are undefined, and there is
-        # nothing for the test to detect.
-        return 1.0
-    tot_syn = site_counts[0] + site_counts[2]
-    tot_non = site_counts[1] + site_counts[3]
-    tot_fix = sum(site_counts[:2])
-    tot_poly = sum(site_counts[2:])
-    exp = [
-        tot_fix * tot_syn / tot,
-        tot_fix * tot_non / tot,
-        tot_poly * tot_syn / tot,
-        tot_poly * tot_non / tot,
-    ]
-    for obs, ex in zip(site_counts, exp):
-        if obs:
-            # ex is strictly positive whenever obs is, as obs contributes to
-            # both the row total and the column total that define ex.
-            G += obs * log(obs / ex)
-    # with only 1 degree of freedom for a 2x2 table,
-    # the cumulative chi-square distribution reduces to a simple form:
-    return erfc(sqrt(G))
+        if not any("-" in codon for codons in uniq_codons for codon in codons):
+            codon_set.append(uniq_codons)
+    return _mktest(codon_set, codon_table)
 
 
 if __name__ == "__main__":

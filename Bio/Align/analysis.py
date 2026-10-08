@@ -195,6 +195,30 @@ def _count_diff_NG86(codon1, codon2, codon_table):
     The function will take multiple pathways from codon1 to codon2
     into account.
     """
+    # calculate_dn_ds checks its codons before getting here, but cal_dn_ds in
+    # Bio.codonalign relies on these checks; without them a U would count as
+    # a substitution from T.
+    if not isinstance(codon1, str) or not isinstance(codon2, str):
+        raise TypeError(
+            "_count_diff_NG86 accepts string object to represent codon"
+            f" ({type(codon1)}, {type(codon2)} detected)"
+        )
+    if len(codon1) != 3 or len(codon2) != 3:
+        raise RuntimeError(
+            "codon should be three letter string"
+            f" ({len(codon1)}, {len(codon2)} detected)"
+        )
+    bases = ("A", "C", "G", "T")
+    if not all(nucleotide in bases for nucleotide in codon1):
+        raise RuntimeError(
+            f"Unrecognized character detected in codon1 {codon1}"
+            " (Codons consist of A, T, C or G)"
+        )
+    if not all(nucleotide in bases for nucleotide in codon2):
+        raise RuntimeError(
+            f"Unrecognized character detected in codon2 {codon2}"
+            " (Codons consist of A, T, C or G)"
+        )
     SN = [0, 0]  # synonymous and nonsynonymous counts
     if codon1 == codon2:
         return SN
@@ -878,9 +902,11 @@ def _get_pi(codons1, codons2, cmethod, codon_table):
     # Try to modify this!
     pi = {}
     if cmethod == "F1x4":
-        fcodon = Counter(
-            nucleotide for codon in codons1 + codons2 for nucleotide in codon
-        )
+        # A base absent from both sequences has frequency zero, as in F3x4.
+        fcodon = {"A": 0, "G": 0, "C": 0, "T": 0}
+        for codon in codons1 + codons2:
+            for nucleotide in codon:
+                fcodon[nucleotide] += 1
         tot = sum(fcodon.values())
         fcodon = {j: k / tot for j, k in fcodon.items()}
         for codon in list(codon_table.forward_table.keys()) + codon_table.stop_codons:
@@ -1059,7 +1085,6 @@ def mktest(alignment, species=None, codon_table=None):
     """
     if codon_table is None:
         codon_table = CodonTable.generic_by_id[1]
-    G, nonsyn_G = _get_codon2codon_matrix(codon_table=codon_table)
     unique_species = set(species)
     sequences = []
     for sequence in alignment.sequences:
@@ -1069,35 +1094,45 @@ def mktest(alignment, species=None, codon_table=None):
             pass
         sequence = str(sequence)
         sequences.append(sequence)
-    syn_fix, nonsyn_fix, syn_poly, nonsyn_poly = 0, 0, 0, 0
+    columns = []
     starts = sys.maxsize
     for ends in alignment.coordinates.transpose():
         step = min(ends - starts)
         for j in range(0, step, 3):
-            codons = {key: [] for key in unique_species}
+            codons = {key: set() for key in unique_species}
             for key, sequence, start in zip(species, sequences, starts):
-                codon = sequence[start + j : start + j + 3]
-                codons[key].append(codon)
-            fixed = True
-            all_codons = set()
-            for value in codons.values():
-                value = set(value)
-                if len(value) > 1:
-                    fixed = False
-                all_codons.update(value)
-            if len(all_codons) == 1:
-                continue
-            nonsyn = _count_replacement(all_codons, nonsyn_G)
-            syn = _count_replacement(all_codons, G) - nonsyn
-            if fixed is True:
-                # fixed
-                nonsyn_fix += nonsyn
-                syn_fix += syn
-            else:
-                # not fixed
-                nonsyn_poly += nonsyn
-                syn_poly += syn
+                codons[key].add(sequence[start + j : start + j + 3])
+            columns.append(list(codons.values()))
         starts = ends
+    return _mktest(columns, codon_table)
+
+
+def _mktest(columns, codon_table):
+    """Count substitutions in codon columns and apply the G test (PRIVATE).
+
+    This is the McDonald-Kreitman test proper, shared by ``mktest`` above and
+    by ``Bio.codonalign.mktest``. Each column describes one codon position of
+    the alignment, as a list holding, for each species, the set of codons seen
+    in that species. A column with only one codon is invariant and skipped.
+    The changes in a column count as fixed if every species has one codon,
+    and as polymorphic otherwise.
+    """
+    G, nonsyn_G = _get_codon2codon_matrix(codon_table=codon_table)
+    syn_fix, nonsyn_fix, syn_poly, nonsyn_poly = 0, 0, 0, 0
+    for column in columns:
+        all_codons = set().union(*column)
+        if len(all_codons) == 1:
+            continue
+        nonsyn = _count_replacement(all_codons, nonsyn_G)
+        syn = _count_replacement(all_codons, G) - nonsyn
+        if all(len(codons) == 1 for codons in column):
+            # fixed
+            nonsyn_fix += nonsyn
+            syn_fix += syn
+        else:
+            # not fixed
+            nonsyn_poly += nonsyn
+            syn_poly += syn
     return _G_test([syn_fix, nonsyn_fix, syn_poly, nonsyn_poly])
 
 

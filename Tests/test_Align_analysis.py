@@ -254,6 +254,17 @@ class GetPiTests(unittest.TestCase):
             expected = frequency[codon[0]] * frequency[codon[1]] * frequency[codon[2]]
             self.assertAlmostEqual(pi[codon], expected, places=12)
 
+    def test_f1x4_base_absent_from_both_sequences(self):
+        """F1x4 gives a base that does not occur a frequency of zero."""
+        # There is no C. This used to raise KeyError, although F3x4 already
+        # gave such codons zero, as did the copy of this code in codonalign.
+        pi = _get_pi(["ATG", "AAA"], ["ATG", "AAG"], "F1x4", CODON_TABLE)
+        self.assertEqual(len(pi), 64)
+        self.assertEqual(pi["CCC"], 0)
+        self.assertEqual(pi["ACG"], 0)
+        # A, T and G occur 7, 2 and 3 times in 12 bases
+        self.assertAlmostEqual(pi["ATG"], 7 / 12 * 2 / 12 * 3 / 12, places=12)
+
     def test_f61(self):
         """F61 counts whole codons, with a pseudo count of 0.1."""
         pi = _get_pi(self.codons1, self.codons2, "F61", CODON_TABLE)

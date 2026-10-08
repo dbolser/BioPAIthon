@@ -5,6 +5,7 @@
 
 """Unit tests for the Bio.codonalign modules."""
 
+import math
 import os
 import subprocess
 import sys
@@ -349,10 +350,19 @@ class Test_dn_ds(unittest.TestCase):
             # TODO - Show a warning?
             pass
 
+    def test_dn_ds_rejects_u(self):
+        """Test that NG86 rejects a U rather than count it as differing from T."""
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        seq1 = codonalign.CodonSeq("AUGAAACCC")
+        seq2 = codonalign.CodonSeq("ATGAAGCCC")
+        with self.assertRaises(RuntimeError):
+            cal_dn_ds(seq1, seq2, method="NG86")
+
     def test_get_pi_codon_frequency_models(self):
         """Test that every documented codon frequency model builds a pi dict."""
+        from Bio.Align.analysis import _get_pi
         from Bio.Data.CodonTable import unambiguous_dna_by_id
-        from Bio.codonalign.codonseq import _get_pi
 
         # F1x4 and F61 added a dict view to a list, which raises TypeError, so
         # both were unusable; only F3x4 worked, because it already wrapped the
@@ -515,9 +525,48 @@ if np:
                 0.0023196627124160174,
             )
 
+        def test_mk_skips_gapped_codons(self):
+            """Test that a codon position with a gap in any sequence is skipped."""
+
+            def mktest(*species):
+                return codonalign.mktest(
+                    [
+                        codonalign.CodonAlignment(
+                            SeqRecord(codonalign.CodonSeq(row), id=f"{i}_{j}")
+                            for j, row in enumerate(rows)
+                        )
+                        for i, rows in enumerate(species)
+                    ]
+                )
+
+            # Six codon positions: two synonymous polymorphisms, then one
+            # synonymous and three nonsynonymous fixed differences.
+            species1 = ["CTTGCTAAAGATTTTATG", "CTCGCCAAAGATTTTATG"]
+            species2 = ["CTTGCTAAGGAATTAACG", "CTTGCTAAGGAATTAACG"]
+            pvalue = mktest(species1, species2)
+            # G test of the table [1, 3, 2, 0], worked out by hand
+            g = math.log(1 / 2) + 3 * math.log(3 / 2) + 2 * math.log(2)
+            self.assertAlmostEqual(pvalue, math.erfc(math.sqrt(g)))
+            # One more position, TGG against TGT, would add a fixed difference.
+            # With a gap in one sequence it is left out instead; it used to
+            # raise KeyError.
+            self.assertNotEqual(
+                mktest(
+                    ["TGG" + row for row in species1], ["TGT" + row for row in species2]
+                ),
+                pvalue,
+            )
+            self.assertEqual(
+                mktest(
+                    ["---" + species1[0], "TGG" + species1[1]],
+                    ["TGT" + row for row in species2],
+                ),
+                pvalue,
+            )
+
         def test_G_test_empty_cells(self):
             """Test that the G test accepts a table with empty cells."""
-            from Bio.codonalign.codonalignment import _G_test
+            from Bio.Align.analysis import _G_test
 
             # A table with an empty row or column is degenerate: every
             # remaining observed count equals its expected count, so G is zero.
