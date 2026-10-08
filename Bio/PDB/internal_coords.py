@@ -4950,22 +4950,24 @@ class MissingAtomError(Exception):
 
 
 # Take MissingAtomError out of the module namespace so that every access
-# goes through __getattr__ below and warns.
-_MissingAtomError = MissingAtomError
-del MissingAtomError
+# goes through __getattr__ below and warns. Type checkers skip this block:
+# they keep seeing the class, and a module __getattr__ would make them
+# accept every unknown name in the module.
+if not TYPE_CHECKING:
+    _MissingAtomError = MissingAtomError
+    del MissingAtomError
 
-
-def __getattr__(name):
-    """Warn on access to the deprecated MissingAtomError (PRIVATE)."""
-    if name == "MissingAtomError":
-        warnings.warn(
-            "Bio.PDB.internal_coords.MissingAtomError has been deprecated, and "
-            "we intend to remove it in a future release of BioPAIthon. Nothing "
-            "raises it, as missing atoms are tolerated rather than treated as "
-            "errors, so an 'except MissingAtomError' clause never runs and can "
-            "be deleted.",
-            BiopythonDeprecationWarning,
-            stacklevel=2,
-        )
-        return _MissingAtomError
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    def __getattr__(name):
+        """Warn on access to the deprecated MissingAtomError (PRIVATE)."""
+        if name == "MissingAtomError":
+            warnings.warn(
+                "Bio.PDB.internal_coords.MissingAtomError has been deprecated, "
+                "and we intend to remove it in a future release of BioPAIthon. "
+                "Nothing raises it, as missing atoms are tolerated rather than "
+                "treated as errors, so an 'except MissingAtomError' clause "
+                "never runs and can be deleted.",
+                BiopythonDeprecationWarning,
+                stacklevel=2,
+            )
+            return _MissingAtomError
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
