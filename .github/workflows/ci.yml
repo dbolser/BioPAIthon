@@ -40,16 +40,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # Full history, so pre-commit's --from-ref/--to-ref below can find a
+    # PR's merge base and the start of a multi-commit push.
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
-    # Check only files changed by the PR/push. JSON keeps filenames as data,
-    # including whitespace and shell metacharacters.
-    - uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96  # v47.0.6
-      id: changed-files
       with:
-        json: "true"
-        escape_json: "false"
-        safe_output: "false"
+        fetch-depth: 0
 
     # Cache CI packages
     - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25  # v5.1.0
@@ -72,22 +67,15 @@ jobs:
       run: |
         pre-commit install --install-hooks
 
+    # Check only the files changed by the PR (since its merge base) or by the
+    # push. Scheduled runs have no `before`, and a force-push's old tip is not
+    # fetched, so both check the files changed by the last commit instead.
     - name: Run style checking via pre-commit
       env:
-        ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+        FROM_REF: ${{ github.event.pull_request.base.sha || (!github.event.forced && github.event.before) || 'HEAD^' }}
+        TO_REF: ${{ github.event.pull_request.head.sha || github.sha }}
       run: |
-        python - <<'PY'
-        import json
-        import os
-        import subprocess
-
-        files = json.loads(os.environ["ALL_CHANGED_FILES"])
-        if files:
-            subprocess.run(
-                ["pre-commit", "run", "--show-diff-on-failure", "--files", *files],
-                check=True,
-            )
-        PY
+        pre-commit run --show-diff-on-failure --from-ref "$FROM_REF" --to-ref "$TO_REF"
 
   # Cache pip & python dependencies for Linux runner
   # since it is used in most actions.
