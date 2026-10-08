@@ -6,6 +6,7 @@
 """Tests for Bio.ExPASy.Prodoc module."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -1355,6 +1356,27 @@ action."
 J. Pept. Sci. 11:688-696(2005).
 PubMed=16059970; DOI=10.1002/psc.699""",
         )
+
+
+class TestProdocErrors(unittest.TestCase):
+    def test_bad_reference_line(self):
+        """A reference continuation line without indentation raises ValueError."""
+        handle = StringIO(
+            """\
+{PDOC00000}
+{PS00000; TEST}
+{BEGIN}
+Some text.
+
+[ 1] Author A.
+not indented
+{END}
+"""
+        )
+        with self.assertRaisesRegex(
+            ValueError, "I don't understand the reference line"
+        ):
+            Prodoc.read(handle)
 
 
 if __name__ == "__main__":

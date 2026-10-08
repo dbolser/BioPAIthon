@@ -325,7 +325,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 query_annotations["end"] = query_end
                 query_seq = Seq(query_sequence)
             else:
-                raise Exception("Unknown program %s" % program)
+                raise NotImplementedError("Unknown program %s" % program)
         query = SeqRecord(query_seq, id=query_id)
         if self._query_description is not None:
             query.description = self._query_description

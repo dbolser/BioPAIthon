@@ -5890,6 +5890,24 @@ class TestFastaBasic(unittest.TestCase):
 
 
 class TestBlast(unittest.TestCase):
+    def test_query_seq_unsupported_program(self):
+        import io
+
+        stream = io.StringIO(
+            """\
+# BLASTN 2.2.26+
+# Query: q1
+# Database: db
+# Fields: query id, subject id, query seq
+# 1 hits found
+q1\ts1\tACGT
+# BLAST processed 1 queries
+"""
+        )
+        alignments = Align.parse(stream, "tabular")
+        with self.assertRaisesRegex(NotImplementedError, "BLASTN"):
+            next(alignments)
+
     def test_2226_tblastn_001(self):
         path = "Blast/tab_2226_tblastn_001.txt"
         with open(path) as stream:

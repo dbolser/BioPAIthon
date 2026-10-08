@@ -121,7 +121,9 @@ def __make_diagram(record, sequence_tree):
         ]
     else:
         # TODO - more strand_handling possibilities?
-        raise Exception(f"Strand handling option {record.strand_handling} not parsable")
+        raise NotImplementedError(
+            f"Strand handling option {record.strand_handling} not parsable"
+        )
     tail_length = (
         sequence_length - int(hit_eles[-1].get("pos")) - hit_motifs[-1].length + 1
     )

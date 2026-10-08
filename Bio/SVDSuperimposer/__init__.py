@@ -145,7 +145,7 @@ class SVDSuperimposer:
         n = reference_coords.shape
         m = coords.shape
         if n != m or not (n[1] == m[1] == 3):
-            raise Exception("Coordinate number/dimension mismatch.")
+            raise ValueError("Coordinate number/dimension mismatch.")
         self.n = n[0]
 
     def run(self):

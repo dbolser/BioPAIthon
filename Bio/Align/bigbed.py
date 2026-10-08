@@ -826,7 +826,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             elif field_type in ("float", "char", "string", "lstring"):
                 converter = str
             else:
-                raise Exception("Unknown field type %s" % field_type)
+                raise ValueError("Unknown field type %s" % field_type)
             if make_array:
                 item_converter = converter
 

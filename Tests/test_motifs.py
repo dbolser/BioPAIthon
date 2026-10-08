@@ -1704,6 +1704,12 @@ class TestJASPAR(unittest.TestCase):
             m = motifs.read(stream, "pfm")
         self.assertEqual(m.length, 12)
 
+    def test_pfm_inconsistent_lengths(self):
+        """Test that pfm rows of unequal length raise ValueError."""
+        stream = StringIO("1 2 3\n1 2\n1 2 3\n1 2 3\n")
+        with self.assertRaisesRegex(ValueError, "data has inconsistent lengths"):
+            motifs.read(stream, "pfm")
+
     def test_pfm_four_columns_parsing(self):
         """Test if Bio.motifs.pfm can parse motifs in position frequency matrix format (4 columns)."""
         with open("motifs/fourcolumns.pfm") as stream:
@@ -4861,6 +4867,17 @@ class TestMAST(unittest.TestCase):
         self.assertEqual(motif.length, 30)
         self.assertEqual(motif.name, "2")
         self.assertEqual(motif[10:20].length, 10)
+
+    def test_mast_unsupported_strand_handling(self):
+        """Test that an unsupported strand_handling raises NotImplementedError."""
+        with open("motifs/mast.crp0.de.oops.txt.xml") as stream:
+            data = stream.read()
+        self.assertIn('strand_handling="combine"', data)
+        data = data.replace('strand_handling="combine"', 'strand_handling="separate"')
+        with self.assertRaisesRegex(
+            NotImplementedError, "Strand handling option separate not parsable"
+        ):
+            motifs.parse(StringIO(data), "MAST")
 
 
 class TestTransfac(unittest.TestCase):

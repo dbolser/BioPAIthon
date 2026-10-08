@@ -900,6 +900,14 @@ AlignmentCounts object with
             next(alignments)
         self.assertEqual(str(cm.exception), "Empty file.")
 
+    def test_unexpected_letter(self):
+        """Checking a letter that is neither a match nor an insertion."""
+        stream = StringIO(">seq1\nAC*\n>seq2\nACG\n")
+        alignments = Align.parse(stream, "a2m")
+        with self.assertRaises(ValueError) as cm:
+            next(alignments)
+        self.assertEqual(str(cm.exception), "Unexpected letter '*' in alignment")
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

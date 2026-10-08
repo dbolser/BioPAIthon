@@ -6,6 +6,7 @@
 """Tests for Bio.ExPASy.Prosite module."""
 
 import unittest
+from io import StringIO
 
 import support
 
@@ -3491,6 +3492,22 @@ class TestPrositeRead(unittest.TestCase):
         self.assertEqual(record.pdb_structs[5], "1SLM")
         self.assertEqual(record.pdb_structs[6], "1SU3")
         self.assertEqual(record.pdb_structs[7], "1UC1")
+
+
+class TestPrositeErrors(unittest.TestCase):
+    def test_broken_nr_data(self):
+        """Malformed /TOTAL data on an NR line raises ValueError."""
+        handle = StringIO(
+            """\
+ID   TEST_PATTERN; PATTERN.
+AC   PS99999;
+DT   01-JAN-2000 CREATED; 01-JAN-2000 DATA UPDATE; 01-JAN-2000 INFO UPDATE.
+NR   /TOTAL=broken;
+//
+"""
+        )
+        with self.assertRaisesRegex(ValueError, "Broken data broken in comment line"):
+            Prosite.read(handle)
 
 
 if __name__ == "__main__":

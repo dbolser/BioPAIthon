@@ -98,6 +98,12 @@ class URLConstructionTests(unittest.TestCase):
             self.pdblist.retrieve_pdb_file("127d", file_format="mmtf2")
         self.assertIn("does not exist or is not supported", str(context.exception))
 
+    def test_invalid_assembly_format_raises(self):
+        """An unknown assembly format is rejected before any download."""
+        with self.assertRaises(ValueError) as context:
+            self.pdblist.retrieve_assembly_file("127d", 1, file_format="xml")
+        self.assertIn("'xml' is not supported", str(context.exception))
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

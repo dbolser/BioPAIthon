@@ -4626,7 +4626,7 @@ class AtomKey:
                     m = self.atom_re.match(arg)
                     if m is not None:
                         if akl != []:  # [] != akl:
-                            raise Exception(
+                            raise ValueError(
                                 "Atom Key init full key not first argument: " + arg
                             )
                         akl = list(map(m.group, AtomKey.fieldNames))
@@ -4635,12 +4635,12 @@ class AtomKey:
 
             elif isinstance(arg, IC_Residue):
                 if akl != []:
-                    raise Exception("Atom Key init Residue not first argument")
+                    raise ValueError("Atom Key init Residue not first argument")
                 akl = list(arg.rbase)
                 self.ric = arg
             elif isinstance(arg, Atom):
                 if 3 != len(akl):
-                    raise Exception("Atom Key init Atom before Residue info")
+                    raise ValueError("Atom Key init Atom before Residue info")
                 akl.append(arg.name)
                 if not IC_Residue.no_altloc:
                     altloc = arg.altloc
@@ -4655,7 +4655,7 @@ class AtomKey:
                 for k in AtomKey.fieldNames:
                     akl.append(arg.get(k, None))
             else:
-                raise Exception("Atom Key init not recognised")
+                raise TypeError("Atom Key init not recognised")
 
         # process kwargs, initialize occ and altloc to None
         for i in range(len(akl), 6):
