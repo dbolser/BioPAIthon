@@ -108,7 +108,8 @@ class _UniProtSearchResults:
         if isinstance(index, slice):
             start, stop, step = index.indices(len(self))
             if step > 0:
-                if start <= stop and stop > 0:
+                # A forward slice is empty unless start < stop
+                if start < stop:
                     self._fetch_for(stop - 1)
             else:
                 # A reverse slice is empty unless start > stop; start is its

@@ -73,6 +73,22 @@ class SearchResultsTests(unittest.TestCase):
                     )
                     self.assertEqual(results[index], [{"id": 1}])
 
+    def test_empty_forward_slice_fetches_nothing(self):
+        """An empty forward slice does not download further batches."""
+        for index in (slice(1, 1), slice(3, 3), slice(10, 20)):
+            with self.subTest(index=index):
+                pages = [FakeResponse([{"id": i}], total=3) for i in range(3)]
+                for page in pages[:-1]:
+                    page.headers["Link"] = '<https://rest.uniprot.org/next>; rel="next"'
+                with mock.patch.object(
+                    UniProt, "urlopen", side_effect=pages
+                ) as urlopen:
+                    results = UniProt._UniProtSearchResults(
+                        "https://rest.uniprot.org/fake"
+                    )
+                    self.assertEqual(results[index], [])
+                    self.assertEqual(urlopen.call_count, 1)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
