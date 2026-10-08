@@ -350,6 +350,16 @@ class ColourAliasTest(unittest.TestCase):
         self.assertSilent(feature.set_color, colors.blue)
         self.assertEqual(feature.color, colors.blue)
 
+    def test_add_feature_warning_as_error(self):
+        """Check add_feature adds nothing if the colour warning is an error."""
+        feature_set = FeatureSet()
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", BiopythonDeprecationWarning)
+            with self.assertRaises(BiopythonDeprecationWarning):
+                feature_set.add_feature(self.feature, colour=colors.red)
+        self.assertEqual(feature_set.features, {})
+        self.assertEqual(feature_set.next_id, 0)
+
     def test_drawing_is_silent(self):
         """Check drawing a diagram does not use the deprecated aliases."""
         feature_set = self.diagram.tracks[1].get_sets()[0]

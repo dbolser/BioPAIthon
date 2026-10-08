@@ -58,12 +58,13 @@ class FeatureSet:
         Add a Bio.SeqFeature object to the diagram (will be stored
         internally in a Feature wrapper).
         """
+        # Warn before adding anything, in case the warning is an error
+        if "colour" in kwargs:
+            _warn_colour_alias("colour", "color")
         id = self.next_id  # get id number
         f = Feature(self, id, feature)
         self.features[id] = f  # add feature
         for key in kwargs:
-            if key == "colour":
-                _warn_colour_alias("colour", "color")
             if key == "colour" or key == "color":
                 # Deal with "colour" as a special case by also mapping to color.
                 # If Feature.py used a python property we wouldn't need to call
