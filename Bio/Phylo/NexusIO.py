@@ -7,6 +7,7 @@
 
 """I/O function wrappers for ``Bio.Nexus`` trees."""
 
+import re
 from itertools import chain
 
 from Bio.Nexus import Nexus
@@ -29,15 +30,26 @@ End;
 # 'index' starts from 1; 'tree' is the Newick tree string
 TREE_TEMPLATE = "Tree tree%(index)d=%(tree)s"
 
-# NewickIO drops the quotes around a label, then reads an internal label such
-# as '95' as a number. Bio.Nexus.Trees kept a quoted label as a name, so each
-# one is tagged with a NUL character, which has no place in NEXUS text, and
-# the tag is removed after parsing.
+# Two things NewickIO reads differently from Bio.Nexus.Trees are fixed in the
+# tree text first, using NewickIO's own tokens so the two scans agree:
+#
+# - NewickIO drops the quotes around a label, then reads an internal label
+#   such as '95' as a number. Bio.Nexus.Trees kept a quoted label as a name,
+#   so each one is tagged with a NUL character, which has no place in NEXUS
+#   text, and the tag is removed after parsing.
+# - NewickIO needs the branch length right after the colon, so a comment
+#   there, as in BEAST's ":[&rate=1.0]0.1", moves in front of the colon.
 _QUOTED = "\0"
+_COMMENT = NewickIO.token_dict["comment"].pattern
+_PREPARE = re.compile(
+    rf":\s*(?P<comments>(?:{_COMMENT}\s*)+)|{NewickIO.tokenizer.pattern}"
+)
 
 
-def _tag_quoted_label(match):
-    """Tag a quoted label found by NewickIO's tokenizer (PRIVATE)."""
+def _prepare_token(match):
+    """Rewrite one token of a NEXUS tree for NewickIO (PRIVATE)."""
+    if match.group("comments") is not None:
+        return match.group("comments").rstrip() + ":"
     token = match.group()
     return f"'{_QUOTED}{token[1:]}" if token.startswith("'") else token
 
@@ -53,7 +65,7 @@ class _NexusWithNewickTrees(Nexus.Nexus):
 
     def _tree(self, options):
         name, weight, rooted, newick = Nexus._split_tree_command(options)
-        newick = NewickIO.tokenizer.sub(_tag_quoted_label, newick)
+        newick = _PREPARE.sub(_prepare_token, newick)
         parsed = next(NewickIO.Parser.from_string(newick).parse(), None)
         # An empty tree description gives a tree of one empty clade, as before
         root = Newick.Clade() if parsed is None else parsed.root

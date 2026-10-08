@@ -139,6 +139,21 @@ class IOTests(unittest.TestCase):
         self.assertIsNone(second.confidence)
         self.assertEqual(second.branch_length, 0.2)
 
+    def test_nexus_read_comment_after_colon(self):
+        """A comment between the colon and branch length, as BEAST writes it."""
+        handle = StringIO(
+            "#NEXUS\nbegin trees;\ntranslate 1 A, 2 B, 3 C;\n"
+            "tree t = ((1:[&rate=1.5]0.1,2)95:[&rate=0.5] 0.3,3);\nend;\n"
+        )
+        inner, c = Phylo.read(handle, "nexus").root.clades
+        a, b = inner.clades
+        self.assertEqual([a.name, b.name, c.name], ["A", "B", "C"])
+        self.assertEqual(a.branch_length, 0.1)
+        self.assertEqual(a.comment, "[&rate=1.5]")
+        self.assertEqual(inner.confidence, 95.0)
+        self.assertEqual(inner.branch_length, 0.3)
+        self.assertEqual(inner.comment, "[&rate=0.5]")
+
     def test_nexus_read_translate_error(self):
         """A failed TRANSLATE lookup names the first missing taxon in preorder."""
         handle = StringIO(
