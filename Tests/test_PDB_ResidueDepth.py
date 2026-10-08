@@ -17,10 +17,13 @@ import warnings
 
 import support
 
+from Bio import BiopythonWarning
 from Bio.PDB import MMCIFParser
 from Bio.PDB import PDBParser
 from Bio.PDB import ResidueDepth
+from Bio.PDB.Atom import Atom
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
+from Bio.PDB.Residue import Residue
 from Bio.PDB.ResidueDepth import _get_atom_radius
 
 
@@ -115,6 +118,38 @@ class ResidueDepth_tests(unittest.TestCase):
         for atom in model.get_atoms():
             biopy_radii.append(_get_atom_radius(atom, rtype="united"))
         self.assertEqual(msms_radii, biopy_radii)
+
+    @staticmethod
+    def _make_atom(het, resname, name, element):
+        residue = Residue((het, 1, " "), resname, "")
+        atom = Atom(name, [0.0, 0.0, 0.0], 1.0, 1.0, " ", name, 1, element)
+        residue.add(atom)
+        return atom
+
+    def test_atom_radius_rule_order(self):
+        """Test radii where an earlier rule must win over a later one."""
+        cases = [
+            # het flag, residue, atom name, element, rtype, radius
+            (" ", "ALA", "N", "N", "explicit", 1.54),
+            (" ", "ALA", "N", "N", "united", 1.70),
+            (" ", "ALA", "CA", "C", "united", 2.00),  # alpha carbon
+            ("H_CA", "CA", "CA", "CA", "united", 1.97),  # calcium ion
+            ("W", "HOH", "O", "O", "united", 1.60),  # water, not carbonyl O
+            ("H_HEM", "HEM", "FE", "FE", "united", 1.30),  # heme iron
+            ("H_FE2", "FE2", "FE", "FE", "united", 1.24),  # any other iron
+        ]
+        for het, resname, name, element, rtype, radius in cases:
+            with self.subTest(resname=resname, name=name, rtype=rtype):
+                atom = self._make_atom(het, resname, name, element)
+                self.assertEqual(_get_atom_radius(atom, rtype=rtype), radius)
+
+    def test_atom_radius_unknown(self):
+        """Test the fallback for unknown atoms and the rtype check."""
+        atom = self._make_atom("H_UNL", "UNL", "XX", "C")
+        with self.assertWarns(BiopythonWarning):
+            self.assertEqual(_get_atom_radius(atom), 0.01)
+        with self.assertRaises(ValueError):
+            _get_atom_radius(atom, rtype="bogus")
 
 
 if __name__ == "__main__":
