@@ -582,11 +582,13 @@ entry-point groups so plugins work.
    `"package.module:attr"` string. AlignIO, SearchIO and `Bio.Phylo` get no
    public hook.
 3. **Name rules follow each package's own lookup.** A SeqIO name must pass
-   `SeqIO.parse`'s checks, and fails with the same `TypeError` or `ValueError`
-   message. A `Bio.Align` name is any non-empty string, stored lowercased
-   because `Bio.Align` lowercases on lookup; a non-string name raises
-   `TypeError`. Entry-point names follow the same rules: an invalid SeqIO name
-   is skipped with a warning, and an Align name is lowercased.
+   the name checks `SeqIO.parse` makes before its table lookup (a non-empty
+   string for which `str.islower()` is true), and fails with the same
+   `TypeError` or `ValueError` message. A `Bio.Align` name is any non-empty
+   string, stored lowercased because `Bio.Align` lowercases on lookup; a
+   non-string name raises `TypeError`. Entry-point names follow the same
+   rules: an invalid SeqIO name is skipped with a warning, and an Align name
+   is lowercased.
 4. **Precedence comes from where a name came from, not when:** built-in, then
    `register_format`, then entry point. `replace=True` is needed to replace a
    built-in or another `register_format` call's entry. Registering the same
@@ -598,9 +600,10 @@ entry-point groups so plugins work.
 5. **What `replace=True` does in SeqIO:**
    - It drops the `SeqIO.convert` fast paths that use the replaced role, so
      `convert` cannot silently ignore the override.
-   - For the same reason it drops the `sff`, `sff-trim` and `uniprot-xml`
-     index proxies, which parse with the built-in parser whatever the table
-     holds. `SeqIO.index` and `index_db` then refuse those names.
+   - For the same reason, replacing an iterator drops the `sff`, `sff-trim`
+     and `uniprot-xml` index proxies, which parse with the built-in parser
+     whatever the table holds. `SeqIO.index` and `index_db` then refuse those
+     names. Replacing only a writer leaves every index proxy as it is.
    - It keeps every other built-in index proxy, as assigning into the
      private dict does today. The proxy finds record boundaries and keys, and
      the replacement parses each record from a text handle. So the
