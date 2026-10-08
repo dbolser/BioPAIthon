@@ -522,6 +522,7 @@ the acceptance gate.
 > not built.** PR #149 added a private, lazy `FormatRegistry`
 > (`Bio/_io_registry.py`). SeqIO and `Bio.Align` now look format names up
 > through it, so a `Bio.Align` format name no longer has to be a module name.
+> `Bio.Phylo` has used it too since PR #174.
 > `register_format()` and entry-point plugins are not built yet. The
 > "Decided API" list below is the contract they follow. If the contract
 > changes, this list changes first. The NumPy consequence this section first
@@ -532,14 +533,14 @@ the acceptance gate.
 > `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` and
 > `test_io_registry.BuiltinTables.test_import_seqio_stays_light` guard it.
 
-`Bio/SeqIO/__init__.py:561-657` holds lazy `"Module.Class"` strings, and
-`Bio/Align/__init__.py:5319-5327` builds its table from the `formats` tuple.
-Both are `FormatRegistry` tables, resolved on first use (PR #149).
+`Bio/SeqIO/__init__.py:561-657` holds lazy `"Module.Class"` strings,
+`Bio/Align/__init__.py:5319-5327` builds its table from the `formats` tuple, and
+`Bio/Phylo/_io.py:21-38` holds `"package.module"` specs. All three are
+`FormatRegistry` tables, resolved on first use (PRs #149 and #174).
 `Bio/AlignIO/__init__.py:162-185` uses dicts of eagerly imported classes.
 `Bio/SearchIO/__init__.py:210-261` holds lazy
 `(module, class)` string tuples, which `get_processor`
-(`Bio/SearchIO/_utils.py:35-64`) imports on use. `Bio/Phylo/_io.py:21-33` is a
-dict of eagerly imported modules.
+(`Bio/SearchIO/_utils.py:35-64`) imports on use.
 
 Consequences: until PR #149, `Bio.Align` format names had to be valid Python
 module names. That is *why* it could not offer `phylip-relaxed` (§1.1), and why
@@ -556,7 +557,7 @@ NumPy.
 subclass generalising SeqIO's old `_LazyFormatRegistry`. It holds
 `"package.module"` or `"package.module:attr"` specs, the form entry points use,
 keyed on an explicit name so subtype names stay free-form. SeqIO and `Bio.Align`
-resolve through it, and `Bio.Phylo` optionally. Each keeps its existing private
+resolve through it, and so does `Bio.Phylo` (PR #174). Each keeps its existing
 table name, case rules and error messages. AlignIO and SearchIO are
 deliberately left as they are. Lazy AlignIO tables would save little: most of
 `import Bio.AlignIO` is `Bio.Align` and NumPy, pulled in by its module-level
@@ -578,7 +579,8 @@ entry-point groups so plugins work.
    `"package.module:attr"` string, and at least one must be given. The Align
    `module` is a module, an object with an `AlignmentIterator` attribute
    (`AlignmentWriter` is optional), or a `"package.module"` or
-   `"package.module:attr"` string. AlignIO and SearchIO get no public hook.
+   `"package.module:attr"` string. AlignIO, SearchIO and `Bio.Phylo` get no
+   public hook.
 3. **Name rules follow each package's own lookup.** A SeqIO name must pass
    `SeqIO.parse`'s checks, and fails with the same `TypeError` or `ValueError`
    message. A `Bio.Align` name is any non-empty string, stored lowercased
