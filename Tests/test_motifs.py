@@ -4876,7 +4876,7 @@ class TestMAST(unittest.TestCase):
 
     def test_mast_unsupported_strand_handling(self):
         """Test that an unsupported strand_handling raises NotImplementedError."""
-        with open("motifs/mast.crp0.de.oops.txt.xml") as stream:
+        with open(support.DATA / "motifs" / "mast.crp0.de.oops.txt.xml") as stream:
             data = stream.read()
         self.assertIn('strand_handling="combine"', data)
         data = data.replace('strand_handling="combine"', 'strand_handling="separate"')
