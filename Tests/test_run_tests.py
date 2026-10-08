@@ -302,6 +302,33 @@ class ProbeTests(unittest.TestCase):
             "Current directory changed while importing test_probe_moves.py", output
         )
 
+    def test_lang_set_on_import_is_kept_for_that_module_only(self):
+        # pytest imports test_probe_lang_b after test_probe_lang_a, before
+        # either runs.
+        returncode, output = self.run_pytest(
+            {
+                "test_probe_lang_a.py": """\
+                    import os
+                    import unittest
+                    os.environ["LANG"] = "probe-lang"
+                    class SetsLang(unittest.TestCase):
+                        def test_lang(self):
+                            self.assertEqual(os.environ["LANG"], "probe-lang")
+                """,
+                "test_probe_lang_b.py": """\
+                    import os
+                    import unittest
+                    IMPORT_LANG = os.environ["LANG"]
+                    class OtherLang(unittest.TestCase):
+                        def test_lang(self):
+                            self.assertNotEqual(IMPORT_LANG, "probe-lang")
+                            self.assertNotEqual(os.environ["LANG"], "probe-lang")
+                """,
+            }
+        )
+        self.assertEqual(returncode, 0, output)
+        self.assertIn("2 passed", output)
+
     def test_classes_run_in_unittest_order(self):
         returncode, output = self.run_pytest(
             {

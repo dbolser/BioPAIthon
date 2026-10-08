@@ -31,13 +31,20 @@ from Bio.SeqRecord import SeqRecord
 requires_internet.check()
 
 
-# This lets us set the email address to be sent to NCBI Entrez:
-_original_api_key = Entrez.api_key
 _api_key = os.environ.get("NCBI_API_KEY")
-Entrez.email = "biopython@biopython.org"
-Entrez.api_key = _api_key
 
 URL_HEAD = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+
+
+def setUpModule():
+    """Set the process-global Entrez email and API key for the online tests."""
+    # Not on import, as pytest imports all the test modules before running
+    # any, and test_Entrez sets a different API key.
+    global _original_api_key
+    _original_api_key = Entrez.api_key
+    # This lets us set the email address to be sent to NCBI Entrez:
+    Entrez.email = "biopython@biopython.org"
+    Entrez.api_key = _api_key
 
 
 def tearDownModule():

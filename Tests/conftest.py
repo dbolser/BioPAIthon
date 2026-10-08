@@ -14,7 +14,8 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
 - A module may skip only by raising MissingExternalDependencyError (or its
   subclass MissingPythonDependencyError) while being imported.  The same
   exceptions raised later, from code under test, are failures.
-- Tests run from the Tests/ directory, with LANG restored before each module.
+- Tests run from the Tests/ directory.  LANG is restored before each module
+  is imported, and its tests run with any LANG it set on import.
 - A test module with no tests, or one that leaves the current directory
   changed, fails.
 - The docstring examples of every Bio and BioSQL module run as doctests,
@@ -160,6 +161,8 @@ def block_network_connections():
 _IMPORT_SKIPS = pytest.StashKey[dict]()
 # Skips that --check-skips found missing from Tests/expected_skips.txt.
 _UNEXPECTED_SKIPS = pytest.StashKey[list]()
+# The LANG a module left on import, kept for its own tests.
+_MODULE_LANG = pytest.StashKey[str]()
 
 
 def pytest_addoption(parser):
@@ -220,20 +223,26 @@ def _skip_module(collector, name, error):
 
 
 @contextlib.contextmanager
-def _restoring_cwd(collector):
-    """Fail a module whose import changes the current directory (PRIVATE).
+def _import_guard(collector):
+    """Import a module in the state run_tests.py gave it (PRIVATE).
 
     pytest imports every module during collection, before any test runs, so
-    a module that changed directory on import would move all the rest.  The
+    a module that changed the environment on import would change it for all
+    the rest.  LANG is restored before the import, as run_tests.py restored
+    it before each module; whatever LANG the import leaves is kept for that
+    module's tests (see _module_hygiene), and undone for the rest.  The
     directory is restored whatever happens; a module that imported cleanly
     then fails, as run_tests.py failed one that left the directory changed.
     """
     cwd = os.getcwd()
+    os.environ["LANG"] = SYSTEM_LANG
     try:
         yield
     finally:
         now = os.getcwd()
         os.chdir(cwd)
+        collector.stash[_MODULE_LANG] = os.environ.get("LANG", SYSTEM_LANG)
+        os.environ["LANG"] = SYSTEM_LANG
     if now != cwd:
         raise collector.CollectError(
             f"Current directory changed while importing {collector.name}\n"
@@ -246,7 +255,7 @@ class _TestModule(pytest.Module):
 
     def _getobj(self):
         try:
-            with _restoring_cwd(self):
+            with _import_guard(self):
                 return super()._getobj()
         except MissingExternalDependencyError as error:
             # Not an ImportError, so pytest lets it through unwrapped.
@@ -302,7 +311,7 @@ class _DocstringModule(pytest.Module):
 
     def _getobj(self):
         try:
-            with _restoring_cwd(self):
+            with _import_guard(self):
                 return importlib.import_module(self.name)
         except MissingExternalDependencyError as error:
             _skip_module(self, self.name, error)
@@ -345,11 +354,12 @@ def pytest_pycollect_makemodule(module_path, parent):
 
 
 @pytest.fixture(autouse=True, scope="module")
-def _module_hygiene():
+def _module_hygiene(request):
     """Give each module the clean start run_tests.py used to give it (PRIVATE)."""
     # Restore the language and thus default encoding (in case a prior
-    # test changed this, e.g. to help with detecting command line tools)
-    os.environ["LANG"] = SYSTEM_LANG
+    # test changed this, e.g. to help with detecting command line tools),
+    # unless the module itself set one on import (see _import_guard).
+    os.environ["LANG"] = request.node.stash.get(_MODULE_LANG, SYSTEM_LANG)
     cwd = os.getcwd()
     yield
     # Running under PyPy we were leaking file handles...

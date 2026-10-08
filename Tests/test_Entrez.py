@@ -20,19 +20,28 @@ from urllib.request import Request
 from Bio import Entrez
 from Bio.Entrez import Parser
 
-# This lets us set the email address to be sent to NCBI Entrez:
-_original_api_key = Entrez.api_key
-Entrez.email = "biopython@biopython.org"
-Entrez.api_key = "offline-test-api-key"
+# The email address and API key sent to NCBI Entrez in these tests. They are
+# set in setUpModule, not on import, as pytest imports all the test modules
+# before running any, and test_Entrez_online sets a different API key.
+EMAIL = "biopython@biopython.org"
+API_KEY = "offline-test-api-key"
 
 URL_HEAD = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
 # Default values of URL query string (or POST data) when parsed with urllib.parse.parse_qs
 QUERY_DEFAULTS = {
     "tool": [Entrez.tool],
-    "email": [Entrez.email],
-    "api_key": [Entrez.api_key],
+    "email": [EMAIL],
+    "api_key": [API_KEY],
 }
+
+
+def setUpModule():
+    """Set the process-global Entrez email and API key for the offline tests."""
+    global _original_api_key
+    _original_api_key = Entrez.api_key
+    Entrez.email = EMAIL
+    Entrez.api_key = API_KEY
 
 
 def tearDownModule():
