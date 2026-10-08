@@ -3755,7 +3755,9 @@ class TestAlign_read_parse_write(unittest.TestCase):
 
     def test_read_by_keyword(self):
         """Pass read its arguments by their documented names."""
-        alignment = Align.read(handle="Clustalw/opuntia.aln", fmt="clustal")
+        alignment = Align.read(
+            handle=support.DATA / "Clustalw" / "opuntia.aln", fmt="clustal"
+        )
         self.assertEqual(alignment.shape, (7, 156))
 
 
