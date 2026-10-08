@@ -18,6 +18,14 @@ on:
 permissions:
   contents: read
 
+# One release at a time across all tags, so two tags pushed close together
+# cannot publish at the same time. Never cancel a run that may be mid-publish,
+# and queue waiting runs rather than letting a newer one replace them.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   # Runs first and gates everything else. The tag does not set the version -
   # pyproject.toml reads it from Bio.__version__ - so a mismatch would publish
@@ -25,6 +33,7 @@ jobs:
   check_version:
     name: Tag matches Bio.__version__
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -44,6 +53,7 @@ jobs:
     name: Wheels (${{ matrix.os }})
     needs: check_version
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20  # 4-6 min per OS so far
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +91,7 @@ jobs:
     name: Source distribution
     needs: check_version
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -110,6 +121,11 @@ jobs:
     name: Publish to PyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    # About 2 min so far. Generous because a timeout mid-upload leaves a
+    # partial release on PyPI. Recover by re-running this job alone: PyPI
+    # accepts a byte-identical re-upload as a no-op. A full workflow re-run
+    # rebuilds the files, and PyPI rejects any that differ.
+    timeout-minutes: 30
     # Only publish from a tag, never from a manual dispatch on a branch.
     if: startsWith(github.ref, 'refs/tags/v')
     environment:

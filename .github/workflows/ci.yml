@@ -37,6 +37,7 @@ env:
 jobs:
   # Style Checking: Linux and Python version only.
   style:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
 
     steps:
@@ -81,6 +82,7 @@ jobs:
   # since it is used in most actions.
   # Adapted from: https://medium.com/ai2-blog/python-caching-in-github-actions-e9452698e98d
   linux_prep:
+    timeout-minutes: 10
     needs: [style]
     runs-on: ubuntu-latest
     strategy:
@@ -120,6 +122,7 @@ jobs:
   # - tarball on Linux
   # - wheels on all supported OSes and Linux, MacOS, and Windows
   build:
+    timeout-minutes: 10
     needs: [style]
     runs-on: ubuntu-latest
 
@@ -442,6 +445,7 @@ jobs:
 
   # Flag step
   check_tests:
+    timeout-minutes: 10
     needs: [test_linux, test_macos, test_windows]
     runs-on: ubuntu-latest
     steps:
@@ -449,6 +453,7 @@ jobs:
 
   # Check and build (API) documentation if everything passes.
   docs:
+    timeout-minutes: 10
     needs: [check_tests]
     runs-on: ubuntu-latest
 
