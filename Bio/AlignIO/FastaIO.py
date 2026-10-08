@@ -227,14 +227,14 @@ handle.name: {handle.name}
                     f" before its alignments: {line!r}"
                 )
             # In state_NONE nothing has been collected since the last reset:
-            assert not header_tags
-            assert not align_tags
-            assert not match_tags
-            assert not query_tags
-            assert match_id is None
-            assert not query_seq
-            assert not match_seq
-            assert not cons_seq
+            assert not header_tags  # noqa: S101
+            assert not align_tags  # noqa: S101
+            assert not match_tags  # noqa: S101
+            assert not query_tags  # noqa: S101
+            assert match_id is None  # noqa: S101
+            assert not query_seq  # noqa: S101
+            assert not match_seq  # noqa: S101
+            assert not cons_seq  # noqa: S101
             query_id = None
         elif line.strip() in [">>><<<", ">>>///"]:
             # End of query, possible end of all queries
@@ -265,12 +265,12 @@ handle.name: {handle.name}
                     f"Query header line in the middle of query {query_id!r}: {line!r}"
                 )
             # These are only filled after a match line, which sets match_id:
-            assert not align_tags
-            assert not query_tags
-            assert not match_tags
-            assert not match_seq
-            assert not query_seq
-            assert not cons_seq
+            assert not align_tags  # noqa: S101
+            assert not query_tags  # noqa: S101
+            assert not match_tags  # noqa: S101
+            assert not match_seq  # noqa: S101
+            assert not query_seq  # noqa: S101
+            assert not cons_seq  # noqa: S101
             state = state_QUERY_HEADER
         elif line.startswith(">>"):
             # Should now be at start of a match alignment!
@@ -309,7 +309,7 @@ handle.name: {handle.name}
                         f"Query alignment line before any query start line: {line!r}"
                     )
                 # Every way into state_ALIGN_HEADER sets or checks match_id:
-                assert match_id is not None, line
+                assert match_id is not None, line  # noqa: S101
                 parts = line[1:].split(None, 1)
                 if not parts or not query_id.startswith(parts[0]):
                     raise ValueError(
@@ -319,8 +319,8 @@ handle.name: {handle.name}
             elif state == state_ALIGN_QUERY:
                 # Should be start of match alignment seq
                 # Checked on entering state_ALIGN_QUERY just above:
-                assert query_id is not None, line
-                assert match_id is not None, line
+                assert query_id is not None, line  # noqa: S101
+                assert match_id is not None, line  # noqa: S101
                 parts = line[1:].split(None, 1)
                 if not parts or not match_id.startswith(parts[0]):
                     raise ValueError(

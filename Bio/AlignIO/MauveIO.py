@@ -284,13 +284,13 @@ class MauveIterator(AlignmentIterator):
                 seqs.setdefault(parsed_id, "")
                 latest_id = parsed_id
             else:
-                assert not passed_end_alignment
+                assert not passed_end_alignment  # noqa: S101
                 if latest_id is None:
                     raise ValueError("Saw sequence before definition line")
                 seqs[latest_id] += line
             line = handle.readline()
 
-        assert len(seqs) <= len(self._ids)
+        assert len(seqs) <= len(self._ids)  # noqa: S101
 
         self.ids = self._ids
         self.sequences = seqs

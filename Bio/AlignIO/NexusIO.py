@@ -48,7 +48,7 @@ def NexusIterator(
 
     # Bio.Nexus deals with duplicated names by adding a '.copy' suffix.
     # The original names and the modified names are kept in these two lists:
-    assert len(n.unaltered_taxlabels) == len(n.taxlabels)
+    assert len(n.unaltered_taxlabels) == len(n.taxlabels)  # noqa: S101
 
     if seq_count and seq_count != len(n.unaltered_taxlabels):
         raise ValueError(

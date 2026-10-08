@@ -280,8 +280,8 @@ class PirWriter(SequenceWriter):
             raise TypeError(
                 "Sequence code must be one of " + _pir_mol_type.keys() + "."
             )
-        assert "\n" not in title
-        assert "\r" not in description
+        assert "\n" not in title  # noqa: S101
+        assert "\r" not in description  # noqa: S101
 
         self.handle.write(f">{code};{title}\n{description}\n")
 

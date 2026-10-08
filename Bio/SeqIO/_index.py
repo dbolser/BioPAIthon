@@ -240,7 +240,7 @@ class SequentialSeqFileRandomAccess(SeqFileRandomAccess):
                 else:
                     # Track this explicitly as can't do file offset difference on BGZF
                     length += len(line)
-        assert not line, repr(line)
+        assert not line, repr(line)  # noqa: S101
 
     def get_raw(self, offset):
         """Return the raw record from the file as a bytes string."""
@@ -322,7 +322,7 @@ class GenBankRandomAccess(SequentialSeqFileRandomAccess):
                         pass
 
                 length += len(line)
-        assert not line, repr(line)
+        assert not line, repr(line)  # noqa: S101
 
 
 class EmblRandomAccess(SequentialSeqFileRandomAccess):
@@ -380,7 +380,7 @@ class EmblRandomAccess(SequentialSeqFileRandomAccess):
                     key = line.rstrip().split()[1]
                     setbysv = True
                 length += len(line)
-        assert not line, repr(line)
+        assert not line, repr(line)  # noqa: S101
 
 
 class SwissRandomAccess(SequentialSeqFileRandomAccess):
@@ -418,7 +418,7 @@ class SwissRandomAccess(SequentialSeqFileRandomAccess):
                     start_offset = end_offset
                     break
                 length += len(line)
-        assert not line, repr(line)
+        assert not line, repr(line)  # noqa: S101
 
 
 class UniprotRandomAccess(SequentialSeqFileRandomAccess):
@@ -459,7 +459,7 @@ class UniprotRandomAccess(SequentialSeqFileRandomAccess):
                     end_offset = (
                         handle.tell() - len(line) + line.find(end_entry_marker) + 8
                     )
-                    assert start_offset + length == end_offset
+                    assert start_offset + length == end_offset  # noqa: S101
                     break
                 elif marker_re.match(line) or not line:
                     # Start of next record or end of file
@@ -476,7 +476,7 @@ class UniprotRandomAccess(SequentialSeqFileRandomAccess):
             while not marker_re.match(line) and line:
                 start_offset = handle.tell()
                 line = handle.readline()
-        assert not line, repr(line)
+        assert not line, repr(line)  # noqa: S101
 
     def get_raw(self, offset):
         """Return the raw record from the file as a bytes string."""
@@ -539,7 +539,7 @@ class IntelliGeneticsRandomAccess(SeqFileRandomAccess):
                 break
         while line:
             length = 0
-            assert offset + len(line) == handle.tell()
+            assert offset + len(line) == handle.tell()  # noqa: S101
             if not line.startswith(b";"):
                 raise ValueError(f"Records should start with ';' and not:\n{line!r}")
             while line.startswith(b";"):
@@ -552,7 +552,7 @@ class IntelliGeneticsRandomAccess(SeqFileRandomAccess):
                 line = handle.readline()
             yield key.decode(), offset, length
             offset += length
-            assert offset + len(line) == handle.tell()
+            assert offset + len(line) == handle.tell()  # noqa: S101
 
     def get_raw(self, offset):
         """Return the raw record from the file as a bytes string."""
@@ -695,7 +695,7 @@ class FastqRandomAccess(SeqFileRandomAccess):
             seq_len += len(line.strip())
         if not line:
             raise ValueError("Premature end of file in seq section")
-        assert line[0:1] == b"+"
+        assert line[0:1] == b"+"  # noqa: S101
         # Find the qual line(s)
         qual_len = 0
         while line:

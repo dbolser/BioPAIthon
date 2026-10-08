@@ -80,7 +80,7 @@ class EmbossIterator(AlignmentIterator):
                             f" not: {line!r}"
                         )
                     ids.append(parts[1].strip())
-                assert len(ids) == number_of_seqs
+                assert len(ids) == number_of_seqs  # noqa: S101
             if key == "length":
                 length_of_seqs = int(parts[1].strip())
 

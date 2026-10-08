@@ -30,7 +30,7 @@ class Hmmer3DomtabParser(Hmmer3TabParser):
 
     def _parse_row(self):
         """Return a dictionary of parsed row values (PRIVATE)."""
-        assert self.line
+        assert self.line  # noqa: S101
         cols = [x for x in self.line.strip().split(" ") if x]
         # if len(cols) > 23, we have extra description columns
         # combine them all into one string in the 19th column

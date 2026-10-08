@@ -118,7 +118,7 @@ def _adjust_aa_seq(fraglist):
     hsp_qstart = fraglist[0].query_start
     frag_phases = _get_fragments_phase(fraglist)
     for frag, phase in zip(fraglist, frag_phases):
-        assert frag.query_strand == 0 or frag.hit_strand == 0
+        assert frag.query_strand == 0 or frag.hit_strand == 0  # noqa: S101
         # hit step may be -1 as we're aligning to DNA
         hstep = 1 if frag.hit_strand >= 0 else -1
 
@@ -180,7 +180,7 @@ def _split_fragment(frag):
     # starting from the beginning
     simil = frag.aln_annotation["similarity"]
     # we should have at least 1 frame shift for splitting
-    assert simil.count("#") > 0
+    assert simil.count("#") > 0  # noqa: S101
 
     split_frags = []
     qstep = 1 if frag.query_strand >= 0 else -1
@@ -498,7 +498,7 @@ class _BaseExonerateParser(ABC):
                 prev_hid = cur_hid
             # only parse the result row if it's not EOF
             if self.line:
-                assert self.line.startswith(self._ALN_MARK), self.line
+                assert self.line.startswith(self._ALN_MARK), self.line  # noqa: S101
                 # create temp dicts for storing parsed values
                 header = {"qresult": {}, "hit": {}, "hsp": {}}
                 # if the file has c4 alignments, try to parse the header

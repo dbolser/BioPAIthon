@@ -166,7 +166,7 @@ def _get_row_dict(row_len, model):
 def _get_blocks(rows, coords, idx):
     """Return a list of dictionaries of sequences split by the coordinates (PRIVATE)."""
     for idx_name in ("query", "hit", "midline", "qannot", "hannot"):
-        assert idx_name in idx
+        assert idx_name in idx  # noqa: S101
     blocks = []
     for start, end in coords:
         block = {}
@@ -261,7 +261,7 @@ def _comp_intron_lens(seq_type, inter_blocks, raw_inter_lens):
 
 def _comp_coords(hsp, seq_type, inter_lens):
     """Fill the block coordinates of the given hsp dictionary (PRIVATE)."""
-    assert seq_type in ("hit", "query")
+    assert seq_type in ("hit", "query")  # noqa: S101
     # manually fill the first coord
     seq_step = 1 if hsp["%s_strand" % seq_type] >= 0 else -1
     fstart = hsp["%s_start" % seq_type]
@@ -296,7 +296,7 @@ def _comp_split_codons(hsp, seq_type, scodon_moves):
         if not any(pair):
             continue
         else:
-            assert not all(pair)
+            assert not all(pair)  # noqa: S101
         a, b = pair
         anchor_pair = hsp["%s_ranges" % seq_type][idx // 2]
         strand = 1 if hsp["%s_strand" % seq_type] >= 0 else -1

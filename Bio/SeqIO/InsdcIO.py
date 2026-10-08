@@ -463,7 +463,7 @@ class _InsdcWriter(SequenceWriter):
             if line[index] != " ":
                 # No nice place to break...
                 index = self.MAX_WIDTH
-            assert index <= self.MAX_WIDTH
+            assert index <= self.MAX_WIDTH  # noqa: S101
             self.handle.write(line[:index] + "\n")
             line = self.QUALIFIER_INDENT_STR + line[index:].lstrip()
 
@@ -569,7 +569,7 @@ class _InsdcWriter(SequenceWriter):
                 text = text.strip()
             # assert len(text) <= max_len
             answer.append(text)
-        assert not words
+        assert not words  # noqa: S101
         return answer
 
     def _split_contig(self, record, max_len):
@@ -611,7 +611,7 @@ class GenBankWriter(_InsdcWriter):
 
         Used in the 'header' of each GenBank record.
         """
-        assert len(tag) < self.HEADER_WIDTH
+        assert len(tag) < self.HEADER_WIDTH  # noqa: S101
         if len(text) > self.MAX_WIDTH - self.HEADER_WIDTH:
             if tag:
                 warnings.warn(
@@ -772,7 +772,7 @@ class GenBankWriter(_InsdcWriter):
                 division = embl_to_gbk[division]
             except KeyError:
                 division = "UNK"
-        assert len(division) == 3
+        assert len(division) == 3  # noqa: S101
         return division
 
     def _get_topology(self, record):
@@ -849,15 +849,15 @@ class GenBankWriter(_InsdcWriter):
         else:
             name_length = str(len(record)).rjust(28)
             name_length = locus + name_length[len(locus) :]
-            assert len(name_length) == 28, name_length
+            assert len(name_length) == 28, name_length  # noqa: S101
             if " " not in name_length:
                 raise ValueError(
                     f"Locus name {locus!r} and sequence length {len(record)} "
                     "do not fit in the LOCUS line"
                 )
 
-        assert len(units) == 2
-        assert len(division) == 3
+        assert len(units) == 2  # noqa: S101
+        assert len(division) == 3  # noqa: S101
         line = "LOCUS       %s %s    %s %s %s %s\n" % (
             name_length,
             units,
@@ -889,7 +889,8 @@ class GenBankWriter(_InsdcWriter):
 
         # 80 position header
         else:
-            assert len(line) == 79 + 1, repr(line)  # plus one for new line
+            # plus one for new line
+            assert len(line) == 79 + 1, repr(line)  # noqa: S101
 
             # We're bending the rules to allow an identifier over 16 characters
             # if we can steal spaces from the length field:
@@ -1315,7 +1316,7 @@ class EmblWriter(_InsdcWriter):
             handle.write("\n")
 
     def _write_single_line(self, tag, text):
-        assert len(tag) == 2
+        assert len(tag) == 2  # noqa: S101
         line = tag + "   " + text
         if len(text) > self.MAX_WIDTH:
             warnings.warn(f"Line {line!r} too long", BiopythonWarning)
@@ -1452,7 +1453,7 @@ class EmblWriter(_InsdcWriter):
                 division = gbk_to_embl[division]
             except KeyError:
                 division = "UNC"
-        assert len(division) == 3
+        assert len(division) == 3  # noqa: S101
         return division
 
     def _write_keywords(self, record):

@@ -187,13 +187,13 @@ class ClustalIterator(AlignmentIterator):
                         )
             elif line[0] == " ":
                 # Sequence consensus line...
-                assert len(ids) == len(seqs)
+                assert len(ids) == len(seqs)  # noqa: S101
                 if not ids:
                     raise ValueError(
                         f"Expected sequence lines before consensus line:\n{line!r}"
                     )
                 # Set by the first sequence line:
-                assert seq_cols is not None
+                assert seq_cols is not None  # noqa: S101
                 consensus = line[seq_cols]
                 if line[: seq_cols.start].strip() or line[seq_cols.stop :].strip():
                     raise ValueError(
@@ -214,8 +214,8 @@ class ClustalIterator(AlignmentIterator):
             if not line:
                 break  # end of file
 
-        assert line.strip() == ""
-        assert seq_cols is not None
+        assert line.strip() == ""  # noqa: S101
+        assert seq_cols is not None  # noqa: S101
 
         # Confirm all same length
         for seq_id, s in zip(ids, seqs):
@@ -299,7 +299,7 @@ class ClustalIterator(AlignmentIterator):
             if consensus:
                 if not line.startswith(" "):
                     raise ValueError(f"Expected consensus line, not:\n{line!r}")
-                assert seq_cols is not None
+                assert seq_cols is not None  # noqa: S101
                 consensus += line[seq_cols]
                 if len(consensus) != len(seqs[0]):
                     raise ValueError(
@@ -314,7 +314,7 @@ class ClustalIterator(AlignmentIterator):
                 # Read in the next line
                 line = handle.readline()
 
-        assert len(ids) == len(seqs)
+        assert len(ids) == len(seqs)  # noqa: S101
         if len(seqs) == 0 or len(seqs[0]) == 0:
             raise StopIteration
 

@@ -370,7 +370,7 @@ class AlignmentWriter(interfaces.AlignmentWriter):
         stream.write(bytes(zoomList))
         stream.seek(header.totalSummaryOffset)
         stream.write(bytes(totalSum))
-        assert header.extraIndicesOffset == stream.tell()
+        assert header.extraIndicesOffset == stream.tell()  # noqa: S101
         extra_indices.tofile(stream)
         stream.seek(0, io.SEEK_END)
         data = header.signature.to_bytes(4, sys.byteorder)
@@ -1602,7 +1602,7 @@ class _RangeTree:
                 )
             while end > summary.end:
                 overlap = min(end, summary.end) - max(start, summary.start)
-                assert overlap > 0
+                assert overlap > 0  # noqa: S101
                 summary.update(overlap, val)
                 size -= overlap
                 start = summary.end

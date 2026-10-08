@@ -147,7 +147,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         f"Expected sequence lines before the consensus line, "
                         f"found:\n{line}"
                     )
-                assert index is not None
+                assert index is not None  # noqa: S101
                 length = len(aligned_seq)  # noqa: F821
                 consensus = line[index : index + length]
                 break
@@ -187,7 +187,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         else:
             return
 
-        assert index is not None
+        assert index is not None  # noqa: S101
 
         # Confirm all same length
         length = len(aligned_seqs[0])
@@ -209,7 +209,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         # Loop over any remaining blocks...
         for line in stream:
             if line.startswith(" "):  # Sequence consensus line
-                assert index is not None
+                assert index is not None  # noqa: S101
                 length = len(aligned_seq)
                 consensus += line[index : index + length]
             elif not line.strip():  # Blank line

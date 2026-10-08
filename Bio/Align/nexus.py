@@ -169,7 +169,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
 
         # Bio.Nexus deals with duplicated names by adding a '.copy' suffix.
         # The original names and the modified names are kept in these two lists:
-        assert len(n.unaltered_taxlabels) == len(n.taxlabels)
+        assert len(n.unaltered_taxlabels) == len(n.taxlabels)  # noqa: S101
 
         # TODO - Can we extract any annotation too?
         if n.datatype in ("dna", "nucleotide"):

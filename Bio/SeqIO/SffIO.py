@@ -287,7 +287,7 @@ def _sff_file_header(handle):
     # flowgram_format_code       B
     # [rest of file header depends on the number of flows and how many keys]
     fmt = ">4s4BQIIHHHB"
-    assert 31 == struct.calcsize(fmt)
+    assert 31 == struct.calcsize(fmt)  # noqa: S101
     data = handle.read(31)
     if not data:
         raise ValueError("Empty file.")
@@ -383,10 +383,10 @@ def _sff_do_slow_index(handle):
     # NOTE - assuming flowgram_format==1, which means struct type H
     read_flow_fmt = ">%iH" % number_of_flows_per_read
     read_flow_size = struct.calcsize(read_flow_fmt)
-    assert 1 == struct.calcsize(">B")
-    assert 1 == struct.calcsize(">s")
-    assert 1 == struct.calcsize(">c")
-    assert read_header_size % 8 == 0  # Important for padding calc later!
+    assert 1 == struct.calcsize(">B")  # noqa: S101
+    assert 1 == struct.calcsize(">s")  # noqa: S101
+    assert 1 == struct.calcsize(">c")  # noqa: S101
+    assert read_header_size % 8 == 0  # Important for padding calc later!  # noqa: S101
     for read in range(number_of_reads):
         record_offset = handle.tell()
         if record_offset == index_offset:
@@ -394,7 +394,7 @@ def _sff_do_slow_index(handle):
             offset = index_offset + index_length
             if offset % 8:
                 offset += 8 - (offset % 8)
-            assert offset % 8 == 0
+            assert offset % 8 == 0  # noqa: S101
             handle.seek(offset)
             record_offset = offset
         # assert record_offset%8 == 0 # Worth checking, but slow
@@ -636,7 +636,7 @@ def _sff_read_roche_index(handle):
             data += more
             if more == _flag:
                 break
-        assert data[-1:] == _flag, data[-1:]
+        assert data[-1:] == _flag, data[-1:]  # noqa: S101
         name = data[:-6].decode()
         off4, off3, off2, off1, off0 = struct.unpack(fmt, data[-6:-1])
         offset = off0 + 255 * off1 + 65025 * off2 + 16581375 * off3
@@ -775,7 +775,7 @@ class SffIterator(SequenceIterator):
     # [rest of read header depends on the name length etc]
     read_header_fmt = ">2HI4H"
     read_header_size = struct.calcsize(read_header_fmt)
-    assert read_header_size % 8 == 0  # Important for padding calc later!
+    assert read_header_size % 8 == 0  # Important for padding calc later!  # noqa: S101
 
     def __init__(self, source, alphabet=None, trim=False):
         """Iterate over Standard Flowgram Format (SFF) reads (as SeqRecord objects).
@@ -879,7 +879,7 @@ class SffIterator(SequenceIterator):
             offset = index_offset + index_length
             if offset % 8:
                 offset += 8 - (offset % 8)
-            assert offset % 8 == 0
+            assert offset % 8 == 0  # noqa: S101
             stream.seek(offset)
             self._offset = offset
         record = self._sff_read_seq_record(self.stream)
@@ -1224,7 +1224,7 @@ class SffWriter(SequenceWriter):
         return count
 
     def _write_index(self):
-        assert len(self._index) == self._number_of_reads
+        assert len(self._index) == self._number_of_reads  # noqa: S101
         handle = self.handle
         self._index.sort()
         self._index_start = handle.tell()  # need for header
@@ -1246,7 +1246,7 @@ class SffWriter(SequenceWriter):
         fmt_size = struct.calcsize(fmt)
         handle.write(_null * fmt_size + xml)  # fill this later
         fmt2 = ">6B"
-        assert 6 == struct.calcsize(fmt2)
+        assert 6 == struct.calcsize(fmt2)  # noqa: S101
         self._index.sort()
         index_len = 0  # don't know yet!
         for name, offset in self._index:
@@ -1338,7 +1338,7 @@ class SffWriter(SequenceWriter):
         else:
             padding = 8 - (struct.calcsize(fmt) % 8)
         header_length = struct.calcsize(fmt) + padding
-        assert header_length % 8 == 0
+        assert header_length % 8 == 0  # noqa: S101
         header = struct.pack(
             fmt,
             779314790,  # magic number 0x2E736666
@@ -1455,7 +1455,7 @@ class SffWriter(SequenceWriter):
         else:
             padding = 8 - (struct.calcsize(read_header_fmt) % 8)
         read_header_length = struct.calcsize(read_header_fmt) + padding
-        assert read_header_length % 8 == 0
+        assert read_header_length % 8 == 0  # noqa: S101
         data = (
             struct.pack(
                 read_header_fmt,
@@ -1470,7 +1470,7 @@ class SffWriter(SequenceWriter):
             )
             + _null * padding
         )
-        assert len(data) == read_header_length
+        assert len(data) == read_header_length  # noqa: S101
         # now the flowgram values, flowgram index, bases and qualities
         # NOTE - assuming flowgram_format==1, which means struct type H
         read_flow_fmt = ">%iH" % self._number_of_flows_per_read

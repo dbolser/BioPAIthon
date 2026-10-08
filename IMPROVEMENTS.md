@@ -228,16 +228,36 @@ bare `IndexError: list index out of range` with no filename or line number.
 for the structural fix.
 **Effort S (this case) · Impact medium**
 
-### 0.8 343 `assert` statements validate untrusted file content **[worst file FIXED, sweep open]**
+### 0.8 343 `assert` statements validate untrusted file content **[sweep FIXED, lint hook beyond the parsers open]**
 
-> **Status: the worst file is done; the sweep is not.** PR #69 converted the
-> three content-checking asserts in `Bio/SeqIO/_index.py` to `ValueError`s
-> naming the offending line and offset (the file's other nine asserts are
-> internal invariants and deliberately stay), and the adopted upstream #5175
-> had already converted nine more across `Bio.ExPASy.Enzyme`,
-> `Bio.ExPASy.ScanProsite`, `Bio.SeqIO.TabIO` and `Bio.motifs.alignace`.
-> Roughly 300 sites across the parsers remain — mechanical but
-> judgement-laden, tracked in `TODO.md`.
+> **Status: the sweep is done, and a lint hook guards the parser packages.**
+> PR #69 and the adopted upstream #5175 converted the first twelve sites.
+> The sweep then converted the asserts that check input to `ValueError`
+> (or `TypeError` for a wrong type), and listed each kept assert with the
+> reason it holds: #155 `Bio.Align`, #156 `Bio.SearchIO`, #157 `Bio.Blast`,
+> #159 `Bio.SeqIO`, #160 `Bio.AlignIO`, and #165 the rest of `Bio`,
+> including `Bio/GenBank/Scanner.py:479`. A second `ruff-check` hook,
+> `ruff S101 (parser packages)`, now fails any new `assert` in
+> `Bio/{Align,AlignIO,Blast,SearchIO,SeqIO}/`. It skips
+> `Bio/Align/substitution_matrices/`, `Bio/Align/analysis.py` and the
+> deprecated `Bio/Blast/NCBI{XML,WWW}.py`. The 132 kept asserts there carry
+> `# noqa: S101`.
+>
+> Open:
+>
+> - **GenBank is not guarded yet.** Extending the hook's `files` to
+>   `Bio/GenBank/` needs `# noqa: S101` on its 15 kept asserts (#165 lists
+>   them); the rest of `Bio/` could follow.
+> - **One kept assert is not an invariant.** #156 kept
+>   `assert gap_len > 0` in `Bio/SearchIO/InfernalIO/infernal_text.py` on
+>   purpose: Infernal may print `*[ 0]*` on the hit line, which is valid.
+>   Relaxing it to allow 0 needs a real Infernal file to test against.
+> - **Offset asserts in `Bio/SeqIO/_index.py` fail on BGZF.** The
+>   IntelliGenetics and UniProt XML indexers check offsets built by adding
+>   up line lengths against `handle.tell()`. On a BGZF file of more than one
+>   block, `tell()` is a virtual offset, so `SeqIO.index` raises
+>   `AssertionError` (`:555`, `:462`). Under `python -O` the UniProt index
+>   works and the IntelliGenetics one raises a misleading BGZF error.
 
 `grep -c "^\s*assert " Bio/{SeqIO,AlignIO,Align,GenBank}/*.py` → 343. These are
 not internal invariants; they check parsed input — `Bio/SeqIO/_index.py:671`

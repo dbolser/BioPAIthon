@@ -464,7 +464,7 @@ class StockholmIterator(AlignmentIterator):
                     # Might be interleaved blocks, so can't check length yet
             # Next line...
 
-        assert len(seqs) <= len(ids)
+        assert len(seqs) <= len(ids)  # noqa: S101
         # assert len(gs)   <= len(ids)
         # assert len(gr)   <= len(ids)
 
