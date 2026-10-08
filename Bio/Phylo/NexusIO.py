@@ -30,8 +30,8 @@ End;
 # 'index' starts from 1; 'tree' is the Newick tree string
 TREE_TEMPLATE = "Tree tree%(index)d=%(tree)s"
 
-# Two things NewickIO reads differently from Bio.Nexus.Trees are fixed in the
-# tree text first, using NewickIO's own tokens so the two scans agree:
+# Three things NewickIO reads differently from Bio.Nexus.Trees are fixed in
+# the tree text first, using NewickIO's own tokens so the two scans agree:
 #
 # - NewickIO drops the quotes around a label, then reads an internal label
 #   such as '95' as a number. Bio.Nexus.Trees kept a quoted label as a name,
@@ -39,10 +39,15 @@ TREE_TEMPLATE = "Tree tree%(index)d=%(tree)s"
 #   text, and the tag is removed after parsing.
 # - NewickIO needs the branch length right after the colon, so a comment
 #   there, as in BEAST's ":[&rate=1.0]0.1", moves in front of the colon.
+# - In NEXUS a comment does not split a word, so ":-[&x]0.1" is -0.1. A
+#   comment inside a word moves to the end of it.
 _QUOTED = "\0"
-_COMMENT = NewickIO.token_dict["comment"].pattern
+_COMMENT = NewickIO.token_dict["comment"]
+_WORD = NewickIO.token_dict["unquoted node label"].pattern
 _PREPARE = re.compile(
-    rf":\s*(?P<comments>(?:{_COMMENT}\s*)+)|{NewickIO.tokenizer.pattern}"
+    rf":\s*(?P<comments>(?:{_COMMENT.pattern}\s*)+)"
+    rf"|(?P<split>(?:\:\ ?)?{_WORD}(?:(?:{_COMMENT.pattern})+{_WORD})+)"
+    rf"|{NewickIO.tokenizer.pattern}"
 )
 
 
@@ -50,6 +55,10 @@ def _prepare_token(match):
     """Rewrite one token of a NEXUS tree for NewickIO (PRIVATE)."""
     if match.group("comments") is not None:
         return match.group("comments").rstrip() + ":"
+    if match.group("split") is not None:
+        word = match.group("split")
+        comments = "".join(c.group() for c in _COMMENT.finditer(word))
+        return _COMMENT.sub("", word) + comments
     token = match.group()
     return f"'{_QUOTED}{token[1:]}" if token.startswith("'") else token
 

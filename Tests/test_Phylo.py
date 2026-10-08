@@ -154,6 +154,22 @@ class IOTests(unittest.TestCase):
         self.assertEqual(inner.branch_length, 0.3)
         self.assertEqual(inner.comment, "[&rate=0.5]")
 
+    def test_nexus_read_comment_inside_number(self):
+        """A comment inside a number does not split it, as NEXUS says."""
+        handle = StringIO(
+            "#NEXUS\nbegin trees;\n"
+            "tree t = (a:-[&x]0.1,(b,c)9[&y]5:0.2,d:2[&z]e-1);\nend;\n"
+        )
+        a, inner, d = Phylo.read(handle, "nexus").root.clades
+        self.assertEqual([a.name, d.name], ["a", "d"])
+        self.assertEqual(a.branch_length, -0.1)
+        self.assertEqual(a.comment, "[&x]")
+        self.assertEqual(inner.confidence, 95.0)
+        self.assertEqual(inner.branch_length, 0.2)
+        self.assertEqual(inner.comment, "[&y]")
+        self.assertEqual(d.branch_length, 0.2)
+        self.assertEqual(d.comment, "[&z]")
+
     def test_nexus_read_translate_error(self):
         """A failed TRANSLATE lookup names the first missing taxon in preorder."""
         handle = StringIO(
