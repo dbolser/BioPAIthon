@@ -60,6 +60,19 @@ class SearchResultsTests(unittest.TestCase):
         self.assertEqual(empty[:], [])
         self.assertEqual(empty[::-1], [])
 
+    def test_reverse_slice_to_index_zero_fetches(self):
+        """A reverse slice ending at index 0 fetches it if not cached yet."""
+        for index in (slice(None, None, -1), slice(0, None, -1)):
+            with self.subTest(index=index):
+                first = FakeResponse([], total=1)
+                first.headers["Link"] = '<https://rest.uniprot.org/next>; rel="next"'
+                second = FakeResponse([{"id": 1}], total=1)
+                with mock.patch.object(UniProt, "urlopen", side_effect=[first, second]):
+                    results = UniProt._UniProtSearchResults(
+                        "https://rest.uniprot.org/fake"
+                    )
+                    self.assertEqual(results[index], [{"id": 1}])
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
