@@ -7,6 +7,7 @@
 """Bio.SeqIO support for accessing sequences in PDB and mmCIF files."""
 
 import collections
+import sys
 import warnings
 from itertools import zip_longest
 
@@ -479,6 +480,15 @@ class CifSeqresIterator(SequenceIterator):
         ]
         if auth_chains is None:
             if auth_ids != label_ids:
+                # Report the warning at the first caller outside Bio.SeqIO,
+                # whether it called this class, SeqIO.parse or SeqIO.read.
+                stacklevel = 2
+                frame = sys._getframe(1)
+                while frame.f_back:
+                    if not frame.f_globals.get("__name__", "").startswith("Bio.SeqIO"):
+                        break
+                    frame = frame.f_back
+                    stacklevel += 1
                 warnings.warn(
                     "cif-seqres names chains by their mmCIF label ids, which in "
                     "this file differ from the author ids that cif-atom, "
@@ -488,7 +498,7 @@ class CifSeqresIterator(SequenceIterator):
                     "to keep the label ids and silence this warning, pass "
                     "auth_chains=False.",
                     BiopythonDeprecationWarning,
-                    stacklevel=2,
+                    stacklevel=stacklevel,
                 )
             auth_chains = False
 
