@@ -377,7 +377,7 @@ class TestMedline(unittest.TestCase):
                 Medline.read(handle)
 
     def test_parse_whitespace_only_lines(self):
-        with open("Medline/pubmed_result2.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result2.txt") as handle:
             text = handle.read()
         records = list(Medline.parse(io.StringIO(text)))
         self.assertEqual(len(records), 4)
@@ -395,7 +395,7 @@ class TestMedline(unittest.TestCase):
         self.assertEqual(list(Medline.parse(text.splitlines())), records)
 
     def test_read_trailing_whitespace_only_line(self):
-        with open("Medline/pubmed_result1.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result1.txt") as handle:
             text = handle.read()
         record = Medline.read(io.StringIO(text))
         for tail in ("   \n", "\n   \n", "\n\t", "\n        \n"):
@@ -406,7 +406,7 @@ class TestMedline(unittest.TestCase):
         # A line of six or more spaces inside a field is a blank continuation
         # line, not the end of the record (upstream issue #4557, whose record
         # had a line of 88 spaces and CRLF inside its abstract)
-        with open("Medline/pubmed_result1.txt") as handle:
+        with open(support.DATA / "Medline" / "pubmed_result1.txt") as handle:
             text = handle.read()
         record = Medline.read(io.StringIO(text))
         record["AB"] = record["AB"].replace("analysis. This", "analysis. \n This")
