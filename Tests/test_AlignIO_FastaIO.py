@@ -879,7 +879,7 @@ class FastaM10MalformedTests(unittest.TestCase):
 
     def parse_mutated(self, old, new):
         """Parse output001.m10 with the first occurrence of old replaced by new."""
-        with open("Fasta/output001.m10") as handle:
+        with open(support.DATA / "Fasta" / "output001.m10") as handle:
             data = handle.read()
         self.assertIn(old, data)
         return list(FastaIO.FastaM10Iterator(StringIO(data.replace(old, new, 1))))
