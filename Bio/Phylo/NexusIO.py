@@ -29,6 +29,18 @@ End;
 # 'index' starts from 1; 'tree' is the Newick tree string
 TREE_TEMPLATE = "Tree tree%(index)d=%(tree)s"
 
+# NewickIO drops the quotes around a label, then reads an internal label such
+# as '95' as a number. Bio.Nexus.Trees kept a quoted label as a name, so each
+# one is tagged with a NUL character, which has no place in NEXUS text, and
+# the tag is removed after parsing.
+_QUOTED = "\0"
+
+
+def _tag_quoted_label(match):
+    """Tag a quoted label found by NewickIO's tokenizer (PRIVATE)."""
+    token = match.group()
+    return f"'{_QUOTED}{token[1:]}" if token.startswith("'") else token
+
 
 class _NexusWithNewickTrees(Nexus.Nexus):
     """Nexus reader that parses each tree with NewickIO (PRIVATE).
@@ -41,6 +53,7 @@ class _NexusWithNewickTrees(Nexus.Nexus):
 
     def _tree(self, options):
         name, weight, rooted, newick = Nexus._split_tree_command(options)
+        newick = NewickIO.tokenizer.sub(_tag_quoted_label, newick)
         parsed = next(NewickIO.Parser.from_string(newick).parse(), None)
         # An empty tree description gives a tree of one empty clade, as before
         root = Newick.Clade() if parsed is None else parsed.root
@@ -61,6 +74,7 @@ def _match_bio_nexus_trees(root, translate):
       length, not the confidence;
     - confidences are floats;
     - comments keep their square brackets, e.g. "[&rate=1.0]";
+    - a quoted label is a name, even one that looks like a number, e.g. '95';
     - terminal names come from the TRANSLATE table, if any, quoted by
       ``Bio.Nexus.Nexus.safename``.
 
@@ -81,6 +95,8 @@ def _match_bio_nexus_trees(root, translate):
             clade.confidence = float(clade.confidence)
         if clade.comment is not None:
             clade.comment = f"[{clade.comment}]"
+        if clade.name:
+            clade.name = clade.name.replace(_QUOTED, "")
         if translate and not clade.clades:
             try:
                 clade.name = Nexus.safename(translate[int(clade.name)])

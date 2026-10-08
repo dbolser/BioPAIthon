@@ -126,6 +126,19 @@ class IOTests(unittest.TestCase):
         inner = Phylo.read(handle, "nexus").root.clades[0]
         self.assertEqual(math.copysign(1, inner.branch_length), -1)
 
+    def test_nexus_read_quoted_number(self):
+        """A quoted internal label is a name, even if it looks like a number."""
+        handle = StringIO(
+            "#NEXUS\nbegin trees;\ntree t = ((a,b)'95',(c,d)'0.5':0.2);\nend;\n"
+        )
+        first, second = Phylo.read(handle, "nexus").root.clades
+        self.assertEqual(first.name, "95")
+        self.assertIsNone(first.confidence)
+        self.assertEqual(first.branch_length, 0.0)
+        self.assertEqual(second.name, "0.5")
+        self.assertIsNone(second.confidence)
+        self.assertEqual(second.branch_length, 0.2)
+
     def test_nexus_read_translate_error(self):
         """A failed TRANSLATE lookup names the first missing taxon in preorder."""
         handle = StringIO(
