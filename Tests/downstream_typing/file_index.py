@@ -11,6 +11,7 @@ the record type. Type-checked with the mypy.ini beside it, never run.
 import os
 from collections.abc import Iterator
 from collections.abc import Mapping
+from typing import Any
 from typing import overload
 
 from typing_extensions import assert_type
@@ -27,13 +28,16 @@ def in_memory(d: _IndexedSeqFileDict[SeqRecord]) -> None:
     assert_type(d["x"], SeqRecord)
     assert_type(d.get("x"), SeqRecord | None)
     assert_type(d.get_raw("x"), bytes)
-    assert_type(list(d), list[str])
     assert_type(len(d), int)
     d.close()
 
     records: Mapping[str, SeqRecord] = d
 
-    d[1]  # type: ignore[index]
+    # A key is a str unless a key_function says otherwise; see below.
+    assert_type(list(d), list[str | Any])
+    for key in d:
+        key.upper()
+        key.frobnicate()  # type: ignore[union-attr]
 
 
 def search_results(d: _IndexedSeqFileDict[QueryResult]) -> None:
@@ -69,6 +73,18 @@ assert_type(
     _IndexedSeqFileDict(Proxy(), None, "repr", "SeqRecord"),
     _IndexedSeqFileDict[SeqRecord],
 )
+
+
+def make_tuple(identifier: str) -> tuple[int, int]:
+    """Make a key from an id, as in the Bio.SeqIO.index docstring."""
+    parts = identifier.split("_")
+    return int(parts[-2]), int(parts[-1])
+
+
+# A key_function may return any hashable key, not just a str.
+by_tuple = _IndexedSeqFileDict(Proxy(), make_tuple, "repr", "SeqRecord")
+assert_type(by_tuple[(540, 792)], SeqRecord)
+_IndexedSeqFileDict(Proxy(), str.split, "repr", "SeqRecord")  # type: ignore[arg-type]
 
 
 # Bio.SeqIO.index_db and Bio.SearchIO.index_db pass a factory that is called

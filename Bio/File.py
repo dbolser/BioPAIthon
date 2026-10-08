@@ -18,6 +18,7 @@ import os
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import Callable
+from collections.abc import Hashable
 from collections.abc import Iterable
 from collections.abc import Iterator
 from io import BufferedReader
@@ -183,7 +184,10 @@ class _IndexedSeqFileProxy(ABC, Generic[_RecordT_co]):
         raise NotImplementedError("Not available for this file format.")
 
 
-class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
+# A key is the record's id, a str, unless a key_function maps each id to
+# some other hashable key, such as a tuple, which the type cannot follow.
+# So a key is "str | Any": checked as a str, but other keys still allowed.
+class _IndexedSeqFileDict(collections.abc.Mapping[str | Any, _RecordT_co]):
     """Read only dictionary interface to a sequential record file.
 
     This code is used in both Bio.SeqIO for indexing as SeqRecord
@@ -211,7 +215,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
     def __init__(
         self,
         random_access_proxy: _IndexedSeqFileProxy[_RecordT_co],
-        key_function: Callable[[str], str] | None,
+        key_function: Callable[[str], Hashable] | None,
         repr: str,
         obj_repr: str,
     ) -> None:
@@ -221,9 +225,9 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
         self._key_function = key_function
         self._repr = repr
         self._obj_repr = obj_repr
-        self._cached_prev_record: tuple[str | None, _RecordT_co | None]
+        self._cached_prev_record: tuple[Hashable, _RecordT_co | None]
         self._cached_prev_record = (None, None)  # (key, record)
-        offset_iter: Iterable[tuple[str, int, int]]
+        offset_iter: Iterable[tuple[Hashable, int, int]]
         if key_function:
             offset_iter = (
                 (key_function(key), offset, length)
@@ -231,7 +235,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
             )
         else:
             offset_iter = random_access_proxy
-        offsets: dict[str, int] = {}
+        offsets: dict[Hashable, int] = {}
         for key, offset, length in offset_iter:
             # Note - we don't store the length because I want to minimise the
             # memory requirements. With the SQLite backend the length is kept
@@ -265,11 +269,11 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
         """Return the number of records."""
         return len(self._offsets)
 
-    def __iter__(self) -> Iterator[str]:
+    def __iter__(self) -> Iterator[str | Any]:
         """Iterate over the keys."""
         return iter(self._offsets)
 
-    def __getitem__(self, key: str) -> _RecordT_co:
+    def __getitem__(self, key: str | Any) -> _RecordT_co:
         """Return record for the specified key.
 
         As an optimization when repeatedly asked to look up the same record,
@@ -277,8 +281,8 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
         requested next time, it can be returned without going to disk.
         """
         if key == self._cached_prev_record[0]:
-            # The cached record is None only while the cached key is, and a
-            # str key never equals None.
+            # The cached record is None only before the first lookup, while
+            # the cached key is None too.
             return self._cached_prev_record[1]  # type: ignore[return-value]
         # Pass the offset to the proxy
         record = self._proxy.get(self._offsets[key])
@@ -291,7 +295,7 @@ class _IndexedSeqFileDict(collections.abc.Mapping[str, _RecordT_co]):
         self._cached_prev_record = (key, record)
         return record
 
-    def get_raw(self, key: str) -> bytes:
+    def get_raw(self, key: str | Any) -> bytes:
         """Return the raw record from the file as a bytes string.
 
         If the key is not found, a KeyError exception is raised.
