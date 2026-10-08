@@ -223,7 +223,7 @@ class FileParserTest(unittest.TestCase):
 
     def test_wrong_file_parser_closes(self):
         """A file that fails to parse is closed before the error is raised."""
-        fname = os.path.join("PopGen", "README")
+        fname = support.DATA / "PopGen" / "README"
 
         def read_bad_file():
             self.assertRaises(ValueError, FileParser.read, fname)
