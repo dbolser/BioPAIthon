@@ -67,10 +67,15 @@ could not see them and reported ``Module "Bio.Restriction" has no attribute
 computed expression, which mypy does not read. ``Bio.Restriction`` and
 ``Bio.Restriction.Restriction`` now have a ``__getattr__`` that only type
 checkers see, which types the enzymes as ``Any``, and ``__all__`` starts with
-a literal of the fixed names, which keep their real types. The cost is that a
-misspelt enzyme name is not a type-checking error either; it still fails at
-runtime as before. Nothing changes at runtime: ``import *`` gives the same
-names, and ``__all__`` holds the same tuple.
+a literal of the fixed names, which keep their real types. The cost is that
+any name these modules do not define is now ``Any`` to a type checker rather
+than an error. That covers a misspelt enzyme, but also, for example,
+``from Bio.Restriction import RestrictionType``, which still fails at runtime
+because the package does not export it; import it from
+``Bio.Restriction.Restriction`` instead. Import enzymes by name: after
+``from Bio.Restriction import *`` type checkers still cannot see them, as a
+star import does not use ``__getattr__``. Nothing changes at runtime:
+``import *`` gives the same names, and ``__all__`` holds the same tuple.
 
 ``import Bio.Phylo`` no longer imports NumPy, ``Bio.Align``, ``Bio.Nexus`` or
 rdflib, and is several times faster. Each tree format module is now imported
