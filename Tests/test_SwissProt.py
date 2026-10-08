@@ -6792,7 +6792,7 @@ class TestMalformedLines(unittest.TestCase):
     """
 
     def setUp(self):
-        with open(os.path.join("SwissProt", "P68308.txt")) as handle:
+        with open(support.DATA / "SwissProt" / "P68308.txt") as handle:
             self.text = handle.read()
         SwissProt.read(StringIO(self.text))  # the unmodified record is fine
 

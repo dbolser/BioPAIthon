@@ -85,11 +85,11 @@ class ScopTests(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "")
 
     def testClaDisagreesWithDes(self):
-        with open("./SCOP/dir.des.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.des.scop.txt_test") as f:
             des = f.read()
-        with open("./SCOP/dir.hie.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.hie.scop.txt_test") as f:
             hie = f.read()
-        with open("./SCOP/dir.cla.scop.txt_test") as f:
+        with open(support.DATA / "SCOP" / "dir.cla.scop.txt_test") as f:
             cla = f.read()
         for old, new, message in [
             ("A:\ta.1.1.2\t14984", "A:\ta.1.1.3\t14984", "sccs a.1.1.3"),

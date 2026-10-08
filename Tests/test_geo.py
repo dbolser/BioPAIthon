@@ -4986,7 +4986,7 @@ Column Header Definitions
 
     def test_column_defined_twice(self):
         """A column defined twice raises ValueError, not assert."""
-        with open("Geo/GSM645.txt") as handle:
+        with open(support.DATA / "Geo" / "GSM645.txt") as handle:
             data = handle.read()
         old = "#POSITIVE = number of poisitive probe pairs\n"
         self.assertIn(old, data)

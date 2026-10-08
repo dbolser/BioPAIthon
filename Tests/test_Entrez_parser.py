@@ -8933,7 +8933,7 @@ class MalformedInputTest(unittest.TestCase):
         )
 
     def test_wrong_mathml_namespace(self):
-        with open("Entrez/pubmed6.xml", "rb") as stream:
+        with open(support.DATA / "Entrez" / "pubmed6.xml", "rb") as stream:
             data = stream.read()
         data = data.replace(
             b'xmlns:mml="http://www.w3.org/1998/Math/MathML"',
