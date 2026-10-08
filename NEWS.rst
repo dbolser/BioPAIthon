@@ -59,6 +59,18 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The FASTQ parsers ``FastqPhredIterator``, ``FastqSolexaIterator`` and
+``FastqIlluminaIterator`` in ``Bio.SeqIO.QualityIO`` take a new opt-in
+keyword, ``compact=True``, which stores each read's qualities as a signed
+byte array, ``array.array("b")``, instead of a list of integers. That makes
+the qualities of a 150 bp read about five times smaller, and holding 200,000
+such reads in memory took 312 MB instead of 514 MB. The arrays slice, reverse,
+concatenate, copy and write out like the lists, but they hold only -128 to
+127, never compare equal to a list, and cannot be added to a record whose
+qualities are a list. The default is unchanged: ``Bio.SeqIO.parse``,
+``Bio.SeqIO.index`` and the parsers called without ``compact`` still give
+lists.
+
 ``Bio.AlignIO`` now raises ``ValueError`` for malformed Clustal, EMBOSS,
 FASTA ``-m 10``, GCG MSF, MAF and Stockholm input that ``assert`` statements
 used to check. With asserts on, such files raised a bare ``AssertionError``;
