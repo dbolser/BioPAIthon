@@ -5392,7 +5392,7 @@ def read(handle, fmt):
     """Parse a file containing one alignment, and return it.
 
     Arguments:
-     - source - File or file-like object to read from, or filename as string.
+     - handle - File or file-like object to read from, or filename as string.
      - fmt    - String describing the file format (case-insensitive).
 
     This function is for use parsing alignment files containing exactly one

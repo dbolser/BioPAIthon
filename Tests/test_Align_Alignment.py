@@ -5,7 +5,10 @@
 
 """Tests for the Alignment class in Bio.Align."""
 
+import inspect
 import os
+import re
+import sys
 import unittest
 from io import StringIO
 
@@ -3727,6 +3730,32 @@ mm39.chr3  88765292
 rn7.chr2  174256650
 """,
         )
+
+
+class TestAlign_read_parse_write(unittest.TestCase):
+    """Test the module-level read, parse and write functions."""
+
+    @unittest.skipIf(sys.flags.optimize >= 2, "docstrings are stripped under -OO")
+    def test_documented_arguments(self):
+        """Check each Arguments list names the function's own parameters."""
+        for function in (Align.read, Align.parse, Align.write):
+            with self.subTest(function=function.__name__):
+                documented = re.findall(
+                    r"^ - (\w+) +- ", inspect.getdoc(function), re.MULTILINE
+                )
+                parameters = [
+                    name
+                    for name, parameter in inspect.signature(
+                        function
+                    ).parameters.items()
+                    if parameter.kind is parameter.POSITIONAL_OR_KEYWORD
+                ]
+                self.assertEqual(documented, parameters)
+
+    def test_read_by_keyword(self):
+        """Pass read its arguments by their documented names."""
+        alignment = Align.read(handle="Clustalw/opuntia.aln", fmt="clustal")
+        self.assertEqual(alignment.shape, (7, 156))
 
 
 if __name__ == "__main__":
