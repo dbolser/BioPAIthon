@@ -59,6 +59,18 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Medline.parse()`` again treats a line holding only whitespace, such as
+``"   \n"``, like an empty line: it ends the current record, and between
+records it is skipped. Since Biopython 1.84 such a line was read as a field
+with an empty key. Between records it gave an extra junk ``{'': ['']}``
+record, so ``Bio.Medline.read()`` raised "More than one record found in
+handle" on a file ending in one. Records separated by one merged into a single
+record, as did all the records in a list of lines from ``str.splitlines()``,
+whose separators are empty strings. A line of six or more spaces between
+records raised ``KeyError``. Inside a record, a line of six or more spaces is
+still a blank continuation line, as it has been since Biopython 1.84, so two
+records separated by such a line still come out as one.
+
 ``PairwiseAligner`` no longer reads freed memory when Python code that it
 calls reconfigures it. A gap function that replaced the aligner's
 substitution matrix or gap functions partway through ``score()``,
