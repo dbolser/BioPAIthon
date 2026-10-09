@@ -4,6 +4,9 @@
 
 """Tests for Cluster module."""
 
+import subprocess
+import sys
+import sysconfig
 import unittest
 
 try:
@@ -1260,6 +1263,20 @@ class TestCluster(unittest.TestCase):
                 dist="e",
                 distancematrix=None,
             )
+        arguments = {
+            "data": data,
+            "mask": mask,
+            "weight": weight,
+            "transpose": False,
+            "method": "a",
+            "dist": "e",
+            "distancematrix": None,
+        }
+        treecluster(tree, **arguments)
+        self.assertEqual(len(tree), 3)
+        message = "^expected an empty tree$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            treecluster(tree, **arguments)
 
     def test_tree_arguments(self):
         # Test if incorrect arguments are caught by the C code
@@ -3244,10 +3261,11 @@ class TestClusterRNGSeed(unittest.TestCase):
 
     def test_threaded_clustering_matches_serial(self):
         # Two threads clustering different matrices concurrently must give
-        # the same results as serial runs with the same seeds. Today the
-        # GIL still serializes the C kernels, so this mostly guards the
-        # seeded RNG's per-call state against future GIL-released or
-        # free-threaded builds.
+        # the same results as serial runs with the same seeds. Only a
+        # free-threaded build with the GIL disabled runs the C kernels
+        # concurrently today; elsewhere the GIL serializes them, so there
+        # this mostly guards the seeded RNG's per-call state against a
+        # future release of the GIL.
         import threading
 
         from Bio.Cluster import kcluster
@@ -3272,6 +3290,185 @@ class TestClusterRNGSeed(unittest.TestCase):
             np.testing.assert_array_equal(expected[0], observed[0])
             self.assertEqual(expected[1], observed[1])
             self.assertEqual(expected[2], observed[2])
+
+
+# Child process for TestClusterThreads.test_shared_tree. Three threads sort
+# and scale one tree while three others cut it, index it and print it.
+SHARED_TREE = """\
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
+import numpy as np
+
+from Bio.Cluster import Tree, treecluster
+
+if sys._is_gil_enabled():
+    print("SKIP: the GIL is enabled")
+    sys.exit()
+
+tree = treecluster(np.random.default_rng(0).normal(size=(300, 5)))
+n = len(tree) + 1
+barrier = Barrier(6)
+
+
+def sort(seed):
+    rng = np.random.default_rng(seed)
+    barrier.wait()
+    for _ in range(300):
+        tree.sort(rng.random(n))
+        tree.scale()
+
+
+def cut(seed):
+    rng = np.random.default_rng(seed)
+    barrier.wait()
+    for _ in range(300):
+        nclusters = int(rng.integers(1, n + 1))
+        clusterid = tree.cut(nclusters)
+        clusters = np.unique(clusterid)
+        if not np.array_equal(clusters, np.arange(nclusters)):
+            raise AssertionError(f"cut({nclusters}) gave clusters {clusters}")
+        tree[int(rng.integers(n - 1))]
+        Tree(tree[:])  # ValueError if a node was copied halfway through a swap
+        str(tree)
+
+
+with ThreadPoolExecutor(max_workers=6) as executor:
+    futures = [executor.submit(sort, seed) for seed in range(3)]
+    futures += [executor.submit(cut, seed) for seed in range(3, 6)]
+for future in futures:
+    future.result()
+print("OK")
+"""
+
+# Child process for TestClusterThreads.test_changing_index_arrays. Threads
+# call clustercentroids and clusterdistance while two other threads keep
+# overwriting their index arrays with negative values, and putting the
+# valid values back.
+CHANGING_INDEX_ARRAYS = """\
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Thread
+
+import numpy as np
+
+from Bio.Cluster import clustercentroids, clusterdistance
+
+if sys._is_gil_enabled():
+    print("SKIP: the GIL is enabled")
+    sys.exit()
+
+data = np.random.default_rng(0).normal(size=(200, 20))
+valid_clusterid = np.repeat(np.arange(2, dtype=np.intc), 100)
+valid_index = np.arange(200, dtype=np.intc)
+invalid = np.full(200, -(2**30), dtype=np.intc)
+clusterid = valid_clusterid.copy()
+index = valid_index.copy()
+done = Event()
+
+
+def overwrite(array, valid):
+    while not done.is_set():
+        array[:] = invalid
+        array[:] = valid
+
+
+def call(function, data, keywords):
+    for _ in range(500):
+        try:
+            function(data, **keywords)
+        except (IndexError, RuntimeError, ValueError):
+            pass  # the array was invalid when checked; that is fine
+
+
+indices = {"index1": index, "index2": index}
+calls = [
+    (clustercentroids, data, {"clusterid": clusterid}),
+    (clusterdistance, data, indices),
+    (clusterdistance, data, {**indices, "method": "v"}),
+    (clusterdistance, data.T.copy(), {**indices, "transpose": True}),
+]
+writers = [
+    Thread(target=overwrite, args=(clusterid, valid_clusterid)),
+    Thread(target=overwrite, args=(index, valid_index)),
+]
+for writer in writers:
+    writer.start()
+try:
+    with ThreadPoolExecutor(max_workers=len(calls)) as executor:
+        futures = [executor.submit(call, *arguments) for arguments in calls]
+    for future in futures:
+        future.result()
+finally:
+    done.set()
+    for writer in writers:
+        writer.join()
+print("OK")
+"""
+
+
+class TestClusterThreads(unittest.TestCase):
+    """Tests of Bio.Cluster called from several threads at once."""
+
+    def setUp(self):
+        if TestCluster.module != "Bio.Cluster":
+            self.skipTest("only Bio.Cluster is checked for thread safety")
+
+    def test_index_arrays_unchanged(self):
+        """Check the C code does not change the caller's index arrays."""
+        from Bio.Cluster import clustercentroids
+        from Bio.Cluster import clusterdistance
+
+        data = TestClusterRNGSeed._data(nrows=6, ncols=4)
+        clusterid = np.array([1, 0, 2, 1, 0, 2], np.intc)
+        index1 = np.array([0, 3], np.intc)
+        index2 = np.array([1, 2, 5], np.intc)
+        arrays = (clusterid, index1, index2)
+        copies = [array.copy() for array in arrays]
+        for method in "am":
+            clustercentroids(data, clusterid=clusterid, method=method)
+            clustercentroids(data.T, clusterid=clusterid, method=method, transpose=True)
+        for method in "amsxv":
+            clusterdistance(data, index1=index1, index2=index2, method=method)
+            clusterdistance(
+                data.T, index1=index1, index2=index2, method=method, transpose=True
+            )
+        for array, copy in zip(arrays, copies):
+            np.testing.assert_array_equal(array, copy)
+
+    def run_child(self, code):
+        # A crash or a hang in the child fails the test, rather than taking
+        # down the whole test run.
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, timeout=300
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        if result.stdout.startswith("SKIP"):
+            self.skipTest(result.stdout.strip())
+        self.assertEqual(result.stdout.strip(), "OK", result.stderr)
+
+    @unittest.skipUnless(
+        sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+    )
+    def test_shared_tree(self):
+        """Check threads can sort, scale, cut and index one tree at once.
+
+        Every cut must be a valid assignment of items to clusters, and every
+        copy of the nodes a valid tree.
+        """
+        self.run_child(SHARED_TREE)
+
+    @unittest.skipUnless(
+        sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
+    )
+    def test_changing_index_arrays(self):
+        """Check another thread changing the index arrays cannot crash.
+
+        The results are unspecified, but the index values are checked and
+        used from a private copy, so they cannot go out of bounds.
+        """
+        self.run_child(CHANGING_INDEX_ARRAYS)
 
 
 if __name__ == "__main__":

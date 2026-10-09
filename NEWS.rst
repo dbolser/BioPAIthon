@@ -59,6 +59,15 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Cluster`` can now run without the GIL on a free-threaded build of
+Python, and importing it no longer turns the GIL back on. Threads sharing one
+``Tree`` can now sort, scale, cut, index and print it at the same time; before,
+with the GIL forced off (``PYTHON_GIL=0``), this could corrupt memory or hang.
+``clustercentroids`` and ``clusterdistance`` now check and use a private copy
+of the ``clusterid``, ``index1`` and ``index2`` arrays they are given, so
+another thread changing those arrays during the call can no longer send them
+out of bounds. Builds with the GIL behave as before.
+
 ``Bio.Align.parse(..., "phylip")`` now reads files holding several
 alignments one after another, each with its own header line, such as the
 bootstrap replicates that PHYLIP's ``seqboot`` writes, or what
