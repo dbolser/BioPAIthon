@@ -66,10 +66,12 @@ and a ``SeqRecord`` for a ``SeqRecord``, as it does at run time, and
 ``start`` and ``end`` are typed ``int | Any``: a position is an ``int``,
 except the rare ``UnknownPosition``, so coordinates need no narrowing before
 arithmetic. Likewise ``SeqFeature.location`` needs no check for ``None``,
-which it is only on a feature still being built. Adding two locations gives a
-``CompoundLocation``, adding an integer shifts one, and shifting a position
-keeps its class. Nothing changes at run time, but code checked with mypy may
-see new errors where these values were ``Any`` before.
+which it is only on a feature still being built. A feature's ``id`` is
+``str | None``, because ``Bio.SwissProt`` leaves it ``None`` on a feature
+with no FTId. Adding two locations gives a ``CompoundLocation``, adding an
+integer shifts one, and shifting a position keeps its class. Nothing changes
+at run time, but code checked with mypy may see new errors where these values
+were ``Any`` before.
 
 ``Bio.Align``'s Stockholm reader now reads the per-residue annotations of
 ``#=GR`` lines by column. A ``#=GR`` line has one character per alignment

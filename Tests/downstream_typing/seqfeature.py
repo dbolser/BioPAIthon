@@ -49,6 +49,11 @@ if isinstance(f.location, CompoundLocation):
     assert_type(f.location.operator, str)
 f.qualifiers["note"].append("x")
 
+# The id stays None on a swiss feature with no FTId, so it does need a check.
+SeqFeature(location, id=None)
+assert_type(f.id, str | None)
+f.id.upper()  # type: ignore[union-attr]
+
 # extract gives a Seq for a Seq or MutableSeq, else the type it is given, and
 # follows the references when they are given.
 assert_type(f.extract("ACGT"), str)

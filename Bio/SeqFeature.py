@@ -224,7 +224,7 @@ class SeqFeature:
         self,
         location: "SimpleLocation | CompoundLocation | None" = None,
         type: str = "",
-        id: str = "<unknown id>",
+        id: str | None = "<unknown id>",
         qualifiers: Mapping[str, Any] | None = None,
         sub_features: None = None,
     ) -> None:
@@ -262,7 +262,9 @@ class SeqFeature:
         # trick: users need not rule out None before using the location.
         self.location: SimpleLocation | CompoundLocation | Any = location
         self.type = type
-        self.id = id
+        # Bio.SwissProt leaves it None for good on a feature with no FTId, so
+        # this None is honest, not the "X | Any" case above.
+        self.id: str | None = id
         self.qualifiers: dict[str, Any] = {}
         if qualifiers is not None:
             self.qualifiers.update(qualifiers)
