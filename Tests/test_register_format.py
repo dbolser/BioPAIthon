@@ -238,6 +238,25 @@ class SeqIOExistingNames(SeqIOTestCase):
         self.assertNotIn("test-other", SeqIO._FormatToIterator)
         self.assertIs(SeqIO._FormatToWriter["test-other"], FastaWriter)
 
+    def test_two_roles_all_or_nothing_in_a_race(self):
+        """A writer registered while the roles are checked stops both."""
+        writers = SeqIO._FormatToWriter
+        conflicts = writers.conflicts
+
+        def conflicts_then_race(name, value):
+            # As if another thread registered a writer just after this check:
+            result = conflicts(name, value)
+            del writers.conflicts
+            writers.register(name, FastaTwoLineWriter)
+            return result
+
+        writers.conflicts = conflicts_then_race
+        self.addCleanup(vars(writers).pop, "conflicts", None)
+        with self.assertRaises(ValueError):
+            SeqIO.register_format("test-fasta", FastaIterator, FastaWriter)
+        self.assertNotIn("test-fasta", SeqIO._FormatToIterator)
+        self.assertIs(writers["test-fasta"], FastaTwoLineWriter)
+
     def test_bad_role_stores_nothing(self):
         for iterator, writer, error in [
             (FastaIterator, 42, TypeError),
@@ -295,6 +314,13 @@ class SeqIOReplace(SeqIOTestCase):
         self.assertNotIn(("fastq", "qual"), SeqIO._converter)
         self.assertIn(("fastq-sanger", "fasta"), SeqIO._converter)
         self.assertIn(("fastq-sanger", "fastq"), SeqIO._converter)
+
+    def test_same_handler_keeps_shortcuts(self):
+        """Registering what a format already has keeps convert's shortcuts."""
+        converters = dict.copy(SeqIO._converter)
+        SeqIO.register_format("fastq", SeqIO.QualityIO.FastqPhredIterator)
+        SeqIO.register_format("fasta", writer="Bio.SeqIO.FastaIO:FastaWriter")
+        self.assertEqual(dict.copy(SeqIO._converter), converters)
 
     def test_iterator_keeps_index_proxy(self):
         expected = [r.id for r in SeqIO.parse(FASTA, "fasta")]

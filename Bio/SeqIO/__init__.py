@@ -402,6 +402,7 @@ __all__ = [
 # --Peter
 
 import importlib
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
@@ -1286,6 +1287,9 @@ def convert(in_file, in_format, out_file, out_format, molecule_type=None):
     return count
 
 
+_registration_lock = threading.Lock()
+
+
 def register_format(name, iterator=None, writer=None, *, replace=False):
     """Add a file format to Bio.SeqIO, or replace how it reads or writes one.
 
@@ -1313,9 +1317,9 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
     level of a module.  Then the worker processes that multiprocessing starts
     with "spawn" or "forkserver" register too, as they import that module.
 
-    SeqIO.convert stops using its built-in shortcuts that read a format whose
-    iterator is registered, or write one whose writer is registered, so that
-    it uses the registered ones.
+    With replace=True, SeqIO.convert stops using its built-in shortcuts that
+    read a format whose iterator is replaced, or write one whose writer is
+    replaced, so that it uses the replacements.
 
     Bio.SeqIO.index and index_db can index a new format if its iterator is a
     SequenceIterator subclass which reads text ("t" in its modes), sets
@@ -1341,7 +1345,6 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
         ]
         if value is not None
     ]
-    # Check both roles before storing either:
     for table, role, value in roles:
         if isinstance(value, str):
             if ":" not in value:
@@ -1350,18 +1353,33 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
                 )
         elif not callable(value):
             raise TypeError(f"Expected a callable or a string, not {value!r}")
-        if not replace and table.conflicts(name, value):
-            raise ValueError(
-                f"Format {name!r} already has {role}; use replace=True to replace it"
-            )
-    for table, role, value in roles:
-        table.register(name, value, replace=replace)
-    # Drop the convert shortcuts which read (or write) this format themselves:
-    for in_format, out_format in list(_converter):
-        if (iterator is not None and in_format == name) or (
-            writer is not None and out_format == name
-        ):
-            _converter.pop((in_format, out_format), None)
+
+    def check():
+        """Raise ValueError if either role is taken (PRIVATE)."""
+        if not replace:
+            for table, role, value in roles:
+                if table.conflicts(name, value):
+                    raise ValueError(
+                        f"Format {name!r} already has {role};"
+                        " use replace=True to replace it"
+                    )
+
+    # Comparing a spec string with an object imports the spec, which must
+    # not happen under the lock.  So check first without it; checking again
+    # under it then imports nothing, and both roles are stored, or neither.
+    check()
+    with _registration_lock:
+        check()
+        for table, role, value in roles:
+            table.register(name, value, replace=replace)
+        if replace:
+            # Drop the convert shortcuts which read (or write) this format
+            # themselves, rather than with the replacement:
+            for in_format, out_format in list(_converter):
+                if (iterator is not None and in_format == name) or (
+                    writer is not None and out_format == name
+                ):
+                    del _converter[in_format, out_format]
 
 
 if __name__ == "__main__":
