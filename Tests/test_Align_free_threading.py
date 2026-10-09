@@ -92,7 +92,8 @@ print("OK")
 """
 
 # Six threads score and align a shared NumPy-encoded query while two others
-# keep replacing the aligner's substitution matrix and gap score.
+# keep replacing the aligner's substitution matrix and gap score, the
+# latter through each way of setting an attribute.
 SCORE_WHILE_RECONFIGURED = """\
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -100,7 +101,7 @@ from threading import Barrier, Event
 
 import numpy as np
 
-from Bio.Align import PairwiseAligner, substitution_matrices
+from Bio.Align import PairwiseAligner, _pairwisealigner, substitution_matrices
 
 if sys._is_gil_enabled():
     print("SKIP: the GIL is enabled")
@@ -168,13 +169,26 @@ def switch_matrix():
         aligner.substitution_matrix = substitution_matrices.load(names[i % 2])
 
 
+descriptor = _pairwisealigner.PairwiseAligner.gap_score
+
+
 def switch_gap_score():
     barrier.wait()
     i = 0
     while not done.is_set():
         i += 1
-        set_gap_score(aligner, i % 2)
-        aligner.gap_score
+        if i % 2:
+            value = lambda start, length: gap_function(start, length)
+        else:
+            value = -7.0
+        route = i % 6 // 2
+        if route == 0:
+            aligner.gap_score = value
+        elif route == 1:
+            object.__setattr__(aligner, "gap_score", value)
+        else:
+            descriptor.__set__(aligner, value)
+        descriptor.__get__(aligner)
 
 
 with ThreadPoolExecutor(max_workers=8) as executor:
@@ -559,7 +573,9 @@ class ThreadTests(unittest.TestCase):
     def test_score_while_reconfigured(self):
         """Check threads can score while others replace the matrix and gap score.
 
-        Each score must be that of one of the configurations the aligner had.
+        Each score must be that of one of the configurations the aligner had,
+        whether the gap score is set as an attribute, by object.__setattr__,
+        or through its descriptor.
         """
         self.run_child(SCORE_WHILE_RECONFIGURED)
 

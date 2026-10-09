@@ -3930,47 +3930,6 @@ Aligner_get_algorithm(Aligner* self, void* closure)
     return PyUnicode_FromString(s);
 }
 
-/* Attribute access holds the aligner's lock, so that a getter, or a
- * snapshot, never sees a setter in another thread halfway through
- * replacing a gap function or the substitution matrix.  The Python
- * subclass's __getattr__ and __setattr__ reach these through
- * __getattribute__ and __setattr__. */
-static PyObject*
-Aligner_getattro(Aligner* self, PyObject* name)
-{
-    PyObject* value;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    value = PyObject_GenericGetAttr((PyObject*)self, name);
-    Py_END_CRITICAL_SECTION();
-    return value;
-}
-
-static int
-Aligner_setattro(Aligner* self, PyObject* name, PyObject* value)
-{
-    int status;
-    PyObject* insertion_score_function;
-    PyObject* deletion_score_function;
-    PyObject* matrix;
-    Py_BEGIN_CRITICAL_SECTION(self);
-    /* A setter may drop the aligner's references to the gap functions or
-     * the substitution matrix.  Hold them until the setter has finished
-     * and the lock is released, so that a finalizer this runs sees the
-     * complete new setting, and does not run under the lock. */
-    insertion_score_function = self->insertion_score_function;
-    deletion_score_function = self->deletion_score_function;
-    matrix = self->substitution_matrix.obj;
-    Py_XINCREF(insertion_score_function);
-    Py_XINCREF(deletion_score_function);
-    Py_XINCREF(matrix);
-    status = PyObject_GenericSetAttr((PyObject*)self, name, value);
-    Py_END_CRITICAL_SECTION();
-    Py_XDECREF(insertion_score_function);
-    Py_XDECREF(deletion_score_function);
-    Py_XDECREF(matrix);
-    return status;
-}
-
 static PyGetSetDef Aligner_getset[] = {
     {"mode",
         (getter)Aligner_get_mode,
@@ -4190,6 +4149,80 @@ static PyGetSetDef Aligner_getset[] = {
         Aligner_algorithm__doc__, NULL},
     {NULL, NULL, 0, NULL}  /* Sentinel */
 };
+
+/* Every getter and setter above holds the aligner's lock, so that neither
+ * it nor a snapshot sees a setter in another thread halfway through
+ * replacing a gap function or the substitution matrix.  Rather than edit
+ * each of them, Aligner_lock_getset points every entry of Aligner_getset at
+ * the two functions below, which call the original one, saved in the
+ * entry's closure.  This covers every way of reaching them: attribute
+ * access, object.__setattr__, and the descriptors' own __get__ and
+ * __set__. */
+
+typedef struct {
+    getter get;
+    setter set;
+} Aligner_accessor;
+
+static Aligner_accessor
+Aligner_accessors[sizeof(Aligner_getset) / sizeof(Aligner_getset[0])];
+
+static PyObject*
+Aligner_get_locked(PyObject* self, void* closure)
+{
+    const Aligner_accessor* accessor = closure;
+    PyObject* value;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    value = accessor->get(self, NULL);
+    Py_END_CRITICAL_SECTION();
+    return value;
+}
+
+static int
+Aligner_set_locked(PyObject* self, PyObject* value, void* closure)
+{
+    const Aligner_accessor* accessor = closure;
+    Aligner* aligner = (Aligner*)self;
+    PyObject* insertion_score_function;
+    PyObject* deletion_score_function;
+    PyObject* matrix;
+    int status;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    /* The setter may drop the aligner's references to the gap functions or
+     * the substitution matrix.  Hold them until it has finished and the
+     * lock is released, so that a finalizer this runs sees the complete
+     * new setting, and does not run under the lock. */
+    insertion_score_function = aligner->insertion_score_function;
+    deletion_score_function = aligner->deletion_score_function;
+    matrix = aligner->substitution_matrix.obj;
+    Py_XINCREF(insertion_score_function);
+    Py_XINCREF(deletion_score_function);
+    Py_XINCREF(matrix);
+    status = accessor->set(self, value, NULL);
+    Py_END_CRITICAL_SECTION();
+    Py_XDECREF(insertion_score_function);
+    Py_XDECREF(deletion_score_function);
+    Py_XDECREF(matrix);
+    return status;
+}
+
+/* Called once, before PyType_Ready turns Aligner_getset into descriptors. */
+static void
+Aligner_lock_getset(void)
+{
+    static bool locked = false;
+    Py_ssize_t i;
+    if (locked) return;
+    for (i = 0; Aligner_getset[i].name; i++) {
+        PyGetSetDef* def = &Aligner_getset[i];
+        Aligner_accessors[i].get = def->get;
+        Aligner_accessors[i].set = def->set;
+        def->get = Aligner_get_locked;
+        if (def->set) def->set = Aligner_set_locked;
+        def->closure = &Aligner_accessors[i];
+    }
+    locked = true;
+}
 
 #define SELECT_SCORE_GLOBAL(score1, score2, score3) \
     score = score1; \
@@ -8000,8 +8033,6 @@ static PyTypeObject Aligner_Type = {
     .tp_dealloc = (destructor)Aligner_dealloc,
     .tp_repr = (reprfunc)Aligner_repr,
     .tp_str = (reprfunc)Aligner_str,
-    .tp_getattro = (getattrofunc)Aligner_getattro,
-    .tp_setattro = (setattrofunc)Aligner_setattro,
     .tp_flags =Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_doc = Aligner_doc,
     .tp_methods = Aligner_methods,
@@ -8028,6 +8059,7 @@ PyInit__pairwisealigner(void)
 {
     PyObject* module;
     Aligner_Type.tp_new = PyType_GenericNew;
+    Aligner_lock_getset();
 
     if (PyType_Ready(&Aligner_Type) < 0
      || PyType_Ready(&PathGenerator_Type) < 0
