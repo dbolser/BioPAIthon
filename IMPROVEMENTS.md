@@ -1060,7 +1060,7 @@ periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 > checks private copies of the sequence indices. The 3.14t CI job runs the
 > suite with no `PYTHON_GIL` override, and the release workflow builds
 > `cp314t` wheels, whose test fails if importing the extensions turns the
-> GIL on (PR #NNN).
+> GIL on (PR #201).
 >
 > **The multi-phase init migration planned below was rejected.** Free
 > threading does not need it: CPython's free-threading HOWTO gives
