@@ -452,13 +452,23 @@ done = Event()
 
 def count():
     barrier.wait()
+    successes = 0
     for _ in range(2000):
         try:
             counts = _alignmentcounts.AlignmentCounts(sequences, coordinates, strands)
-        except ValueError:
-            continue  # the list had three sequences when copied
+        except ValueError as exception:
+            # The list had more than two sequences when copied.
+            if str(exception) != (
+                "number of rows in coordinates must equal the number of sequences"
+            ):
+                raise
+            continue
         if (counts.identities, counts.mismatches) != (90, 10):
             raise AssertionError(f"{counts.identities} identities")
+        successes += 1
+    # About half the calls succeed; none would mean the counts went unchecked.
+    if successes == 0:
+        raise AssertionError("no count succeeded")
 
 
 def change():
