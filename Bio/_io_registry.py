@@ -11,6 +11,8 @@ format module is imported only when someone uses that format.
 import importlib
 import threading
 
+_ABSENT = object()
+
 
 def _resolve(spec):
     """Import and return the object a spec string names (PRIVATE).
@@ -25,6 +27,25 @@ def _resolve(spec):
         if attribute:
             value = getattr(value, attribute)
     return value
+
+
+def _same_handler(stored, value):
+    """Return whether a stored entry and a value are the same handler (PRIVATE).
+
+    A spec string and an object are the same handler when the spec resolves
+    to that object, so the answer does not depend on whether the entry has
+    been used yet.  Comparing the two imports the spec.  Two spec strings
+    are compared as strings.
+    """
+    if stored is value:
+        return True
+    if isinstance(stored, str) and isinstance(value, str):
+        return stored == value
+    if isinstance(stored, str):
+        return _resolve(stored) is value
+    if isinstance(value, str):
+        return _resolve(value) is stored
+    return False
 
 
 def _qualify(value, package):
@@ -60,6 +81,10 @@ class FormatRegistry(dict):
     dict, and import nothing.  get(name, default) returns default only when
     the name is absent; an error raised while resolving a name that is present
     propagates.  values() and items() resolve every entry, and return lists.
+
+    The names present when the table is built are its built-in names, kept in
+    the builtin attribute.  register() adds a name, or replaces one on request;
+    the packages check that the name and value suit them before calling it.
     """
 
     def __init__(self, specs, factory=None, *, package=None):
@@ -67,6 +92,7 @@ class FormatRegistry(dict):
         if package is not None:
             specs = {name: _qualify(value, package) for name, value in specs.items()}
         super().__init__(specs)
+        self.builtin = frozenset(self)
         self._factory = factory
         self._lock = threading.Lock()
 
@@ -82,10 +108,15 @@ class FormatRegistry(dict):
         # locks.  Storing happens under it, and only if the entry is still the
         # value read above, so that concurrent first accesses agree on one
         # resolved value (in particular, on one wrapper class), and a value
-        # assigned in the meantime is not overwritten.
+        # assigned in the meantime is not overwritten.  An entry deleted in
+        # the meantime (SeqIO.register_format drops convert shortcuts) was
+        # present when looked up, so the lookup still returns it.
         with self._lock:
-            if super().__getitem__(name) is value:
+            current = super().get(name, _ABSENT)
+            if current is value:
                 super().__setitem__(name, resolved)
+                return resolved
+            if current is _ABSENT:
                 return resolved
         return self[name]
 
@@ -108,3 +139,21 @@ class FormatRegistry(dict):
     def items(self):
         """Return a list of all (format, handler) pairs, importing as needed."""
         return [(name, self[name]) for name in self]
+
+    def register(self, name, value, *, replace=False):
+        """Store value under name, or check it is already there.
+
+        An absent name is added.  A present name is replaced only if replace
+        is true.  Otherwise registering the handler it already holds does
+        nothing, and any other handler raises ValueError.
+        """
+        with self._lock:
+            stored = super().get(name, _ABSENT)
+            if replace or stored is _ABSENT:
+                super().__setitem__(name, value)
+                return
+        # Outside the lock, as comparing may import:
+        if not _same_handler(stored, value):
+            raise ValueError(
+                f"Format {name!r} already exists; use replace=True to replace it"
+            )

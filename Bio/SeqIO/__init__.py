@@ -355,6 +355,7 @@ __all__ = [
     "index_db",
     "parse",
     "read",
+    "register_format",
     "to_dict",
     "write",
 ]
@@ -401,12 +402,15 @@ __all__ = [
 # --Peter
 
 import importlib
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from os import fspath
 from typing import Union
 
+from Bio._io_registry import _ABSENT
+from Bio._io_registry import _same_handler
 from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.SeqRecord import SeqRecord
 
@@ -945,7 +949,9 @@ def index(filename, format, alphabet=None, key_function=None):
     Note that not all the input formats supported by Bio.SeqIO can be used
     with this index function. It is designed to work only with sequential
     file formats (e.g. "fasta", "gb", "fastq") and is not suitable for any
-    interlaced file format (e.g. alignment formats such as "clustal").
+    interlaced file format (e.g. alignment formats such as "clustal").  The
+    docstring of Bio.SeqIO.register_format says which added formats it can
+    index.
 
     For small files, it may be more efficient to use an in memory Python
     dictionary, e.g.
@@ -1013,12 +1019,11 @@ def index(filename, format, alphabet=None, key_function=None):
     # Map the file format to a sequence iterator:
     from Bio.File import _IndexedSeqFileDict
 
-    from ._index import _FormatToRandomAccess  # Lazy import
+    from ._index import _random_access_class  # Lazy import
 
-    try:
-        proxy_class = _FormatToRandomAccess[format]
-    except KeyError:
-        raise ValueError(f"Unsupported format {format!r}") from None
+    proxy_class = _random_access_class(format)
+    if proxy_class is None:
+        raise ValueError(f"Unsupported format {format!r}")
     repr = "SeqIO.index(%r, %r, alphabet=%r, key_function=%r)" % (
         filename,
         format,
@@ -1108,7 +1113,7 @@ def index_db(
     # Map the file format to a sequence iterator:
     from Bio.File import _SQLiteManySeqFilesDict
 
-    from ._index import _FormatToRandomAccess  # Lazy import
+    from ._index import _random_access_class  # Lazy import
 
     repr = "SeqIO.index_db(%r, filenames=%r, format=%r, key_function=%r)" % (
         index_filename,
@@ -1119,10 +1124,11 @@ def index_db(
 
     def proxy_factory(format, filename=None):
         """Given a filename returns proxy object, else boolean if format OK."""
+        proxy_class = _random_access_class(format)
         if filename:
-            return _FormatToRandomAccess[format](filename, format)
+            return proxy_class(filename, format)
         else:
-            return format in _FormatToRandomAccess
+            return proxy_class is not None
 
     return _SQLiteManySeqFilesDict(
         index_filename,
@@ -1281,6 +1287,127 @@ def convert(in_file, in_format, out_file, out_format, molecule_type=None):
             records = (over_ride(_) for _ in records)
         count = write(records, out_file, out_format)
     return count
+
+
+_registration_lock = threading.Lock()
+
+
+def register_format(name, iterator=None, writer=None, *, replace=False):
+    """Add a file format to Bio.SeqIO, or replace how it reads or writes one.
+
+    Arguments:
+     - name     - lower case string naming the format, as given to parse,
+       read, write, index, index_db and convert.
+     - iterator - how to read the format: a callable which takes a handle or
+       filename and returns an iterator of SeqRecord objects, usually a
+       subclass of Bio.SeqIO.SequenceIterator.  Or a "package.module:attr"
+       string naming one, which is imported when the format is first read.
+     - writer   - how to write the format: a subclass of
+       Bio.SeqIO.SequenceWriter, or a "package.module:attr" string naming
+       one, which is imported when the format is first written.  Any
+       callable that takes a handle and returns an object with a write_file
+       method works with write and convert, but SeqRecord.format and
+       format(record, name) need a SequenceWriter subclass.
+     - replace  - must be True to replace an iterator or writer the format
+       already has, built in or registered.
+
+    Give an iterator, a writer, or both.  Registering the iterator or writer
+    a format already has does nothing.  If either is refused, neither is
+    stored.
+
+    Registration lasts until the Python process ends, so register at the top
+    level of a module.  Then the worker processes that multiprocessing starts
+    with "spawn" or "forkserver" register too, as they import that module.
+
+    With replace=True, SeqIO.convert stops using its built-in shortcuts that
+    read a format whose iterator is replaced, or write one whose writer is
+    replaced, so that it uses the replacements.  Putting the built-in
+    iterator or writer back does not bring those shortcuts back.
+
+    Bio.SeqIO.index and index_db can index a new format if its iterator is a
+    SequenceIterator subclass which reads text ("t" in its modes), sets
+    record_start_marker, and overrides parse_id_from_header.
+
+    Replacing a built-in format's iterator keeps its indexing, except for
+    "sff", "sff-trim" and "uniprot-xml", which can then not be indexed.  The
+    index parses each record with the replacement, from a text handle, and
+    the replacement must give the record the id the index found for it.
+    For "ace", "embl", "fasta", "gb", "genbank", "imgt", "phd", "pir", "qual"
+    and "swiss", the index finds the records with the replacement's
+    record_start_marker.  A subclass of the built-in iterator inherits it;
+    without it, index and index_db raise an error.  For "ace", "fasta",
+    "phd", "pir" and "qual", the keys also come from the replacement's
+    parse_id_from_header.  A database made by index_db keeps the keys it was
+    built with, so rebuild it if a replacement changes the ids.
+    """
+    # Same checks and messages as parse, write and index:
+    if not isinstance(name, str):
+        raise TypeError("Need a string for the file format (lower case)")
+    if not name:
+        raise ValueError("Format required (lower case string)")
+    if not name.islower():
+        raise ValueError(f"Format string '{name}' should be lower case")
+    if iterator is None and writer is None:
+        raise TypeError("Need an iterator or a writer for the file format")
+    roles = [
+        (table, role, value)
+        for table, role, value in [
+            (_FormatToIterator, "an iterator", iterator),
+            (_FormatToWriter, "a writer", writer),
+        ]
+        if value is not None
+    ]
+    for table, role, value in roles:
+        if isinstance(value, str):
+            if ":" not in value:
+                raise ValueError(
+                    f"Expected a 'package.module:attr' string, not {value!r}"
+                )
+        elif not callable(value):
+            raise TypeError(f"Expected a callable or a string, not {value!r}")
+
+    def check():
+        """Return each role's current entry, if the role may be set (PRIVATE).
+
+        Raises ValueError if either role holds another handler and replace
+        is false.  Comparing a spec string with an object imports the spec.
+        """
+        entries = []
+        for table, role, value in roles:
+            entry = dict.get(table, name, _ABSENT)
+            if not (replace or entry is _ABSENT or _same_handler(entry, value)):
+                raise ValueError(
+                    f"Format {name!r} already has {role};"
+                    " use replace=True to replace it"
+                )
+            entries.append(entry)
+        return entries
+
+    # Checking may import a module, which must not happen under the lock, as
+    # the module may register a format as it is imported.  So check without
+    # the lock, and store under it if the entries are still the ones checked.
+    # If another registration changed one meanwhile, check again.  Either
+    # both roles are stored, or neither.
+    while True:
+        entries = check()
+        with _registration_lock:
+            if any(
+                dict.get(table, name, _ABSENT) is not entry
+                for (table, role, value), entry in zip(roles, entries)
+            ):
+                continue
+            for (table, role, value), entry in zip(roles, entries):
+                if replace or entry is _ABSENT:
+                    table.register(name, value, replace=True)
+            if replace:
+                # Drop the convert shortcuts which read (or write) this
+                # format themselves, rather than with the replacement:
+                for in_format, out_format in list(_converter):
+                    if (iterator is not None and in_format == name) or (
+                        writer is not None and out_format == name
+                    ):
+                        del _converter[in_format, out_format]
+            return
 
 
 if __name__ == "__main__":

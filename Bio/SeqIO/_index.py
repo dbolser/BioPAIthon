@@ -40,8 +40,10 @@ from io import BytesIO
 from io import StringIO
 
 from Bio import SeqIO
+from Bio._io_registry import _resolve
 from Bio.File import _IndexedSeqFileProxy
 from Bio.File import _open_for_random_access
+from Bio.SeqIO.Interfaces import SequenceIterator
 
 
 class SeqFileRandomAccess(_IndexedSeqFileProxy):
@@ -743,3 +745,44 @@ _FormatToRandomAccess = {
     "qual": SequentialSeqFileRandomAccess,
     "uniprot-xml": UniprotRandomAccess,
 }
+
+# These proxies parse each record with the built-in parser named here, not
+# with whatever SeqIO._FormatToIterator holds, so they serve only that parser.
+_BuiltinParserOnly = {
+    "sff": "Bio.SeqIO.SffIO:SffIterator",
+    "sff-trim": "Bio.SeqIO.SffIO:_SffTrimIterator",
+    "uniprot-xml": "Bio.SeqIO.UniprotIO:UniprotIterator",
+}
+
+
+def _random_access_class(format):
+    """Return the random access proxy class for a format, or None (PRIVATE).
+
+    A format with its own proxy above keeps it when its iterator is replaced,
+    unless the proxy parses with the built-in parser regardless.  Any other
+    built-in format cannot be indexed.  A format added with
+    SeqIO.register_format is scanned for record starts if its iterator is a
+    SequenceIterator subclass reading text which sets record_start_marker and
+    overrides parse_id_from_header.
+    """
+    iterators = SeqIO._FormatToIterator
+    proxy_class = _FormatToRandomAccess.get(format)
+    if proxy_class is not None:
+        parser = _BuiltinParserOnly.get(format)
+        if parser is not None and iterators.get(format) is not _resolve(parser):
+            return None
+        return proxy_class
+    if format in iterators.builtin:
+        return None
+    iterator = iterators.get(format)
+    if (
+        isinstance(iterator, type)
+        and issubclass(iterator, SequenceIterator)
+        and isinstance(iterator.modes, str)
+        and "t" in iterator.modes
+        and iterator.record_start_marker is not None
+        and getattr(iterator.parse_id_from_header, "__func__", None)
+        is not SequenceIterator.parse_id_from_header.__func__
+    ):
+        return SequentialSeqFileRandomAccess
+    return None

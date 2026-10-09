@@ -6000,3 +6000,35 @@ We can also print the alignment in a few other alignment fite formats:
    >>> print(format(alignment, "sam"))  # doctest: +NORMALIZE_WHITESPACE
    hg19_dna    0   chr2    183925985   255 1S6M4I38M1S *   0   0   *   *   AS:i:41 id:A:7
    <BLANKLINE>
+
+.. _`sec:align-register-format`:
+
+Adding a file format
+--------------------
+
+``Bio.Align.register_format`` adds an alignment file format to
+``Bio.Align``, or replaces one. Give it the format name, and a module that
+defines an ``AlignmentIterator`` class, plus an ``AlignmentWriter`` class
+if the format can be written, as the format modules in ``Bio.Align`` do:
+
+.. code:: python
+
+   from Bio import Align
+   from mypackage import staraln
+
+   Align.register_format("star-aln", staraln)
+
+Now ``Align.parse``, ``Align.read``, ``Align.write`` and
+``Alignment.format`` accept ``"star-aln"``. As for the built-in formats,
+the name is case-insensitive. Any object with these attributes can stand
+in for the module. A string such as ``"mypackage.staraln"`` names a module
+which is imported only when the format is first used. A format that
+already exists, built in or registered, is replaced only if you pass
+``replace=True``.
+
+``Bio.Align.formats`` lists the built-in formats only. Registering a format
+does not add it there.
+
+A registration lasts until the Python process ends, as in ``Bio.SeqIO``
+(see Section :ref:`sec:seqio-register-format`), so register at the top
+level of a module.
