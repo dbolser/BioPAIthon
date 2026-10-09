@@ -12,6 +12,7 @@ must not change how they behave.
 import contextlib
 import io
 import os
+import tempfile
 import threading
 import unittest
 from io import StringIO
@@ -301,6 +302,23 @@ class TestSeekableBehaviour(unittest.TestCase):
         self.assertEqual(len(alignments), 5)
         self.assertEqual(len(list(alignments)), 5)
         self.assertEqual(len(list(alignments)), 5)
+
+    def test_spooled_temporary_file(self):
+        # Its fileno() moves the data from memory to disk, and in text mode
+        # loses it if a for loop over the stream has disabled tell().
+        for fmt, path in FIXTURES.items():
+            with self.subTest(fmt=fmt):
+                with Align.parse(path, fmt) as alignments:
+                    expected = summarize(alignments)
+                with open(path) as handle:
+                    data = handle.read()
+                with tempfile.SpooledTemporaryFile(mode="w+") as stream:
+                    stream.write(data)
+                    stream.seek(0)
+                    alignments = Align.parse(stream, fmt)
+                    self.assertEqual(len(alignments), len(expected))
+                    self.assertEqual(summarize(alignments), expected)
+                    self.assertEqual(summarize(alignments), expected)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ use this module.  It provides base classes to try and simplify things.
 import io
 import os
 import stat
+import tempfile
 from abc import ABC
 from abc import abstractmethod
 from typing import Optional
@@ -39,6 +40,10 @@ def _can_seek(stream):
     else:
         if not seekable():
             return False
+    if isinstance(stream, tempfile.SpooledTemporaryFile):
+        # Its fileno() moves the data from memory to disk, and in text mode
+        # loses it if a for loop over the stream has disabled tell().
+        return True
     try:
         fileno = stream.fileno()
     except (AttributeError, OSError, ValueError):
