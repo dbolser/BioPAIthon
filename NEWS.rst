@@ -59,6 +59,18 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align`` now reads and writes ``"phylip-relaxed"``, the relaxed PHYLIP
+that RAxML and PhyML use and that ``Bio.AlignIO`` already offered. A name
+runs to the first whitespace, so it may be longer than the 10 characters
+``"phylip"`` allows. Names are read exactly as ``Bio.AlignIO`` reads them,
+and the layout and any further alignments in the file are found as for
+``"phylip"``. The writer keeps names in full, and raises ``ValueError`` for a
+name containing whitespace or a sequence without a name.
+``Bio.Align.formats`` lists the new name. It is the first entry there that is
+not also a module name: the reader and writer are
+``RelaxedAlignmentIterator`` and ``RelaxedAlignmentWriter`` in
+``Bio.Align.phylip``.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``

@@ -12,7 +12,10 @@ import support
 
 from Bio import Align
 from Bio import AlignIO
+from Bio.Align import MultipleSeqAlignment
 from Bio.Align import substitution_matrices
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 substitution_matrix = substitution_matrices.load("BLOSUM62")
 
@@ -1256,6 +1259,155 @@ class TestPhylipMultiple(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 Align.read(stream, "phylip")
         self.assertEqual(str(cm.exception), "More than one alignment found in file")
+
+
+class TestPhylipRelaxed(unittest.TestCase):
+    """Relaxed PHYLIP, in which each name ends at the first whitespace."""
+
+    path = support.DATA / "ExtendedPhylip" / "primates.phyx"
+
+    def check_alignio(self, text):
+        """Check that Bio.Align reads the text as Bio.AlignIO does."""
+        alignments = list(Align.parse(StringIO(text), "phylip-relaxed"))
+        msas = AlignIO.parse(StringIO(text), "phylip-relaxed")
+        self.assertEqual(
+            [summarize(alignment) for alignment in alignments],
+            [[(record.id, str(record.seq)) for record in msa] for msa in msas],
+        )
+        return alignments
+
+    def test_primates(self):
+        alignment = Align.read(self.path, "phylip-relaxed")
+        self.assertEqual(alignment.shape, (12, 898))
+        msa = AlignIO.read(self.path, "phylip-relaxed")
+        self.assertEqual(
+            summarize(alignment), [(record.id, str(record.seq)) for record in msa]
+        )
+        self.assertEqual(alignment.sequences[10].id, "Macaca_sylvanus")
+        self.assertEqual(alignment.sequences[9].id, "Macaca_fascicularis")
+        alignment = Align.read(self.path, "PHYLIP-Relaxed")
+        self.assertEqual(alignment.shape, (12, 898))
+
+    def test_primates_as_phylip(self):
+        # The "phylip" format takes the first 10 characters as the name.
+        with self.assertRaises(ValueError) as cm:
+            Align.read(self.path, "phylip")
+        self.assertEqual(
+            str(cm.exception), "Expected all sequences to have length 898; found 904"
+        )
+
+    def test_names_end_at_whitespace(self):
+        # A tab or several spaces may end a name, and spaces may split the
+        # sequence, in one block or several.
+        rows = [("long_name_1", "ACGTACGT"), ("n2", "AC-TACGT")]
+        for text in (
+            "2 8\n  long_name_1\tACGT ACGT\nn2    AC-T  ACGT  \n",
+            "2 8\nlong_name_1 ACGT\nn2 AC-T\n\nACGT\nAC GT\n",
+        ):
+            with self.subTest(text=text):
+                alignments = self.check_alignio(text)
+                self.assertEqual(len(alignments), 1)
+                self.assertEqual(summarize(alignments[0]), rows)
+
+    def test_sequential(self):
+        # Bio.AlignIO's phylip-relaxed reads one or more blocks only; Bio.Align
+        # finds the layout as it does for "phylip".
+        text = "2 8\nlong_name_1 ACGT\nACGT\nn2 AC-T\nAC GT\n"
+        alignment = Align.read(StringIO(text), "phylip-relaxed")
+        self.assertEqual(
+            summarize(alignment), [("long_name_1", "ACGTACGT"), ("n2", "AC-TACGT")]
+        )
+
+    def test_several_alignments(self):
+        msa = AlignIO.read(self.path, "phylip-relaxed")
+        stream = StringIO()
+        AlignIO.write([msa, msa[:5], msa], stream, "phylip-relaxed")
+        alignments = self.check_alignio(stream.getvalue())
+        self.assertEqual(
+            [alignment.shape for alignment in alignments],
+            [(12, 898), (5, 898), (12, 898)],
+        )
+        stream = StringIO()
+        self.assertEqual(Align.write(alignments, stream, "phylip-relaxed"), 3)
+        self.assertEqual(
+            [
+                summarize(alignment)
+                for alignment in self.check_alignio(stream.getvalue())
+            ],
+            [summarize(alignment) for alignment in alignments],
+        )
+
+    def test_write(self):
+        alignment = Align.read(self.path, "phylip-relaxed")
+        text = format(alignment, "phylip-relaxed")
+        lines = text.splitlines()
+        self.assertEqual(len(lines), 13)
+        self.assertEqual(lines[0], "12 898")
+        # Names are padded to one more than the longest, Macaca_fascicularis.
+        self.assertEqual(lines[1][:21], "Tarsius_syrichta    A")
+        self.assertEqual(lines[10][:21], "Macaca_fascicularis A")
+        self.assertEqual(len(lines[1]), 20 + 898)
+        # The "phylip" format cuts the names at 10 characters.
+        self.assertEqual(
+            format(alignment, "phylip").splitlines()[1][:11], "Tarsius_syA"
+        )
+        stream = StringIO()
+        self.assertEqual(Align.write(alignment, stream, "phylip-relaxed"), 1)
+        self.assertEqual(stream.getvalue(), text)
+        self.assertEqual(self.check_alignio(text)[0].shape, (12, 898))
+        self.assertEqual(
+            summarize(Align.read(StringIO(text), "phylip-relaxed")),
+            summarize(alignment),
+        )
+
+    def test_write_sanitizes_names(self):
+        # As in the "phylip" format, and in Bio.AlignIO's phylip-relaxed.
+        name = " a(b)[c],d:e;f "
+        records = [SeqRecord(Seq("ACGT"), id=name), SeqRecord(Seq("ACT"), id="g")]
+        alignment = Align.Alignment(records, np.array([[0, 2, 3, 4], [0, 2, 2, 3]]))
+        text = format(alignment, "phylip-relaxed")
+        self.assertEqual(text, "2 4\nabcd|e|f ACGT\ng        AC-T\n")
+        msa = MultipleSeqAlignment(
+            [SeqRecord(Seq("ACGT"), id=name), SeqRecord(Seq("AC-T"), id="g")]
+        )
+        stream = StringIO()
+        AlignIO.write(msa, stream, "phylip-relaxed")
+        msa = AlignIO.read(StringIO(stream.getvalue()), "phylip-relaxed")
+        self.assertEqual([record.id for record in msa], ["abcd|e|f", "g"])
+
+    def test_write_whitespace_in_name(self):
+        alignment = Align.read(self.path, "phylip-relaxed")
+        msa = AlignIO.read(self.path, "phylip-relaxed")
+        for name in ("Homo sapiens", "Homo\tsapiens"):
+            with self.subTest(name=name):
+                alignment.sequences[2].id = name
+                msa[2].id = name
+                message = f"Whitespace not allowed in identifier: {name}"
+                with self.assertRaises(ValueError) as cm:
+                    format(alignment, "phylip-relaxed")
+                self.assertEqual(str(cm.exception), message)
+                with self.assertRaises(ValueError) as cm:
+                    AlignIO.write(msa, StringIO(), "phylip-relaxed")
+                self.assertEqual(str(cm.exception), message)
+
+    def test_write_without_names(self):
+        # A line starting with whitespace would not read back.
+        coordinates = np.array([[0, 4], [0, 4]])
+        for case, sequences in (
+            ("no ids", [Seq("ACGT"), Seq("ACGT")]),
+            (
+                "empty id",
+                [SeqRecord(Seq("ACGT"), id="a"), SeqRecord(Seq("ACGT"), id="")],
+            ),
+            ("only removed characters", [SeqRecord(Seq("ACGT"), id="()")]),
+        ):
+            alignment = Align.Alignment(sequences, coordinates[: len(sequences)])
+            with self.subTest(case=case):
+                with self.assertRaises(ValueError) as cm:
+                    format(alignment, "phylip-relaxed")
+                self.assertEqual(
+                    str(cm.exception), "Relaxed PHYLIP needs a name for every sequence"
+                )
 
 
 if __name__ == "__main__":
