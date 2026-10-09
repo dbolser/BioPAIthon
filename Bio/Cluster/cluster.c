@@ -35,11 +35,13 @@
 #include "cluster.h"
 
 #ifdef CLUSTER_USE_PYTHON_MEMORY
+/* The raw domain, as the Python wrappers call this library with the GIL
+ * released, and PyMem_Malloc needs it held. */
 #include "Python.h"
-#define MALLOC PyMem_Malloc
-#define CALLOC PyMem_Calloc
-#define REALLOC PyMem_Realloc
-#define FREE PyMem_Free
+#define MALLOC PyMem_RawMalloc
+#define CALLOC PyMem_RawCalloc
+#define REALLOC PyMem_RawRealloc
+#define FREE PyMem_RawFree
 #else
 #define MALLOC malloc
 #define CALLOC calloc
