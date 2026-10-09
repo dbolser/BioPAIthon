@@ -77,9 +77,10 @@ class AlignmentExtensionTests(unittest.TestCase):
     def test_pairwise_aligner_linear_traceback(self):
         """Use the linear-space traceback repeatedly.
 
-        It is switched off by default; the private test hook switches it on.
-        The first path comes from checkpointed rows, the second from the full
-        matrix.  The second aligner's substitution matrix is copied.
+        The private test hook routes these short sequences to it.  len()
+        counts in linear space, the first path comes from checkpointed rows,
+        the second from the full matrix.  The second aligner's substitution
+        matrix is copied.
         """
         from Bio.Align import PairwiseAligner
         from Bio.Align import _pairwisealigner
@@ -97,6 +98,7 @@ class AlignmentExtensionTests(unittest.TestCase):
                     alignments = aligner.align(target, query)
                 finally:
                     _pairwisealigner._set_traceback_limits(*previous)
+                len(alignments)
                 str(alignments[0])
                 str(alignments[1])
                 alignments.rewind()
