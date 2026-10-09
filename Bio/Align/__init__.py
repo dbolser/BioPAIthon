@@ -5316,10 +5316,22 @@ formats = (
 )
 # fmt: on
 
+
+def _plugin_format_name(name):
+    """Return an entry point's name as a format name, in lower case (PRIVATE)."""
+    if not name:
+        raise ValueError("Format required (non-empty string)")
+    return name.lower()
+
+
 # Format name (in lower case) to the module that reads and writes it, imported
 # on first use.  Any object with the same AlignmentIterator and (optionally)
 # AlignmentWriter attributes can stand in for a module.
-_registry = _FormatRegistry({fmt: f"Bio.Align.{fmt}" for fmt in formats})
+_registry = _FormatRegistry(
+    {fmt: f"Bio.Align.{fmt}" for fmt in formats},
+    group="biopaithon.align",
+    name_rule=_plugin_format_name,
+)
 
 
 def _load(fmt):
@@ -5343,7 +5355,8 @@ def register_format(name, module, *, replace=False):
        "package.module:attr" string naming one, which is imported when the
        format is first used.
      - replace - must be True to replace a format that already exists, built
-       in or registered.
+       in or registered.  A format that an entry-point plugin gave is
+       replaced without it.
 
     Registering the module a format already has does nothing.
 

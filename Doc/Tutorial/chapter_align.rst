@@ -6032,3 +6032,20 @@ does not add it there.
 A registration lasts until the Python process ends, as in ``Bio.SeqIO``
 (see Section :ref:`sec:seqio-register-format`), so register at the top
 level of a module.
+
+A package can instead declare the format as an entry point in the
+``biopaithon.align`` group of its ``pyproject.toml``, naming the module:
+
+.. code:: toml
+
+   [project.entry-points."biopaithon.align"]
+   star-aln = "mypackage.staraln"
+
+Then nobody needs to call ``register_format``. As in ``Bio.SeqIO``,
+``Bio.Align`` looks for these entry points once per Python process, the
+first time it is given a format name it does not know, and imports the
+module when the format is first used. The name is case-insensitive here
+too. An entry point naming a built-in format, or a name which two
+installed packages give different modules, is ignored with a warning.
+``register_format`` replaces a format from an entry point without
+``replace=True``.
