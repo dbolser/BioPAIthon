@@ -5,9 +5,9 @@
 """Tests for file formats which installed distributions declare as entry points.
 
 Bio.SeqIO and Bio.Align look for entry points once per process, so each test
-runs its checks in a fresh interpreter.  That interpreter finds two fake
-distributions, fakeplugin and otherplugin, in a temporary directory on
-sys.path, along with the modules their entry points name.
+runs its checks in a fresh interpreter.  That interpreter finds three fake
+distributions, fakeplugin, otherplugin and nameless, in a temporary directory
+on sys.path, along with the modules their entry points name.
 """
 
 import os
@@ -24,7 +24,8 @@ FASTA = str(support.DATA / "Fasta" / "f002")
 FASTA_ONE = str(support.DATA / "Fasta" / "f001")
 CLUSTAL = str(support.DATA / "Clustalw" / "opuntia.aln")
 
-# Distribution name to the text of its entry_points.txt file.
+# Distribution name to the text of its entry_points.txt file.  The metadata
+# of the distribution "nameless" gives no Name.
 DISTRIBUTIONS = {
     "fakeplugin": """\
 [biopaithon.seqio.iterators]
@@ -40,11 +41,19 @@ starfasta = fakeplugin_formats:StarFastaWriter [extra]
 
 [biopaithon.align]
 STAR-ALN = fakeplugin_aln
+GoodAln = fakeplugin_aln
+GOODALN = otherplugin_formats
 """,
     "otherplugin": """\
 [biopaithon.seqio.iterators]
 dup = otherplugin_formats:OtherIterator
 same = fakeplugin_formats:StarFastaIterator
+weird = not a valid!!value
+""",
+    "nameless": """\
+[biopaithon.seqio.iterators]
+noname = fakeplugin_formats:StarFastaIterator
+NoName = fakeplugin_formats:StarFastaIterator
 """,
 }
 
@@ -99,16 +108,30 @@ warnings.simplefilter("always", BiopythonWarning)
 
 GROUP = "'biopaithon.seqio.iterators'"
 
-# The warnings given when Bio.SeqIO looks for its iterator plugins, and no
-# others: none is given for "same", which both distributions name the same.
+# The warnings given when Bio.SeqIO looks for its iterator plugins, sorted as
+# run_python returns them.  None is given for "same", which both distributions
+# name the same, nor for "noname".
 ITERATOR_WARNINGS = [
     f"Ignoring entry point 'BadName' of fakeplugin in group {GROUP}:"
     " Format string 'BadName' should be lower case",
-    f"Ignoring entry point 'dup' in group {GROUP}:"
-    " fakeplugin and otherplugin give it different objects",
+    f"Ignoring entry point 'NoName' of a distribution with no name in group"
+    f" {GROUP}: Format string 'NoName' should be lower case",
     f"Ignoring entry point 'fasta' of fakeplugin in group {GROUP}:"
     " 'fasta' is a built-in format",
+    f"Ignoring entry point 'weird' of otherplugin in group {GROUP}:"
+    " 'not a valid!!value' is not an object reference",
+    f"Ignoring entry points 'dup' of fakeplugin and 'dup' of otherplugin in group"
+    f" {GROUP}: they give format 'dup' different objects",
 ]
+
+# The warning given when Bio.Align looks for its plugins.  Its names are
+# case-insensitive, so the two entry points name the same format.
+ALIGN_WARNINGS = [
+    "Ignoring entry points 'GOODALN' of fakeplugin and 'GoodAln' of fakeplugin"
+    " in group 'biopaithon.align': they give format 'goodaln' different objects"
+]
+
+ALL_WARNINGS = sorted(ITERATOR_WARNINGS + ALIGN_WARNINGS)
 
 
 def setUpModule():
@@ -117,8 +140,9 @@ def setUpModule():
     for distribution, entry_points in DISTRIBUTIONS.items():
         directory = os.path.join(plugins, f"{distribution}-0.1.dist-info")
         os.mkdir(directory)
+        name = "" if distribution == "nameless" else f"Name: {distribution}\n"
         with open(os.path.join(directory, "METADATA"), "w") as handle:
-            handle.write(f"Metadata-Version: 2.1\nName: {distribution}\nVersion: 0.1\n")
+            handle.write(f"Metadata-Version: 2.1\n{name}Version: 0.1\n")
         with open(os.path.join(directory, "entry_points.txt"), "w") as handle:
             handle.write(entry_points)
     for name, source in MODULES.items():
@@ -228,9 +252,10 @@ assert Align._registry["star-aln"] is fakeplugin_aln
 assert "STAR-ALN" not in dict.keys(Align._registry)
 assert Align._registry.plugins == {{"star-aln"}}
 assert "star-aln" not in Align.formats
+assert "goodaln" not in Align._registry
 """
         )
-        self.assertEqual(warnings, [])
+        self.assertEqual(warnings, ALIGN_WARNINGS)
 
 
 class Precedence(PluginTestCase):
@@ -254,7 +279,7 @@ assert SeqIO._FormatToWriter["starfasta"] is FastaWriter
 assert Align._registry["star-aln"] is clustal
 """
         )
-        self.assertEqual(warnings, ITERATOR_WARNINGS)
+        self.assertEqual(warnings, ALL_WARNINGS)
 
     def test_miss_then_register(self):
         warnings = self.run_python(
@@ -290,7 +315,7 @@ else:
     raise AssertionError("replaced a registration without replace=True")
 """
         )
-        self.assertEqual(warnings, ITERATOR_WARNINGS)
+        self.assertEqual(warnings, ALL_WARNINGS)
 
 
 class Conflicts(PluginTestCase):
@@ -304,10 +329,11 @@ from Bio.SeqIO.FastaIO import FastaIterator
 table = SeqIO._FormatToIterator
 assert "absent" not in table
 assert table["fasta"] is FastaIterator
-for name in ["BadName", "badname", "dup"]:
+for name in ["BadName", "badname", "dup", "NoName", "weird"]:
     assert name not in table, name
     assert name not in table.plugins, name
-assert table.plugins >= {"starfasta", "same", "broken"}
+# A distribution with no name, or with one bad entry point, still counts:
+assert table.plugins >= {"starfasta", "same", "broken", "noname"}
 assert dict.get(table, "same") == "fakeplugin_formats:StarFastaIterator"
 """
         )
@@ -432,6 +458,27 @@ for thread in threads:
 # One scan served all three tables:
 assert calls == [{}], calls
 assert found == [True] * 8, found
+"""
+        )
+        self.assertEqual(warnings, ALL_WARNINGS)
+
+    def test_added_meanwhile(self):
+        """A miss looks again if another thread added the plugins meanwhile."""
+        warnings = self.run_python(
+            """\
+table = SeqIO._FormatToIterator
+discover = table._discover
+
+
+def discover_after_another_thread():
+    # Another thread adds the plugins between this thread's first look and
+    # its own call, which then has nothing left to do:
+    discover()
+    return discover()
+
+
+table._discover = discover_after_another_thread
+assert "starfasta" in table
 """
         )
         self.assertEqual(warnings, ITERATOR_WARNINGS)
