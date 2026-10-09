@@ -14,6 +14,11 @@ M. de Hoon et al. (2004) https://doi.org/10.1093/bioinformatics/bth078
 
 import numbers
 import os
+from collections.abc import Sequence
+from typing import Any
+from typing import cast
+from typing import IO
+from typing import TYPE_CHECKING
 
 try:
     import numpy as np
@@ -24,7 +29,14 @@ except ImportError:
         "Please install NumPy if you want to use Bio.Cluster. See http://www.numpy.org/"
     ) from None
 
-from . import _cluster  # type: ignore
+from . import _cluster
+
+if TYPE_CHECKING:
+    # For the type checker only, so annotations using these are quoted.
+    # Evaluated, ArrayLike would show in every signature in the API
+    # documentation as the long union it stands for.
+    from numpy.typing import ArrayLike
+    from numpy.typing import NDArray
 
 __all__ = (
     "Node",
@@ -60,7 +72,12 @@ class Tree(_cluster.Tree):
     A Tree consists of Nodes.
     """
 
-    def sort(self, order=None):
+    # sort and cut make and return the array that the C methods they
+    # override take as an argument, so their signatures differ.
+
+    def sort(  # type: ignore[override]
+        self, order: "ArrayLike | None" = None
+    ) -> "NDArray[np.intc]":
         """Sort the hierarchical clustering tree.
 
         Sort the hierarchical clustering tree by switching the left and
@@ -83,7 +100,9 @@ class Tree(_cluster.Tree):
         _cluster.Tree.sort(self, indices, order)
         return indices
 
-    def cut(self, nclusters=None):
+    def cut(  # type: ignore[override]
+        self, nclusters: int | None = None
+    ) -> "NDArray[np.intc]":
         """Create clusters by cutting the hierarchical clustering tree.
 
         Divide the elements in a hierarchical clustering result mytree
@@ -102,17 +121,17 @@ class Tree(_cluster.Tree):
 
 
 def kcluster(
-    data,
-    nclusters=2,
-    mask=None,
-    weight=None,
-    transpose=False,
-    npass=1,
-    method="a",
-    dist="e",
-    initialid=None,
-    rng_seed=None,
-):
+    data: "ArrayLike",
+    nclusters: int = 2,
+    mask: "ArrayLike | None" = None,
+    weight: "ArrayLike | None" = None,
+    transpose: int = False,
+    npass: int = 1,
+    method: str = "a",
+    dist: str = "e",
+    initialid: "ArrayLike | None" = None,
+    rng_seed: int | None = None,
+) -> "tuple[NDArray[np.intc], float, int]":
     """Perform k-means clustering.
 
     This function performs k-means clustering on the values in data, and
@@ -194,7 +213,13 @@ def kcluster(
     return clusterid, error, nfound
 
 
-def kmedoids(distance, nclusters=2, npass=1, initialid=None, rng_seed=None):
+def kmedoids(
+    distance: "ArrayLike",
+    nclusters: int = 2,
+    npass: int = 1,
+    initialid: "ArrayLike | None" = None,
+    rng_seed: int | None = None,
+) -> "tuple[NDArray[np.intc], float, int]":
     """Perform k-medoids clustering.
 
     This function performs k-medoids clustering, and returns the cluster
@@ -265,14 +290,14 @@ def kmedoids(distance, nclusters=2, npass=1, initialid=None, rng_seed=None):
 
 
 def treecluster(
-    data,
-    mask=None,
-    weight=None,
-    transpose=False,
-    method="m",
-    dist="e",
-    distancematrix=None,
-):
+    data: "ArrayLike | None",
+    mask: "ArrayLike | None" = None,
+    weight: "ArrayLike | None" = None,
+    transpose: int = False,
+    method: str = "m",
+    dist: str = "e",
+    distancematrix: "ArrayLike | None" = None,
+) -> Tree:
     """Perform hierarchical clustering, and return a Tree object.
 
     This function implements the pairwise single, complete, centroid, and
@@ -342,22 +367,24 @@ def treecluster(
     treecluster returns a Tree object describing the hierarchical clustering
     result. See the description of the Tree class for more information.
     """
-    if data is None and distancematrix is None:
-        raise ValueError("use either data or distancematrix")
-    if data is not None and distancematrix is not None:
-        raise ValueError("use either data or distancematrix; do not use both")
+    # One branch per case, so that a type checker sees mask and weight are
+    # arrays or None by the time they reach the C code.
     if data is not None:
+        if distancematrix is not None:
+            raise ValueError("use either data or distancematrix; do not use both")
         data = __check_data(data)
         shape = data.shape
         ndata = shape[0] if transpose else shape[1]
         mask = __check_mask(mask, shape)
         weight = __check_weight(weight, ndata)
-    if distancematrix is not None:
+    elif distancematrix is not None:
         distancematrix = __check_distancematrix(distancematrix)
         if mask is not None:
             raise ValueError("mask is ignored if distancematrix is used")
         if weight is not None:
             raise ValueError("weight is ignored if distancematrix is used")
+    else:
+        raise ValueError("use either data or distancematrix")
     tree = Tree()
     _cluster.treecluster(
         tree, data, mask, weight, transpose, method, dist, distancematrix
@@ -366,17 +393,17 @@ def treecluster(
 
 
 def somcluster(
-    data,
-    mask=None,
-    weight=None,
-    transpose=False,
-    nxgrid=2,
-    nygrid=1,
-    inittau=0.02,
-    niter=1,
-    dist="e",
-    rng_seed=None,
-):
+    data: "NDArray[Any]",
+    mask: "ArrayLike | None" = None,
+    weight: "ArrayLike | None" = None,
+    transpose: int = False,
+    nxgrid: int = 2,
+    nygrid: int = 1,
+    inittau: float = 0.02,
+    niter: int = 1,
+    dist: str = "e",
+    rng_seed: int | None = None,
+) -> "tuple[NDArray[np.intc], NDArray[np.float64]]":
     """Calculate a Self-Organizing Map.
 
     This function implements a Self-Organizing Map on a rectangular grid.
@@ -453,15 +480,15 @@ def somcluster(
 
 
 def clusterdistance(
-    data,
-    mask=None,
-    weight=None,
-    index1=None,
-    index2=None,
-    method="a",
-    dist="e",
-    transpose=False,
-):
+    data: "ArrayLike",
+    mask: "ArrayLike | None" = None,
+    weight: "ArrayLike | None" = None,
+    index1: "ArrayLike | None" = None,
+    index2: "ArrayLike | None" = None,
+    method: str = "a",
+    dist: str = "e",
+    transpose: int = False,
+) -> float:
     """Calculate and return the distance between two clusters.
 
     Keyword arguments:
@@ -510,7 +537,13 @@ def clusterdistance(
     )
 
 
-def clustercentroids(data, mask=None, clusterid=None, method="a", transpose=False):
+def clustercentroids(
+    data: "ArrayLike",
+    mask: "ArrayLike | None" = None,
+    clusterid: "ArrayLike | None" = None,
+    method: str = "a",
+    transpose: int = False,
+) -> "tuple[NDArray[np.float64], NDArray[np.intc]]":
     """Calculate and return the centroid of each cluster.
 
     The clustercentroids routine calculates the cluster centroids, given to
@@ -558,7 +591,13 @@ def clustercentroids(data, mask=None, clusterid=None, method="a", transpose=Fals
     return cdata, cmask
 
 
-def distancematrix(data, mask=None, weight=None, transpose=False, dist="e"):
+def distancematrix(
+    data: "ArrayLike",
+    mask: "ArrayLike | None" = None,
+    weight: "ArrayLike | None" = None,
+    transpose: int = False,
+    dist: str = "e",
+) -> "list[NDArray[np.float64]]":
     """Calculate and return a distance matrix from the data.
 
     This function returns the distance matrix calculated from the data.
@@ -618,12 +657,14 @@ def distancematrix(data, mask=None, weight=None, transpose=False, dist="e"):
     else:
         nitems, ndata = shape
     weight = __check_weight(weight, ndata)
-    matrix = [np.empty(i, dtype="d") for i in range(nitems)]
+    matrix: list[NDArray[np.float64]] = [np.empty(i, dtype="d") for i in range(nitems)]
     _cluster.distancematrix(data, mask, weight, transpose, dist, matrix)
     return matrix
 
 
-def pca(data):
+def pca(
+    data: "ArrayLike",
+) -> "tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]":
     """Perform principal component analysis.
 
     Keyword arguments:
@@ -691,22 +732,26 @@ class Record:
 
     """
 
-    def __init__(self, handle=None):
+    def __init__(self, handle: IO[str] | None = None) -> None:
         """Read gene expression data from the file handle and return a Record.
 
         The file should be in the format defined for Michael Eisen's
         Cluster/TreeView program.
         """
-        self.data = None
-        self.mask = None
-        self.geneid = None
-        self.genename = None
-        self.gweight = None
-        self.gorder = None
-        self.expid = None
-        self.eweight = None
-        self.eorder = None
-        self.uniqid = None
+        # data, geneid, expid and uniqid are None only on a blank Record,
+        # made without a handle for the caller to fill in. The others are
+        # also None if the file does not have that data. gweight and gorder
+        # are an empty list if the file has the column but no genes.
+        self.data: NDArray[np.float64] | Any = None
+        self.mask: NDArray[np.int_] | None = None
+        self.geneid: list[str] | Any = None
+        self.genename: list[str] | None = None
+        self.gweight: NDArray[np.float64] | list[float] | None = None
+        self.gorder: NDArray[np.float64] | list[float] | None = None
+        self.expid: list[str] | Any = None
+        self.eweight: NDArray[np.float64] | None = None
+        self.eorder: NDArray[np.float64] | None = None
+        self.uniqid: str | Any = None
         if not handle:
             return
         line = handle.readline().strip("\r\n").split("\t")
@@ -715,23 +760,19 @@ class Record:
         self.expid = []
         cols = {0: "GENEID"}
         for word in line[1:]:
-            if word == "NAME":
+            if word in ("NAME", "GWEIGHT", "GORDER"):
                 cols[line.index(word)] = word
-                self.genename = []
-            elif word == "GWEIGHT":
-                cols[line.index(word)] = word
-                self.gweight = []
-            elif word == "GORDER":
-                cols[line.index(word)] = word
-                self.gorder = []
             else:
                 self.expid.append(word)
         self.geneid = []
-        self.data = []
-        self.mask = []
+        genename: list[str] = []
+        gweight: list[float] = []
+        gorder: list[float] = []
+        data: list[list[float]] = []
+        mask: list[list[int]] = []
         needmask = 0
-        for line in handle:
-            line = line.strip("\r\n").split("\t")
+        for text in handle:
+            line = text.strip("\r\n").split("\t")
             if len(line) != n:
                 raise ValueError(
                     "Line with %d columns found (expected %d)" % (len(line), n)
@@ -753,11 +794,11 @@ class Record:
                     if cols[i] == "GENEID":
                         self.geneid.append(word)
                     if cols[i] == "NAME":
-                        self.genename.append(word)
+                        genename.append(word)
                     if cols[i] == "GWEIGHT":
-                        self.gweight.append(float(word))
+                        gweight.append(float(word))
                     if cols[i] == "GORDER":
-                        self.gorder.append(float(word))
+                        gorder.append(float(word))
                     continue
                 if not word:
                     rowdata.append(0.0)
@@ -766,19 +807,21 @@ class Record:
                 else:
                     rowdata.append(float(word))
                     rowmask.append(1)
-            self.data.append(rowdata)
-            self.mask.append(rowmask)
-        self.data = np.array(self.data)
+            data.append(rowdata)
+            mask.append(rowmask)
+        self.data = np.array(data)
         if needmask:
-            self.mask = np.array(self.mask, int)
-        else:
-            self.mask = None
-        if self.gweight:
-            self.gweight = np.array(self.gweight)
-        if self.gorder:
-            self.gorder = np.array(self.gorder)
+            self.mask = np.array(mask, int)
+        if "NAME" in cols.values():
+            self.genename = genename
+        if "GWEIGHT" in cols.values():
+            self.gweight = np.array(gweight) if gweight else gweight
+        if "GORDER" in cols.values():
+            self.gorder = np.array(gorder) if gorder else gorder
 
-    def treecluster(self, transpose=False, method="m", dist="e"):
+    def treecluster(
+        self, transpose: int = False, method: str = "m", dist: str = "e"
+    ) -> Tree:
         """Apply hierarchical clustering and return a Tree object.
 
         The pairwise single, complete, centroid, and average linkage
@@ -813,14 +856,14 @@ class Record:
 
     def kcluster(
         self,
-        nclusters=2,
-        transpose=False,
-        npass=1,
-        method="a",
-        dist="e",
-        initialid=None,
-        rng_seed=None,
-    ):
+        nclusters: int = 2,
+        transpose: int = False,
+        npass: int = 1,
+        method: str = "a",
+        dist: str = "e",
+        initialid: "ArrayLike | None" = None,
+        rng_seed: int | None = None,
+    ) -> "tuple[NDArray[np.intc], float, int]":
         """Apply k-means or k-median clustering.
 
         This method returns a tuple (clusterid, error, nfound).
@@ -885,14 +928,14 @@ class Record:
 
     def somcluster(
         self,
-        transpose=False,
-        nxgrid=2,
-        nygrid=1,
-        inittau=0.02,
-        niter=1,
-        dist="e",
-        rng_seed=None,
-    ):
+        transpose: int = False,
+        nxgrid: int = 2,
+        nygrid: int = 1,
+        inittau: float = 0.02,
+        niter: int = 1,
+        dist: str = "e",
+        rng_seed: int | None = None,
+    ) -> "tuple[NDArray[np.intc], NDArray[np.float64]]":
         """Calculate a self-organizing map on a rectangular grid.
 
         The somcluster method returns a tuple (clusterid, celldata).
@@ -950,7 +993,12 @@ class Record:
             rng_seed,
         )
 
-    def clustercentroids(self, clusterid=None, method="a", transpose=False):
+    def clustercentroids(
+        self,
+        clusterid: "ArrayLike | None" = None,
+        method: str = "a",
+        transpose: int = False,
+    ) -> "tuple[NDArray[np.float64], NDArray[np.intc]]":
         """Calculate the cluster centroids and return a tuple (cdata, cmask).
 
         The centroid is defined as either the mean or the median over all
@@ -979,8 +1027,13 @@ class Record:
         return clustercentroids(self.data, self.mask, clusterid, method, transpose)
 
     def clusterdistance(
-        self, index1=0, index2=0, method="a", dist="e", transpose=False
-    ):
+        self,
+        index1: "ArrayLike | None" = 0,
+        index2: "ArrayLike | None" = 0,
+        method: str = "a",
+        dist: str = "e",
+        transpose: int = False,
+    ) -> float:
         """Calculate the distance between two clusters.
 
         Keyword arguments:
@@ -1023,7 +1076,9 @@ class Record:
             self.data, self.mask, weight, index1, index2, method, dist, transpose
         )
 
-    def distancematrix(self, transpose=False, dist="e"):
+    def distancematrix(
+        self, transpose: int = False, dist: str = "e"
+    ) -> "list[NDArray[np.float64]]":
         """Calculate the distance matrix and return it as a list of arrays.
 
         Keyword arguments:
@@ -1066,7 +1121,12 @@ class Record:
             weight = self.eweight
         return distancematrix(self.data, self.mask, weight, transpose, dist)
 
-    def save(self, jobname, geneclusters=None, expclusters=None):
+    def save(
+        self,
+        jobname: str,
+        geneclusters: "Tree | Sequence[int] | NDArray[Any] | None" = None,
+        expclusters: "Tree | Sequence[int] | NDArray[Any] | None" = None,
+    ) -> None:
         """Save the clustering results.
 
         The saved files follow the convention for the Java TreeView program,
@@ -1089,6 +1149,8 @@ class Record:
            vector can be calculated by kcluster.
         """
         (ngenes, nexps) = np.shape(self.data)
+        gorder: ArrayLike
+        eorder: ArrayLike
         if self.gorder is None:
             gorder = np.arange(ngenes)
         else:
@@ -1111,6 +1173,8 @@ class Record:
         aid = 0
         filename = jobname
         postfix = ""
+        geneindex: NDArray[np.integer[Any]]
+        expindex: NDArray[np.integer[Any]]
         if isinstance(geneclusters, Tree):
             # This is a hierarchical clustering result.
             geneindex = self._savetree(jobname, geneclusters, gorder, False)
@@ -1140,7 +1204,9 @@ class Record:
         filename = filename + postfix
         self._savedata(filename, gid, aid, geneindex, expindex)
 
-    def _savetree(self, jobname, tree, order, transpose):
+    def _savetree(
+        self, jobname: str, tree: Tree, order: "ArrayLike", transpose: bool
+    ) -> "NDArray[np.intc]":
         """Save the hierarchical clustering solution (PRIVATE)."""
         if transpose:
             extension = ".atr"
@@ -1175,7 +1241,13 @@ class Record:
                 outputfile.write("\n")
         return index
 
-    def _savekmeans(self, filename, clusterids, order, transpose):
+    def _savekmeans(
+        self,
+        filename: str,
+        clusterids: "Sequence[int] | NDArray[Any]",
+        order: "ArrayLike",
+        transpose: bool,
+    ) -> "NDArray[np.int_]":
         """Save the k-means clustering solution (PRIVATE)."""
         if transpose:
             label = "ARRAY"
@@ -1199,7 +1271,14 @@ class Record:
                 cluster += 1
         return sortedindex
 
-    def _savedata(self, jobname, gid, aid, geneindex, expindex):
+    def _savedata(
+        self,
+        jobname: str,
+        gid: int,
+        aid: int,
+        geneindex: "NDArray[np.integer[Any]]",
+        expindex: "NDArray[np.integer[Any]]",
+    ) -> None:
         """Save the clustered data (PRIVATE)."""
         if self.genename is None:
             genename = self.geneid
@@ -1253,7 +1332,7 @@ class Record:
                 outputfile.write("\n")
 
 
-def read(handle):
+def read(handle: IO[str]) -> Record:
     """Read gene expression data from the file handle and return a Record.
 
     The file should be in the file format defined for Michael Eisen's
@@ -1266,7 +1345,7 @@ def read(handle):
 #
 
 
-def __check_rng_seed(rng_seed):
+def __check_rng_seed(rng_seed: int | None) -> int:
     """Return rng_seed, drawing a fresh one from os.urandom if it is None.
 
     None is resolved here, at the Python layer, so that unseeded calls
@@ -1279,7 +1358,7 @@ def __check_rng_seed(rng_seed):
     return rng_seed
 
 
-def __check_data(data):
+def __check_data(data: "ArrayLike") -> "NDArray[np.float64]":
     if isinstance(data, np.ndarray):
         data = np.require(data, dtype="d", requirements="C")
     else:
@@ -1291,7 +1370,9 @@ def __check_data(data):
     return data
 
 
-def __check_mask(mask, shape):
+def __check_mask(
+    mask: "ArrayLike | None", shape: tuple[int, ...]
+) -> "NDArray[np.intc]":
     if mask is None:
         return np.ones(shape, dtype="intc")
     elif isinstance(mask, np.ndarray):
@@ -1300,7 +1381,7 @@ def __check_mask(mask, shape):
         return np.array(mask, dtype="intc")
 
 
-def __check_weight(weight, ndata):
+def __check_weight(weight: "ArrayLike | None", ndata: int) -> "NDArray[np.float64]":
     if weight is None:
         return np.ones(ndata, dtype="d")
     if isinstance(weight, np.ndarray):
@@ -1312,18 +1393,20 @@ def __check_weight(weight, ndata):
     return weight
 
 
-def __check_initialid(initialid, npass, nitems):
+def __check_initialid(
+    initialid: "ArrayLike | None", npass: int, nitems: int
+) -> "tuple[NDArray[np.intc], int]":
     if initialid is None:
         if npass <= 0:
             raise ValueError("npass should be a positive integer")
-        clusterid = np.empty(nitems, dtype="intc")
+        clusterid: NDArray[np.intc] = np.empty(nitems, dtype="intc")
     else:
         npass = 0
         clusterid = np.array(initialid, dtype="intc")
     return clusterid, npass
 
 
-def __check_index(index):
+def __check_index(index: "ArrayLike | None") -> "NDArray[np.intc]":
     if index is None:
         return np.zeros(1, dtype="intc")
     elif isinstance(index, numbers.Integral):
@@ -1334,7 +1417,9 @@ def __check_index(index):
         return np.array(index, dtype="intc")
 
 
-def __check_distancematrix(distancematrix):
+def __check_distancematrix(
+    distancematrix: "ArrayLike",
+) -> "NDArray[np.float64] | list[NDArray[np.float64]]":
     if distancematrix is None:
         return distancematrix
     if isinstance(distancematrix, np.ndarray):
@@ -1343,9 +1428,11 @@ def __check_distancematrix(distancematrix):
         try:
             distancematrix = np.array(distancematrix, dtype="d")
         except ValueError:
-            n = len(distancematrix)
-            d = [None] * n
-            for i, row in enumerate(distancematrix):
+            # np.array failed, so this is a sequence it cannot make one array
+            # of, such as a ragged list of rows.
+            rows = cast("Sequence[ArrayLike]", distancematrix)
+            d: list[NDArray[np.float64]] = []
+            for i, row in enumerate(rows):
                 if isinstance(row, np.ndarray):
                     row = np.require(row, dtype="d", requirements="C")
                 else:
@@ -1359,7 +1446,7 @@ def __check_distancematrix(distancematrix):
                     ) from None
                 if np.isnan(row).any():
                     raise ValueError("distancematrix contains NaN values") from None
-                d[i] = row
+                d.append(row)
             return d
     if np.isnan(distancematrix).any():
         raise ValueError("distancematrix contains NaN values")
