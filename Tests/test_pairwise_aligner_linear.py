@@ -559,6 +559,21 @@ class TestInterrupt(unittest.TestCase):
         cls.aligner = nw_aligner()
         cls.expected = cls.aligner.align(*cls.seqs)
 
+    @contextlib.contextmanager
+    def alarms(self, handler, delay, interval=0):
+        """Run handler on SIGALRM from a timer for the duration of a with block."""
+        previous = signal.signal(signal.SIGALRM, handler)
+        signal.setitimer(signal.ITIMER_REAL, delay, interval)
+        try:
+            yield
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            # Discard a SIGALRM still pending for another thread, such as a
+            # pytest-xdist worker's: under the default action, restored next,
+            # it would end the process.
+            signal.signal(signal.SIGALRM, signal.SIG_IGN)
+            signal.signal(signal.SIGALRM, previous)
+
     def interrupt(self, paths, returned, call=next):
         """Call call(paths) with a timer raising KeyboardInterrupt."""
         calls = 0
@@ -569,13 +584,8 @@ class TestInterrupt(unittest.TestCase):
             if calls == 3:
                 raise KeyboardInterrupt
 
-        previous = signal.signal(signal.SIGALRM, handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.001, 0.001)
-        try:
+        with self.alarms(handler, 0.001, 0.001):
             returned.append(call(paths))
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous)
 
     def test_interrupt(self):
         expected = self.expected
@@ -611,14 +621,9 @@ class TestInterrupt(unittest.TestCase):
         def handler(signum, frame):
             len(paths)
 
-        previous = signal.signal(signal.SIGALRM, handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.002)
-        try:
+        with self.alarms(handler, 0.002):
             with self.assertRaisesRegex(RuntimeError, "being computed"):
                 next(paths)
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous)
         first = self.expected[0].coordinates
         self.assertTrue(np.array_equal(alignments[0].coordinates, first))
 
