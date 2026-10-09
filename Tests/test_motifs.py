@@ -9,8 +9,11 @@
 """Tests for motifs module."""
 
 import math
+import random
+import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 
 try:
@@ -5267,6 +5270,30 @@ class MotifTestPWM(unittest.TestCase):
         self.assertAlmostEqual(pseudocounts["C"], 1.695582495781317, places=5)
         self.assertAlmostEqual(pseudocounts["G"], 1.695582495781317, places=5)
         self.assertAlmostEqual(pseudocounts["T"], 1.695582495781317, places=5)
+
+
+# Run only while the GIL is off. A free-threaded build turns it back on when
+# an undeclared extension is imported, unless PYTHON_GIL=0 is set.
+@unittest.skipIf(
+    getattr(sys, "_is_gil_enabled", lambda: True)(), "requires the GIL to be disabled"
+)
+class ConcurrentCalculate(unittest.TestCase):
+    """Concurrent PSSM scoring of a shared sequence matches serial scoring."""
+
+    def test_threads_match_serial(self):
+        with open(support.DATA / "motifs" / "SRF.pfm") as stream:
+            pssm = motifs.read(stream, "pfm").pssm
+        rng = random.Random(0)
+        # Mixed case and N, so every branch of the C scoring loop is taken.
+        sequence = Seq("".join(rng.choice("ACGTacgtN") for _ in range(100_000)))
+        expected = pssm.calculate(sequence)
+
+        def work(_):
+            return pssm.calculate(sequence)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for scores in executor.map(work, range(32)):
+                np.testing.assert_array_equal(scores, expected)
 
 
 if __name__ == "__main__":

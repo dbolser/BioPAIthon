@@ -408,6 +408,11 @@ jobs:
           # setup-python does not have a Windows ARM64 build before 3.11
           - os: windows-11-arm
             python-version: "3.11"
+          # Free-threaded (see test_freethreaded). Its job here is to show
+          # that MSVC builds see Py_GIL_DISABLED: without it the GIL-free
+          # declarations compile to nothing, and the check below fails.
+          - os: windows-2022
+            python-version: "3.14t"
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -434,7 +439,17 @@ jobs:
       run: |
         python -m pip install .
 
+    - name: Check the GIL-free declarations
+      if: endsWith(matrix.python-version, 't')
+      run: |
+        cd Tests
+        python run_tests.py --offline -v test_free_threading
+
     - name: Run test suite
+      env:
+        # Free-threaded only, as in test_freethreaded. CPython ignores an
+        # empty PYTHON_GIL, and a GIL build refuses PYTHON_GIL=0.
+        PYTHON_GIL: ${{ endsWith(matrix.python-version, 't') && '0' || '' }}
       run: |
         cd Tests
         coverage run --source Bio,BioSQL run_tests.py --offline
@@ -488,10 +503,57 @@ jobs:
         cd Tests
         python run_tests.py --offline
 
+  # The free-threaded (no GIL) build of CPython. So far only some extensions
+  # declare that they can run without the GIL (Tests/test_free_threading.py
+  # lists which), and importing any other turns the GIL back on, so the suite
+  # runs with PYTHON_GIL=0 to keep it off throughout. The declarations
+  # themselves are checked in their own step, where the modules decide.
+  test_freethreaded:
+    timeout-minutes: 20
+    needs: [style, build]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Set up Python 3.14t
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      with:
+        python-version: "3.14t"
+
+    - name: Install Python packaging tools
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+
+    # The `test` extra in pyproject.toml, less igraph, which has no
+    # free-threaded wheel.
+    - name: Install Python dependencies
+      run: |
+        python -m pip install numpy scipy matplotlib reportlab pillow msgpack mmtf-python networkx rdflib coverage
+
+    - name: Debug Info
+      run: |
+        python -m pip list
+
+    - name: Install from source
+      run: |
+        python -m pip install .
+
+    - name: Check the GIL-free declarations
+      run: |
+        cd Tests
+        python run_tests.py --offline -v test_free_threading
+
+    - name: Run test suite
+      run: |
+        cd Tests
+        PYTHON_GIL=0 python run_tests.py --offline
+
   # Flag step
   check_tests:
     timeout-minutes: 10
-    needs: [test_linux, test_macos, test_linux_arm, test_windows]
+    needs: [test_linux, test_macos, test_linux_arm, test_windows, test_freethreaded]
     runs-on: ubuntu-latest
     steps:
       - run: echo All tests passed.

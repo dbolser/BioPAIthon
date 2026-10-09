@@ -1,6 +1,8 @@
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 
+#include "../_freethreading.h"
+
 
 static const char bases[][4] = {"TTTT",  /* 00 00 00 00 */
                                 "TTTC",  /* 00 00 00 01 */
@@ -486,5 +488,14 @@ static struct PyModuleDef moduledef = {
 PyObject *
 PyInit__twoBitIO(void)
 {
-    return PyModule_Create(&moduledef);
+    PyObject *module = PyModule_Create(&moduledef);
+
+    if (!module) {
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    return module;
 }

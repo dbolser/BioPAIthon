@@ -12,6 +12,8 @@
 #include <string.h>
 #include <Python.h>
 
+#include "../_freethreading.h"
+
 #define INF 1000000
 
 #define DIM 3 /* three spatial dimensions */
@@ -1521,6 +1523,10 @@ PyInit_kdtrees(void)
 
   module = PyModule_Create(&moduledef);
   if (module == NULL) return NULL;
+  if (Bio_module_gil_not_used(module) < 0) {
+      Py_DECREF(module);
+      return NULL;
+  }
 
   Py_INCREF(&KDTreeType);
   if (PyModule_AddObject(module, "KDTree", (PyObject*) &KDTreeType) < 0) {

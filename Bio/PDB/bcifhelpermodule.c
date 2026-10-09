@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "../_freethreading.h"
+
 static int
 integer_unpack_u8(Py_buffer *in_view, Py_buffer *out_view)
 {
@@ -335,6 +337,10 @@ PyInit__bcif_helper(void)
 
     m = PyModule_Create(&moduledef);
     if (!m) {
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(m) < 0) {
+        Py_DECREF(m);
         return NULL;
     }
 

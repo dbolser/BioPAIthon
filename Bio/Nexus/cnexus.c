@@ -17,6 +17,8 @@
 #include <Python.h>
 #include <string.h>
 
+#include "../_freethreading.h"
+
 static PyObject * cnexus_scanfile(PyObject *self, PyObject *args)
 {
     PyObject *cleaninput;
@@ -124,5 +126,14 @@ static struct PyModuleDef moduledef = {
 PyObject *
 PyInit_cnexus(void)
 {
-    return PyModule_Create(&moduledef);
+    PyObject *module = PyModule_Create(&moduledef);
+
+    if (!module) {
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+    return module;
 }

@@ -2,6 +2,7 @@
 
 import sys
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import numpy as np
@@ -572,6 +573,50 @@ class TestBaseClassMethods(unittest.TestCase):
         self.assertTrue(self.seq2_twobit.defined)
         self.assertEqual(self.seq1_twobit.defined_ranges, ((0, len(self.seq1_twobit)),))
         self.assertEqual(self.seq2_twobit.defined_ranges, ((0, len(self.seq2_twobit)),))
+
+
+# Run only while the GIL is off. A free-threaded build turns it back on when
+# an undeclared extension is imported, unless PYTHON_GIL=0 is set.
+@unittest.skipIf(
+    getattr(sys, "_is_gil_enabled", lambda: True)(), "requires the GIL to be disabled"
+)
+class ConcurrentConvert(unittest.TestCase):
+    """Concurrent calls of the C helper on shared inputs match serial calls.
+
+    The threads share the packed bytes and the N and mask block arrays. They
+    call _twoBitIO.convert directly, because a twoBit-backed Seq seeks and
+    reads its file on access, and threads sharing one would race on the
+    file position; that is pure Python, and not what is tested here.
+    """
+
+    def test_threads_match_serial(self):
+        calls = []
+        path = support.DATA / "TwoBit" / "sequence.littleendian.2bit"
+        with open(path, "rb") as stream:
+            for record in SeqIO.parse(stream, "twobit"):
+                data = record.seq._data
+                n = len(data)
+                stream.seek(data.offset)
+                packed = stream.read((n + 3) // 4)
+                # Forward and reverse, with steps that take both C paths.
+                for start, end, step in (
+                    (0, n, 1),
+                    (0, n, 3),
+                    (n - 1, -1, -1),
+                    (n - 1, -1, -2),
+                ):
+                    calls.append(
+                        (packed, start, end, step, data.nBlocks, data.maskBlocks)
+                    )
+        expected = [_twoBitIO.convert(*args) for args in calls]
+        rounds = 50
+
+        def work(_):
+            return [_twoBitIO.convert(*args) for args in calls * rounds]
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for results in executor.map(work, range(16)):
+                self.assertEqual(results, expected * rounds)
 
 
 if __name__ == "__main__":
