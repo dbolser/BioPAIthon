@@ -59,6 +59,17 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align``'s Stockholm reader now reads interleaved alignments, whose
+aligned sequences are split over several blocks that each list every sequence
+once. The pieces of each sequence, and of each of its ``#=GR`` lines, are
+joined in block order. The sequences may come in any order within a block, and
+blank lines between blocks are optional. ``Tests/Stockholm/simple.sth`` used
+to raise ``ValueError``, and a file of two equal-width blocks without ``#=GC``
+lines was silently read as twice as many rows, each half as long. A sequence
+name that repeats without forming whole blocks now raises ``ValueError``, as
+it does in ``Bio.AlignIO``; it used to be read as an extra row. Files whose
+sequence names are all distinct are read exactly as before.
+
 ``Bio.SeqIO.register_format`` and ``Bio.Align.register_format`` add a file
 format, or replace how one is read or written, without assigning into
 private tables such as ``SeqIO._FormatToIterator``. For SeqIO, give a lower
