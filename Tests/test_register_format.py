@@ -4,10 +4,13 @@
 # package.
 """Tests for register_format in Bio.SeqIO and Bio.Align."""
 
+import importlib
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import types
 import unittest
 from io import StringIO
@@ -97,6 +100,29 @@ class NoHeaderRuleIterator(SequenceIterator):
 def parse_function(handle):
     """Parse FASTA, as a plain function."""
     return FastaIterator(handle)
+
+
+class RaceLock:
+    """A lock which runs another registration just before it is first taken.
+
+    Put in place of SeqIO._registration_lock, it lets a test act as if
+    another thread registered a format after register_format checked the
+    roles, but before it took the lock to store them.
+    """
+
+    def __init__(self, race):
+        """Make a lock which calls race() just before it is first taken."""
+        self._lock = threading.Lock()
+        self._race = race
+
+    def __enter__(self):
+        race, self._race = self._race, None
+        if race is not None:
+            race()
+        return self._lock.__enter__()
+
+    def __exit__(self, *exc_info):
+        return self._lock.__exit__(*exc_info)
 
 
 class SeqIOTestCase(unittest.TestCase):
@@ -238,24 +264,67 @@ class SeqIOExistingNames(SeqIOTestCase):
         self.assertNotIn("test-other", SeqIO._FormatToIterator)
         self.assertIs(SeqIO._FormatToWriter["test-other"], FastaWriter)
 
+    def race(self, registration):
+        """Run registration after register_format checks, before it stores."""
+        self.addCleanup(setattr, SeqIO, "_registration_lock", SeqIO._registration_lock)
+        SeqIO._registration_lock = RaceLock(registration)
+
     def test_two_roles_all_or_nothing_in_a_race(self):
         """A writer registered while the roles are checked stops both."""
-        writers = SeqIO._FormatToWriter
-        conflicts = writers.conflicts
-
-        def conflicts_then_race(name, value):
-            # As if another thread registered a writer just after this check:
-            result = conflicts(name, value)
-            del writers.conflicts
-            writers.register(name, FastaTwoLineWriter)
-            return result
-
-        writers.conflicts = conflicts_then_race
-        self.addCleanup(vars(writers).pop, "conflicts", None)
+        self.race(
+            lambda: SeqIO.register_format("test-fasta", writer=FastaTwoLineWriter)
+        )
         with self.assertRaises(ValueError):
             SeqIO.register_format("test-fasta", FastaIterator, FastaWriter)
         self.assertNotIn("test-fasta", SeqIO._FormatToIterator)
-        self.assertIs(writers["test-fasta"], FastaTwoLineWriter)
+        self.assertIs(SeqIO._FormatToWriter["test-fasta"], FastaTwoLineWriter)
+
+    def test_spec_stored_in_a_race(self):
+        """A spec stored while the roles are checked is imported without the lock.
+
+        The module it names registers a format when imported, as the
+        docstring advises; importing it under the lock would deadlock.
+        """
+        plugin = "_register_format_test_plugin"
+        module_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, module_dir)
+        with open(os.path.join(module_dir, plugin + ".py"), "w") as handle:
+            handle.write(
+                "from Bio import SeqIO\n"
+                "from Bio.SeqIO.FastaIO import FastaIterator\n"
+                "class PluginIterator(FastaIterator):\n"
+                "    pass\n"
+                'SeqIO.register_format("test-plugin", PluginIterator)\n'
+            )
+        sys.path.insert(0, module_dir)
+        self.addCleanup(sys.path.remove, module_dir)
+        self.addCleanup(sys.modules.pop, plugin, None)
+        importlib.invalidate_caches()
+        spec = f"{plugin}:PluginIterator"
+        self.race(lambda: SeqIO.register_format("test-fasta", spec, replace=True))
+        errors = []
+
+        def register():
+            try:
+                SeqIO.register_format("test-fasta", FastaIterator)
+            except ValueError as error:
+                errors.append(error)
+
+        # In a thread, so that a deadlock fails the test rather than hangs it:
+        thread = threading.Thread(target=register, daemon=True)
+        thread.start()
+        thread.join(60)
+        self.assertFalse(thread.is_alive(), "register_format deadlocked")
+        self.assertEqual(
+            [str(error) for error in errors],
+            [
+                "Format 'test-fasta' already has an iterator;"
+                " use replace=True to replace it"
+            ],
+        )
+        iterator = sys.modules[plugin].PluginIterator
+        self.assertIs(SeqIO._FormatToIterator["test-fasta"], iterator)
+        self.assertIs(SeqIO._FormatToIterator["test-plugin"], iterator)
 
     def test_bad_role_stores_nothing(self):
         for iterator, writer, error in [

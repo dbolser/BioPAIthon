@@ -29,6 +29,25 @@ def _resolve(spec):
     return value
 
 
+def _same_handler(stored, value):
+    """Return whether a stored entry and a value are the same handler (PRIVATE).
+
+    A spec string and an object are the same handler when the spec resolves
+    to that object, so the answer does not depend on whether the entry has
+    been used yet.  Comparing the two imports the spec.  Two spec strings
+    are compared as strings.
+    """
+    if stored is value:
+        return True
+    if isinstance(stored, str) and isinstance(value, str):
+        return stored == value
+    if isinstance(stored, str):
+        return _resolve(stored) is value
+    if isinstance(value, str):
+        return _resolve(value) is stored
+    return False
+
+
 def _qualify(value, package):
     """Turn a short "Module.attr" value into "package.Module:attr" (PRIVATE).
 
@@ -121,24 +140,6 @@ class FormatRegistry(dict):
         """Return a list of all (format, handler) pairs, importing as needed."""
         return [(name, self[name]) for name in self]
 
-    def conflicts(self, name, value):
-        """Return whether name is present and holds a handler other than value.
-
-        A spec string and an object are the same handler when the spec
-        resolves to that object, so the answer does not depend on whether
-        the entry has been used yet.  Comparing the two imports the spec.
-        """
-        stored = super().get(name, _ABSENT)
-        if stored is _ABSENT or stored is value:
-            return False
-        if isinstance(stored, str) and isinstance(value, str):
-            return stored != value
-        if isinstance(stored, str):
-            return _resolve(stored) is not value
-        if isinstance(value, str):
-            return _resolve(value) is not stored
-        return True
-
     def register(self, name, value, *, replace=False):
         """Store value under name, or check it is already there.
 
@@ -147,10 +148,12 @@ class FormatRegistry(dict):
         nothing, and any other handler raises ValueError.
         """
         with self._lock:
-            if replace or not super().__contains__(name):
+            stored = super().get(name, _ABSENT)
+            if replace or stored is _ABSENT:
                 super().__setitem__(name, value)
                 return
-        if self.conflicts(name, value):
+        # Outside the lock, as comparing may import:
+        if not _same_handler(stored, value):
             raise ValueError(
                 f"Format {name!r} already exists; use replace=True to replace it"
             )

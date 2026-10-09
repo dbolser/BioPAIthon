@@ -409,6 +409,8 @@ from collections.abc import Iterable
 from os import fspath
 from typing import Union
 
+from Bio._io_registry import _ABSENT
+from Bio._io_registry import _same_handler
 from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.SeqRecord import SeqRecord
 
@@ -1365,31 +1367,47 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
             raise TypeError(f"Expected a callable or a string, not {value!r}")
 
     def check():
-        """Raise ValueError if either role is taken (PRIVATE)."""
-        if not replace:
-            for table, role, value in roles:
-                if table.conflicts(name, value):
-                    raise ValueError(
-                        f"Format {name!r} already has {role};"
-                        " use replace=True to replace it"
-                    )
+        """Return each role's current entry, if the role may be set (PRIVATE).
 
-    # Comparing a spec string with an object imports the spec, which must
-    # not happen under the lock.  So check first without it; checking again
-    # under it then imports nothing, and both roles are stored, or neither.
-    check()
-    with _registration_lock:
-        check()
+        Raises ValueError if either role holds another handler and replace
+        is false.  Comparing a spec string with an object imports the spec.
+        """
+        entries = []
         for table, role, value in roles:
-            table.register(name, value, replace=replace)
-        if replace:
-            # Drop the convert shortcuts which read (or write) this format
-            # themselves, rather than with the replacement:
-            for in_format, out_format in list(_converter):
-                if (iterator is not None and in_format == name) or (
-                    writer is not None and out_format == name
-                ):
-                    del _converter[in_format, out_format]
+            entry = dict.get(table, name, _ABSENT)
+            if not (replace or entry is _ABSENT or _same_handler(entry, value)):
+                raise ValueError(
+                    f"Format {name!r} already has {role};"
+                    " use replace=True to replace it"
+                )
+            entries.append(entry)
+        return entries
+
+    # Checking may import a module, which must not happen under the lock, as
+    # the module may register a format as it is imported.  So check without
+    # the lock, and store under it if the entries are still the ones checked.
+    # If another registration changed one meanwhile, check again.  Either
+    # both roles are stored, or neither.
+    while True:
+        entries = check()
+        with _registration_lock:
+            if any(
+                dict.get(table, name, _ABSENT) is not entry
+                for (table, role, value), entry in zip(roles, entries)
+            ):
+                continue
+            for (table, role, value), entry in zip(roles, entries):
+                if replace or entry is _ABSENT:
+                    table.register(name, value, replace=True)
+            if replace:
+                # Drop the convert shortcuts which read (or write) this
+                # format themselves, rather than with the replacement:
+                for in_format, out_format in list(_converter):
+                    if (iterator is not None and in_format == name) or (
+                        writer is not None and out_format == name
+                    ):
+                        del _converter[in_format, out_format]
+            return
 
 
 if __name__ == "__main__":
