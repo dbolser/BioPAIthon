@@ -33,11 +33,12 @@ def _entry_points(group):
 
     Each spec is a "module" or "module:attr" string, as _resolve takes.  It
     is built from the entry point's module and attr, so an "[extra]" suffix
-    on its value does not matter.  If the scan raises, warn once and report
-    no entry points.
+    on its value does not matter.  An entry point whose value is not of that
+    form is skipped with a warning.  If the scan itself raises, warn once and
+    report no entry points.
     """
     global _installed, _scan_failed
-    failure = None
+    messages = []
     with _scan_lock:
         found = _found.get(group)
         if found is None:
@@ -49,21 +50,36 @@ def _entry_points(group):
 
                         _installed = importlib.metadata.entry_points()
                     for entry_point in _installed.select(group=group):
-                        spec = entry_point.module
-                        if entry_point.attr:
-                            spec += ":" + entry_point.attr
-                        distribution = entry_point.dist.name
+                        # Distribution.name gives None, a DeprecationWarning or
+                        # a KeyError for metadata without a Name, depending on
+                        # the Python version; get() just gives None.
+                        distribution = (
+                            entry_point.dist.metadata.get("Name")
+                            or "a distribution with no name"
+                        )
+                        try:
+                            spec = entry_point.module
+                            attr = entry_point.attr
+                        except Exception:  # AttributeError or AssertionError
+                            messages.append(
+                                f"Ignoring entry point {entry_point.name!r} of"
+                                f" {distribution} in group {group!r}:"
+                                f" {entry_point.value!r} is not an object reference"
+                            )
+                            continue
+                        if attr:
+                            spec += ":" + attr
                         found.append((entry_point.name, spec, distribution))
                 except Exception as exception:
                     _scan_failed = True
                     found = []
-                    failure = exception
+                    messages = [
+                        "Could not look for file format plugins, so none are used:"
+                        f" {exception!r}"
+                    ]
             _found[group] = found
-    if failure is not None:
-        warnings.warn(
-            f"Could not look for file format plugins, so none are used: {failure!r}",
-            BiopythonWarning,
-        )
+    for message in messages:
+        warnings.warn(message, BiopythonWarning)
     return found
 
 
@@ -146,12 +162,13 @@ class FormatRegistry(dict):
     items()), but never on a hit, so using a built-in format does not import
     importlib.metadata.  name_rule(name) returns the format name for an entry
     point's name, or raises ValueError if the package cannot use it.  Such an
-    entry point is skipped with a warning, as is one naming a built-in format,
-    and a name which two distributions give different objects.  A name that
-    register() stored first is skipped silently.  The names added from entry
-    points are kept in the plugins attribute; register() replaces them
-    without replace=True.  An entry point's object is imported when its format
-    is first used, and an error importing it then propagates.
+    entry point is skipped with a warning, as is one whose value is not an
+    object reference, one naming a built-in format, and a format name which
+    two entry points give different objects.  A name that register() stored
+    first is skipped silently.  The names added from entry points are kept in
+    the plugins attribute; register() replaces them without replace=True.  An
+    entry point's object is imported when its format is first used, and an
+    error importing it then propagates.
     """
 
     def __init__(
@@ -172,39 +189,47 @@ class FormatRegistry(dict):
     def _discover(self):
         """Add the formats declared in this table's entry-point group (PRIVATE).
 
-        This happens once.  Return whether it had not yet happened when
-        called, as only then can a name missing before be present now.
+        This happens once.  When this returns, it has happened, whichever
+        thread did it.
         """
         if self._discovered:
-            return False
+            return
         group = self._group
-        offers: dict[str, dict[str, set[str]]] = {}  # name -> spec -> distributions
+        # Format name to spec to the (entry point, distribution) pairs giving it:
+        offers: dict[str, dict[str, set[tuple[str, str]]]] = {}
         messages = []
-        for name, spec, distribution in _entry_points(group):
+        for entry_point, spec, distribution in _entry_points(group):
+            name = entry_point
             if self._name_rule is not None:
                 try:
-                    name = self._name_rule(name)
+                    name = self._name_rule(entry_point)
                 except ValueError as exception:
                     messages.append(
-                        f"Ignoring entry point {name!r} of {distribution} in group"
-                        f" {group!r}: {exception}"
+                        f"Ignoring entry point {entry_point!r} of {distribution}"
+                        f" in group {group!r}: {exception}"
                     )
                     continue
-            offers.setdefault(name, {}).setdefault(spec, set()).add(distribution)
+            offerers = offers.setdefault(name, {}).setdefault(spec, set())
+            offerers.add((entry_point, distribution))
         with self._lock:
             if self._discovered:  # done meanwhile, by another thread
-                return True
+                return
             for name, targets in offers.items():
-                distributions = " and ".join(sorted(set().union(*targets.values())))
+                offerers = set().union(*targets.values())
+                listed = " and ".join(
+                    f"{entry_point!r} of {distribution}"
+                    for entry_point, distribution in sorted(offerers)
+                )
+                plural = "s" if len(offerers) > 1 else ""
                 if name in self.builtin:
                     messages.append(
-                        f"Ignoring entry point {name!r} of {distributions} in group"
-                        f" {group!r}: {name!r} is a built-in format"
+                        f"Ignoring entry point{plural} {listed} in group {group!r}:"
+                        f" {name!r} is a built-in format"
                     )
                 elif len(targets) > 1:
                     messages.append(
-                        f"Ignoring entry point {name!r} in group {group!r}:"
-                        f" {distributions} give it different objects"
+                        f"Ignoring entry point{plural} {listed} in group {group!r}:"
+                        f" they give format {name!r} different objects"
                     )
                 elif not super().__contains__(name):
                     [spec] = targets
@@ -214,7 +239,6 @@ class FormatRegistry(dict):
         # Warn outside the lock, as a warning may run arbitrary code:
         for message in messages:
             warnings.warn(message, BiopythonWarning)
-        return True
 
     def _handler(self, name, value):
         """Return the handler for name, given its stored value (PRIVATE)."""
@@ -244,9 +268,12 @@ class FormatRegistry(dict):
         """Return the value stored for name, or _ABSENT (PRIVATE).
 
         On a miss, add the entry-point formats if not yet done and look again.
+        Look again even if they were added already: another thread may have
+        added them since the first look.
         """
         value = super().get(name, _ABSENT)
-        if value is _ABSENT and self._discover():
+        if value is _ABSENT:
+            self._discover()
             value = super().get(name, _ABSENT)
         return value
 
