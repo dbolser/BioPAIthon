@@ -209,8 +209,9 @@ python_functions = []
 # Like run_tests.py, report a module that fails to import and run the rest.
 addopts = "--continue-on-collection-errors"
 
-# Coverage of the test suite, as CI measures it with pytest-cov:
-#   cd Tests && python -m pytest --offline --cov --cov-config=../pyproject.toml
+# Coverage of the test suite, as CI measures it with pytest-cov, run from a
+# directory outside the checkout:
+#   python -m pytest CHECKOUT/Tests --offline --cov --cov-config=CHECKOUT/pyproject.toml
 # coverage reads its configuration only from the current directory unless
 # told otherwise, hence --cov-config. These are packages, not paths: run from
 # Tests/, a path BioSQL would name the test data directory Tests/BioSQL.

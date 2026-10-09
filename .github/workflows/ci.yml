@@ -354,9 +354,14 @@ jobs:
       # worker (--dist loadfile). Only this job has the full set of optional
       # dependencies, so only here does a skip not listed in
       # Tests/expected_skips.txt fail the run (--check-skips).
+      #
+      # Here and in the other jobs the suite runs from outside the checkout,
+      # so a test which finds its data relative to the current directory
+      # fails, and `import Bio` finds the installed package rather than the
+      # source tree, whose C extensions are not built.
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        PYTHONMALLOC=debug LD_PRELOAD="$(realpath "$(gcc -print-file-name=libasan.so)") $(realpath "$(gcc -print-file-name=libstdc++.so)")" ASAN_OPTIONS="detect_leaks=0" python -m pytest --offline --check-skips -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
+        PYTHONMALLOC=debug LD_PRELOAD="$(realpath "$(gcc -print-file-name=libasan.so)") $(realpath "$(gcc -print-file-name=libstdc++.so)")" ASAN_OPTIONS="detect_leaks=0" python -m pytest "$GITHUB_WORKSPACE/Tests" --offline --check-skips -n auto --dist loadfile --cov --cov-config="$GITHUB_WORKSPACE/pyproject.toml" --cov-report=xml:"$GITHUB_WORKSPACE/Tests/coverage.xml"
       shell: bash
 
     - name: Upload coverage to codecov
@@ -403,9 +408,9 @@ jobs:
         python -m pip install .
 
     - name: Run test suite
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python -m pytest --offline -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
+        python -m pytest "$GITHUB_WORKSPACE/Tests" --offline -n auto --dist loadfile --cov --cov-config="$GITHUB_WORKSPACE/pyproject.toml" --cov-report=xml:"$GITHUB_WORKSPACE/Tests/coverage.xml"
 
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
@@ -458,9 +463,9 @@ jobs:
         python -m pip install .
 
     - name: Run test suite
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python -m pytest --offline -n auto --dist loadfile
+        python -m pytest "$GITHUB_WORKSPACE/Tests" --offline -n auto --dist loadfile
 
   test_windows:
     timeout-minutes: 15
@@ -509,9 +514,9 @@ jobs:
 
     - name: Check the GIL-free declarations
       if: endsWith(matrix.python-version, 't')
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python run_tests.py --offline -v test_free_threading
+        python "$env:GITHUB_WORKSPACE/Tests/run_tests.py" --offline -v test_free_threading
 
     - name: Run test suite
       # Not a gate yet. Every Windows leg fails 22 to 33 tests on main: index
@@ -526,9 +531,9 @@ jobs:
         # Free-threaded only, as in test_freethreaded. CPython ignores an
         # empty PYTHON_GIL, and a GIL build refuses PYTHON_GIL=0.
         PYTHON_GIL: ${{ endsWith(matrix.python-version, 't') && '0' || '' }}
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python -m pytest --offline -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
+        python -m pytest "$env:GITHUB_WORKSPACE/Tests" --offline -n auto --dist loadfile --cov --cov-config "$env:GITHUB_WORKSPACE/pyproject.toml" --cov-report "xml:$env:GITHUB_WORKSPACE/Tests/coverage.xml"
 
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
@@ -574,9 +579,9 @@ jobs:
         python -m pip install .
 
     - name: Run test suite
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python -m pytest --offline -n auto --dist loadfile
+        python -m pytest "$GITHUB_WORKSPACE/Tests" --offline -n auto --dist loadfile
 
   # The free-threaded (no GIL) build of CPython. So far only some extensions
   # declare that they can run without the GIL (Tests/test_free_threading.py
@@ -617,14 +622,14 @@ jobs:
         python -m pip install .
 
     - name: Check the GIL-free declarations
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        python run_tests.py --offline -v test_free_threading
+        python "$GITHUB_WORKSPACE/Tests/run_tests.py" --offline -v test_free_threading
 
     - name: Run test suite
+      working-directory: ${{ runner.temp }}
       run: |
-        cd Tests
-        PYTHON_GIL=0 python run_tests.py --offline
+        PYTHON_GIL=0 python "$GITHUB_WORKSPACE/Tests/run_tests.py" --offline
 
   # Flag step
   check_tests:

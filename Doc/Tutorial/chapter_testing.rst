@@ -82,8 +82,8 @@ tests.
 
 If an individual test is failing, you can also try running it directly
 (e.g. ``python test_SeqIO.py``), which may give you more information.
-Do this from inside the ``Tests`` directory, as many of the older test
-scripts find their input files relative to the current directory.
+This works from any directory, so from the top level source directory
+it is ``python Tests/test_SeqIO.py``.
 
 Tests based on Python’s standard ``unittest`` framework will
 ``import unittest`` and then define ``unittest.TestCase`` classes, each
@@ -136,13 +136,17 @@ of them, or just those of one module:
    $ python -m pytest --offline test_docstrings.py
    $ python -m pytest test_docstrings.py::Bio.Seq
 
-With the editable install shown above, pytest also works from the top
-level source directory, given the test files with their ``Tests/``
-prefix. The tests still run inside ``Tests``:
+With the editable install shown above, pytest also works from any other
+directory, given the path to the test files, such as from the top level
+source directory:
 
 .. code:: console
 
    $ python -m pytest --offline Tests/test_Seq_objs.py
+
+The tests run in the directory pytest was started in. Only the docstring
+tests change into ``Tests``, as their examples name files relative to
+it.
 
 Running the tests using Tox
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -212,9 +216,9 @@ relative to the current directory:
        ...
 
 That way your test passes however it is run, not only from inside
-``Tests``. Many older tests still use relative paths such as
-``"GenBank/cor6_6.gb"``; those work only because ``Tests/conftest.py``
-changes into the ``Tests`` directory before any test runs.
+``Tests``. A relative path such as ``"Biospam/example.txt"`` fails
+whenever the tests are run from another directory, as our continuous
+integration does.
 
 Any script with a ``test_`` prefix in the ``Tests`` directory will be
 found and run by pytest. Only the tests in ``unittest.TestCase``
@@ -477,8 +481,9 @@ test.
 
 Note that if you want to write doctests involving file parsing, defining
 the file location complicates matters. Ideally use relative paths
-assuming the code will be run from the ``Tests`` directory, see the
-``Bio.SeqIO`` doctests for an example of this.
+assuming the code will be run from the ``Tests`` directory, where the
+test suite runs each docstring's examples; see the ``Bio.SeqIO``
+doctests for an example of this.
 
 To run the docstring tests only, use
 

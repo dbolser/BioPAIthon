@@ -18,6 +18,27 @@ from run_tests import pytest_args
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 PYPROJECT = os.path.join(TESTS_DIR, os.pardir, "pyproject.toml")
 
+# A plugin which anchors the doctest collector at test_probe_anchor.py, as
+# Tests/test_docstrings.py anchors it, but for the module probe_docstrings.
+DOCTEST_PROBE_PLUGIN = """\
+    import pytest
+    from conftest import _DocstringModule
+
+    class Anchor(pytest.File):
+        def collect(self):
+            yield _DocstringModule.from_parent(
+                self,
+                path=self.path,
+                name="probe_docstrings",
+                nodeid=self.nodeid + "::probe_docstrings",
+            )
+
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_pycollect_makemodule(module_path, parent):
+        if module_path.name == "test_probe_anchor.py":
+            return Anchor.from_parent(parent, path=module_path)
+"""
+
 
 class FindModulesTests(unittest.TestCase):
     def test_classic_packages_and_modules(self):
@@ -188,7 +209,7 @@ class ProbeTests(unittest.TestCase):
 
     @staticmethod
     def run_pytest(files, *options):
-        """Write files to a temporary directory and run pytest on them."""
+        """Write files to a temporary directory and run pytest on them there."""
         with tempfile.TemporaryDirectory() as directory:
             paths = []
             for name, text in files.items():
@@ -199,11 +220,11 @@ class ProbeTests(unittest.TestCase):
                     paths.append(path)
             env = dict(os.environ)
             env["PYTHONPATH"] = os.pathsep.join(
-                [directory, *filter(None, [env.get("PYTHONPATH")])]
+                [directory, TESTS_DIR, *filter(None, [env.get("PYTHONPATH")])]
             )
             # --noconftest and -c keep any conftest.py or configuration file
             # in the temporary directory's parents out of the run; -p loads
-            # Tests/conftest.py (importable from the cwd) as a plugin.
+            # Tests/conftest.py (importable from PYTHONPATH) as a plugin.
             result = subprocess.run(
                 [
                     sys.executable,
@@ -221,7 +242,7 @@ class ProbeTests(unittest.TestCase):
                     *options,
                     *paths,
                 ],
-                cwd=TESTS_DIR,
+                cwd=directory,
                 env=env,
                 capture_output=True,
                 text=True,
@@ -280,7 +301,8 @@ class ProbeTests(unittest.TestCase):
     def test_failures(self):
         """Late dependency errors, import errors, empty modules and chdir fail."""
         # test_probe_moves changes directory at import, during collection;
-        # test_probe_ok, collected after it, checks it still runs in Tests/.
+        # test_probe_ok, collected after it, checks it still runs where
+        # pytest started.
         returncode, output = self.run_pytest(
             {
                 "test_probe_late.py": """\
@@ -318,7 +340,7 @@ class ProbeTests(unittest.TestCase):
                     import unittest
                     class Ok(unittest.TestCase):
                         def test_ok(self):
-                            self.assertTrue(os.path.isfile("expected_skips.txt"))
+                            self.assertTrue(os.path.isfile("test_probe_ok.py"))
                 """,
             }
         )
@@ -433,9 +455,40 @@ class ProbeTests(unittest.TestCase):
             output,
         )
 
+    def test_only_doctests_run_in_tests(self):
+        """Tests run where pytest starts; docstring examples run in Tests/."""
+        returncode, output = self.run_pytest(
+            {
+                "probe_docstrings.py": '''\
+                    """A module whose docstring example reads a file in Tests/."""
+
+
+                    def skips():
+                        """Read the list of expected skips.
+
+                        >>> with open("expected_skips.txt") as handle:
+                        ...     "test_" in handle.read()
+                        True
+                        """
+                ''',
+                "probe_plugin.py": DOCTEST_PROBE_PLUGIN,
+                "test_probe_anchor.py": "",
+                "test_probe_where.py": """\
+                    import os
+                    import unittest
+                    class Where(unittest.TestCase):
+                        def test_where(self):
+                            # After the doctest, unless under pytest-xdist.
+                            self.assertTrue(os.path.isfile("test_probe_where.py"))
+                """,
+            },
+            "-p",
+            "probe_plugin",
+        )
+        self.assertEqual(returncode, 0, output)
+        self.assertIn("2 passed", output)
+
     def test_doctest_failure_is_reported_inline(self):
-        # The probe plugin anchors the doctest collector at a test file, as
-        # Tests/test_docstrings.py does, but for a throwaway module.
         returncode, output = self.run_pytest(
             {
                 "probe_docstrings.py": '''\
@@ -449,24 +502,7 @@ class ProbeTests(unittest.TestCase):
                         3
                         """
                 ''',
-                "probe_plugin.py": """\
-                    import pytest
-                    from conftest import _DocstringModule
-
-                    class Anchor(pytest.File):
-                        def collect(self):
-                            yield _DocstringModule.from_parent(
-                                self,
-                                path=self.path,
-                                name="probe_docstrings",
-                                nodeid=self.nodeid + "::probe_docstrings",
-                            )
-
-                    @pytest.hookimpl(tryfirst=True)
-                    def pytest_pycollect_makemodule(module_path, parent):
-                        if module_path.name == "test_probe_anchor.py":
-                            return Anchor.from_parent(parent, path=module_path)
-                """,
+                "probe_plugin.py": DOCTEST_PROBE_PLUGIN,
                 "test_probe_anchor.py": "",
             },
             "-p",
@@ -498,6 +534,9 @@ class ParallelProbeTests(unittest.TestCase):
     def run_pytest(self, files, *options):
         """Run pytest as ProbeTests does, with two workers."""
         return ProbeTests.run_pytest(files, "-n", "2", *options)
+
+    # The workers, too, run where pytest started.
+    test_only_doctests_run_in_tests = ProbeTests.test_only_doctests_run_in_tests
 
     def test_import_time_skips_and_check_skips(self):
         # Only the workers import the modules, so they report the skips to
