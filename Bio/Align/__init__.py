@@ -57,10 +57,10 @@ except ImportError:
 
 from Bio import BiopythonDeprecationWarning
 from Bio._io_registry import FormatRegistry as _FormatRegistry
-from Bio.Align import _aligncore  # type: ignore
-from Bio.Align import _codonaligner  # type: ignore
-from Bio.Align import _pairwisealigner  # type: ignore
-from Bio.Align import _alignmentcounts  # type: ignore
+from Bio.Align import _aligncore
+from Bio.Align import _codonaligner
+from Bio.Align import _pairwisealigner
+from Bio.Align import _alignmentcounts
 from Bio.Align import substitution_matrices
 from Bio.Data import CodonTable
 from Bio.Seq import MutableSeq

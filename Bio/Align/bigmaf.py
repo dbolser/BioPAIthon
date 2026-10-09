@@ -19,7 +19,7 @@ import zlib
 
 import numpy as np
 
-from Bio.Align import _aligncore  # type: ignore
+from Bio.Align import _aligncore
 from Bio.Align import Alignment
 from Bio.Align import Alignments
 from Bio.Align import bigbed

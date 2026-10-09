@@ -173,6 +173,71 @@ jobs:
             sys.exit("sdist exceeds its size cap; see this step's comment in ci.yml")
         PY
 
+  # Check the typing users get from an installed package, which the mypy
+  # hooks in the style job, run on the source tree, cannot: stubtest compares
+  # the .pyi stubs of the C extensions with the compiled modules, and the
+  # downstream check fails if py.typed or a stub was not installed. Both run
+  # outside the checkout, so that Bio comes from site-packages. To run
+  # stubtest locally, see Tests/downstream_typing/stubtest_allowlist.txt.
+  typing:
+    timeout-minutes: 15
+    needs: [style]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      with:
+        python-version: "3.12"
+
+    # mypy and numpy at the versions the mypy hooks pin, so this job and the
+    # hooks agree.
+    - name: Install from source, with mypy
+      run: |
+        mypy_version=$(grep -A1 'mirrors-mypy' .pre-commit-config.yaml | sed -n 's/^ *rev: v//p')
+        numpy_pin=$(grep -o 'numpy==[0-9.]*' .pre-commit-config.yaml | head -n 1)
+        python -m pip install --upgrade pip
+        python -m pip install . "mypy==$mypy_version" "$numpy_pin"
+
+    - name: Debug Info
+      working-directory: ${{ runner.temp }}
+      run: |
+        python -m pip list
+        python -c "import Bio; print(Bio.__file__)"
+
+    # Every extension in pyproject.toml with a stub beside its C source, as in
+    # Tests/test_stub_completeness.py, which also catches a class missing
+    # from a stub (stubtest cannot).
+    - name: Run stubtest on the installed stubs
+      working-directory: ${{ runner.temp }}
+      run: |
+        modules=$(python - "$GITHUB_WORKSPACE" <<'PY'
+        import os
+        import sys
+        import tomllib
+
+        root = sys.argv[1]
+        with open(os.path.join(root, "pyproject.toml"), "rb") as handle:
+            config = tomllib.load(handle)
+        for ext in config["tool"]["setuptools"]["ext-modules"]:
+            name = ext["name"]
+            if os.path.isfile(os.path.join(root, *name.split(".")) + ".pyi"):
+                print(name)
+        PY
+        )
+        echo "Stubbed extensions:" $modules
+        python -m mypy.stubtest --allowlist "$GITHUB_WORKSPACE/Tests/downstream_typing/stubtest_allowlist.txt" $modules
+
+    - name: Run the downstream typing check against the installed package
+      working-directory: ${{ runner.temp }}
+      run: |
+        cp -r "$GITHUB_WORKSPACE/Tests/downstream_typing" .
+        python -m mypy --config-file downstream_typing/mypy.ini downstream_typing
+
   # Note: CI deliberately does not build wheels. Compiling the C extensions on
   # each OS is already covered by the test jobs below, which all `pip install .`
   # from source. Real, installable, import-tested wheels are built by
