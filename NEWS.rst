@@ -59,6 +59,17 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``PairwiseAligner.score()`` and ``align()`` no longer overwrite the caller's
+sequence array. Given a NumPy ``int32`` array of letter codes and a
+substitution matrix with an alphabet, such as ``scoring="blastp"``, they
+used to replace the letters in that array with matrix indices, so a second
+call with the same array raised "sequence contains letters not in the
+alphabet", and so did passing one array as both sequences. They now check
+and map the letters in private copies, which also means the alignment reads
+the letters that were checked even if the caller's array changes while it
+runs. With a substitution matrix, each call now uses 4 extra bytes per
+letter for the copies.
+
 On a free-threaded build of Python (3.13t or 3.14t), six of the C extensions
 now declare that they can run without the global interpreter lock: those used
 by ``Bio.Nexus``, ``Bio.motifs``, ``Bio.SeqIO``'s ``twobit`` parser, and

@@ -20527,6 +20527,104 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
             alignment.counts(aligner)
 
 
+class TestCallerSequences(unittest.TestCase):
+    """The aligner must leave the caller's sequence buffers alone.
+
+    With a substitution matrix, the letters of each sequence are indices
+    into the matrix, and the aligner checks them, and maps them through
+    the matrix's alphabet if it has one.  That used to happen in place, in
+    the caller's own array.
+    """
+
+    def letter_codes(self, sequence):
+        return np.array([ord(letter) for letter in sequence], np.int32)
+
+    def test_score_leaves_sequences_unchanged(self):
+        aligner = Align.PairwiseAligner(scoring="blastp")
+        expected = aligner.score("HEAGAWGHE", "PAWHEAE")
+        s = self.letter_codes("HEAGAWGHE")
+        t = self.letter_codes("PAWHEAE")
+        self.assertEqual(aligner.score(s, t), expected)
+        self.assertEqual(aligner.score(s, t), expected)
+        np.testing.assert_array_equal(s, self.letter_codes("HEAGAWGHE"))
+        np.testing.assert_array_equal(t, self.letter_codes("PAWHEAE"))
+
+    def test_score_same_array_twice(self):
+        # Mapping in place used to map an array passed as both sequences
+        # twice, so that the second pass found letters not in the alphabet.
+        aligner = Align.PairwiseAligner(scoring="blastp")
+        expected = aligner.score("HEAGAWGHE", "HEAGAWGHE")
+        s = self.letter_codes("HEAGAWGHE")
+        self.assertEqual(aligner.score(s, s), expected)
+        self.assertEqual(aligner.score(s, s.copy()), expected)
+        np.testing.assert_array_equal(s, self.letter_codes("HEAGAWGHE"))
+
+    def test_align_leaves_sequences_unchanged(self):
+        aligner = Align.PairwiseAligner(scoring="blastp")
+        s = self.letter_codes("HEAGAWGHE")
+        t = self.letter_codes("PAWHEAE")
+        cases = [
+            ("PAWHEAE", t),
+            ("PAWHEAE", t),  # the same arrays again
+            ("HEAGAWGHE", s),  # the same array as both sequences
+            ("HEAGAWGHE", s.copy()),
+        ]
+        for text, seqB in cases:
+            expected = aligner.align("HEAGAWGHE", text)
+            alignments = aligner.align(s, seqB)
+            self.assertEqual(alignments.score, expected.score)
+            self.assertEqual(len(alignments), len(expected))
+            for alignment, other in zip(alignments, expected):
+                np.testing.assert_array_equal(alignment.coordinates, other.coordinates)
+            np.testing.assert_array_equal(s, self.letter_codes("HEAGAWGHE"))
+            np.testing.assert_array_equal(t, self.letter_codes("PAWHEAE"))
+
+    def test_kernels_read_checked_indices(self):
+        # The kernels must read the indices that were checked against the
+        # matrix, not the caller's array, which may change while they run:
+        # another thread may write to it while a kernel runs without the
+        # GIL, and so may a gap function, as here.  An out-of-range index
+        # written there would make the kernel read outside the matrix.
+        matrix = np.array(
+            [
+                [5.0, -1.0, -2.0, -3.0],
+                [-1.0, 5.0, -1.0, -2.0],
+                [-2.0, -1.0, 5.0, -1.0],
+                [-3.0, -2.0, -1.0, 5.0],
+            ]
+        )
+        letters_A = [0, 1, 2, 3, 0, 1, 2, 3]
+        letters_B = [0, 1, 3, 0, 2, 3]
+        seqA = np.array(letters_A, np.int32)
+        seqB = np.array(letters_B, np.int32)
+        overwrite = []
+
+        def gap_score(start, length):
+            if overwrite:
+                seqA[:] = 3
+                seqB[:] = 3
+                overwrite.clear()
+            return -2.0 - length
+
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        aligner.gap_score = gap_score
+        self.assertEqual(
+            aligner.algorithm, "Waterman-Smith-Beyer global alignment algorithm"
+        )
+        expected_score = aligner.score(seqA, seqB)
+        expected_coordinates = aligner.align(seqA, seqB)[0].coordinates
+        self.assertEqual(expected_score, 24.0)
+        overwrite.append(True)
+        self.assertEqual(aligner.score(seqA, seqB), expected_score)
+        seqA[:] = letters_A
+        seqB[:] = letters_B
+        overwrite.append(True)
+        alignments = aligner.align(seqA, seqB)
+        self.assertEqual(alignments.score, expected_score)
+        np.testing.assert_array_equal(alignments[0].coordinates, expected_coordinates)
+
+
 class TestAlgorithmRestrictions(unittest.TestCase):
     def test_fogsaa_restrictions(self):
         aligner = Align.PairwiseAligner(mode="fogsaa")
