@@ -63,7 +63,8 @@ On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
 or ``Bio.Blast``, or reading NEXUS files with ``Bio.SeqIO``, no longer turns
-the GIL back on; of the C extensions, only ``Bio.Cluster``'s still does.
+the GIL back on. With ``Bio.Cluster`` declared too, none of BioPAIthon's C
+extensions does so any more.
 Without the GIL, threads sharing a ``PairwiseAligner``, the alignments it
 returns, or a substitution matrix could crash Python; this is fixed. Each
 ``score()``, ``align()``, ``counts()`` or ``str()`` call uses the aligner's

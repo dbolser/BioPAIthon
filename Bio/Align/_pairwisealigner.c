@@ -4217,7 +4217,7 @@ Aligner_lock_getset(void)
         PyGetSetDef* def = &Aligner_getset[i];
         Aligner_accessors[i].get = def->get;
         Aligner_accessors[i].set = def->set;
-        def->get = Aligner_get_locked;
+        if (def->get) def->get = Aligner_get_locked;
         if (def->set) def->set = Aligner_set_locked;
         def->closure = &Aligner_accessors[i];
     }
