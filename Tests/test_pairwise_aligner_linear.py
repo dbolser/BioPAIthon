@@ -3,9 +3,10 @@
 # as part of this package.
 """Tests for the linear-space traceback of PairwiseAligner.align().
 
-It is off by default; the private _set_traceback_limits switches it on. It must
-give the full traceback matrix's score, and its paths in the same order.
-BIOPAITHON_SLOW_TESTS=1 adds a soak and an alignment of over INT_MAX cells.
+Needleman-Wunsch alignments use it where their traceback matrix would be over
+512 MiB; the private _set_traceback_limits changes that. It must give the full
+traceback matrix's score, number of paths, and paths in the same order.
+BIOPAITHON_SLOW_TESTS=1 adds a soak and alignments of over INT_MAX cells.
 """
 
 import contextlib
@@ -14,6 +15,7 @@ import platform
 import random
 import signal
 import struct
+import sys
 import threading
 import unittest
 
@@ -27,10 +29,12 @@ except ImportError:
     ) from None
 
 from Bio import Align
+from Bio import SeqIO
 from Bio.Align import _pairwisealigner
 from Bio.Align import substitution_matrices
 from Bio.Seq import reverse_complement
 
+import support
 import test_pairwise_aligner
 from memory_growth import requires_growth_measurement
 
@@ -86,11 +90,23 @@ def coordinates(alignments):
 
 
 def count(alignments):
-    """Return len(alignments), or None if it overflows."""
+    """Return len(alignments), or the OverflowError message if it overflows."""
     try:
         return len(alignments)
-    except OverflowError:
-        return None
+    except OverflowError as exception:
+        return str(exception)
+
+
+def traced_peak(function, *args):
+    """Return the most memory traced while calling function with args."""
+    import tracemalloc  # not on PyPy, where the tests using this are skipped
+
+    tracemalloc.start()
+    try:
+        function(*args)
+        return tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
 
 
 def random_case(rng, lengths):
@@ -149,14 +165,24 @@ def random_budgets(rng, nB):
 
 
 class TestDefaults(unittest.TestCase):
-    """Nothing changes unless the limits are set."""
+    """Needleman-Wunsch above 512 MiB of traceback matrix, and nothing else."""
 
-    def test_switched_off(self):
-        self.assertIsNone(DEFAULT[0])
+    def test_defaults(self):
+        # The threshold, the checkpoint budget and the block budget.
+        self.assertEqual(DEFAULT, (512 << 20, 32 << 20, 16 << 20))
         self.assertIsNot(LinearPaths, PathGenerator)
+
+    def test_routing(self):
+        # The smallest square alignment over the threshold, and one below it.
+        pointer = struct.calcsize("P")
+        n = 23000
+        while (n + 1) * (n + 1 + pointer) <= DEFAULT[0]:
+            n += 1
         aligner = nw_aligner()
-        rng = random.Random(1)
-        alignments = aligner.align(random_dna(rng, 20000), random_dna(rng, 2000))
+        rng = random.Random(23166)
+        seqA, seqB = random_dna(rng, n), random_dna(rng, n)
+        self.assertIs(type(aligner.align(seqA, seqB)._paths), LinearPaths)
+        alignments = aligner.align(seqA[:20000], seqB[:2000])
         self.assertIs(type(alignments._paths), PathGenerator)
 
     def test_only_needleman_wunsch(self):
@@ -195,18 +221,21 @@ class TestDefaults(unittest.TestCase):
             self.assertEqual(set_limits(*DEFAULT), DEFAULT)
 
     def test_laziness(self):
-        # [0] works in linear space; len() and [1] build the full matrix.
+        # repr(), len(), bool() and [0] work in linear space; [1] builds the
+        # full matrix.
         aligner = nw_aligner(mismatch_score=0, gap_score=0)
+        expected = aligner.align("TACCG", "ACG")
         alignments = forced_align(aligner, "TACCG", "ACG")
         self.assertIs(type(alignments._paths), LinearPaths)
-        self.assertFalse(alignments._paths._materialized)
+        pointers = (hex(id(expected)), hex(id(alignments)))
+        self.assertEqual(repr(alignments), repr(expected).replace(*pointers))
+        self.assertEqual(len(alignments), len(expected))
+        self.assertTrue(alignments)
         alignments[0]
         self.assertFalse(alignments._paths._materialized)
         alignments[1]
         self.assertTrue(alignments._paths._materialized)
-        alignments = forced_align(aligner, "TACCG", "ACG")
-        self.assertEqual(len(alignments), len(aligner.align("TACCG", "ACG")))
-        self.assertTrue(alignments._paths._materialized)
+        self.assertEqual(len(alignments), len(expected))
 
 
 @requires_growth_measurement
@@ -215,16 +244,16 @@ class TestMemory(unittest.TestCase):
 
     def peak(self, aligner, seqs, threshold):
         """Return the alignments, and the most memory traced finding [0]."""
-        import tracemalloc  # not on PyPy, where this class is skipped
+        result = []
 
-        tracemalloc.start()
-        try:
+        def function():
             with limits(threshold, 1, 1):
                 alignments = aligner.align(*seqs)
             alignments[0]
-            return alignments, tracemalloc.get_traced_memory()[1]
-        finally:
-            tracemalloc.stop()
+            result.append(alignments)
+
+        peak = traced_peak(function)
+        return result[0], peak
 
     def check(self, aligner, seqs, routed):
         """Check routing at threshold 0 against the memory each way takes."""
@@ -257,6 +286,40 @@ class TestMemory(unittest.TestCase):
             seqA, seqB = rng.integers(size, size=(2, 1000), dtype=np.int32)
             self.check(aligner, (seqA, seqB), routed)
 
+    def peaks(self, aligner, seqs):
+        """Return the most memory traced by align(), repr() and [0], each way."""
+        routes = {ALWAYS: LinearPaths, None: PathGenerator}
+
+        def function(threshold):
+            with limits(threshold, 1 << 16, 1 << 12):
+                alignments = aligner.align(*seqs)
+            repr(alignments)
+            alignments[0]
+            self.assertIs(type(alignments._paths), routes[threshold])
+
+        return [traced_peak(function, threshold) for threshold in routes]
+
+    def test_count(self):
+        # Counting the paths for repr() takes a row of counts, not the full
+        # matrix of about 9 MB.
+        aligner = nw_aligner()
+        rng = random.Random(3000)
+        seqs = (random_dna(rng, 3000), random_dna(rng, 3000))
+        linear, full = self.peaks(aligner, seqs)
+        self.assertLess(linear, 2_000_000)
+        self.assertGreater(full, 9_000_000)
+
+    def test_skewed(self):
+        # Nothing is kept per row of the target but its private copy, of 4
+        # bytes a letter, against at least 17 bytes a row for the full
+        # matrix.  The arrays are made before the memory is traced.
+        aligner = nw_aligner()
+        rng = np.random.default_rng(1000000)
+        seqA = rng.integers(4, size=1000000, dtype=np.int32)
+        seqB = np.array([0, 1, 2, 3, 0, 1, 2, 3], np.int32)
+        linear, full = self.peaks(aligner, (seqA, seqB))
+        self.assertLess(3 * linear, full)
+
 
 class TestDifferential(unittest.TestCase):
     """The linear-space traceback against the full traceback matrix."""
@@ -278,17 +341,18 @@ class TestDifferential(unittest.TestCase):
                 forced[1]
         else:
             self.assertTrue(np.array_equal(forced[1].coordinates, second), message)
-        try:
-            length = len(expected)
-        except OverflowError:
-            with self.assertRaises(OverflowError):
-                len(forced)
-        else:
-            self.assertEqual(len(forced), length, message)
-            if length <= 50:
-                self.assertEqual(coordinates(forced), coordinates(expected), message)
+        # The number of paths, or the same OverflowError message.
+        length = count(expected)
+        self.assertEqual(count(forced), length, message)
+        if isinstance(length, int) and length <= 50:
+            self.assertEqual(coordinates(forced), coordinates(expected), message)
         forced.rewind()
         self.assertTrue(np.array_equal(forced[0].coordinates, first), message)
+        # len() first, counting in linear space, then [0].
+        forced = forced_align(aligner, *args, budgets=budgets)
+        self.assertEqual(count(forced), length, message)
+        self.assertTrue(np.array_equal(forced[0].coordinates, first), message)
+        self.assertFalse(forced._paths._materialized, message)
 
     def run_cases(self, seed, count, lengths):
         rng = random.Random(seed)
@@ -313,6 +377,23 @@ class TestDifferential(unittest.TestCase):
             aligner.epsilon = rng.choice([1e-6, 0, 0.05, 0.31])
             args = (seqA, seqB, rng.choice("+-"))
             self.check(aligner, args, random_budgets(rng, len(seqB)))
+
+    def test_overflow(self):
+        # TestOverflowError of test_pairwise_aligner, in linear space.
+        aligner = Align.PairwiseAligner(gap_score=0)
+        seqA = SeqIO.read(support.DATA / "Align" / "bsubtilis.fa", "fasta").seq
+        seqB = SeqIO.read(support.DATA / "Align" / "ecoli.fa", "fasta").seq
+        expected = aligner.align(seqA, seqB)
+        forced = forced_align(aligner, seqA, seqB)
+        self.assertEqual(
+            repr(forced),
+            f"<PairwiseAlignments object (>{sys.maxsize} alignments; "
+            f"score=1286) at {hex(id(forced))}>",
+        )
+        self.assertEqual(count(forced), count(expected))
+        self.assertRegex(count(forced), "^number of optimal alignments is larger")
+        self.assertTrue(np.array_equal(forced[0].coordinates, expected[0].coordinates))
+        self.assertFalse(forced._paths._materialized)
 
     @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
     def test_soak(self):
@@ -342,6 +423,27 @@ class TestDifferential(unittest.TestCase):
         self.assertEqual(score, alignments.score)
         self.assertEqual(alignments.score, aligner.score(seqA, seqB))
         self.assertEqual(alignment.coordinates[:, -1].tolist(), [len(seqA), len(seqB)])
+
+    @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
+    def test_read_against_genome(self):
+        # A 1,000-letter read against 2.2 million letters, with the default
+        # limits: over INT_MAX cells, and a 2.2 GB full matrix.
+        rng = random.Random(2200000)
+        seqA = random_dna(rng, 2200000)
+        seqB = list(seqA[1100000:1101000])
+        for _ in range(20):
+            seqB[rng.randrange(len(seqB))] = rng.choice("ACGT")
+        seqB = "".join(seqB)
+        self.assertGreater((len(seqA) + 1) * (len(seqB) + 1), 2**31 - 1)
+        aligner = nw_aligner()
+        alignments = aligner.align(seqA, seqB)
+        self.assertIs(type(alignments._paths), LinearPaths)
+        alignment = alignments[0]
+        counts = alignment.counts()
+        score = counts.identities - counts.mismatches - counts.gaps
+        self.assertEqual(score, alignments.score)
+        self.assertEqual(alignments.score, aligner.score(seqA, seqB))
+        self.assertFalse(alignments._paths._materialized)
 
 
 class TestSnapshot(unittest.TestCase):
@@ -457,8 +559,23 @@ class TestInterrupt(unittest.TestCase):
         cls.aligner = nw_aligner()
         cls.expected = cls.aligner.align(*cls.seqs)
 
-    def interrupt(self, paths, returned):
-        """Call next(paths) with a timer raising KeyboardInterrupt."""
+    @contextlib.contextmanager
+    def alarms(self, handler, delay, interval=0):
+        """Run handler on SIGALRM from a timer for the duration of a with block."""
+        previous = signal.signal(signal.SIGALRM, handler)
+        signal.setitimer(signal.ITIMER_REAL, delay, interval)
+        try:
+            yield
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            # Discard a SIGALRM still pending for another thread, such as a
+            # pytest-xdist worker's: under the default action, restored next,
+            # it would end the process.
+            signal.signal(signal.SIGALRM, signal.SIG_IGN)
+            signal.signal(signal.SIGALRM, previous)
+
+    def interrupt(self, paths, returned, call=next):
+        """Call call(paths) with a timer raising KeyboardInterrupt."""
         calls = 0
 
         def handler(signum, frame):
@@ -467,30 +584,30 @@ class TestInterrupt(unittest.TestCase):
             if calls == 3:
                 raise KeyboardInterrupt
 
-        previous = signal.signal(signal.SIGALRM, handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.001, 0.001)
-        try:
-            returned.append(next(paths))
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous)
+        with self.alarms(handler, 0.001, 0.001):
+            returned.append(call(paths))
 
     def test_interrupt(self):
         expected = self.expected
         reference = (expected[0].coordinates, expected[1].coordinates, count(expected))
-        for stage in ("first path", "full matrix"):
-            for _ in range(20):
+        for stage, repeats in (("first path", 20), ("full matrix", 20), ("count", 5)):
+            for _ in range(repeats):
                 alignments = forced_align(self.aligner, *self.seqs, budgets=DEFAULT[1:])
                 paths = alignments._paths
                 if stage == "full matrix":
                     next(paths)
                 returned = []
+                call = len if stage == "count" else next
                 with self.assertRaises(KeyboardInterrupt, msg=stage):
-                    self.interrupt(paths, returned)
+                    self.interrupt(paths, returned, call)
                 # interrupted inside the C code
                 self.assertEqual(returned, [], stage)
                 self.assertFalse(paths._materialized, stage)
                 alignments.rewind()
+                if stage == "count":
+                    # counted again in linear space, as nothing was kept
+                    self.assertEqual(count(alignments), reference[2])
+                    self.assertFalse(paths._materialized)
                 self.assertTrue(np.array_equal(alignments[0].coordinates, reference[0]))
                 self.assertTrue(np.array_equal(alignments[1].coordinates, reference[1]))
                 self.assertEqual(count(alignments), reference[2])
@@ -504,24 +621,18 @@ class TestInterrupt(unittest.TestCase):
         def handler(signum, frame):
             len(paths)
 
-        previous = signal.signal(signal.SIGALRM, handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.002)
-        try:
+        with self.alarms(handler, 0.002):
             with self.assertRaisesRegex(RuntimeError, "being computed"):
                 next(paths)
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-            signal.signal(signal.SIGALRM, previous)
         first = self.expected[0].coordinates
         self.assertTrue(np.array_equal(alignments[0].coordinates, first))
 
 
-# The forced re-run of test_pairwise_aligner.  Its tests call repr() and
-# len() before [0], which would build the full matrix before the linear-space
-# traceback has run, so align() is wrapped: each call first checks [0] of a
-# fresh linear-space object against a fresh default one, then returns another
-# fresh linear-space object.  A call the linear-space traceback does not take
-# is made only once, as its gap function may change the sequences.
+# The forced re-run of test_pairwise_aligner.  align() is wrapped: each call
+# first checks [0] of a fresh linear-space object against a fresh default one,
+# whether or not the test looks at [0], then returns another fresh
+# linear-space object.  A call the linear-space traceback does not take is
+# made only once, as its gap function may change the sequences.
 #
 # The Forced classes are made at module level, as pytest ignores load_tests.
 
@@ -559,6 +670,13 @@ class Forced:
         super().setUp()
 
 
+# TestMatrixAllocationGuards never reaches the linear-space traceback: its
+# alignments fail before routing, or are Waterman-Smith-Beyer or FOGSAA.  Under
+# AddressSanitizer its 8 GB arrays become resident, and a second copy running
+# in another pytest-xdist worker at the same time exhausts a CI runner.
+NOT_FORCED = {"TestMatrixAllocationGuards"}
+
+
 def forced_classes(module):
     """Return a forced re-run class for each test case class of a module."""
     classes = {}
@@ -567,6 +685,7 @@ def forced_classes(module):
             isinstance(value, type)
             and issubclass(value, unittest.TestCase)
             and value.__module__ == module.__name__
+            and name not in NOT_FORCED
         ):
             classes[f"Forced{name}"] = type(f"Forced{name}", (Forced, value), {})
     return classes

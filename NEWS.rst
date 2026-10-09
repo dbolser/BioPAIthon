@@ -59,6 +59,21 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
+global alignment with linear gap scores (the Needleman-Wunsch algorithm) when
+that matrix would take more than 512 MiB, about 23 kb against 23 kb. It keeps
+some rows of scores and recomputes the rest as needed, so the score,
+``len(alignments)`` (and so ``repr()`` and ``bool()``) and ``alignments[0]``
+use memory in proportion to the sequence lengths. Aligning two 30 kb
+sequences took 892 MB and now takes 71 MB; a 1 kb read against 2 Mb took
+2 GB and now takes 81 MB. The score, the number of alignments, and the
+alignments in their order are exactly those of the full matrix. The price is
+time: ``alignments[0]`` takes 1.4 to 2 times as long as before, and ``len()``
+more than twice as long. Going past the first alignment still builds the full
+matrix, so for a huge alignment a ``MemoryError`` now comes from
+``alignments[1]`` rather than from ``align()``. Affine gap scores, local
+alignments, gap score functions and FOGSAA still build the full matrix.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
