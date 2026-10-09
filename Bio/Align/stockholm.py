@@ -284,20 +284,40 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     )
 
     @staticmethod
-    def _store_per_sequence_and_per_column_annotations(alignment, gr):
+    def _store_per_sequence_and_per_column_annotations(
+        alignment, gr, aligned_sequences, skipped_columns
+    ):
+        rows = {}
+        for row, record in enumerate(alignment.sequences):
+            rows.setdefault(record.id, row)
+        skipped_columns = set(skipped_columns.tolist())
         for seqname, letter_annotations in gr.items():
-            for record in alignment.sequences:
-                if record.id == seqname:
-                    break
-            else:
-                raise ValueError(f"Failed to find seqname {seqname}")
+            try:
+                row = rows[seqname]
+            except KeyError:
+                raise ValueError(f"Failed to find seqname {seqname}") from None
+            record = alignment.sequences[row]
+            aligned_sequence = aligned_sequences[row]
             for key, letter_annotation in letter_annotations.items():
                 feature = AlignmentIterator.gr_mapping.get(key, key)
-                if key == "CSA":
-                    letter_annotation = letter_annotation.replace("-", "")
-                else:
-                    letter_annotation = letter_annotation.replace(".", "")
-                record.letter_annotations[feature] = letter_annotation
+                if skipped_columns:
+                    letter_annotation = "".join(
+                        letter
+                        for index, letter in enumerate(letter_annotation)
+                        if index not in skipped_columns
+                    )
+                if len(letter_annotation) != len(aligned_sequence):
+                    raise ValueError(
+                        f"#=GR {key} line of {seqname} has length "
+                        f"{len(letter_annotation)}, expected {len(aligned_sequence)}"
+                    )
+                # One character per alignment column: keep those in the
+                # columns where this sequence has a letter, drop its gaps.
+                record.letter_annotations[feature] = "".join(
+                    letter
+                    for letter, residue in zip(letter_annotation, aligned_sequence)
+                    if residue != ord("-")
+                )
 
     def _read_next_alignment(self, stream):
         for line in stream:
@@ -354,7 +374,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 )
                 AlignmentIterator._store_per_sequence_annotations(alignment, gs)
                 AlignmentIterator._store_per_sequence_and_per_column_annotations(
-                    alignment, gr
+                    alignment, gr, aligned_sequences, skipped_columns
                 )
                 return alignment
             elif not line.startswith("#"):

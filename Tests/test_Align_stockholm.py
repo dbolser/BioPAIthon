@@ -11,6 +11,8 @@ import support
 
 from Bio import Align
 from Bio.Align import substitution_matrices
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 substitution_matrix = substitution_matrices.load("BLOSUM62")
 
@@ -7686,6 +7688,80 @@ np.array([['V', 'E', 'R', 'Y', 'S', 'L', 'S', 'P', 'M', 'K', 'D', 'L', 'W',
         self.assertIn("nonstandardgs", alignment.sequences[0].annotations.keys())
         self.assertIn("nonstandardgr", alignment.sequences[0].letter_annotations.keys())
         self.assertNotIn("nonstandardgf", alignment.annotations.keys())
+
+
+class TestStockholm_per_residue_annotations(unittest.TestCase):
+    """#=GR lines hold one character per column; a sequence keeps its letters'."""
+
+    def test_dot_at_residue_and_letter_at_gap(self):
+        """Keep a '.' annotating a residue, and drop an 'X' at a gap."""
+        path = support.DATA / "Stockholm" / "example_nonstandardannotations.sth"
+        alignment = Align.read(path, "stockholm")
+        # Aligned sequence: KEIDRAREIYERFVYVH.PDVKNWIKFARFEES
+        # nonstandardgr:    --------X.XXXXXXXX---------------
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations["nonstandardgr"],
+            "--------X.XXXXXXX---------------",
+        )
+        self.assertEqual(
+            alignment.sequences[1].letter_annotations["secondary structure"],
+            "--HHHHHHHHHHHHHHS--HHHHHHHHHHHHH",
+        )
+
+    def test_write_read_dot_annotation(self):
+        """Read back a per-residue annotation containing '.' as written."""
+        record1 = SeqRecord(Seq("ACGT"), id="s1")
+        record1.letter_annotations["secondary structure"] = "<..>"
+        record2 = SeqRecord(Seq("ACAGT"), id="s2")
+        coordinates = np.array([[0, 2, 2, 4], [0, 2, 3, 5]])
+        alignment = Align.Alignment([record1, record2], coordinates)
+        alignment.column_annotations = {}
+        stream = StringIO()
+        Align.write(alignment, stream, "stockholm")
+        stream.seek(0)
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations,
+            {"secondary structure": "<..>"},
+        )
+        self.assertEqual(alignment.sequences[1].letter_annotations, {})
+
+    def test_all_gap_column(self):
+        """Drop the deleted all-gap columns from #=GR lines, as from #=GC."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A AC-GT
+#=GR A SS <<x>>
+B A--GT
+#=GR B SS 1xx23
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(alignment.shape, (2, 4))
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations["secondary structure"], "<<>>"
+        )
+        self.assertEqual(
+            alignment.sequences[1].letter_annotations["secondary structure"], "123"
+        )
+
+    def test_wrong_length(self):
+        """Reject a #=GR line one column too short or too long."""
+        for annotation in ("<XX>", "<X.X>>"):
+            with self.subTest(annotation=annotation):
+                stream = StringIO(
+                    f"""\
+# STOCKHOLM 1.0
+A AC.GT
+#=GR A SS {annotation}
+B ACAGT
+//
+"""
+                )
+                with self.assertRaisesRegex(ValueError, "#=GR SS line of A "):
+                    Align.read(stream, "stockholm")
 
 
 if __name__ == "__main__":
