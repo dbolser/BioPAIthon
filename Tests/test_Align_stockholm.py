@@ -7691,7 +7691,7 @@ np.array([['V', 'E', 'R', 'Y', 'S', 'L', 'S', 'P', 'M', 'K', 'D', 'L', 'W',
 
 
 class TestStockholm_per_residue_annotations(unittest.TestCase):
-    """#=GR lines hold one character per column; a sequence keeps its letters'."""
+    """Read #=GR lines by column, keeping the characters at each row's letters."""
 
     def test_dot_at_residue_and_letter_at_gap(self):
         """Keep a '.' annotating a residue, and drop an 'X' at a gap."""
