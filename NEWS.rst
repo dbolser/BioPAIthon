@@ -59,6 +59,15 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The C extensions in ``Bio.Nexus``, ``Bio.motifs``, ``Bio.PDB`` and
+``Bio.SeqIO`` now ship type stubs too. Type checkers such as mypy used to
+report ``from Bio.PDB.kdtrees import KDTree`` as a missing module; now they
+see what ``KDTree`` and ``Bio.PDB.ccealign.run_cealign`` take and return.
+Type-checked code may get new, correct errors, such as for
+``KDTree(coords, bucket_size=10)``: ``KDTree`` ignores keyword arguments, so
+that builds a tree with the default bucket size of 1. Nothing changes at run
+time.
+
 ``Bio.SeqFeature`` is now fully type-annotated. A feature's ``extract``
 returns a ``str`` for a ``str``, a ``Seq`` for a ``Seq`` or ``MutableSeq``,
 and a ``SeqRecord`` for a ``SeqRecord``, as it does at run time, and
