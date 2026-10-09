@@ -36,15 +36,17 @@ ids: NDArray[np.integer[Any]] = clusterid
 not_floats: NDArray[np.floating[Any]] = clusterid  # type: ignore[assignment]
 clusterid, error = kcluster(data)  # type: ignore[misc]
 
-# An int works as the transpose flag, as the Tutorial uses it. Counts can
-# be NumPy integers.
+# An int works as the transpose flag, as the Tutorial uses it. Counts and
+# the transpose flag can be NumPy integers.
 kcluster(data, transpose=1)
-kcluster(data, nclusters=np.int64(2), npass=np.int64(5))
+kcluster(data, nclusters=np.int64(2), npass=np.int64(5), transpose=np.int64(0))
 kcluster(data, method=1)  # type: ignore[arg-type]
 
 # somcluster reads data.shape before converting data to an array, so a list
-# fails at run time.
-grid_ids, celldata = somcluster(np.array(data), nxgrid=np.int64(3))
+# fails at run time. The grid sizes and inittau can be NumPy scalars.
+grid_ids, celldata = somcluster(
+    np.array(data), nxgrid=np.int64(3), inittau=np.float32(0.05)
+)
 centroids: NDArray[np.floating[Any]] = celldata
 somcluster(data)  # type: ignore[arg-type]
 
