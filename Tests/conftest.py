@@ -29,7 +29,8 @@ With pytest-xdist the suite can run in parallel, as with ``-n auto --dist
 loadfile``, which keeps each module's tests together on one worker.  The
 workers report their import-time skips to the controller, which prints them
 and applies ``--check-skips``.  The BioSQL test modules all go to the same
-worker, as those for one database server share its test database.
+worker, as those for one database server share its test database, and so do
+the PAML ones, which share working directories.
 """
 
 import contextlib
@@ -394,30 +395,41 @@ def pytest_deselected(items):
         items[0].config.stash[_DESELECTED] = True
 
 
+# Test modules that share a database or files with each other, by the start
+# of their file names.  Each group runs on one pytest-xdist worker.
+SHARED_RESOURCE_GROUPS = ("test_BioSQL_", "test_PAML_")
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_xdist_make_scheduler(config, log):
-    """Schedule all the BioSQL test modules as one under --dist loadfile.
+    """Schedule each group of modules sharing resources as one file.
 
-    The modules for one database server (MySQLdb and mysql_connector for
-    MySQL, psycopg2 for PostgreSQL, each with its _online variant) create
-    and drop the same test database named in biosql.ini (see
-    common_BioSQL.py), so they must not run at the same time.  The sqlite3
-    modules use temporary files and would be safe apart, but are kept with
-    the rest for simplicity.  Every other module is scheduled as a file of
-    its own, as usual.
+    Under --dist loadfile every other module is scheduled as a file of its
+    own, as usual.  These groups must not run at the same time:
+
+    - The BioSQL modules for one database server (MySQLdb and
+      mysql_connector for MySQL, psycopg2 for PostgreSQL, each with its
+      _online variant) create and drop the same test database named in
+      biosql.ini (see common_BioSQL.py).  The sqlite3 modules use temporary
+      files and would be safe apart, but are kept with the rest for
+      simplicity.
+    - With PAML installed, test_PAML_tools runs its programs in
+      Tests/PAML/baseml_test and the like, which the tearDown methods of
+      test_PAML_baseml, test_PAML_codeml and test_PAML_yn00 delete.
     """
     if config.getoption("dist") != "loadfile":
         return None
     from xdist.scheduler import LoadFileScheduling
 
-    class BioSQLLoadFileScheduling(LoadFileScheduling):
+    class GroupedLoadFileScheduling(LoadFileScheduling):
         def _split_scope(self, nodeid):
             filename = nodeid.split("::", 1)[0].rsplit("/", 1)[-1]
-            if filename.startswith("test_BioSQL_"):
-                return "BioSQL"
+            for prefix in SHARED_RESOURCE_GROUPS:
+                if filename.startswith(prefix):
+                    return prefix
             return super()._split_scope(nodeid)
 
-    return BioSQLLoadFileScheduling(config, log)
+    return GroupedLoadFileScheduling(config, log)
 
 
 @pytest.hookimpl(optionalhook=True)

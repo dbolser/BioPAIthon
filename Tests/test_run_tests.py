@@ -570,9 +570,9 @@ class ParallelProbeTests(unittest.TestCase):
             output,
         )
 
-    def test_biosql_modules_share_a_worker(self):
-        # Scheduled file by file, the two largest modules, here the BioSQL
-        # ones, would start on different workers.
+    def test_shared_resource_groups_share_a_worker(self):
+        # Scheduled file by file, the two modules of a group, the largest
+        # here, would start on different workers.
         three_tests = """\
             import unittest
             class Three(unittest.TestCase):
@@ -589,20 +589,24 @@ class ParallelProbeTests(unittest.TestCase):
                 def test_1(self):
                     pass
         """
-        returncode, output = self.run_pytest(
-            {
-                "test_BioSQL_probe_a.py": three_tests,
-                "test_BioSQL_probe_b.py": three_tests,
-                "test_probe_c.py": one_test,
-                "test_probe_d.py": one_test,
-            },
-            "-v",
-        )
-        self.assertEqual(returncode, 0, output)
-        self.assertIn("8 passed", output)
-        workers = re.findall(r"\[(gw\d+)\] .* PASSED \S*test_BioSQL_probe_", output)
-        self.assertEqual(len(workers), 6, output)
-        self.assertEqual(len(set(workers)), 1, output)
+        for prefix in ["test_BioSQL_", "test_PAML_"]:
+            with self.subTest(prefix=prefix):
+                returncode, output = self.run_pytest(
+                    {
+                        f"{prefix}probe_a.py": three_tests,
+                        f"{prefix}probe_b.py": three_tests,
+                        "test_probe_c.py": one_test,
+                        "test_probe_d.py": one_test,
+                    },
+                    "-v",
+                )
+                self.assertEqual(returncode, 0, output)
+                self.assertIn("8 passed", output)
+                workers = re.findall(
+                    rf"\[(gw\d+)\] .* PASSED \S*{prefix}probe_", output
+                )
+                self.assertEqual(len(workers), 6, output)
+                self.assertEqual(len(set(workers)), 1, output)
 
 
 if __name__ == "__main__":
