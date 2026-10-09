@@ -65,7 +65,7 @@ runs to the first whitespace, so it may be longer than the 10 characters
 ``"phylip"`` allows. Names are read exactly as ``Bio.AlignIO`` reads them,
 and the layout and any further alignments in the file are found as for
 ``"phylip"``. The writer keeps names in full, and raises ``ValueError`` for a
-name containing whitespace or a sequence without a name.
+name containing whitespace, a sequence without a name, or a repeated name.
 ``Bio.Align.formats`` lists the new name. It is the first entry there that is
 not also a module name: the reader and writer are
 ``RelaxedAlignmentIterator`` and ``RelaxedAlignmentWriter`` in

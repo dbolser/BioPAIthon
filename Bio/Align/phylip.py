@@ -13,7 +13,6 @@ format, which RAxML and PhyML read, allows names of any length that contain
 no whitespace, and separates each name from its sequence by whitespace.
 """
 
-import string
 from itertools import chain
 from types import SimpleNamespace
 
@@ -235,21 +234,25 @@ class RelaxedAlignmentWriter(AlignmentWriter):
     """Relaxed PHYLIP alignment writer.
 
     Names are written in full, padded with spaces to one more than the length
-    of the longest name.  A name cannot contain whitespace, and every sequence
-    needs a name.  As for the "phylip" format, the characters ``[](),`` are
-    removed from names, and ``:`` and ``;`` become ``|``.
+    of the longest name.  A name cannot contain whitespace, every sequence
+    needs a name, and no two sequences can have the same name.  As for the
+    "phylip" format, the characters ``[](),`` are removed from names, and
+    ``:`` and ``;`` become ``|``.
     """
 
     def _format_names(self, alignment):
         """Return the name of each sequence, padded to start its line (PRIVATE)."""
         names = []
         for record in alignment.sequences:
-            name = getattr(record, "id", "").strip()
-            if any(char in name for char in string.whitespace):
+            original = getattr(record, "id", None) or ""
+            name = original.strip()
+            if any(char.isspace() for char in name):
                 raise ValueError(f"Whitespace not allowed in identifier: {name}")
             name = _sanitize_name(name)
             if not name:
                 raise ValueError("Relaxed PHYLIP needs a name for every sequence")
+            if name in names:
+                raise ValueError(f"Repeated name {name!r} (originally {original!r})")
             names.append(name)
         width = max(map(len, names), default=0) + 1
         return [name.ljust(width) for name in names]

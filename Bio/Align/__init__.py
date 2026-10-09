@@ -5322,8 +5322,14 @@ formats = (
 # AlignmentWriter attributes can stand in for a module, as one in
 # Bio.Align.phylip does for phylip-relaxed, which has no module of its own.
 _registry = _FormatRegistry(
-    {fmt: f"Bio.Align.{fmt}" for fmt in formats}
-    | {"phylip-relaxed": "Bio.Align.phylip:_relaxed"}
+    {
+        fmt: (
+            "Bio.Align.phylip:_relaxed"
+            if fmt == "phylip-relaxed"
+            else f"Bio.Align.{fmt}"
+        )
+        for fmt in formats
+    }
 )
 
 
