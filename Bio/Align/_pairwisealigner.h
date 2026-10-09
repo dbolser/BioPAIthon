@@ -8,6 +8,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
+#include "../_freethreading.h"
 
 #define HORIZONTAL 0x1
 #define VERTICAL 0x2
@@ -89,21 +90,27 @@ Aligner_snapshot_release(Aligner* snap)
 static inline int
 Aligner_snapshot(Aligner* self, Aligner* snap)
 {
-    PyObject* matrix = self->substitution_matrix.obj;
+    PyObject* matrix;
     Py_buffer* view = &snap->substitution_matrix;
     int status;
 
+    /* Copy the settings and take the references under the aligner's lock,
+     * so that a setter in another thread cannot free an object between
+     * the copy and the reference.  Nothing here calls into Python. */
+    Py_BEGIN_CRITICAL_SECTION(self);
     *snap = *self;
-    snap->alphabet = NULL;
     Py_XINCREF(snap->insertion_score_function);
     Py_XINCREF(snap->deletion_score_function);
+    matrix = self->substitution_matrix.obj;
+    Py_XINCREF(matrix);
+    Py_END_CRITICAL_SECTION();
+    snap->alphabet = NULL;
     view->obj = NULL;
     view->buf = NULL;
     if (!matrix) return 0;
 
-    /* The exporter may run arbitrary code, so hold the matrix while
-     * exporting it. */
-    Py_INCREF(matrix);
+    /* The exporter may run arbitrary code, so export the matrix outside
+     * the lock, through the reference taken above. */
     status = PyObject_GetBuffer(matrix, view, PyBUF_FORMAT | PyBUF_ND);
     Py_DECREF(matrix);
     if (status < 0) {

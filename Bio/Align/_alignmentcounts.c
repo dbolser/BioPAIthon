@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include "_pairwisealigner.h"
 #include "substitution_matrices/_arraycore.h"
+#include "../_freethreading.h"
 
 
 static PyTypeObject* Aligner_Type = NULL;
@@ -1148,7 +1149,8 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     PyObject* sequence;
     Aligner snapshot;
     Aligner* aligner = NULL;
-    PyObject* sequences;
+    PyObject* list;
+    PyObject* sequences = NULL;
     Py_buffer* sequence_buffers = NULL;
     Py_buffer coordinates = {0};
     Py_buffer strands = {0};
@@ -1208,11 +1210,17 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     static char *kwlist[] = {"sequences", "coordinates", "strands", "argument", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, keywords, "O!O&O&|O", kwlist,
-                                     &PyList_Type, &sequences,
+                                     &PyList_Type, &list,
                                      coordinates_converter, &coordinates,
                                      strands_converter , &strands,
                                      &argument))
         return 0;
+
+    /* Work on a private copy of the list, which holds a reference to each
+     * sequence: the caller's list may change while the counts are made,
+     * in another thread or in a lazy sequence's __getitem__. */
+    sequences = PyList_GetSlice(list, 0, PY_SSIZE_T_MAX);
+    if (!sequences) goto exit;
 
     if (argument == NULL) {
     }
@@ -1283,13 +1291,17 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
 
     if (substitution_matrix.obj) {
         m = substitution_matrix.shape[0];
-        if (PyObject_IsInstance(substitution_matrix.obj,
-                               (PyObject*)Array_Type)) {
+        if (PyObject_TypeCheck(substitution_matrix.obj, Array_Type)) {
             PyTypeObject* basetype = Array_Type->tp_base;
             Fields* fields = (Fields*)((intptr_t)substitution_matrix.obj + basetype->tp_basicsize);
             Py_buffer* mapping_buffer = &fields->mapping;
+            /* The array publishes its mapping under its lock, and then
+             * never changes or frees it while the array exists; our buffer
+             * export holds a reference to the array. */
+            Py_BEGIN_CRITICAL_SECTION(substitution_matrix.obj);
             mapping = mapping_buffer->buf;
             if (mapping) m = mapping_buffer->len / mapping_buffer->itemsize;
+            Py_END_CRITICAL_SECTION();
         }
     }
 
@@ -1619,6 +1631,7 @@ exit:
             if (sequence_buffers[k].buf) PyBuffer_Release(&sequence_buffers[k]);
         PyMem_Free(sequence_buffers);
     }
+    Py_XDECREF(sequences);
     coordinates_converter(NULL, &coordinates);
     strands_converter(NULL, &strands);
     substitution_matrix_converter(NULL, &substitution_matrix);
@@ -1662,6 +1675,10 @@ PyInit__alignmentcounts(void)
 
     module = PyModule_Create(&moduledef);
     if (!module) return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     PyObject *mod;
     mod = PyImport_ImportModule("Bio.Align.substitution_matrices._arraycore");

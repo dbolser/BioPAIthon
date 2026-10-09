@@ -20311,7 +20311,10 @@ class TestReconfigureDuringCall(unittest.TestCase):
     Python partway through: gap functions, and the gap functions' __repr__.
     That code may replace the aligner's substitution matrix or gap
     functions, freeing the old ones.  Each call must finish with the
-    settings it started with, without touching freed memory.
+    settings it started with, without touching freed memory.  Likewise, a
+    setter freeing the old setting can run Python code (a finalizer), which
+    may use the aligner; it must then see a complete setting, never one
+    that is being freed.
 
     The crash tests run in a child process with PYTHONMALLOC=debug, which
     overwrites freed memory, so a use-after-free crashes the child rather
@@ -20436,6 +20439,137 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
         )
 
     @unittest.skipUnless(
+        platform.python_implementation() == "CPython",
+        "requires finalizers to run as soon as the last reference goes",
+    )
+    def test_finalizer_uses_aligner_during_setter(self):
+        self.run_child(
+            """
+import numpy as np
+
+from Bio import Align
+
+scores = []
+
+
+class Finalizer:
+    # Kept alive only by a gap function's closure, so it is finalized when
+    # a setter drops that function, and then scores with the aligner.
+
+    def __del__(self):
+        scores.append(aligner.score(seqA, seqB))
+
+
+def make_gap_function():
+    finalizer = Finalizer()
+
+    def gap_function(start, length):
+        assert finalizer
+        return -1.0 - length
+
+    return gap_function
+
+
+seqA = "HEAGAWGHEE"
+seqB = "PAWHEAE"
+aligner = Align.PairwiseAligner()
+finalized = 0
+for name, value in [
+    ("gap_score", -2.0),
+    ("insertion_score", -2.0),
+    ("deletion_score", -2.0),
+    ("open_gap_score", -2.0),
+    ("end_gap_score", -2.0),
+    ("open_internal_deletion_score", -2.0),
+    ("gap_score", lambda start, length: -2.0),
+    ("insertion_score", lambda start, length: -2.0),
+    ("deletion_score", lambda start, length: -2.0),
+]:
+    aligner.insertion_score = make_gap_function()
+    aligner.deletion_score = make_gap_function()
+    del scores[:]
+    setattr(aligner, name, value)
+    # Each finalizer must have seen the whole new setting.
+    expected = aligner.score(seqA, seqB)
+    assert scores and scores == [expected] * len(scores), (name, scores, expected)
+    finalized += len(scores)
+assert finalized == 13, finalized
+aligner.gap_score = -1.0
+
+
+class Matrix(np.ndarray):
+    # The aligner holds the only reference, so this is finalized when the
+    # setter replaces it, and must then see the new matrix.
+
+    def __del__(self):
+        scores.append(aligner.score(sequence, sequence))
+
+
+sequence = np.arange(4, dtype=np.int32)
+aligner.substitution_matrix = np.eye(4).view(Matrix)
+del scores[:]
+aligner.substitution_matrix = 2 * np.eye(4)
+assert scores == [8.0], scores
+"""
+        )
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython" and sys.version_info >= (3, 12),
+        "requires __release_buffer__, new in Python 3.12",
+    )
+    def test_release_buffer_uses_aligner_during_setter(self):
+        self.run_child(
+            """
+import sys
+import sysconfig
+
+import numpy as np
+
+from Bio import Align
+
+scores = []
+releasing = []
+
+
+class Matrix(np.ndarray):
+    # A setter dropping this matrix releases the aligner's buffer export of
+    # it, which runs this method.  It scores with the aligner, and then
+    # makes the same setting again, which drops the matrix again if the
+    # aligner still holds it.
+
+    def __release_buffer__(self, view):
+        if releasing:
+            releasing.pop()
+            scores.append(aligner.score(sequence, sequence))
+            setattr(aligner, name, value)
+
+
+sequence = np.arange(4, dtype=np.int32)
+aligner = Align.PairwiseAligner()
+for name, value in [
+    ("match_score", 2.0),
+    ("mismatch_score", -3.0),
+    ("substitution_matrix", None),
+    ("substitution_matrix", 3 * np.eye(4)),
+]:
+    matrix = np.eye(4).view(Matrix)
+    aligner.substitution_matrix = matrix
+    expected_refcount = sys.getrefcount(matrix) - 1
+    del scores[:]
+    releasing.append(True)
+    setattr(aligner, name, value)
+    assert not releasing, name
+    if not sysconfig.get_config_var("Py_GIL_DISABLED"):
+        # The export was released once, not twice.
+        refcount = sys.getrefcount(matrix)
+        assert refcount == expected_refcount, (name, refcount, expected_refcount)
+    # The method must have seen the whole new setting.
+    expected = aligner.score(sequence, sequence)
+    assert scores == [expected], (name, scores, expected)
+"""
+        )
+
+    @unittest.skipUnless(
         _stable_cpython_refcounts,
         "GIL-enabled CPython reference counts are required",
     )
@@ -20444,7 +20578,8 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
         # own buffer export of the matrix (whose view holds a reference to
         # it), and must drop them all on every exit path: success, a
         # sequence the matrix cannot score, and an exception or Ctrl-C
-        # raised inside a gap function.
+        # raised inside a gap function. str(aligner) holds references to
+        # all three while formatting.
         matrix = substitution_matrices.load("BLOSUM62")
         failure = []
 
@@ -20473,6 +20608,7 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
             for _ in aligner.align(seqA, seqB):
                 pass
             alignment.counts(aligner)
+            str(aligner)
             with self.assertRaises(ValueError):
                 aligner.score(seqA, bad)
             with self.assertRaises(ValueError):

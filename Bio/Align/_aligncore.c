@@ -8,6 +8,7 @@
 
 #include <Python.h>
 #include <stdbool.h>
+#include "../_freethreading.h"
 
 
 static PyTypeObject ParserType;
@@ -51,6 +52,7 @@ array_converter(PyObject* argument, void* pointer)
 {
     Py_buffer* view = pointer;
     Parser* self;
+    Py_ssize_t n, k;
 
     if (!PyObject_TypeCheck(view->obj, &ParserType)) {
         PyErr_SetString(PyExc_RuntimeError,
@@ -65,20 +67,24 @@ array_converter(PyObject* argument, void* pointer)
                         "argument does not implement the buffer protocol");
         return 0;
     }
+    Py_BEGIN_CRITICAL_SECTION(self);
+    n = self->n;
+    k = self->k;
+    Py_END_CRITICAL_SECTION();
     if (view->ndim != 2) {
         PyErr_Format(PyExc_RuntimeError,
                      "buffer has incorrect rank %d (expected 2)",
                       view->ndim);
     }
-    else if (view->shape[0] != self->n) {
+    else if (view->shape[0] != n) {
         PyErr_Format(PyExc_RuntimeError,
                      "buffer has incorrect number of rows %zd (expected %zd)",
-                      view->shape[0], self->n);
+                      view->shape[0], n);
     }
-    else if (view->shape[1] != self->k) {
+    else if (view->shape[1] != k) {
         PyErr_Format(PyExc_RuntimeError,
                      "buffer has incorrect number of columns %zd (expected %zd)",
-                      view->shape[1], self->k);
+                      view->shape[1], k);
     }
     else if (view->itemsize != sizeof(Py_ssize_t)) {
         PyErr_Format(PyExc_RuntimeError,
@@ -117,9 +123,8 @@ PyDoc_STRVAR(
     "   of the Alignment object.");
 
 static PyObject*
-Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
+Parser_feed_impl(Parser* self, PyObject* line, Py_ssize_t offset)
 {
-    PyObject* line = NULL;
     PyObject* sequence;
     PyObject* result;
     const char* buffer;
@@ -131,15 +136,12 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
     Py_ssize_t size = 2;
     Py_ssize_t i = 0;
     Py_ssize_t p = 0;
-    Py_ssize_t offset = 0;
     Py_ssize_t line_length;
     Py_ssize_t start, end, step;
     Py_uintptr_t** data;
     Py_uintptr_t* row;
     char c;
     bool gap = false;
-
-    if (!PyArg_ParseTuple(args, "S|n:feed", &line, &offset)) return NULL;
 
     line_length = PyBytes_GET_SIZE(line);
     if (offset < 0 || offset > line_length) {
@@ -243,6 +245,24 @@ Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
     return result;
 }
 
+/* The parser grows its rows as lines are fed to it, so feed, fill and
+ * shape each hold its lock.  Their arguments are converted first, outside
+ * the lock, as converting them can call into Python. */
+static PyObject*
+Parser_feed(Parser* self, PyObject* args, PyObject *kwds)
+{
+    PyObject* line = NULL;
+    PyObject* result;
+    Py_ssize_t offset = 0;
+
+    if (!PyArg_ParseTuple(args, "S|n:feed", &line, &offset)) return NULL;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    result = Parser_feed_impl(self, line, offset);
+    Py_END_CRITICAL_SECTION();
+    return result;
+}
+
 PyDoc_STRVAR(
     Parser_fill__doc__,
     "fill(self, arr)\n"
@@ -263,10 +283,9 @@ PyDoc_STRVAR(
 );
 
 static PyObject*
-Parser_fill(Parser* self, PyObject* args)
+Parser_fill_impl(Parser* self, Py_buffer* view)
 {
     PyObject* result = NULL;
-    Py_buffer view;
     Py_ssize_t i, j, k, n, m, p;
     Py_ssize_t start;
     Py_ssize_t step;
@@ -276,20 +295,15 @@ Parser_fill(Parser* self, PyObject* args)
     bool* gaps = NULL;
     Py_ssize_t* buffer;
 
+    /* Another thread may have fed a line since array_converter checked
+     * the array against the parser. */
     n = self->n;
-    if (n == 0) Py_RETURN_NONE;
-
-    view.obj = (PyObject*) self;
-
-    if (!PyArg_ParseTuple(args, "O&:fill", array_converter, &view))
-        return NULL;
-
-    buffer = view.buf;
-    k = view.shape[1];
-    if (n != view.shape[0]) {
+    buffer = view->buf;
+    k = view->shape[1];
+    if (n != view->shape[0]) {
         PyErr_Format(PyExc_ValueError,
                      "expected an array with %zd rows (found %zd rows)",
-                     n, view.shape[0]);
+                     n, view->shape[0]);
         goto exit;
     }
     for (i = 0; i < n; i++) buffer[i*k] = 0;
@@ -361,10 +375,33 @@ Parser_fill(Parser* self, PyObject* args)
     result = Py_None;
 
 exit:
-    PyBuffer_Release(&view);
     if (starts) PyMem_Free(starts);
     if (data) PyMem_Free(data);
     if (gaps) PyMem_Free(gaps);
+    return result;
+}
+
+static PyObject*
+Parser_fill(Parser* self, PyObject* args)
+{
+    PyObject* result;
+    Py_buffer view;
+    Py_ssize_t n;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    n = self->n;
+    Py_END_CRITICAL_SECTION();
+    if (n == 0) Py_RETURN_NONE;
+
+    view.obj = (PyObject*) self;
+
+    if (!PyArg_ParseTuple(args, "O&:fill", array_converter, &view))
+        return NULL;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    result = Parser_fill_impl(self, &view);
+    Py_END_CRITICAL_SECTION();
+    PyBuffer_Release(&view);
     return result;
 }
 
@@ -375,7 +412,7 @@ PyDoc_STRVAR(
 );
 
 static PyObject*
-Parser_get_shape(Parser* self, void* closure)
+Parser_get_shape_impl(Parser* self)
 {
     Py_ssize_t i;
     Py_ssize_t index;
@@ -421,6 +458,16 @@ Parser_get_shape(Parser* self, void* closure)
     self->k = k;
     PyMem_Free(data);
     return Py_BuildValue("nn", n, k);
+}
+
+static PyObject*
+Parser_get_shape(Parser* self, void* closure)
+{
+    PyObject* shape;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    shape = Parser_get_shape_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return shape;
 }
 
 static PyGetSetDef Parser_getset[] = {
@@ -550,6 +597,10 @@ PyInit__aligncore(void)
     module = PyModule_Create(&moduledef);
     if (module == NULL)
         return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     Py_INCREF(&ParserType);
     PyModule_AddObject(module, "PrintedAlignmentParser", (PyObject *)&ParserType);
