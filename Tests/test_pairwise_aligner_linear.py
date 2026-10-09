@@ -665,6 +665,13 @@ class Forced:
         super().setUp()
 
 
+# TestMatrixAllocationGuards never reaches the linear-space traceback: its
+# alignments fail before routing, or are Waterman-Smith-Beyer or FOGSAA.  Under
+# AddressSanitizer its 8 GB arrays become resident, and a second copy running
+# in another pytest-xdist worker at the same time exhausts a CI runner.
+NOT_FORCED = {"TestMatrixAllocationGuards"}
+
+
 def forced_classes(module):
     """Return a forced re-run class for each test case class of a module."""
     classes = {}
@@ -673,6 +680,7 @@ def forced_classes(module):
             isinstance(value, type)
             and issubclass(value, unittest.TestCase)
             and value.__module__ == module.__name__
+            and name not in NOT_FORCED
         ):
             classes[f"Forced{name}"] = type(f"Forced{name}", (Forced, value), {})
     return classes
