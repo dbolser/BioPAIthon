@@ -23,8 +23,10 @@
  *   bottom half, then the top half.  Same per-cell code, same trace bits,
  *   same path.  (Hirschberg's forward-and-reverse midpoints would pick
  *   another co-optimal path.)
- * - len() and later paths build the full matrix with the existing kernel
- *   and delegate to its PathGenerator, after checking it agrees.
+ * - len() counts the paths in one more forward pass, recomputing each row's
+ *   trace bits and keeping a row of counts.
+ * - Later paths build the full matrix with the existing kernel and delegate
+ *   to its PathGenerator, after checking it agrees.
  *
  * It is used only where it holds less memory than the matrix.  A row of
  * trace bits costs less than a row of doubles, so a short target against
@@ -33,8 +35,8 @@
  * Settings, substitution matrix and sequences are copied at align(), so
  * later changes to them cannot change the results.  Each algorithm
  * supplies a LinearKernel to the generic strip driver; only
- * Needleman-Wunsch has one so far.  The private _set_traceback_limits sets
- * the threshold, which is "never" by default.
+ * Needleman-Wunsch has one so far.  The threshold is 512 MiB by default;
+ * the private _set_traceback_limits changes it, for testing.
  */
 
 
@@ -50,16 +52,23 @@ typedef struct {
     size_t ncarried;
     size_t ndoubles;
     size_t trace_bytes;  /* bytes of trace bits per cell */
-    /* Fill row 0 for all columns. */
-    void (*start)(const LinearPaths* self, double* row);
+    size_t ncounts;      /* path counts per column, for len() */
+    /* Fill row 0 for all columns, and its path counts if counts is not
+     * NULL. */
+    void (*start)(const LinearPaths* self, double* row, Py_ssize_t* counts);
     /* Compute rows r0+1 to r1 over columns 0 to c.  On entry row holds
      * row r0, on return row r1.  The trace bits of row r0+1+k are written
-     * at T + k * tstride; tstride 0 overwrites a single scratch row.
+     * at T + k * tstride; tstride 0 overwrites a single scratch row.  If
+     * counts is not NULL, c is the last column, and the path counts of
+     * row r0 are updated to those of row r1 as in PathGenerator_length.
      * Releases the GIL.  Returns 0, or -1 if interrupted by a signal. */
     int (*sweep)(const LinearPaths* self, double* row, int r0, int r1, int c,
-                 unsigned char* T, size_t tstride);
+                 unsigned char* T, size_t tstride, Py_ssize_t* counts);
     /* The score of the alignment, from the last row. */
     double (*score)(const LinearPaths* self, const double* row);
+    /* The number of paths, from the path counts of the last row, or
+     * OVERFLOW_ERROR. */
+    Py_ssize_t (*total)(const LinearPaths* self, const Py_ssize_t* counts);
     /* Follow the traceback up through the block holding the trace bits of
      * rows r0+1 to the walker's row, width cells per row.  Returns
      * LINEAR_EXITED with the walker in row r0, LINEAR_ENDED, or -1 with an
@@ -96,6 +105,8 @@ struct LinearPaths {
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
     PyObject* first;     /* the first path, once known */
+    Py_ssize_t length;   /* the number of paths, once counted, or
+                          * OVERFLOW_ERROR; 0 if not counted */
     PathGenerator* paths;/* the full traceback matrix, once built */
     bool primed;         /* paths has already yielded the first path */
     Py_ssize_t position; /* paths returned since the last reset */
@@ -116,8 +127,8 @@ struct LinearWalker {
 
 /* Limits, set by _set_traceback_limits; align() reads them under the GIL.
  * A negative threshold routes every alignment, for testing. */
-static bool linear_enabled = false;
-static Py_ssize_t linear_threshold = 0;
+static bool linear_enabled = true;
+static Py_ssize_t linear_threshold = (Py_ssize_t)512 << 20;
 static size_t linear_checkpoint_bytes = (size_t)32 << 20;
 static size_t linear_block_bytes = (size_t)16 << 20;
 
@@ -264,6 +275,33 @@ error:
     row[j] = score; \
     tr[j] = (unsigned char)trace;
 
+/* One row of PathGenerator_needlemanwunsch_length, over the row's trace
+ * bits in tr: the overflows, and the order of the additions, must stay as
+ * there for len() to agree with it. */
+static void
+linear_nw_count(const unsigned char* tr, int nB, Py_ssize_t* counts)
+{
+    int j;
+    int trace;
+    Py_ssize_t term;
+    Py_ssize_t count;
+    Py_ssize_t temp;
+    trace = tr[0];
+    count = 0;
+    if (trace & VERTICAL) SAFE_ADD(counts[0], count);
+    temp = counts[0];
+    counts[0] = count;
+    for (j = 1; j <= nB; j++) {
+        trace = tr[j];
+        count = 0;
+        if (trace & HORIZONTAL) SAFE_ADD(counts[j-1], count);
+        if (trace & VERTICAL) SAFE_ADD(counts[j], count);
+        if (trace & DIAGONAL) SAFE_ADD(temp, count);
+        temp = counts[j];
+        counts[j] = count;
+    }
+}
+
 /* The rows of NEEDLEMANWUNSCH_ALIGN: the end gap scores swapped for the
  * reverse strand, the right horizontal gap score in the last row, the
  * right vertical one in the last column, and column 0 stored before the
@@ -312,13 +350,15 @@ error:
             kB = sB[j-1]; \
             LINEAR_NW_CELL(hgap, right_gap_extend_B, align_score); \
         } \
+        if (counts) linear_nw_count(tr, nB, counts); \
     } \
     PAIRWISE_NOGIL_END \
     return interrupted ? -1 : 0;
 
 static int
 linear_nw_sweep_compare(const LinearPaths* lp, double* row, int r0, int r1,
-                        int c, unsigned char* T, size_t tstride)
+                        int c, unsigned char* T, size_t tstride,
+                        Py_ssize_t* counts)
 {
     const double match = lp->aligner.match;
     const double mismatch = lp->aligner.mismatch;
@@ -328,14 +368,18 @@ linear_nw_sweep_compare(const LinearPaths* lp, double* row, int r0, int r1,
 
 static int
 linear_nw_sweep_matrix(const LinearPaths* lp, double* row, int r0, int r1,
-                       int c, unsigned char* T, size_t tstride)
+                       int c, unsigned char* T, size_t tstride,
+                       Py_ssize_t* counts)
 {
     const Py_ssize_t n = lp->aligner.substitution_matrix.shape[0];
     LINEAR_NW_SWEEP(MATRIX_SCORE_NOGIL);
 }
 
+/* Row 0 of NEEDLEMANWUNSCH_ALIGN.  Its trace bits, as
+ * PathGenerator_create_NWSW sets them, lead horizontally to the origin,
+ * so each cell has one path. */
 static void
-linear_nw_start(const LinearPaths* lp, double* row)
+linear_nw_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
 {
     const double left_gap_extend_A = (lp->strand == '+') ?
         lp->aligner.extend_left_insertion_score :
@@ -344,12 +388,19 @@ linear_nw_start(const LinearPaths* lp, double* row)
     int j;
     row[0] = 0;
     for (j = 1; j <= nB; j++) row[j] = j * left_gap_extend_A;
+    if (counts) for (j = 0; j <= nB; j++) counts[j] = 1;
 }
 
 static double
 linear_nw_score(const LinearPaths* self, const double* row)
 {
     return row[self->nB];
+}
+
+static Py_ssize_t
+linear_nw_total(const LinearPaths* self, const Py_ssize_t* counts)
+{
+    return counts[self->nB];
 }
 
 /* Follow the traceback as PathGenerator_next_needlemanwunsch does,
@@ -393,9 +444,11 @@ static const LinearKernel linear_nw_compare = {
     .ncarried = 0,
     .ndoubles = 1,
     .trace_bytes = 1,
+    .ncounts = 1,
     .start = linear_nw_start,
     .sweep = linear_nw_sweep_compare,
     .score = linear_nw_score,
+    .total = linear_nw_total,
     .walk = linear_nw_walk,
     .align = Aligner_needlemanwunsch_align_compare,
 };
@@ -404,9 +457,11 @@ static const LinearKernel linear_nw_matrix = {
     .ncarried = 0,
     .ndoubles = 1,
     .trace_bytes = 1,
+    .ncounts = 1,
     .start = linear_nw_start,
     .sweep = linear_nw_sweep_matrix,
     .score = linear_nw_score,
+    .total = linear_nw_total,
     .walk = linear_nw_walk,
     .align = Aligner_needlemanwunsch_align_matrix,
 };
@@ -482,14 +537,14 @@ linear_solve(LinearSolver* S, int r0, int r1, const double* inrow,
     if (rows == 1 || rows <= self->plan.cells / width) {
         memcpy(S->work, inrow, used * sizeof(double));
         if (kernel->sweep(self, S->work, r0, r1, c, S->block,
-                          width * kernel->trace_bytes) < 0) return -1;
+                          width * kernel->trace_bytes, NULL) < 0) return -1;
         return kernel->walk(self, &S->walker, S->block, r0, width);
     }
     else {
         const int mid = r0 + (int)(rows / 2);
         double* row = S->arena + level * self->plan.rowsize;
         memcpy(row, inrow, used * sizeof(double));
-        if (kernel->sweep(self, row, r0, mid, c, S->scratch, 0) < 0)
+        if (kernel->sweep(self, row, r0, mid, c, S->scratch, 0, NULL) < 0)
             return -1;
         status = linear_solve(S, mid, r1, row, level + 1);
         if (status != LINEAR_EXITED) return status;
@@ -566,13 +621,13 @@ LinearPaths_forward(LinearPaths* self)
         PyErr_NoMemory();
         goto exit;
     }
-    kernel->start(self, row);
+    kernel->start(self, row, NULL);
     for (k = 0; k < plan->count; k++) {
         const size_t r0 = k * plan->stride;
         const size_t r1 = Py_MIN(r0 + plan->stride, (size_t)self->nA);
         memcpy(self->checkpoints + k * plan->rowsize, row, rowbytes);
         if (kernel->sweep(self, row, (int)r0, (int)r1, self->nB,
-                          scratch, 0) < 0) goto exit;
+                          scratch, 0, NULL) < 0) goto exit;
     }
     self->score = kernel->score(self, row);
     status = 0;
@@ -580,6 +635,50 @@ exit:
     PyMem_Free(row);
     PyMem_Free(scratch);
     return status;
+}
+
+/* Count the paths as PathGenerator_length does over the full matrix, in
+ * another forward pass over every row, with a row of path counts.  Returns
+ * the count, or -1 with an exception set.  The count is kept, and so is an
+ * overflow. */
+static Py_ssize_t
+LinearPaths_count(LinearPaths* self)
+{
+    const LinearKernel* kernel = self->kernel;
+    const size_t width = (size_t)self->nB + 1;
+    double* row = NULL;
+    unsigned char* scratch = NULL;
+    Py_ssize_t* counts = NULL;
+    int status = 0;
+
+    if (self->length == 0) {
+        if (width <= PY_SSIZE_T_MAX / sizeof(Py_ssize_t) / kernel->ncounts) {
+            row = PyMem_Malloc(self->plan.rowsize * sizeof(double));
+            scratch = PyMem_Malloc(width * kernel->trace_bytes);
+            counts = PyMem_Malloc(width * kernel->ncounts * sizeof(Py_ssize_t));
+        }
+        if (!row || !scratch || !counts) {
+            PyErr_NoMemory();
+            status = -1;
+        }
+        else {
+            kernel->start(self, row, counts);
+            status = kernel->sweep(self, row, 0, self->nA, self->nB,
+                                   scratch, 0, counts);
+            if (status == 0) self->length = kernel->total(self, counts);
+        }
+        PyMem_Free(row);
+        PyMem_Free(scratch);
+        PyMem_Free(counts);
+        if (status < 0) return -1;
+    }
+    if (self->length == OVERFLOW_ERROR) {
+        PyErr_Format(PyExc_OverflowError,
+                     "number of optimal alignments is larger than %zd",
+                     PY_SSIZE_T_MAX);
+        return -1;
+    }
+    return self->length;
 }
 
 /* Build the full traceback matrix, check it against what is already
@@ -663,13 +762,16 @@ exit:
     return path;
 }
 
+/* len() counts the paths without building the full matrix, but counts
+ * over it once it has been built, as that is quicker. */
 static Py_ssize_t
 LinearPaths_length(LinearPaths* self)
 {
-    Py_ssize_t length = -1;
+    Py_ssize_t length;
     if (linear_lock(self) < 0) return -1;
-    if (self->paths || LinearPaths_materialize(self) == 0)
+    if (self->paths && self->length == 0)
         length = PathGenerator_length(self->paths);
+    else length = LinearPaths_count(self);
     linear_unlock(self);
     return length;
 }
