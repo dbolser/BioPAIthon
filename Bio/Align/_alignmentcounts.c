@@ -1286,8 +1286,7 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
 
     if (substitution_matrix.obj) {
         m = substitution_matrix.shape[0];
-        if (PyObject_IsInstance(substitution_matrix.obj,
-                               (PyObject*)Array_Type)) {
+        if (PyObject_TypeCheck(substitution_matrix.obj, Array_Type)) {
             PyTypeObject* basetype = Array_Type->tp_base;
             Fields* fields = (Fields*)((intptr_t)substitution_matrix.obj + basetype->tp_basicsize);
             Py_buffer* mapping_buffer = &fields->mapping;

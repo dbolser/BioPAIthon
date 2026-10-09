@@ -20311,7 +20311,10 @@ class TestReconfigureDuringCall(unittest.TestCase):
     Python partway through: gap functions, and the gap functions' __repr__.
     That code may replace the aligner's substitution matrix or gap
     functions, freeing the old ones.  Each call must finish with the
-    settings it started with, without touching freed memory.
+    settings it started with, without touching freed memory.  Likewise, a
+    setter freeing the old setting can run Python code (a finalizer), which
+    may use the aligner; it must then see a complete setting, never one
+    that is being freed.
 
     The crash tests run in a child process with PYTHONMALLOC=debug, which
     overwrites freed memory, so a use-after-free crashes the child rather
@@ -20432,6 +20435,73 @@ text = str(aligner)
 assert "insertion_score_function: <insertion function>" in text, text
 assert "deletion_score_function: <deletion function>" in text, text
 assert aligner.deletion_score == -1.0, aligner.deletion_score
+"""
+        )
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython",
+        "requires finalizers to run as soon as the last reference goes",
+    )
+    def test_finalizer_uses_aligner_during_setter(self):
+        self.run_child(
+            """
+import numpy as np
+
+from Bio import Align
+
+scores = []
+
+
+class Finalizer:
+    # Kept alive only by a gap function's closure, so it is finalized while
+    # a setter frees that function, and then scores with the aligner.
+
+    def __del__(self):
+        scores.append(aligner.score("HEAGAWGHEE", "PAWHEAE"))
+
+
+def make_gap_function():
+    finalizer = Finalizer()
+
+    def gap_function(start, length):
+        assert finalizer
+        return -1.0 - length
+
+    return gap_function
+
+
+aligner = Align.PairwiseAligner()
+for name, value in [
+    ("gap_score", -2.0),
+    ("insertion_score", -2.0),
+    ("deletion_score", -2.0),
+    ("open_gap_score", -2.0),
+    ("end_gap_score", -2.0),
+    ("open_internal_deletion_score", -2.0),
+    ("gap_score", lambda start, length: -2.0),
+    ("insertion_score", lambda start, length: -2.0),
+    ("deletion_score", lambda start, length: -2.0),
+]:
+    aligner.insertion_score = make_gap_function()
+    aligner.deletion_score = make_gap_function()
+    setattr(aligner, name, value)
+aligner.gap_score = -1.0
+assert len(scores) == 18, scores
+
+
+class Matrix(np.ndarray):
+    # The aligner holds the only reference, so this is finalized while the
+    # setter replaces it; by then the aligner must use the new matrix.
+
+    def __del__(self):
+        scores.append(aligner.score(sequence, sequence))
+
+
+sequence = np.arange(4, dtype=np.int32)
+aligner.substitution_matrix = np.eye(4).view(Matrix)
+del scores[:]
+aligner.substitution_matrix = 2 * np.eye(4)
+assert scores == [8.0], scores
 """
         )
 

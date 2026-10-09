@@ -68,12 +68,17 @@ Without the GIL, threads sharing a ``PairwiseAligner``, the alignments it
 returns, or a substitution matrix could crash Python; this is fixed. Each
 ``score()``, ``align()``, ``counts()`` or ``str()`` call uses the aligner's
 settings as they were when it started, so a thread may change the settings
-while others are aligning; which calls see the change is not defined. When
-several threads set the alphabet of the same new substitution matrix, exactly
-one of them now succeeds. Builds with the GIL behave as before, with one
-exception: ``object.__setattr__(aligner, name, value)`` on a
-``PairwiseAligner`` now raises ``TypeError``, as the aligner now defines its
-own ``__setattr__``. Use ``setattr(aligner, name, value)`` instead.
+while others are aligning; which calls see the change is not defined. A
+``CodonAligner`` changed while in use cannot crash either, but a call may then
+mix its old and new scores. When several threads set the alphabet of the same
+new substitution matrix, exactly one of them now succeeds. Builds with the GIL
+get one fix and one change from this. The fix: if replacing a gap function
+ran a finalizer that used the aligner, Python could crash, and a finalizer run
+by replacing the substitution matrix saw no matrix at all; such a finalizer
+now sees the new setting. The change:
+``object.__setattr__(aligner, name, value)`` on a ``PairwiseAligner`` now
+raises ``TypeError``, as the aligner now defines its own ``__setattr__``. Use
+``setattr(aligner, name, value)`` instead.
 
 The ``test`` extra now also installs pytest-xdist and pytest-cov, so the test
 suite can run in parallel, with ``python -m pytest --offline -n auto`` in

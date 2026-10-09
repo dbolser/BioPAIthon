@@ -2176,6 +2176,7 @@ static int
 Aligner_set_substitution_matrix(Aligner* self, PyObject* values, void* closure)
 {
     Py_buffer view;
+    Py_buffer old;
     if (values == Py_None) {
         PyBuffer_Release(&self->substitution_matrix);
         return 0;
@@ -2196,8 +2197,9 @@ Aligner_set_substitution_matrix(Aligner* self, PyObject* values, void* closure)
         Py_DECREF(memory);
         if (ok == 0) return -1;
     }
-    PyBuffer_Release(&self->substitution_matrix);
+    old = self->substitution_matrix;
     self->substitution_matrix = view;
+    PyBuffer_Release(&old);
     return 0;
 }
 
@@ -2237,23 +2239,19 @@ Aligner_get_gap_score(Aligner* self, void* closure)
 static int
 Aligner_set_gap_score(Aligner* self, PyObject* value, void* closure)
 {   if (PyCallable_Check(value)) {
-        Py_XDECREF(self->insertion_score_function);
-        Py_XDECREF(self->deletion_score_function);
         Py_INCREF(value);
         Py_INCREF(value);
-        self->insertion_score_function = value;
-        self->deletion_score_function = value;
+        Py_XSETREF(self->insertion_score_function, value);
+        Py_XSETREF(self->deletion_score_function, value);
     }
     else {
         const double score = PyFloat_AsDouble(value);
         if (PyErr_Occurred()) return -1;
         if (self->insertion_score_function) {
-            Py_DECREF(self->insertion_score_function);
-            self->insertion_score_function = NULL;
+            Py_CLEAR(self->insertion_score_function);
         }
         if (self->deletion_score_function) {
-            Py_DECREF(self->deletion_score_function);
-            self->deletion_score_function = NULL;
+            Py_CLEAR(self->deletion_score_function);
         }
         self->open_internal_insertion_score = score;
         self->open_internal_insertion_score_set = true;
@@ -2312,12 +2310,10 @@ Aligner_set_open_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_internal_insertion_score = score;
     self->open_internal_insertion_score_set = true;
@@ -2363,12 +2359,10 @@ Aligner_set_extend_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->extend_internal_insertion_score = score;
     self->extend_internal_insertion_score_set = true;
@@ -2411,12 +2405,10 @@ Aligner_set_internal_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_internal_insertion_score = score;
     self->open_internal_insertion_score_set = true;
@@ -2453,12 +2445,10 @@ Aligner_set_open_internal_gap_score(Aligner* self, PyObject* value, void* closur
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_internal_insertion_score = score;
     self->open_internal_insertion_score_set = true;
@@ -2492,12 +2482,10 @@ Aligner_set_extend_internal_gap_score(Aligner* self, PyObject* value,
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->extend_internal_insertion_score = score;
     self->extend_internal_insertion_score_set = true;
@@ -2536,12 +2524,10 @@ Aligner_set_end_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_left_insertion_score = score;
     self->open_left_insertion_score_set = true;
@@ -2588,12 +2574,10 @@ Aligner_set_open_end_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_left_insertion_score = score;
     self->open_left_insertion_score_set = true;
@@ -2632,12 +2616,10 @@ Aligner_set_extend_end_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->extend_left_insertion_score = score;
     self->extend_left_insertion_score_set = true;
@@ -2676,12 +2658,10 @@ Aligner_set_left_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_left_insertion_score = score;
     self->open_left_insertion_score_set = true;
@@ -2720,12 +2700,10 @@ Aligner_set_right_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_right_insertion_score = score;
     self->open_right_insertion_score_set = true;
@@ -2762,12 +2740,10 @@ Aligner_set_open_left_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_left_insertion_score = score;
     self->open_left_insertion_score_set = true;
@@ -2800,12 +2776,10 @@ Aligner_set_extend_left_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->extend_left_insertion_score = score;
     self->extend_left_insertion_score_set = true;
@@ -2838,12 +2812,10 @@ Aligner_set_open_right_gap_score(Aligner* self, PyObject* value, void* closure)
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->open_right_insertion_score = score;
     self->open_right_insertion_score_set = true;
@@ -2876,12 +2848,10 @@ Aligner_set_extend_right_gap_score(Aligner* self, PyObject* value, void* closure
 {   const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
@@ -2921,8 +2891,7 @@ Aligner_set_open_insertion_score(Aligner* self, PyObject* value, void* closure)
     self->open_right_insertion_score = score;
     self->open_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -2958,8 +2927,7 @@ Aligner_set_extend_insertion_score(Aligner* self, PyObject* value, void* closure
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -2991,9 +2959,8 @@ static int
 Aligner_set_insertion_score(Aligner* self, PyObject* value, void* closure)
 {
     if (PyCallable_Check(value)) {
-        Py_XDECREF(self->insertion_score_function);
         Py_INCREF(value);
-        self->insertion_score_function = value;
+        Py_XSETREF(self->insertion_score_function, value);
     }
     else {
         const double score = PyFloat_AsDouble(value);
@@ -3015,8 +2982,7 @@ Aligner_set_insertion_score(Aligner* self, PyObject* value, void* closure)
         self->extend_right_insertion_score = score;
         self->extend_right_insertion_score_set = true;
         if (self->insertion_score_function) {
-            Py_DECREF(self->insertion_score_function);
-            self->insertion_score_function = NULL;
+            Py_CLEAR(self->insertion_score_function);
         }
     }
     self->algorithm = Unknown;
@@ -3053,8 +3019,7 @@ Aligner_set_open_deletion_score(Aligner* self, PyObject* value, void* closure)
     self->open_right_deletion_score = score;
     self->open_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3090,8 +3055,7 @@ Aligner_set_extend_deletion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_right_deletion_score = score;
     self->extend_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3122,9 +3086,8 @@ Aligner_get_deletion_score(Aligner* self, void* closure)
 static int
 Aligner_set_deletion_score(Aligner* self, PyObject* value, void* closure)
 {   if (PyCallable_Check(value)) {
-        Py_XDECREF(self->deletion_score_function);
         Py_INCREF(value);
-        self->deletion_score_function = value;
+        Py_XSETREF(self->deletion_score_function, value);
     }
     else {
         const double score = PyFloat_AsDouble(value);
@@ -3146,8 +3109,7 @@ Aligner_set_deletion_score(Aligner* self, PyObject* value, void* closure)
         self->extend_right_deletion_score = score;
         self->extend_right_deletion_score_set = true;
         if (self->deletion_score_function) {
-            Py_DECREF(self->deletion_score_function);
-            self->deletion_score_function = NULL;
+            Py_CLEAR(self->deletion_score_function);
         }
     }
     self->algorithm = Unknown;
@@ -3173,8 +3135,7 @@ Aligner_set_open_internal_insertion_score(Aligner* self,
     self->open_internal_insertion_score = score;
     self->open_internal_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3199,8 +3160,7 @@ Aligner_set_extend_internal_insertion_score(Aligner* self,
     self->extend_internal_insertion_score = score;
     self->extend_internal_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3234,8 +3194,7 @@ Aligner_set_internal_insertion_score(Aligner* self, PyObject* value,
     self->extend_internal_insertion_score = score;
     self->extend_internal_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3274,8 +3233,7 @@ Aligner_set_end_insertion_score(Aligner* self, PyObject* value, void* closure) {
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3309,8 +3267,7 @@ Aligner_set_open_end_insertion_score(Aligner* self, PyObject* value,
     self->open_right_insertion_score = score;
     self->open_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3343,8 +3300,7 @@ Aligner_set_extend_end_insertion_score(Aligner* self, PyObject* value, void* clo
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3368,8 +3324,7 @@ Aligner_set_open_left_insertion_score(Aligner* self, PyObject* value, void* clos
     self->open_left_insertion_score = score;
     self->open_left_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3393,8 +3348,7 @@ Aligner_set_extend_left_insertion_score(Aligner* self, PyObject* value, void* cl
     self->extend_left_insertion_score = score;
     self->extend_left_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3427,8 +3381,7 @@ Aligner_set_left_insertion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_left_insertion_score = score;
     self->extend_left_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3452,8 +3405,7 @@ Aligner_set_open_right_insertion_score(Aligner* self, PyObject* value, void* clo
     self->open_right_insertion_score = score;
     self->open_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3477,8 +3429,7 @@ Aligner_set_extend_right_insertion_score(Aligner* self, PyObject* value, void* c
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3511,8 +3462,7 @@ Aligner_set_right_insertion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_right_insertion_score = score;
     self->extend_right_insertion_score_set = true;
     if (self->insertion_score_function) {
-        Py_DECREF(self->insertion_score_function);
-        self->insertion_score_function = NULL;
+        Py_CLEAR(self->insertion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3551,8 +3501,7 @@ Aligner_set_end_deletion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_right_deletion_score = score;
     self->extend_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3585,8 +3534,7 @@ Aligner_set_open_end_deletion_score(Aligner* self, PyObject* value, void* closur
     self->open_right_deletion_score = score;
     self->open_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3619,8 +3567,7 @@ Aligner_set_extend_end_deletion_score(Aligner* self, PyObject* value, void* clos
     self->extend_right_deletion_score = score;
     self->extend_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3645,8 +3592,7 @@ Aligner_set_open_internal_deletion_score(Aligner* self, PyObject* value,
     self->open_internal_deletion_score = score;
     self->open_internal_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3671,8 +3617,7 @@ Aligner_set_extend_internal_deletion_score(Aligner* self, PyObject* value,
     self->extend_internal_deletion_score = score;
     self->extend_internal_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3706,8 +3651,7 @@ Aligner_set_internal_deletion_score(Aligner* self, PyObject* value,
     self->extend_internal_deletion_score = score;
     self->extend_internal_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3731,8 +3675,7 @@ Aligner_set_open_left_deletion_score(Aligner* self, PyObject* value, void* closu
     self->open_left_deletion_score = score;
     self->open_left_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3756,8 +3699,7 @@ Aligner_set_extend_left_deletion_score(Aligner* self, PyObject* value, void* clo
     self->extend_left_deletion_score = score;
     self->extend_left_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3790,8 +3732,7 @@ Aligner_set_left_deletion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_left_deletion_score = score;
     self->extend_left_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3815,8 +3756,7 @@ Aligner_set_open_right_deletion_score(Aligner* self, PyObject* value, void* clos
     self->open_right_deletion_score = score;
     self->open_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3840,8 +3780,7 @@ Aligner_set_extend_right_deletion_score(Aligner* self, PyObject* value, void* cl
     self->extend_right_deletion_score = score;
     self->extend_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -3874,8 +3813,7 @@ Aligner_set_right_deletion_score(Aligner* self, PyObject* value, void* closure)
     self->extend_right_deletion_score = score;
     self->extend_right_deletion_score_set = true;
     if (self->deletion_score_function) {
-        Py_DECREF(self->deletion_score_function);
-        self->deletion_score_function = NULL;
+        Py_CLEAR(self->deletion_score_function);
     }
     self->algorithm = Unknown;
     return 0;
@@ -7606,7 +7544,7 @@ static bool _prepare_indices(Py_buffer* substitution_matrix,
                              int* sA, Py_ssize_t nA, int* sB, Py_ssize_t nB)
 {
     PyObject* matrix = substitution_matrix->obj;
-    if (PyObject_IsInstance(matrix, (PyObject*)Array_Type)) {
+    if (PyObject_TypeCheck(matrix, Array_Type)) {
         const PyTypeObject* basetype = Array_Type->tp_base;
         const Py_ssize_t offset = basetype->tp_basicsize;
         Fields* fields = (Fields*)((intptr_t)matrix + offset);
