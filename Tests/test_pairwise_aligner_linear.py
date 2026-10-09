@@ -506,7 +506,8 @@ class TestInterrupt(unittest.TestCase):
 # len() before [0], which would build the full matrix before the linear-space
 # traceback has run, so align() is wrapped: each call first checks [0] of a
 # fresh linear-space object against a fresh default one, then returns another
-# fresh linear-space object.
+# fresh linear-space object.  A call the linear-space traceback does not take
+# is made only once, as its gap function may change the sequences.
 
 original_align = Align.PairwiseAligner.align
 align_lock = threading.Lock()  # the tests' threads share the limits
@@ -519,13 +520,14 @@ def checked_align(self, *args, **kwargs):
         forced = original_align(self, *args, **kwargs)
         if self.algorithm == "Needleman-Wunsch":
             calls["Needleman-Wunsch"] += 1
-        if type(forced._paths) is LinearPaths:
-            calls["routed"] += 1
-            with limits(*DEFAULT):
-                expected = original_align(self, *args, **kwargs)
-            assert forced.score == expected.score, (forced.score, expected.score)
-            first, second = forced[0].coordinates, expected[0].coordinates
-            assert np.array_equal(first, second), (first, second)
+        if type(forced._paths) is not LinearPaths:
+            return forced
+        calls["routed"] += 1
+        with limits(*DEFAULT):
+            expected = original_align(self, *args, **kwargs)
+        assert forced.score == expected.score, (forced.score, expected.score)
+        first, second = forced[0].coordinates, expected[0].coordinates
+        assert np.array_equal(first, second), (first, second)
         return original_align(self, *args, **kwargs)
 
 
