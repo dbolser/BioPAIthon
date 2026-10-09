@@ -62,6 +62,18 @@ grid_ids, celldata = somcluster(
 centroids: NDArray[np.floating[Any]] = celldata
 somcluster(data)  # type: ignore[arg-type]
 
+
+class Table:
+    """Has a shape and converts to an array, as many array types do."""
+
+    shape = (3, 2)
+
+    def __array__(self) -> NDArray[np.float64]:
+        return np.array(data)
+
+
+somcluster(Table())
+
 columnmean, coordinates, components, eigenvalues = pca(data)
 
 # A Tree takes a list of Nodes, including a list of Bio.Cluster.Node.
@@ -97,3 +109,5 @@ record.geneid = ["a", "b", "c"]
 nrows, ncolumns = record.data.shape
 record.mask.shape  # type: ignore[union-attr]
 record.save("jobname", record.treecluster(), record.treecluster(transpose=1))
+# k-means cluster ids can be a list of NumPy integers, as well as an array.
+record.save("jobname", [np.int64(0), np.int64(1), np.int64(0)])

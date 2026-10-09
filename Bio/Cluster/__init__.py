@@ -37,8 +37,24 @@ if TYPE_CHECKING:
     # For the type checker only, so annotations using these are quoted.
     # Evaluated, ArrayLike would show in every signature in the API
     # documentation as the long union it stands for.
+    from typing import Protocol
+
     from numpy.typing import ArrayLike
     from numpy.typing import NDArray
+
+    class _ShapedArrayLike(Protocol):
+        """An object NumPy can make an array of that has a shape.
+
+        somcluster reads data.shape before it converts data to an array.
+        A NumPy array qualifies, as do other array types with a shape and
+        an __array__ method.
+        """
+
+        @property
+        def shape(self) -> tuple[int, ...]: ...
+
+        def __array__(self) -> NDArray[Any]: ...
+
 
 __all__ = (
     "Node",
@@ -395,7 +411,7 @@ def treecluster(
 
 
 def somcluster(
-    data: "NDArray[Any]",
+    data: "_ShapedArrayLike",
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
     transpose: int | np.integer[Any] = False,
@@ -1129,8 +1145,8 @@ class Record:
     def save(
         self,
         jobname: str,
-        geneclusters: "Tree | Sequence[int] | NDArray[Any] | None" = None,
-        expclusters: "Tree | Sequence[int] | NDArray[Any] | None" = None,
+        geneclusters: "Tree | Sequence[int | np.integer[Any]] | NDArray[Any] | None" = None,
+        expclusters: "Tree | Sequence[int | np.integer[Any]] | NDArray[Any] | None" = None,
     ) -> None:
         """Save the clustering results.
 
@@ -1249,7 +1265,7 @@ class Record:
     def _savekmeans(
         self,
         filename: str,
-        clusterids: "Sequence[int] | NDArray[Any]",
+        clusterids: "Sequence[int | np.integer[Any]] | NDArray[Any]",
         order: "ArrayLike",
         transpose: bool,
     ) -> "NDArray[np.int_]":

@@ -63,11 +63,11 @@ not part of any upstream Biopython release.
 stub, so type checkers such as mypy see what its functions return instead of
 ``Any``. ``kcluster``, for example, returns an integer array of cluster ids,
 a float error and an int count. Data arguments take anything NumPy can make
-an array of, except ``somcluster``'s ``data``, which must already be a NumPy
-array: it reads ``data.shape`` before converting it. ``Tree`` takes a list of
-``Node`` objects, and indexing one gives a ``Bio.Cluster._cluster.Node``, the
-C base class of ``Bio.Cluster.Node``, as it does at run time. Nothing changes
-at run time.
+an array of, except ``somcluster``'s ``data``, which must also have a
+``shape``, as a NumPy array does: it reads ``data.shape`` before converting
+it. ``Tree`` takes a list of ``Node`` objects, and indexing one gives a
+``Bio.Cluster._cluster.Node``, the C base class of ``Bio.Cluster.Node``, as
+it does at run time. Nothing changes at run time.
 
 ``Bio.Align``'s Stockholm reader now reads interleaved alignments, whose
 aligned sequences are split over several blocks that each list every sequence
