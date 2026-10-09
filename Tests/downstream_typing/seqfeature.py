@@ -7,6 +7,7 @@
 Type-checked with the mypy.ini beside it, never run.
 """
 
+from collections.abc import Mapping
 from typing import Any
 
 from typing_extensions import assert_type
@@ -66,6 +67,13 @@ assert_type(f.extract(record, references={"x": record}), SeqRecord)
 assert_type(location.extract(Seq("ACGT")), Seq)
 assert_type((location + SimpleLocation(7, 9)).extract(record), SeqRecord)
 f.extract(5)  # type: ignore[call-overload]
+
+
+# A references mapping that may be None needs no overload of its own: mypy
+# tries each member of the union.
+def extract_maybe(refs: Mapping[str, Seq] | None) -> None:
+    assert_type(f.extract(Seq("A"), references=refs), Seq)
+
 
 # Mixing kinds works at run time, but what comes back depends on which parts
 # of the location have a ref, so the type is the union of all three.
