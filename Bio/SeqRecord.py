@@ -428,7 +428,7 @@ class SeqRecord:
         dbxrefs: list[str] | None = None,
         features: list["SeqFeature"] | None = None,
         annotations: _AnnotationsDict | None = None,
-        letter_annotations: dict[str, Sequence] | None = None,
+        letter_annotations: dict[str, Sequence[Any]] | None = None,
     ) -> "SeqRecord":
         """Faster constructor for post-validated data (PRIVATE).
 
@@ -472,7 +472,7 @@ class SeqRecord:
         return inst
 
     @overload
-    def __getitem__(self, index: int) -> str:
+    def __getitem__(self, index: SupportsIndex) -> str:
         """Return an individual letter at the given index.
 
         For more information, consult __getitem__ general implementation
