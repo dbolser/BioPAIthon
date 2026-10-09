@@ -233,9 +233,9 @@ The ``test`` extra installs pytest, which runs the tests, and the optional
 packages the Linux CI jobs test with. ``pip install -e . "pytest>=9"`` also
 works, and is what to use on PyPy (see above), but then every test needing one
 of those packages, all of ``Bio.Graphics`` included, is skipped rather than
-run. ``run_tests.py`` passes its arguments on to pytest, so
-``python -m pytest`` in ``Tests`` is equivalent, and takes all of pytest's own
-options.
+run. ``run_tests.py`` translates its arguments into a pytest command line, so
+``python -m pytest`` in ``Tests`` is equivalent. Call pytest directly to use
+its own options, such as ``-x`` or ``--lf``.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
