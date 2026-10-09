@@ -1422,6 +1422,26 @@ class TestPhylipRelaxed(unittest.TestCase):
                     )
                 self.assertTrue(str(cm.exception).startswith(message))
 
+    def test_write_dots(self):
+        # The reader refuses dots in a sequence, and so does Bio.AlignIO's
+        # writer.  A dot in a name is allowed.
+        message = "PHYLIP format no longer allows dots in sequence"
+        records = [SeqRecord(Seq("AC.T"), id="a.1"), SeqRecord(Seq("ACGT"), id="b")]
+        alignment = Align.Alignment(records, np.array([[0, 4], [0, 4]]))
+        with self.assertRaises(ValueError) as cm:
+            format(alignment, "phylip-relaxed")
+        self.assertEqual(str(cm.exception), message)
+        with self.assertRaises(ValueError) as cm:
+            AlignIO.write(MultipleSeqAlignment(records), StringIO(), "phylip-relaxed")
+        self.assertEqual(str(cm.exception), message)
+        records[0].seq = Seq("ACTT")
+        text = format(alignment, "phylip-relaxed")
+        self.assertEqual(text, "2 4\na.1 ACTT\nb   ACGT\n")
+        self.assertEqual(
+            summarize(Align.read(StringIO(text), "phylip-relaxed")),
+            [("a.1", "ACTT"), ("b", "ACGT")],
+        )
+
     def test_write_without_names(self):
         # A line starting with whitespace would not read back.
         coordinates = np.array([[0, 4], [0, 4]])

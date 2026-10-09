@@ -237,12 +237,14 @@ class RelaxedAlignmentWriter(AlignmentWriter):
     of the longest name.  A name cannot contain whitespace, every sequence
     needs a name, and no two sequences can have the same name.  As for the
     "phylip" format, the characters ``[](),`` are removed from names, and
-    ``:`` and ``;`` become ``|``.
+    ``:`` and ``;`` become ``|``.  A sequence cannot contain a dot, which
+    PHYLIP readers no longer accept.
     """
 
     def _format_names(self, alignment):
         """Return the name of each sequence, padded to start its line (PRIVATE)."""
         names = []
+        seen = set()
         for record in alignment.sequences:
             original = getattr(record, "id", None) or ""
             name = original.strip()
@@ -251,11 +253,23 @@ class RelaxedAlignmentWriter(AlignmentWriter):
             name = _sanitize_name(name)
             if not name:
                 raise ValueError("Relaxed PHYLIP needs a name for every sequence")
-            if name in names:
+            if name in seen:
                 raise ValueError(f"Repeated name {name!r} (originally {original!r})")
+            seen.add(name)
             names.append(name)
         width = max(map(len, names), default=0) + 1
         return [name.ljust(width) for name in names]
+
+    def format_alignment(self, alignment):
+        """Return a string with a single alignment in the relaxed PHYLIP format."""
+        text = super().format_alignment(alignment)
+        # Each line after the header ends with its row, which has one character
+        # per column.  Checking the text saves a second pass over the rows.
+        length = alignment.shape[1]
+        for line in text.split("\n")[1:-1]:
+            if "." in line[-length:]:
+                raise ValueError("PHYLIP format no longer allows dots in sequence")
+        return text
 
 
 class RelaxedAlignmentIterator(AlignmentIterator):
