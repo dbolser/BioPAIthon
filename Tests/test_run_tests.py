@@ -497,7 +497,7 @@ class ParallelProbeTests(unittest.TestCase):
 
     def run_pytest(self, files, *options):
         """Run pytest as ProbeTests does, with two workers."""
-        return ProbeTests.run_pytest(files, "-n", "2", "--dist", "loadfile", *options)
+        return ProbeTests.run_pytest(files, "-n", "2", *options)
 
     def test_import_time_skips_and_check_skips(self):
         # Only the workers import the modules, so they report the skips to
@@ -589,24 +589,28 @@ class ParallelProbeTests(unittest.TestCase):
                 def test_1(self):
                     pass
         """
+        # Here -n alone means --dist loadfile, not pytest-xdist's --dist
+        # load, which would spread even one module over the workers.
         for prefix in ["test_BioSQL_", "test_PAML_"]:
-            with self.subTest(prefix=prefix):
-                returncode, output = self.run_pytest(
-                    {
-                        f"{prefix}probe_a.py": three_tests,
-                        f"{prefix}probe_b.py": three_tests,
-                        "test_probe_c.py": one_test,
-                        "test_probe_d.py": one_test,
-                    },
-                    "-v",
-                )
-                self.assertEqual(returncode, 0, output)
-                self.assertIn("8 passed", output)
-                workers = re.findall(
-                    rf"\[(gw\d+)\] .* PASSED \S*{prefix}probe_", output
-                )
-                self.assertEqual(len(workers), 6, output)
-                self.assertEqual(len(set(workers)), 1, output)
+            for dist in [[], ["--dist", "loadfile"]]:
+                with self.subTest(prefix=prefix, dist=dist):
+                    returncode, output = self.run_pytest(
+                        {
+                            f"{prefix}probe_a.py": three_tests,
+                            f"{prefix}probe_b.py": three_tests,
+                            "test_probe_c.py": one_test,
+                            "test_probe_d.py": one_test,
+                        },
+                        "-v",
+                        *dist,
+                    )
+                    self.assertEqual(returncode, 0, output)
+                    self.assertIn("8 passed", output)
+                    workers = re.findall(
+                        rf"\[(gw\d+)\] .* PASSED \S*{prefix}probe_", output
+                    )
+                    self.assertEqual(len(workers), 6, output)
+                    self.assertEqual(len(set(workers)), 1, output)
 
 
 if __name__ == "__main__":

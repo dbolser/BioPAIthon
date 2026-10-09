@@ -25,11 +25,11 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
 Only unittest.TestCase subclasses are collected (python_classes and
 python_functions are empty), exactly what run_tests.py used to run.
 
-With pytest-xdist the suite can run in parallel, as with ``-n auto --dist
-loadfile``, which keeps each module's tests together on one worker.  The
-workers report their import-time skips to the controller, which prints them
-and applies ``--check-skips``.  The BioSQL test modules all go to the same
-worker, as those for one database server share its test database, and so do
+With pytest-xdist the suite can run in parallel, as with ``-n auto``.  Unless
+``--dist`` is given, ``-n`` here means ``--dist loadfile``, which keeps each
+module's tests together on one worker.  The workers report their import-time
+skips to the controller, which prints them and applies ``--check-skips``.
+The BioSQL test modules all go to the same worker, as those for one database server share its test database, and so do
 the PAML ones, which share working directories.
 """
 
@@ -398,6 +398,22 @@ def pytest_deselected(items):
 # Test modules that share a database or files with each other, by the start
 # of their file names.  Each group runs on one pytest-xdist worker.
 SHARED_RESOURCE_GROUPS = ("test_BioSQL_", "test_PAML_")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_cmdline_main(config):
+    """Make pytest-xdist's -n mean --dist loadfile unless --dist is given.
+
+    On its own, -n means --dist load, which spreads the tests of a module
+    over the workers.  That breaks the modules whose tests depend on running
+    in order, and the groups below.  This cannot go in addopts, which would
+    break runs without pytest-xdist.  It is a wrapper so that it runs before
+    pytest-xdist's own pytest_cmdline_main, whichever plugin is registered
+    first.
+    """
+    if getattr(config.option, "numprocesses", None) and config.option.dist == "no":
+        config.option.dist = "loadfile"
+    return (yield)
 
 
 @pytest.hookimpl(optionalhook=True)

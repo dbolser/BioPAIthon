@@ -602,7 +602,8 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
 
     # The `test` extra in pyproject.toml, less igraph, which has no
-    # free-threaded wheel.
+    # free-threaded wheel, and less pytest-cov and pytest-xdist, which this
+    # job does not use.
     - name: Install Python dependencies
       run: |
         python -m pip install numpy scipy matplotlib reportlab pillow msgpack mmtf-python networkx rdflib coverage pytest
