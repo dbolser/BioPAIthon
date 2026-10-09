@@ -1685,3 +1685,55 @@ output FASTQ efficiently from strings using this code snippet:
    ...
    out_handle.write("@%s\n%s\n+\n%s\n" % (title, seq, qual))
    ...
+
+.. _`sec:seqio-register-format`:
+
+Adding a file format
+--------------------
+
+``Bio.SeqIO.register_format`` adds a file format to ``Bio.SeqIO``, or
+replaces how it reads or writes one. Give it the lower case format name,
+and the class that reads the format, the class that writes it, or both:
+
+.. code:: python
+
+   from Bio import SeqIO
+   from mypackage.myformat import MyFormatIterator, MyFormatWriter
+
+   SeqIO.register_format("myformat", MyFormatIterator, MyFormatWriter)
+
+Now ``SeqIO.parse``, ``SeqIO.read``, ``SeqIO.write`` and ``SeqIO.convert``
+accept ``"myformat"``. The class that reads is usually a subclass of
+``Bio.SeqIO.SequenceIterator``. The class that writes must be a subclass of
+``Bio.SeqIO.SequenceWriter`` for ``record.format("myformat")`` and
+``format(record, "myformat")`` to work. Instead of a class you can give a
+string such as ``"mypackage.myformat:MyFormatIterator"``. The module is then
+imported only when the format is first used.
+
+A format that already has a class to read it, or to write it, keeps it
+unless you pass ``replace=True``. This applies to built-in and registered
+formats alike. For example, this makes ``Bio.SeqIO`` write FASTA files
+without wrapping the sequence lines:
+
+.. code:: python
+
+   from Bio import SeqIO
+   from Bio.SeqIO.FastaIO import FastaTwoLineWriter
+
+   SeqIO.register_format("fasta", writer=FastaTwoLineWriter, replace=True)
+
+``SeqIO.index`` and ``SeqIO.index_db`` can index a new format if its class
+that reads is a ``SequenceIterator`` subclass which reads text (``"t"`` in
+its ``modes``), and defines two class attributes. ``record_start_marker``
+is a bytes regular expression which matches the first line of each record,
+and ``parse_id_from_header`` is a class method which returns the record id
+from that line. If you replace how a built-in format is read, indexing it
+still finds each record and its key as before, and reads the record with
+your class. The exceptions are ``"sff"``, ``"sff-trim"`` and
+``"uniprot-xml"``, which can then not be indexed.
+
+A registration lasts until the Python process ends, and only that process
+knows about it. So register at the top level of a module, rather than
+inside ``if __name__ == "__main__":`` or in a notebook cell. Worker
+processes started by ``multiprocessing`` with the "spawn" or "forkserver"
+method then import that module again, and register the format too.

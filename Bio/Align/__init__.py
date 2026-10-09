@@ -33,6 +33,7 @@ __all__ = [
     "local_align",
     "parse",
     "read",
+    "register_format",
     "reverse_complement",
     "translate",
     "write",
@@ -5288,6 +5289,8 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
     return alignments
 
 
+# The built-in format names only: formats added with register_format are
+# never listed here.
 # fmt: off
 formats = (
     "a2m",        # A2M files created by align2model or hmmscore
@@ -5325,6 +5328,38 @@ def _load(fmt):
     if fmt not in _registry:
         raise ValueError("Unknown file format %s" % fmt)
     return _registry[fmt]
+
+
+def register_format(name, module, *, replace=False):
+    """Add an alignment file format to Bio.Align, or replace one.
+
+    Arguments:
+     - name    - string naming the format.  Like the fmt argument of parse,
+       read, write and Alignment.format, it is case-insensitive, and it is
+       stored in lower case.
+     - module  - what reads and writes the format: a module, or any other
+       object, with an AlignmentIterator attribute and, if the format can be
+       written, an AlignmentWriter attribute.  Or a "package.module" or
+       "package.module:attr" string naming one, which is imported when the
+       format is first used.
+     - replace - must be True to replace a format that already exists, built
+       in or registered.
+
+    Registering the module a format already has does nothing.
+
+    Registration lasts until the Python process ends, so register at the top
+    level of a module.  Then the worker processes that multiprocessing starts
+    with "spawn" or "forkserver" register too, as they import that module.
+
+    Bio.Align.formats lists the built-in formats only, and does not change.
+    """
+    if not isinstance(name, str):
+        raise TypeError(f"Need a string for the file format, not {name!r}")
+    if not name:
+        raise ValueError("Format required (non-empty string)")
+    if not isinstance(module, str) and not hasattr(module, "AlignmentIterator"):
+        raise TypeError(f"{module!r} has no AlignmentIterator")
+    _registry.register(name.lower(), module, replace=replace)
 
 
 def write(alignments, target, fmt, *args, **kwargs):

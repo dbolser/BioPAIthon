@@ -11,6 +11,8 @@ format module is imported only when someone uses that format.
 import importlib
 import threading
 
+_ABSENT = object()
+
 
 def _resolve(spec):
     """Import and return the object a spec string names (PRIVATE).
@@ -60,6 +62,10 @@ class FormatRegistry(dict):
     dict, and import nothing.  get(name, default) returns default only when
     the name is absent; an error raised while resolving a name that is present
     propagates.  values() and items() resolve every entry, and return lists.
+
+    The names present when the table is built are its built-in names, kept in
+    the builtin attribute.  register() adds a name, or replaces one on request;
+    the packages check that the name and value suit them before calling it.
     """
 
     def __init__(self, specs, factory=None, *, package=None):
@@ -67,6 +73,7 @@ class FormatRegistry(dict):
         if package is not None:
             specs = {name: _qualify(value, package) for name, value in specs.items()}
         super().__init__(specs)
+        self.builtin = frozenset(self)
         self._factory = factory
         self._lock = threading.Lock()
 
@@ -108,3 +115,37 @@ class FormatRegistry(dict):
     def items(self):
         """Return a list of all (format, handler) pairs, importing as needed."""
         return [(name, self[name]) for name in self]
+
+    def conflicts(self, name, value):
+        """Return whether name is present and holds a handler other than value.
+
+        A spec string and an object are the same handler when the spec
+        resolves to that object, so the answer does not depend on whether
+        the entry has been used yet.  Comparing the two imports the spec.
+        """
+        stored = super().get(name, _ABSENT)
+        if stored is _ABSENT or stored is value:
+            return False
+        if isinstance(stored, str) and isinstance(value, str):
+            return stored != value
+        if isinstance(stored, str):
+            return _resolve(stored) is not value
+        if isinstance(value, str):
+            return _resolve(value) is not stored
+        return True
+
+    def register(self, name, value, *, replace=False):
+        """Store value under name, or check it is already there.
+
+        An absent name is added.  A present name is replaced only if replace
+        is true.  Otherwise registering the handler it already holds does
+        nothing, and any other handler raises ValueError.
+        """
+        with self._lock:
+            if replace or not super().__contains__(name):
+                super().__setitem__(name, value)
+                return
+        if self.conflicts(name, value):
+            raise ValueError(
+                f"Format {name!r} already exists; use replace=True to replace it"
+            )

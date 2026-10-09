@@ -59,6 +59,24 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.SeqIO.register_format`` and ``Bio.Align.register_format`` add a file
+format, or replace how one is read or written, without assigning into
+private tables such as ``SeqIO._FormatToIterator``. For SeqIO, give a lower
+case name and a class that reads the format, a class that writes it, or
+both; for ``Bio.Align``, a name and a module with ``AlignmentIterator`` and,
+optionally, ``AlignmentWriter`` classes. Each can instead be named by an
+import string such as ``"package.module:attr"``, imported on first use.
+Replacing a format that exists, built in or registered, needs
+``replace=True``. ``SeqIO.convert`` then stops using its built-in shortcuts
+for the replaced reader or writer. ``SeqIO.index`` and ``index_db`` can
+index a new format whose reader is a ``SequenceIterator`` subclass that
+reads text and defines ``record_start_marker`` and ``parse_id_from_header``.
+Replacing a built-in format's reader keeps its indexing, except for "sff",
+"sff-trim" and "uniprot-xml", which can then not be indexed.
+``Bio.Align.formats`` still lists the built-in formats only. A registration
+lasts until the process ends; the Tutorial's new "Adding a file format"
+sections explain where to register.
+
 ``Bio.Align.parse()`` can now read a stream that cannot seek, such as a pipe,
 ``sys.stdin`` fed by a pipe, or a network handle, in all of its text formats:
 every format except bigBed, bigMaf and bigPsl. Such a stream used to fail
