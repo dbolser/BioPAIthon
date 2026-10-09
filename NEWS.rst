@@ -55,6 +55,10 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+When guessing an element from a PDB atom name, ``Bio.PDB`` now treats four
+character names like ``HNZ1`` the same way as ``HE21``, giving hydrogen rather
+than the unknown element ``X``.
+
 ``Bio.Nexus.Trees.Tree``, and so the trees of ``Bio.Nexus.Nexus``, now
 remove every ``[&...]`` comment from a node, not only the first. This is an
 upstream defect, also in Biopython 1.88
