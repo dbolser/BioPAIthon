@@ -3,7 +3,9 @@
 # as part of this package.
 """Tests for the Biopython test runner."""
 
+import importlib.util
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -184,7 +186,8 @@ class ProbeTests(unittest.TestCase):
     changing what the suite does.
     """
 
-    def run_pytest(self, files, *options):
+    @staticmethod
+    def run_pytest(files, *options):
         """Write files to a temporary directory and run pytest on them."""
         with tempfile.TemporaryDirectory() as directory:
             paths = []
@@ -482,6 +485,132 @@ class ProbeTests(unittest.TestCase):
         # Python 3.13 and later strip the docstring's indentation.
         self.assertRegex(output, r"007 +>>> 1 \+ 1")
         self.assertIn("Expected:\n    3\nGot:\n    2", output)
+
+
+@unittest.skipIf(importlib.util.find_spec("xdist") is None, "requires pytest-xdist")
+class ParallelProbeTests(unittest.TestCase):
+    """Run pytest with pytest-xdist on throwaway modules.
+
+    The controller runs and collects nothing, so these check that it still
+    sees what the workers do, and that the BioSQL modules share a worker.
+    """
+
+    def run_pytest(self, files, *options):
+        """Run pytest as ProbeTests does, with two workers."""
+        return ProbeTests.run_pytest(files, "-n", "2", *options)
+
+    def test_import_time_skips_and_check_skips(self):
+        # Only the workers import the modules, so they report the skips to
+        # the controller, which prints them and checks them.
+        returncode, output = self.run_pytest(
+            {
+                "test_probe_external.py": """\
+                    from Bio import MissingExternalDependencyError
+                    raise MissingExternalDependencyError("no probe tool")
+                """,
+                "test_probe_python.py": """\
+                    from Bio import MissingPythonDependencyError
+                    raise MissingPythonDependencyError("no probe package")
+                """,
+                "test_probe_ok.py": """\
+                    import unittest
+                    class Ok(unittest.TestCase):
+                        def test_ok(self):
+                            pass
+                """,
+            },
+            "--check-skips",
+        )
+        self.assertEqual(returncode, 1, output)
+        self.assertIn("1 passed", output)
+        self.assertIn("FAILED (unexpected skips = 2)", output)
+        self.assertIn("modules skipped at import", output)
+        self.assertIn("test_probe_external -- no probe tool", output)
+        self.assertIn("test_probe_python -- no probe package", output)
+
+    def test_only_import_skips_exit_ok(self):
+        files = {
+            "test_probe_external.py": """\
+                from Bio import MissingExternalDependencyError
+                raise MissingExternalDependencyError("no probe tool")
+            """,
+        }
+        returncode, output = self.run_pytest(files)
+        self.assertEqual(returncode, 0, output)
+        # The workers also report a deselection, so this still exits 5.
+        files[
+            "test_probe_ok.py"
+        ] = """\
+            import unittest
+            class Ok(unittest.TestCase):
+                def test_ok(self):
+                    pass
+        """
+        returncode, output = self.run_pytest(files, "-k", "no_such_test")
+        self.assertEqual(returncode, 5, output)
+
+    def test_offline_blocks_network(self):
+        # Each worker blocks the network and names its own running test.
+        returncode, output = self.run_pytest(
+            {
+                "test_probe_network.py": """\
+                    import socket
+                    import unittest
+                    class Network(unittest.TestCase):
+                        def test_connect(self):
+                            socket.create_connection(("192.0.2.1", 80), timeout=5)
+                """,
+            },
+            "--offline",
+        )
+        self.assertEqual(returncode, 1, output)
+        self.assertIn(
+            "test_probe_network.py::Network::test_connect attempted a network "
+            "connection to ('192.0.2.1', 80) despite the --offline setting",
+            output,
+        )
+
+    def test_shared_resource_groups_share_a_worker(self):
+        # Scheduled file by file, the two modules of a group, the largest
+        # here, would start on different workers.
+        three_tests = """\
+            import unittest
+            class Three(unittest.TestCase):
+                def test_1(self):
+                    pass
+                def test_2(self):
+                    pass
+                def test_3(self):
+                    pass
+        """
+        one_test = """\
+            import unittest
+            class One(unittest.TestCase):
+                def test_1(self):
+                    pass
+        """
+        # Here -n alone means --dist loadfile, not pytest-xdist's --dist
+        # load, which would spread even one module over the workers.
+        for prefix in ["test_BioSQL_", "test_PAML_"]:
+            for dist in [[], ["--dist", "loadfile"]]:
+                with self.subTest(prefix=prefix, dist=dist):
+                    returncode, output = self.run_pytest(
+                        {
+                            f"{prefix}probe_a.py": three_tests,
+                            f"{prefix}probe_b.py": three_tests,
+                            "test_probe_c.py": one_test,
+                            "test_probe_d.py": one_test,
+                        },
+                        "-v",
+                        *dist,
+                    )
+                    self.assertEqual(returncode, 0, output)
+                    self.assertIn("8 passed", output)
+                    workers = re.findall(
+                        rf"\[(gw\d+)\] .* PASSED \S*{prefix}probe_", output
+                    )
+                    self.assertEqual(len(workers), 6, output)
+                    self.assertEqual(len(set(workers)), 1, output)
 
 
 if __name__ == "__main__":

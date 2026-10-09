@@ -349,10 +349,14 @@ jobs:
       # our C arrives through _PyEval_EvalFrameDefault. Leaks are covered
       # instead by Tests/test_C_extension_memory.py, which measures growth
       # across repeated calls; see Tests/memory_growth.py.
+      #
+      # The tests run in parallel with pytest-xdist, a module at a time per
+      # worker (--dist loadfile). Only this job has the full set of optional
+      # dependencies, so only here does a skip not listed in
+      # Tests/expected_skips.txt fail the run (--check-skips).
       run: |
         cd Tests
-        PYTHONMALLOC=debug LD_PRELOAD="$(realpath "$(gcc -print-file-name=libasan.so)") $(realpath "$(gcc -print-file-name=libstdc++.so)")" ASAN_OPTIONS="detect_leaks=0" coverage run --source Bio,BioSQL run_tests.py --offline
-        coverage xml
+        PYTHONMALLOC=debug LD_PRELOAD="$(realpath "$(gcc -print-file-name=libasan.so)") $(realpath "$(gcc -print-file-name=libstdc++.so)")" ASAN_OPTIONS="detect_leaks=0" python -m pytest --offline --check-skips -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
       shell: bash
 
     - name: Upload coverage to codecov
@@ -384,11 +388,11 @@ jobs:
 
     - name: Install Python packaging tools
       run: |
-        python -m pip install --upgrade pip setuptools wheel coverage
+        python -m pip install --upgrade pip setuptools wheel
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy pytest
+        python -m pip install numpy pytest pytest-xdist pytest-cov
 
     - name: Debug Info
       run: |
@@ -401,8 +405,7 @@ jobs:
     - name: Run test suite
       run: |
         cd Tests
-        coverage run --source Bio,BioSQL run_tests.py --offline
-        coverage xml
+        python -m pytest --offline -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
 
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
@@ -442,7 +445,7 @@ jobs:
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy pytest
+        python -m pip install numpy pytest pytest-xdist
 
     - name: Debug Info
       run: |
@@ -457,7 +460,7 @@ jobs:
     - name: Run test suite
       run: |
         cd Tests
-        python run_tests.py --offline
+        python -m pytest --offline -n auto --dist loadfile
 
   test_windows:
     timeout-minutes: 15
@@ -490,11 +493,11 @@ jobs:
 
     - name: Install Python packaging tools
       run: |
-        python -m pip install --upgrade pip setuptools wheel coverage
+        python -m pip install --upgrade pip setuptools wheel
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy msgpack pytest
+        python -m pip install numpy msgpack pytest pytest-xdist pytest-cov
 
     - name: Debug Info
       run: |
@@ -511,14 +514,21 @@ jobs:
         python run_tests.py --offline -v test_free_threading
 
     - name: Run test suite
+      # Not a gate yet. Every Windows leg fails 22 to 33 tests on main: index
+      # files still open when their temporary directory is removed, Blast XML
+      # test files checked out with CRLF line endings, and a few others. The
+      # previous two-line step hid this, because PowerShell reports only the
+      # last command's exit status, which was that of `coverage xml`. A failure
+      # here now marks the step as failed without failing the job. Remove this
+      # once those tests pass on Windows.
+      continue-on-error: true
       env:
         # Free-threaded only, as in test_freethreaded. CPython ignores an
         # empty PYTHON_GIL, and a GIL build refuses PYTHON_GIL=0.
         PYTHON_GIL: ${{ endsWith(matrix.python-version, 't') && '0' || '' }}
       run: |
         cd Tests
-        coverage run --source Bio,BioSQL run_tests.py --offline
-        coverage xml
+        python -m pytest --offline -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
 
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
@@ -553,7 +563,7 @@ jobs:
 
     - name: Install minimal Python dependencies
       run: |
-        python -m pip install numpy pytest
+        python -m pip install numpy pytest pytest-xdist
 
     - name: Debug Info
       run: |
@@ -566,7 +576,7 @@ jobs:
     - name: Run test suite
       run: |
         cd Tests
-        python run_tests.py --offline
+        python -m pytest --offline -n auto --dist loadfile
 
   # The free-threaded (no GIL) build of CPython. So far only some extensions
   # declare that they can run without the GIL (Tests/test_free_threading.py
@@ -592,7 +602,8 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
 
     # The `test` extra in pyproject.toml, less igraph, which has no
-    # free-threaded wheel.
+    # free-threaded wheel, and less pytest-cov and pytest-xdist, which this
+    # job does not use.
     - name: Install Python dependencies
       run: |
         python -m pip install numpy scipy matplotlib reportlab pillow msgpack mmtf-python networkx rdflib coverage pytest

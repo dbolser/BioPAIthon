@@ -24,6 +24,13 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
 
 Only unittest.TestCase subclasses are collected (python_classes and
 python_functions are empty), exactly what run_tests.py used to run.
+
+With pytest-xdist the suite can run in parallel, as with ``-n auto``.  Unless
+``--dist`` is given, ``-n`` here means ``--dist loadfile``, which keeps each
+module's tests together on one worker.  The workers report their import-time
+skips to the controller, which prints them and applies ``--check-skips``.
+The BioSQL test modules all go to the same worker, as those for one database server share its test database, and so do
+the PAML ones, which share working directories.
 """
 
 import contextlib
@@ -38,6 +45,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from pkgutil import iter_modules
 
+import numpy as np
 import pytest
 
 from Bio import MissingExternalDependencyError
@@ -166,6 +174,11 @@ _UNEXPECTED_SKIPS = pytest.StashKey[list]()
 _MODULE_LANG = pytest.StashKey[str]()
 # Whether any test was deselected, as by -k or --deselect.
 _DESELECTED = pytest.StashKey[bool]()
+
+# The keys under which a pytest-xdist worker sends the two above to the
+# controller, which runs no tests, collects nothing, and so sees neither.
+_WORKER_IMPORT_SKIPS = "biopython_import_skips"
+_WORKER_DESELECTED = "biopython_deselected"
 
 
 def pytest_addoption(parser):
@@ -364,7 +377,11 @@ def _module_hygiene(request):
     # unless the module itself set one on import (see _import_guard).
     os.environ["LANG"] = request.node.stash.get(_MODULE_LANG, SYSTEM_LANG)
     cwd = os.getcwd()
-    yield
+    # Restore NumPy's print options afterwards, as some docstring examples
+    # set them (Bio.Align's to print five elements per row).  Under
+    # pytest-xdist any module may run after test_docstrings.py.
+    with np.printoptions():
+        yield
     # Running under PyPy we were leaking file handles...
     gc.collect()
     now = os.getcwd()
@@ -378,8 +395,77 @@ def pytest_deselected(items):
         items[0].config.stash[_DESELECTED] = True
 
 
+# Test modules that share a database or files with each other, by the start
+# of their file names.  Each group runs on one pytest-xdist worker.
+SHARED_RESOURCE_GROUPS = ("test_BioSQL_", "test_PAML_")
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_cmdline_main(config):
+    """Make pytest-xdist's -n mean --dist loadfile unless --dist is given.
+
+    On its own, -n means --dist load, which spreads the tests of a module
+    over the workers.  That breaks the modules whose tests depend on running
+    in order, and the groups below.  This cannot go in addopts, which would
+    break runs without pytest-xdist.  It is a wrapper so that it runs before
+    pytest-xdist's own pytest_cmdline_main, whichever plugin is registered
+    first.
+    """
+    if getattr(config.option, "numprocesses", None) and config.option.dist == "no":
+        config.option.dist = "loadfile"
+    return (yield)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_make_scheduler(config, log):
+    """Schedule each group of modules sharing resources as one file.
+
+    Under --dist loadfile every other module is scheduled as a file of its
+    own, as usual.  These groups must not run at the same time:
+
+    - The BioSQL modules for one database server (MySQLdb and
+      mysql_connector for MySQL, psycopg2 for PostgreSQL, each with its
+      _online variant) create and drop the same test database named in
+      biosql.ini (see common_BioSQL.py).  The sqlite3 modules use temporary
+      files and would be safe apart, but are kept with the rest for
+      simplicity.
+    - With PAML installed, test_PAML_tools runs its programs in
+      Tests/PAML/baseml_test and the like, which the tearDown methods of
+      test_PAML_baseml, test_PAML_codeml and test_PAML_yn00 delete.
+    """
+    if config.getoption("dist") != "loadfile":
+        return None
+    from xdist.scheduler import LoadFileScheduling
+
+    class GroupedLoadFileScheduling(LoadFileScheduling):
+        def _split_scope(self, nodeid):
+            filename = nodeid.split("::", 1)[0].rsplit("/", 1)[-1]
+            for prefix in SHARED_RESOURCE_GROUPS:
+                if filename.startswith(prefix):
+                    return prefix
+            return super()._split_scope(nodeid)
+
+    return GroupedLoadFileScheduling(config, log)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error):
+    """Merge what a pytest-xdist worker saw into the controller's records."""
+    output = getattr(node, "workeroutput", {})
+    node.config.stash[_IMPORT_SKIPS].update(output.get(_WORKER_IMPORT_SKIPS, {}))
+    if output.get(_WORKER_DESELECTED):
+        node.config.stash[_DESELECTED] = True
+
+
 def pytest_sessionfinish(session):
     config = session.config
+    workeroutput = getattr(config, "workeroutput", None)
+    if workeroutput is not None:
+        # This is a pytest-xdist worker, which sends its records to the
+        # controller (see pytest_testnodedown); the controller does the rest.
+        workeroutput[_WORKER_IMPORT_SKIPS] = config.stash[_IMPORT_SKIPS]
+        workeroutput[_WORKER_DESELECTED] = config.stash.get(_DESELECTED, False)
+        return
     if (
         session.exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED
         and config.stash[_IMPORT_SKIPS]
