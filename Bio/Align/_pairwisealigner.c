@@ -7478,6 +7478,8 @@ Aligner_fogsaa_align_matrix(Aligner* self,
     FOGSAA_EXIT_ALIGN
 }
 
+#include "_pairwisealigner_linear.h"
+
 static bool _check_indices(const int* indices, Py_ssize_t n,
                            Py_buffer* substitution_matrix) {
     const Py_ssize_t m = substitution_matrix->shape[0];
@@ -7851,6 +7853,11 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         sB = bB.buf;
     }
 
+    if (LinearPaths_wanted(self, algorithm, nA, nB)) {
+        result = LinearPaths_align(self, sA, nA, sB, nB, strand);
+        goto exit;
+    }
+
     switch (algorithm) {
         case NeedlemanWunschSmithWaterman:
             switch (mode) {
@@ -7978,6 +7985,7 @@ static struct PyModuleDef moduledef = {
     .m_name = "_pairwisealigner",
     .m_doc = _pairwisealigner__doc__,
     .m_size = -1,
+    .m_methods = linear_module_methods,
 };
 
 PyObject *
@@ -7987,7 +7995,8 @@ PyInit__pairwisealigner(void)
     Aligner_Type.tp_new = PyType_GenericNew;
 
     if (PyType_Ready(&Aligner_Type) < 0
-     || PyType_Ready(&PathGenerator_Type) < 0)
+     || PyType_Ready(&PathGenerator_Type) < 0
+     || PyType_Ready(&LinearPaths_Type) < 0)
         return NULL;
 
     module = PyModule_Create(&moduledef);
