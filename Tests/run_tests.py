@@ -59,6 +59,15 @@ or install all the test dependencies with:  python -m pip install -e ".[test]"
 """
 
 
+def _in_tests_dir(arg):
+    """Check if a path or node ID names something in Tests/ (PRIVATE)."""
+    path = os.path.normcase(os.path.realpath(arg.split("::", 1)[0]))
+    tests_dir = os.path.normcase(os.path.realpath(TESTS_DIR))
+    return os.path.exists(path) and (
+        path == tests_dir or path.startswith(tests_dir + os.sep)
+    )
+
+
 def pytest_args(argv):
     """Translate run_tests.py arguments into pytest arguments (PRIVATE)."""
     args = []
@@ -79,9 +88,11 @@ def pytest_args(argv):
             and previous not in LEGACY_LONG_OPTIONS
         ):
             # Perhaps the value of one of pytest's long options, as in
-            # --junitxml report.xml, so never rewritten as a test name.
+            # --junitxml report.xml, so never rewritten as a test name. It
+            # selects tests only if it names a path in Tests/, as in
+            # --lf test_Seq_objs.py, not as in --basetemp /tmp.
             args.append(arg)
-            selected = selected or "::" in arg or os.path.exists(arg)
+            selected = selected or _in_tests_dir(arg)
         elif arg == "doctest":
             args.append(os.path.join(TESTS_DIR, "test_docstrings.py"))
             selected = True

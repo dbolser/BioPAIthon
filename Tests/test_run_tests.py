@@ -129,6 +129,21 @@ class ShimTests(unittest.TestCase):
             ["--junitxml=out.xml", "--offline", self.path("test_Seq_objs.py")],
         )
 
+    def test_long_option_values_select_only_in_tests(self):
+        # An existing path outside Tests/ is an option's value, so the whole
+        # suite still runs; a path or node ID in Tests/ selects tests.
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertEqual(
+                pytest_args(["--basetemp", directory]),
+                ["--basetemp", directory, TESTS_DIR],
+            )
+        node = self.path("test_Seq_objs.py") + "::StringMethodTests"
+        self.assertEqual(pytest_args(["--lf", node]), ["--lf", node])
+        self.assertEqual(
+            pytest_args(["--lf", self.path("test_Seq_objs.py")]),
+            ["--lf", self.path("test_Seq_objs.py")],
+        )
+
     def test_node_ids_pass_through(self):
         node = "test_Seq_objs.py::StringMethodTests"
         self.assertEqual(pytest_args([node]), [node])
