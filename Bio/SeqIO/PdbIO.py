@@ -7,8 +7,11 @@
 """Bio.SeqIO support for accessing sequences in PDB and mmCIF files."""
 
 import collections
+import sys
 import warnings
+from itertools import zip_longest
 
+from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonParserWarning
 from Bio.Data.PDBData import protein_letters_3to1
 from Bio.Data.PDBData import protein_letters_3to1_extended
@@ -357,8 +360,9 @@ class PdbAtomIterator(SequenceIterator):
 
 
 PDBX_POLY_SEQ_SCHEME_FIELDS = (
-    "_pdbx_poly_seq_scheme.asym_id",  # Chain ID
+    "_pdbx_poly_seq_scheme.asym_id",  # Chain ID (label, assigned by the wwPDB)
     "_pdbx_poly_seq_scheme.mon_id",  # Residue type
+    "_pdbx_poly_seq_scheme.pdb_strand_id",  # Chain ID (author)
 )
 
 STRUCT_REF_FIELDS = (
@@ -380,10 +384,18 @@ class CifSeqresIterator(SequenceIterator):
 
     modes = "t"
 
-    def __init__(self, source: _TextIOSource) -> None:
+    def __init__(self, source: _TextIOSource, auth_chains: bool | None = None) -> None:
         """Iterate over chains in an mmCIF file as SeqRecord objects.
 
-        Argument source is a file-like object or a path to a file.
+        Arguments:
+         - source - a file-like object or a path to a file.
+         - auth_chains - If true, name each chain by its author chain id
+           (_pdbx_poly_seq_scheme.pdb_strand_id), like the "cif-atom",
+           "pdb-seqres" and "pdb-atom" formats and Bio.PDB.MMCIFParser do. If
+           false, name it by its label chain id (_pdbx_poly_seq_scheme.asym_id),
+           which the wwPDB assigns. The default, None, means false for now, but
+           a BiopythonDeprecationWarning is issued for any file in which the two
+           differ, as a future release will change the default to true.
 
         The sequences are derived from the _entity_poly_seq entries in the
         mmCIF file, not the atoms of the 3D structure.
@@ -422,6 +434,20 @@ class CifSeqresIterator(SequenceIterator):
         Note the chain is recorded in the annotations dictionary, and any mmCIF
         _struct_ref_seq entries are recorded in the database cross-references
         list.
+
+        The author and label chain ids agree in most entries, but not in all.
+        Bio.SeqIO.parse cannot pass the auth_chains argument, so to choose
+        between them call this class directly:
+
+        >>> for record in CifSeqresIterator("PDB/1A7G.cif", auth_chains=True):
+        ...     print("Record id %s, chain %s" % (record.id, record.annotations["chain"]))
+        ...
+        Record id 1A7G:E, chain E
+        >>> for record in CifSeqresIterator("PDB/1A7G.cif", auth_chains=False):
+        ...     print("Record id %s, chain %s" % (record.id, record.annotations["chain"]))
+        ...
+        Record id 1A7G:A, chain A
+
         """
 
         # Only import PDB when needed, to avoid/delay NumPy dependency in SeqIO
@@ -441,12 +467,50 @@ class CifSeqresIterator(SequenceIterator):
             elif not isinstance(records[field], list):
                 records[field] = [records[field]]
 
-        for asym_id, mon_id in zip(
-            records["_pdbx_poly_seq_scheme.asym_id"],
-            records["_pdbx_poly_seq_scheme.mon_id"],
+        label_ids = records["_pdbx_poly_seq_scheme.asym_id"]
+        # mmCIF files from outside the PDB may lack the author chain ids, or
+        # give the CIF null values "?" or "."; use the label id for those.
+        auth_ids = [
+            label_id if auth_id in ("?", ".") else auth_id
+            for label_id, auth_id in zip_longest(
+                label_ids,
+                records["_pdbx_poly_seq_scheme.pdb_strand_id"],
+                fillvalue="?",
+            )
+        ]
+        if auth_chains is None:
+            if auth_ids != label_ids:
+                # Report the warning at the first caller outside Bio.SeqIO,
+                # whether it called this class, SeqIO.parse or SeqIO.read.
+                stacklevel = 2
+                frame = sys._getframe(1)
+                while frame.f_back:
+                    if not frame.f_globals.get("__name__", "").startswith("Bio.SeqIO"):
+                        break
+                    frame = frame.f_back
+                    stacklevel += 1
+                warnings.warn(
+                    "cif-seqres names chains by their mmCIF label ids, which in "
+                    "this file differ from the author ids that cif-atom, "
+                    "pdb-seqres and Bio.PDB.MMCIFParser use. A future release "
+                    "will name them by the author ids. To use those now, call "
+                    "Bio.SeqIO.PdbIO.CifSeqresIterator(source, auth_chains=True); "
+                    "to keep the label ids and silence this warning, pass "
+                    "auth_chains=False.",
+                    BiopythonDeprecationWarning,
+                    stacklevel=stacklevel,
+                )
+            auth_chains = False
+
+        # The cross-references are keyed by author chain id, so note each
+        # chain's author id whichever id it is named by.
+        strand_ids = {}
+        for label_id, auth_id, mon_id in zip(
+            label_ids, auth_ids, records["_pdbx_poly_seq_scheme.mon_id"]
         ):
-            mon_id_1l = _res2aacode(mon_id)
-            chains[asym_id].append(mon_id_1l)
+            chn_id = auth_id if auth_chains else label_id
+            chains[chn_id].append(_res2aacode(mon_id))
+            strand_ids[chn_id] = auth_id
 
         # Build a dict of _struct_ref records, indexed by the id field:
         struct_refs = {}
@@ -481,11 +545,12 @@ class CifSeqresIterator(SequenceIterator):
             record.annotations = {"chain": chn_id}
             # TODO: Test PDB files with DNA and RNA too:
             record.annotations["molecule_type"] = "protein"
-            if chn_id in metadata:
-                m = metadata[chn_id][0]
+            strand_id = strand_ids[chn_id]
+            if strand_id in metadata:
+                m = metadata[strand_id][0]
                 record.id = record.name = f"{m['pdb_id']}:{chn_id}"
                 record.description = f"{m['database']}:{m['db_acc']} {m['db_id_code']}"
-                for melem in metadata[chn_id]:
+                for melem in metadata[strand_id]:
                     record.dbxrefs.extend(
                         [
                             f"{melem['database']}:{melem['db_acc']}",

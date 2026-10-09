@@ -59,6 +59,21 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.SeqIO``'s "cif-seqres" format names each chain by its mmCIF label id,
+but "cif-atom", "pdb-seqres", "pdb-atom" and ``Bio.PDB.MMCIFParser`` use the
+author id, so the two mmCIF formats can name the same chain differently. In
+the test file ``4ZHL.cif``, for example, "cif-seqres" gives chains A and B
+where "cif-atom" gives U and P. ``Bio.SeqIO.PdbIO.CifSeqresIterator`` now
+takes an ``auth_chains`` argument, like ``MMCIFParser``, to choose between
+them. The default still gives the label ids, but now raises a
+``BiopythonDeprecationWarning`` for any file in which the two differ, as a
+future release will switch it to the author ids; see DEPRECATED.rst. In those
+same files "cif-seqres" used to match the database cross-references, which the
+file keys by author id, against the label ids. So ``1LCD.cif`` put the LacI
+protein's UniProt reference on a DNA strand, and ``4ZHL.cif`` lost its
+references and gave bare record ids such as "A" rather than "4ZHL:A". Each
+record now gets its own chain's cross-references.
+
 Outside the sequence, alignment and search parsers, 93 ``assert`` statements
 that checked input now raise ``ValueError``, or ``TypeError`` for a wrong
 type, instead of ``AssertionError``. Where a module has its own parser
