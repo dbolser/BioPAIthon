@@ -208,7 +208,7 @@ Now change directory to the Biopython source code folder and run::
     python run_tests.py
 
 Substitute ``python`` with your specific version if required, for example
-``python3``, or ``pypy3``. On PyPy, use a plain ``pip install -e .`` instead:
+``python3``, or ``pypy3``. On PyPy, use ``pip install -e . pytest`` instead:
 the ``test`` extra needs SciPy, which has no PyPy wheels and needs OpenBLAS to
 build from source.
 
@@ -229,10 +229,12 @@ directory and type::
     cd Tests
     python run_tests.py
 
-The ``test`` extra installs the optional packages the Linux CI jobs test
-with. A plain ``pip install -e .`` also works, and is what to use on PyPy
-(see above), but then every test needing one of those packages, all of
-``Bio.Graphics`` included, is skipped rather than run.
+The ``test`` extra installs pytest, which runs the tests, and the optional
+packages the Linux CI jobs test with. ``pip install -e . pytest`` also works,
+and is what to use on PyPy (see above), but then every test needing one of
+those packages, all of ``Bio.Graphics`` included, is skipped rather than run.
+``run_tests.py`` passes its arguments on to pytest, so ``python -m pytest``
+in ``Tests`` is equivalent, and takes all of pytest's own options.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::
@@ -240,9 +242,10 @@ testing), use::
     cd Tests
     python run_tests.py --offline
 
-Do not panic if you see messages warning of skipped tests::
+Do not panic if the run ends with a list of skipped modules::
 
-    test_DocSQL ... skipping. Install MySQLdb if you want to use Bio.DocSQL.
+    ========================== modules skipped at import ===========================
+    Bio.motifs.jaspar.db -- Install MySQLdb if you want to use Bio.motifs.jaspar.db
 
 This most likely means that a package is not installed.  You can
 ignore this if it occurs in the tests for a module that you were not
