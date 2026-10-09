@@ -54,12 +54,19 @@ requires_growth_measurement = unittest.skipUnless(
 )
 
 
-def bytes_retained_per_call(function, warmup=5, calls=80):
+def bytes_retained_per_call(function, warmup=5, calls=80, repeats=3):
     """Return the mean bytes still traced per call of function.
 
     The callable is run warmup times first so that any one-off allocation it
     triggers - a lookup table, an imported module, a cached conversion - is
     already paid for when the baseline is taken.
+
+    The calls are then measured repeats times and the least result is kept.
+    tracemalloc counts every allocation in the process, so one made by
+    something else during a measurement adds to it. Under pytest-xdist on
+    Python 3.10, exactly 3742 bytes from such a source twice failed the limit
+    in CI, on Linux and on macOS. A one-off allocation adds to one
+    measurement, whereas a leak adds to every one.
     """
     if tracemalloc is None:
         raise unittest.SkipTest("tracemalloc is not available")
@@ -69,17 +76,18 @@ def bytes_retained_per_call(function, warmup=5, calls=80):
     try:
         for _ in range(warmup):
             function()
-        gc.collect()
-        baseline = tracemalloc.get_traced_memory()[0]
-
-        for _ in range(calls):
-            function()
-        gc.collect()
-        retained = tracemalloc.get_traced_memory()[0] - baseline
+        retained = []
+        for _ in range(repeats):
+            gc.collect()
+            baseline = tracemalloc.get_traced_memory()[0]
+            for _ in range(calls):
+                function()
+            gc.collect()
+            retained.append(tracemalloc.get_traced_memory()[0] - baseline)
     finally:
         if not was_tracing:
             tracemalloc.stop()
-    return retained / calls
+    return min(retained) / calls
 
 
 def assert_bounded_growth(test, function, limit=16, warmup=5, calls=80):
@@ -89,7 +97,8 @@ def assert_bounded_growth(test, function, limit=16, warmup=5, calls=80):
     Across 40 runs of the five callables in test_C_extension_memory, a
     function that does not leak reported at most 0.40 bytes per call, and
     usually 0.00. Deleting the free in Parser_dealloc, so that the printed
-    alignment parser leaks one row array per parse, reports 64.4.
+    alignment parser leaks one row array per parse, reports 64.4 (64.0 since
+    the least of three measurements is taken).
 
     16 sits between the two with a factor of 40 above the noise and 4 below
     that leak. It was not the first choice: 64 also caught that mutant, but

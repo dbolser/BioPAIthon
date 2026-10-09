@@ -8,9 +8,11 @@ LeakSanitizer. Bio.PDB.ccealign is covered by test_PDB_CEAligner instead,
 alongside the reference-ownership test that belongs with it.
 """
 
+import itertools
 import unittest
 
 from memory_growth import assert_bounded_growth
+from memory_growth import bytes_retained_per_call
 from memory_growth import requires_growth_measurement
 
 try:
@@ -177,6 +179,31 @@ class ClusterExtensionTests(unittest.TestCase):
             str(tree)
 
         assert_bounded_growth(self, cluster)
+
+
+@requires_growth_measurement
+class MeasurementTests(unittest.TestCase):
+    """The measure itself: a leak counts, a one-off allocation does not."""
+
+    def test_leak(self):
+        kept = []
+
+        def leak():
+            kept.append(bytes(64))
+
+        self.assertGreater(bytes_retained_per_call(leak), 64)
+
+    def test_one_off_allocation(self):
+        # Call 40 falls in the first measurement, after the 5 warmup calls.
+        counter = itertools.count()
+        kept = []
+
+        def one_off():
+            if next(counter) == 40:
+                kept.append(bytes(4000))
+
+        self.assertLess(bytes_retained_per_call(one_off), 1)
+        self.assertEqual(len(kept), 1)
 
 
 if __name__ == "__main__":
