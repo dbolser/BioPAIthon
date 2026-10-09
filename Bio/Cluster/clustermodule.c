@@ -4,6 +4,8 @@
 #include <float.h>
 #include "cluster.h"
 
+#include "../_freethreading.h"
+
 
 /* ========================================================================= */
 /* -- Helper routines ------------------------------------------------------ */
@@ -339,15 +341,14 @@ vector_none_converter(PyObject* object, void* pointer)
 /* -- clusterid ------------------------------------------------------------ */
 
 static int
-check_clusterid(Py_buffer clusterid, int nitems) {
+check_clusterid(const int* p, Py_ssize_t n, int nitems) {
     int i, j;
-    int *p = clusterid.buf;
     int nclusters = 0;
     int* number;
 
-    if (nitems != clusterid.shape[0]) {
+    if (nitems != n) {
         PyErr_Format(PyExc_ValueError, "incorrect size (%zd, expected %d)",
-                     clusterid.shape[0], nitems);
+                     n, nitems);
         return 0;
     }
     for (i = 0; i < nitems; i++) {
@@ -675,6 +676,25 @@ exit:
     return 0;
 }
 
+/* Return a private copy of an index array that index_converter accepted,
+ * or NULL with an exception set; free it with PyMem_Free. Check and use
+ * the copy, never the caller's array: another thread could change the
+ * caller's array after the check, and the kernel would then index out of
+ * bounds. */
+static int*
+copy_indices(const Py_buffer* view)
+{
+    const size_t size = (size_t)view->shape[0] * sizeof(int);
+    int* indices = PyMem_Malloc(size);
+
+    if (!indices) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    memcpy(indices, view->buf, size);
+    return indices;
+}
+
 /* -- index2d ------------------------------------------------------------- */
 
 static int
@@ -889,11 +909,56 @@ typedef struct {
     int n;
 } PyTree;
 
+/* A Tree's n and nodes are read and written only in its critical section,
+ * except when it is created and destroyed, when no other thread can see it.
+ * None of the code run in a Tree's critical section calls into Python. */
+
 static void
 PyTree_dealloc(PyTree* self)
 {
     if (self->n) PyMem_Free(self->nodes);
     Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+/* Copy the nodes out of a list of Node objects into a new array, storing
+ * its length in *pn, or return NULL with an exception set. Call this in
+ * the list's critical section, so that no other thread can resize the list
+ * while it is read. */
+static Node*
+nodes_from_list(PyObject* list, int* pn)
+{
+    int i;
+    Node* nodes;
+    const int n = (int) PyList_GET_SIZE(list);
+
+    if (n != PyList_GET_SIZE(list)) {
+        PyErr_Format(PyExc_ValueError,
+                     "List is too large (size = %zd)", PyList_GET_SIZE(list));
+        return NULL;
+    }
+    if (n < 1) {
+        PyErr_SetString(PyExc_ValueError, "List is empty");
+        return NULL;
+    }
+    nodes = PyMem_Malloc(n*sizeof(Node));
+    if (!nodes) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    for (i = 0; i < n; i++) {
+        PyNode* p;
+        PyObject* row = PyList_GET_ITEM(list, i);
+        if (!PyType_IsSubtype(Py_TYPE(row), &PyNodeType)) {
+            PyMem_Free(nodes);
+            PyErr_Format(PyExc_TypeError,
+                         "Row %d in list is not a Node object", i);
+            return NULL;
+        }
+        p = (PyNode*)row;
+        nodes[i] = p->node;
+    }
+    *pn = n;
+    return nodes;
 }
 
 static PyObject*
@@ -927,35 +992,12 @@ PyTree_new(PyTypeObject *type, PyObject* args, PyObject* kwds)
         return NULL;
     }
 
-    n = (int) PyList_GET_SIZE(arg);
-    if (n != PyList_GET_SIZE(arg)) {
-        Py_DECREF(self);
-        PyErr_Format(PyExc_ValueError,
-                     "List is too large (size = %zd)", PyList_GET_SIZE(arg));
-        return NULL;
-    }
-    if (n < 1) {
-        Py_DECREF(self);
-        PyErr_SetString(PyExc_ValueError, "List is empty");
-        return NULL;
-    }
-    nodes = PyMem_Malloc(n*sizeof(Node));
+    Py_BEGIN_CRITICAL_SECTION(arg);
+    nodes = nodes_from_list(arg, &n);
+    Py_END_CRITICAL_SECTION();
     if (!nodes) {
         Py_DECREF(self);
-        return PyErr_NoMemory();
-    }
-    for (i = 0; i < n; i++) {
-        PyNode* p;
-        PyObject* row = PyList_GET_ITEM(arg, i);
-        if (!PyType_IsSubtype(Py_TYPE(row), &PyNodeType)) {
-            PyMem_Free(nodes);
-            Py_DECREF(self);
-            PyErr_Format(PyExc_TypeError,
-                         "Row %d in list is not a Node object", i);
-            return NULL;
-        }
-        p = (PyNode*)row;
-        nodes[i] = p->node;
+        return NULL;
     }
     /* --- Check if this is a bona fide tree ------------------------------- */
     flag = PyMem_Malloc((2*n+1)*sizeof(int));
@@ -997,7 +1039,7 @@ PyTree_new(PyTypeObject *type, PyObject* args, PyObject* kwds)
 }
 
 static PyObject*
-PyTree_str(PyTree* self)
+PyTree_str_impl(PyTree* self)
 {
     int i;
     const int n = self->n;
@@ -1038,53 +1080,95 @@ PyTree_str(PyTree* self)
     return output;
 }
 
+static PyObject*
+PyTree_str(PyTree* self)
+{
+    PyObject* result;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    result = PyTree_str_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return result;
+}
+
 static int
 PyTree_length(PyTree *self)
 {
-    return self->n;
+    int n;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    n = self->n;
+    Py_END_CRITICAL_SECTION();
+    return n;
+}
+
+static PyObject*
+PyTree_item_impl(PyTree* self, Py_ssize_t i)
+{
+    PyNode* result;
+
+    if (i < 0)
+        i += self->n;
+    if (i < 0 || i >= self->n) {
+        PyErr_SetString(PyExc_IndexError, "tree index out of range");
+        return NULL;
+    }
+    result = (PyNode*) PyNodeType.tp_alloc(&PyNodeType, 0);
+    if (!result) return PyErr_NoMemory();
+    result->node = self->nodes[i];
+    return (PyObject*) result;
+}
+
+static PyObject*
+PyTree_slice_impl(PyTree* self, Py_ssize_t start, Py_ssize_t stop,
+                  Py_ssize_t step)
+{
+    Py_ssize_t i, j;
+    const Py_ssize_t slicelength = PySlice_AdjustIndices(self->n, &start,
+                                                         &stop, step);
+
+    if (slicelength == 0) return PyList_New(0);
+    else {
+        PyNode* node;
+        PyObject* result = PyList_New(slicelength);
+        if (!result) return PyErr_NoMemory();
+        for (i = 0, j = start; i < slicelength; i++, j += step) {
+            node = (PyNode*) PyNodeType.tp_alloc(&PyNodeType, 0);
+            if (!node) {
+                Py_DECREF(result);
+                return PyErr_NoMemory();
+            }
+            node->node = self->nodes[j];
+            PyList_SET_ITEM(result, i, (PyObject*)node);
+        }
+        return result;
+    }
 }
 
 static PyObject*
 PyTree_subscript(PyTree* self, PyObject* item)
 {
+    PyObject* result;
+
+    /* Convert the index or slice first, outside the critical section, as
+     * that can call __index__. */
     if (PyIndex_Check(item)) {
-        PyNode* result;
         Py_ssize_t i;
         i = PyNumber_AsSsize_t(item, PyExc_IndexError);
         if (i == -1 && PyErr_Occurred())
             return NULL;
-        if (i < 0)
-            i += self->n;
-        if (i < 0 || i >= self->n) {
-            PyErr_SetString(PyExc_IndexError, "tree index out of range");
-            return NULL;
-        }
-        result = (PyNode*) PyNodeType.tp_alloc(&PyNodeType, 0);
-        if (!result) return PyErr_NoMemory();
-        result->node = self->nodes[i];
-        return (PyObject*) result;
+        Py_BEGIN_CRITICAL_SECTION(self);
+        result = PyTree_item_impl(self, i);
+        Py_END_CRITICAL_SECTION();
+        return result;
     }
     else if (PySlice_Check(item)) {
-        Py_ssize_t i, j;
-        Py_ssize_t start, stop, step, slicelength;
-        if (PySlice_GetIndicesEx(item, self->n, &start, &stop, &step,
-                                 &slicelength) == -1) return NULL;
-        if (slicelength == 0) return PyList_New(0);
-        else {
-            PyNode* node;
-            PyObject* result = PyList_New(slicelength);
-            if (!result) return PyErr_NoMemory();
-            for (i = 0, j = start; i < slicelength; i++, j += step) {
-                node = (PyNode*) PyNodeType.tp_alloc(&PyNodeType, 0);
-                if (!node) {
-                    Py_DECREF(result);
-                    return PyErr_NoMemory();
-                }
-                node->node = self->nodes[j];
-                PyList_SET_ITEM(result, i, (PyObject*)node);
-            }
-            return result;
-        }
+        Py_ssize_t start, stop, step;
+        if (PySlice_Unpack(item, &start, &stop, &step) == -1) return NULL;
+        Py_BEGIN_CRITICAL_SECTION(self);
+        result = PyTree_slice_impl(self, start, stop, step);
+        Py_END_CRITICAL_SECTION();
+        return result;
     }
     else {
         PyErr_Format(PyExc_TypeError,
@@ -1106,7 +1190,7 @@ static char PyTree_scale__doc__[] =
 "and zero.\n";
 
 static PyObject*
-PyTree_scale(PyTree* self)
+PyTree_scale_impl(PyTree* self)
 {
     int i;
     const int n = self->n;
@@ -1123,6 +1207,17 @@ PyTree_scale(PyTree* self)
     return Py_None;
 }
 
+static PyObject*
+PyTree_scale(PyTree* self)
+{
+    PyObject* result;
+
+    Py_BEGIN_CRITICAL_SECTION(self);
+    result = PyTree_scale_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return result;
+}
+
 static char PyTree_cut__doc__[] =
 "mytree.cut(nclusters) -> array\n"
 "\n"
@@ -1130,14 +1225,34 @@ static char PyTree_cut__doc__[] =
 "clusters, and return an array with the number of the cluster to which each\n"
 "element was assigned. The number of clusters is given by nclusters.\n";
 
+/* Return 1 on success, 0 if out of memory, or -1 with an exception set. */
+static int
+PyTree_cut_impl(PyTree* self, Py_buffer* indices, int nclusters)
+{
+    const int n = self->n + 1;
+
+    if (nclusters > n) {
+        PyErr_SetString(PyExc_ValueError,
+                        "more clusters requested than items available");
+        return -1;
+    }
+    if (indices->shape[0] != n) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "indices array inconsistent with tree");
+        return -1;
+    }
+    return cuttree(n, self->nodes, nclusters, indices->buf);
+}
+
 static PyObject*
 PyTree_cut(PyTree* self, PyObject* args)
 {
     int ok = -1;
     int nclusters;
-    const int n = self->n + 1;
     Py_buffer indices = {0};
 
+    /* Parse the arguments outside the critical section, as getting a
+     * buffer can call into Python. */
     if (!PyArg_ParseTuple(args, "O&i",
                           index_converter, &indices, &nclusters)) goto exit;
     if (nclusters < 1) {
@@ -1145,17 +1260,9 @@ PyTree_cut(PyTree* self, PyObject* args)
                         "requested number of clusters should be positive");
         goto exit;
     }
-    if (nclusters > n) {
-        PyErr_SetString(PyExc_ValueError,
-                        "more clusters requested than items available");
-        goto exit;
-    }
-    if (indices.shape[0] != n) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "indices array inconsistent with tree");
-        goto exit;
-    }
-    ok = cuttree(n, self->nodes, nclusters, indices.buf);
+    Py_BEGIN_CRITICAL_SECTION(self);
+    ok = PyTree_cut_impl(self, &indices, nclusters);
+    Py_END_CRITICAL_SECTION();
 
 exit:
     index_converter(NULL, &indices);
@@ -1176,33 +1283,45 @@ static char PyTree_sort__doc__[] =
 "hierarchical clustering tree, such that the element with index indices[i]\n"
 "occurs at position i in the dendrogram.\n";
 
+/* Return 1 on success, 0 if out of memory, or -1 with an exception set. */
+static int
+PyTree_sort_impl(PyTree* self, Py_buffer* indices, Py_buffer* order)
+{
+    const int n = self->n;
+
+    if (n == 0) {
+        PyErr_SetString(PyExc_ValueError, "tree is empty");
+        return -1;
+    }
+    if (indices->shape[0] != n + 1) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "indices array inconsistent with tree");
+        return -1;
+    }
+    if (order->shape[0] != n + 1) {
+        PyErr_Format(PyExc_ValueError,
+            "order array has incorrect size %zd (expected %d)",
+            order->shape[0], n + 1);
+        return -1;
+    }
+    return sorttree(n, self->nodes, order->buf, indices->buf);
+}
+
 static PyObject*
 PyTree_sort(PyTree* self, PyObject* args)
 {
     int ok = -1;
     Py_buffer indices = {0};
-    const int n = self->n;
     Py_buffer order = {0};
 
-    if (n == 0) {
-        PyErr_SetString(PyExc_ValueError, "tree is empty");
-        return NULL;
-    }
+    /* Parse the arguments outside the critical section, as getting a
+     * buffer can call into Python. */
     if (!PyArg_ParseTuple(args, "O&O&",
                           index_converter, &indices,
                           vector_converter, &order)) goto exit;
-    if (indices.shape[0] != n + 1) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "indices array inconsistent with tree");
-        goto exit;
-    }
-    if (order.shape[0] != n + 1) {
-        PyErr_Format(PyExc_ValueError,
-            "order array has incorrect size %zd (expected %d)",
-            order.shape[0], n + 1);
-        goto exit;
-    }
-    ok = sorttree(n, self->nodes, order.buf, indices.buf);
+    Py_BEGIN_CRITICAL_SECTION(self);
+    ok = PyTree_sort_impl(self, &indices, &order);
+    Py_END_CRITICAL_SECTION();
 exit:
     index_converter(NULL, &indices);
     vector_converter(NULL, &order);
@@ -1425,7 +1544,7 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
         goto exit;
     }
     else if (npass == 0) {
-        int n = check_clusterid(clusterid, nitems);
+        int n = check_clusterid(clusterid.buf, clusterid.shape[0], nitems);
         if (n == 0) goto exit;
         if (n != nclusters) {
             PyErr_SetString(PyExc_ValueError,
@@ -1547,7 +1666,8 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
         goto exit;
     }
     else if (npass == 0) {
-        int n = check_clusterid(clusterid, distances.n);
+        int n = check_clusterid(clusterid.buf, clusterid.shape[0],
+                                distances.n);
         if (n == 0) goto exit;
         if (n != nclusters) {
             PyErr_SetString(PyExc_RuntimeError,
@@ -1691,6 +1811,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
     PyTree* tree = NULL;
     Node* nodes;
     int nitems;
+    PyObject* result = NULL;
 
     static char* kwlist[] = {"tree",
                              "data",
@@ -1713,7 +1834,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
                                      distancematrix_converter, &distances))
         return NULL;
 
-    if (tree->n != 0) {
+    if (PyTree_length(tree) != 0) {
         PyErr_SetString(PyExc_RuntimeError, "expected an empty tree");
         goto exit;
     }
@@ -1792,17 +1913,29 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
         PyErr_NoMemory();
         goto exit;
     }
-    tree->n = nitems-1;
-    tree->nodes = nodes;
+    /* Check again that the tree is empty, as another thread may have filled
+     * it in the meantime. */
+    Py_BEGIN_CRITICAL_SECTION(tree);
+    if (tree->n == 0) {
+        tree->n = nitems-1;
+        tree->nodes = nodes;
+        nodes = NULL;
+    }
+    Py_END_CRITICAL_SECTION();
+    if (nodes) {
+        PyMem_Free(nodes);
+        PyErr_SetString(PyExc_RuntimeError, "expected an empty tree");
+        goto exit;
+    }
+    Py_INCREF(Py_None);
+    result = Py_None;
 
 exit:
     data_converter(NULL, &data);
     mask_converter(NULL, &mask);
     vector_none_converter(NULL, &weight);
     distancematrix_converter(NULL, &distances);
-    if (tree == NULL || tree->n == 0) return NULL;
-    Py_INCREF(Py_None);
-    return Py_None;
+    return result;
 }
 /* end of wrapper for treecluster */
 
@@ -2031,6 +2164,8 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
     int transpose = 0;
     Py_buffer index1 = {0};
     Py_buffer index2 = {0};
+    int* indices1 = NULL;
+    int* indices2 = NULL;
     PyObject* result = NULL;
 
     static char* kwlist[] = {"data",
@@ -2075,6 +2210,12 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
                      weight.shape[0], ndata);
         goto exit;
     }
+    /* clusterdistance checks the indices before using them, so give it
+     * copies that no other thread can change in between. */
+    indices1 = copy_indices(&index1);
+    if (!indices1) goto exit;
+    indices2 = copy_indices(&index2);
+    if (!indices2) goto exit;
 
     distance = clusterdistance(nrows,
                                ncols,
@@ -2083,8 +2224,8 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
                                weight.buf,
                                (int) index1.shape[0],
                                (int) index2.shape[0],
-                               index1.buf,
-                               index2.buf,
+                               indices1,
+                               indices2,
                                dist,
                                method,
                                transpose);
@@ -2099,6 +2240,8 @@ exit:
     vector_converter(NULL, &weight);
     index_converter(NULL, &index1);
     index_converter(NULL, &index2);
+    PyMem_Free(indices1);
+    PyMem_Free(indices2);
     return result;
 }
 /* end of wrapper for clusterdistance */
@@ -2147,6 +2290,7 @@ py_clustercentroids(PyObject* self, PyObject* args, PyObject* keywords)
     Data cdata = {0};
     Mask cmask = {0};
     Py_buffer clusterid = {0};
+    int* ids = NULL;
     char method = 'a';
     int transpose = 0;
     int ok = -1;
@@ -2184,12 +2328,16 @@ py_clustercentroids(PyObject* self, PyObject* args, PyObject* keywords)
             mask.view.shape[0], mask.view.shape[1], data.nrows, data.ncols);
         goto exit;
     }
+    /* Check and use a copy of clusterid that no other thread can change in
+     * between. */
+    ids = copy_indices(&clusterid);
+    if (!ids) goto exit;
     if (transpose == 0) {
-        nclusters = check_clusterid(clusterid, nrows);
+        nclusters = check_clusterid(ids, clusterid.shape[0], nrows);
         nrows = nclusters;
     }
     else {
-        nclusters = check_clusterid(clusterid, ncols);
+        nclusters = check_clusterid(ids, clusterid.shape[0], ncols);
         ncols = nclusters;
     }
     if (nclusters == 0) goto exit;
@@ -2222,7 +2370,7 @@ py_clustercentroids(PyObject* self, PyObject* args, PyObject* keywords)
                              data.ncols,
                              data.values,
                              mask.values,
-                             clusterid.buf,
+                             ids,
                              cdata.values,
                              cmask.values,
                              transpose,
@@ -2233,6 +2381,7 @@ exit:
     data_converter(NULL, &cdata);
     mask_converter(NULL, &cmask);
     index_converter(NULL, &clusterid);
+    PyMem_Free(ids);
     if (ok == -1) return NULL;
     if (ok == 0) return PyErr_NoMemory();
     Py_INCREF(Py_None);
@@ -2564,6 +2713,10 @@ PyInit__cluster(void)
 
     module = PyModule_Create(&moduledef);
     if (module == NULL) return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     Py_INCREF(&PyTreeType);
     if (PyModule_AddObject(module, "Tree", (PyObject*) &PyTreeType) < 0) {

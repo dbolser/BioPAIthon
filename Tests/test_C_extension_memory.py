@@ -123,6 +123,31 @@ class ClusterExtensionTests(unittest.TestCase):
 
         assert_bounded_growth(self, cluster)
 
+    def test_index_copies_and_tree_methods(self):
+        """Compute centroids and distances, and use a tree, repeatedly.
+
+        clustercentroids and clusterdistance copy the index arrays they are
+        given, and Tree copies the nodes out of the list it is given.
+        """
+        from Bio import Cluster
+
+        rng = np.random.default_rng(0)
+        data = rng.random((30, 8))
+        clusterid = np.repeat(np.arange(3, dtype=np.intc), 10)
+        index1 = np.arange(10, dtype=np.intc)
+        index2 = np.arange(10, 30, dtype=np.intc)
+        tree = Cluster.treecluster(data)
+
+        def cluster():
+            Cluster.clustercentroids(data, clusterid=clusterid)
+            Cluster.clusterdistance(data, index1=index1, index2=index2)
+            Cluster.Tree(tree[:])
+            tree.sort()
+            tree.cut(3)
+            str(tree)
+
+        assert_bounded_growth(self, cluster)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

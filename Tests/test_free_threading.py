@@ -28,6 +28,7 @@ import support
 import Bio
 
 DECLARED = {
+    "Bio.Cluster._cluster",
     "Bio.Nexus.cnexus",
     "Bio.PDB._bcif_helper",
     "Bio.PDB.ccealign",
@@ -42,7 +43,6 @@ PENDING = {
     "Bio.Align._codonaligner",
     "Bio.Align._pairwisealigner",
     "Bio.Align.substitution_matrices._arraycore",
-    "Bio.Cluster._cluster",
 }
 
 # Loads one extension module from its file, bypassing the package __init__
