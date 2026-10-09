@@ -127,7 +127,7 @@ def kcluster(
     nclusters: SupportsIndex = 2,
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
     npass: int | np.integer[Any] = 1,
     method: str = "a",
     dist: str = "e",
@@ -295,7 +295,7 @@ def treecluster(
     data: "ArrayLike | None",
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
     method: str = "m",
     dist: str = "e",
     distancematrix: "ArrayLike | None" = None,
@@ -398,7 +398,7 @@ def somcluster(
     data: "NDArray[Any]",
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
     nxgrid: int | np.integer[Any] = 2,
     nygrid: int | np.integer[Any] = 1,
     inittau: SupportsFloat | SupportsIndex = 0.02,
@@ -489,7 +489,7 @@ def clusterdistance(
     index2: "ArrayLike | None" = None,
     method: str = "a",
     dist: str = "e",
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
 ) -> float:
     """Calculate and return the distance between two clusters.
 
@@ -544,7 +544,7 @@ def clustercentroids(
     mask: "ArrayLike | None" = None,
     clusterid: "ArrayLike | None" = None,
     method: str = "a",
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
 ) -> "tuple[NDArray[np.float64], NDArray[np.intc]]":
     """Calculate and return the centroid of each cluster.
 
@@ -597,7 +597,7 @@ def distancematrix(
     data: "ArrayLike",
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
-    transpose: SupportsIndex = False,
+    transpose: int | np.integer[Any] = False,
     dist: str = "e",
 ) -> "list[NDArray[np.float64]]":
     """Calculate and return a distance matrix from the data.
@@ -822,7 +822,10 @@ class Record:
             self.gorder = np.array(gorder) if gorder else gorder
 
     def treecluster(
-        self, transpose: SupportsIndex = False, method: str = "m", dist: str = "e"
+        self,
+        transpose: int | np.integer[Any] = False,
+        method: str = "m",
+        dist: str = "e",
     ) -> Tree:
         """Apply hierarchical clustering and return a Tree object.
 
@@ -859,7 +862,7 @@ class Record:
     def kcluster(
         self,
         nclusters: SupportsIndex = 2,
-        transpose: SupportsIndex = False,
+        transpose: int | np.integer[Any] = False,
         npass: int | np.integer[Any] = 1,
         method: str = "a",
         dist: str = "e",
@@ -930,7 +933,7 @@ class Record:
 
     def somcluster(
         self,
-        transpose: SupportsIndex = False,
+        transpose: int | np.integer[Any] = False,
         nxgrid: int | np.integer[Any] = 2,
         nygrid: int | np.integer[Any] = 1,
         inittau: SupportsFloat | SupportsIndex = 0.02,
@@ -999,7 +1002,7 @@ class Record:
         self,
         clusterid: "ArrayLike | None" = None,
         method: str = "a",
-        transpose: SupportsIndex = False,
+        transpose: int | np.integer[Any] = False,
     ) -> "tuple[NDArray[np.float64], NDArray[np.intc]]":
         """Calculate the cluster centroids and return a tuple (cdata, cmask).
 
@@ -1034,7 +1037,7 @@ class Record:
         index2: "ArrayLike | None" = 0,
         method: str = "a",
         dist: str = "e",
-        transpose: SupportsIndex = False,
+        transpose: int | np.integer[Any] = False,
     ) -> float:
         """Calculate the distance between two clusters.
 
@@ -1079,7 +1082,7 @@ class Record:
         )
 
     def distancematrix(
-        self, transpose: SupportsIndex = False, dist: str = "e"
+        self, transpose: int | np.integer[Any] = False, dist: str = "e"
     ) -> "list[NDArray[np.float64]]":
         """Calculate the distance matrix and return it as a list of arrays.
 

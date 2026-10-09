@@ -42,6 +42,18 @@ kcluster(data, transpose=1)
 kcluster(data, nclusters=np.int64(2), npass=np.int64(5), transpose=np.int64(0))
 kcluster(data, method=1)  # type: ignore[arg-type]
 
+
+class Flag:
+    """Has __index__ but no __bool__, so it is always true."""
+
+    def __index__(self) -> int:
+        return 0
+
+
+# Python tests transpose for truth before C reads it as an int, so an object
+# with only __index__ would make the two disagree, and is rejected.
+kcluster(data, transpose=Flag())  # type: ignore[arg-type]
+
 # somcluster reads data.shape before converting data to an array, so a list
 # fails at run time. The grid sizes and inittau can be NumPy scalars.
 grid_ids, celldata = somcluster(
