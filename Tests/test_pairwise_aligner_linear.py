@@ -226,6 +226,18 @@ class TestMemory(unittest.TestCase):
         finally:
             tracemalloc.stop()
 
+    def check(self, aligner, seqs, routed):
+        """Check routing at threshold 0 against the memory each way takes."""
+        alignments, full = self.peak(aligner, seqs, None)
+        self.assertIs(type(alignments._paths), PathGenerator)
+        alignments, linear = self.peak(aligner, seqs, ALWAYS)
+        self.assertIs(type(alignments._paths), LinearPaths)
+        shape = (len(seqs[0]), len(seqs[1]))
+        self.assertEqual(linear < full, routed, (shape, linear, full))
+        with limits(0, 1, 1):
+            alignments = aligner.align(*seqs)
+        self.assertEqual(type(alignments._paths) is LinearPaths, routed, shape)
+
     def test_memory(self):
         # A row of trace bits costs less than a row of doubles, so a short
         # target against a long query has too few rows to save.
@@ -233,15 +245,17 @@ class TestMemory(unittest.TestCase):
         rng = random.Random(8)
         shapes = [(20, 100000, False), (50, 100000, True), (100000, 50, True)]
         for nA, nB, routed in shapes:
-            seqs = (random_dna(rng, nA), random_dna(rng, nB))
-            alignments, full = self.peak(aligner, seqs, None)
-            self.assertIs(type(alignments._paths), PathGenerator)
-            alignments, linear = self.peak(aligner, seqs, ALWAYS)
-            self.assertIs(type(alignments._paths), LinearPaths)
-            self.assertEqual(linear < full, routed, (nA, nB, linear, full))
-            with limits(0, 1, 1):
-                alignments = aligner.align(*seqs)
-            self.assertEqual(type(alignments._paths) is LinearPaths, routed)
+            self.check(aligner, (random_dna(rng, nA), random_dna(rng, nB)), routed)
+
+    def test_substitution_matrix(self):
+        # The linear-space traceback keeps a copy of the substitution matrix.
+        # The full matrix of 1000 x 1000 letters is about 1 MB, and a matrix
+        # of 400 x 400 doubles is 1.28 MB.
+        rng = np.random.default_rng(400)
+        for size, routed in [(100, True), (400, False)]:
+            aligner = nw_aligner(substitution_matrix=rng.random((size, size)))
+            seqA, seqB = rng.integers(size, size=(2, 1000), dtype=np.int32)
+            self.check(aligner, (seqA, seqB), routed)
 
 
 class TestDifferential(unittest.TestCase):
@@ -508,20 +522,22 @@ class TestInterrupt(unittest.TestCase):
 # fresh linear-space object against a fresh default one, then returns another
 # fresh linear-space object.  A call the linear-space traceback does not take
 # is made only once, as its gap function may change the sequences.
+#
+# The Forced classes are made at module level, as pytest ignores load_tests.
 
 original_align = Align.PairwiseAligner.align
 align_lock = threading.Lock()  # the tests' threads share the limits
-calls = {"Needleman-Wunsch": 0, "routed": 0}
+calls = {"tests": 0, "routed": 0}
 
 
 def checked_align(self, *args, **kwargs):
     """Check [0] against the full matrix, then align in linear space."""
     with align_lock:
         forced = original_align(self, *args, **kwargs)
-        if self.algorithm == "Needleman-Wunsch":
-            calls["Needleman-Wunsch"] += 1
-        if type(forced._paths) is not LinearPaths:
+        if self.algorithm != "Needleman-Wunsch":
             return forced
+        # Every Needleman-Wunsch alignment takes the linear-space traceback.
+        assert type(forced._paths) is LinearPaths, type(forced._paths)
         calls["routed"] += 1
         with limits(*DEFAULT):
             expected = original_align(self, *args, **kwargs)
@@ -535,6 +551,7 @@ class Forced:
     """Mixin running a test case of test_pairwise_aligner in linear space."""
 
     def setUp(self):
+        calls["tests"] += 1
         previous = set_limits(ALWAYS, 1 << 16, 1 << 12)
         self.addCleanup(set_limits, *previous)
         Align.PairwiseAligner.align = checked_align
@@ -542,30 +559,43 @@ class Forced:
         super().setUp()
 
 
-def load_tests(loader, tests, pattern):
-    """Add a forced re-run of every test case of test_pairwise_aligner."""
-    suite = unittest.TestSuite(tests)
-    module = test_pairwise_aligner
+def forced_classes(module):
+    """Return a forced re-run class for each test case class of a module."""
+    classes = {}
     for name, value in vars(module).items():
         if (
             isinstance(value, type)
             and issubclass(value, unittest.TestCase)
             and value.__module__ == module.__name__
         ):
-            forced = type(f"Forced{name}", (Forced, value), {})
-            suite.addTests(loader.loadTestsFromTestCase(forced))
+            classes[f"Forced{name}"] = type(f"Forced{name}", (Forced, value), {})
+    return classes
 
-    class TestForcedRerun(unittest.TestCase):
-        """Run after the forced re-run."""
 
-        def test_routed(self):
-            # Every Needleman-Wunsch alignment of the re-run went through the
-            # linear-space traceback, and there were plenty of them.
-            self.assertEqual(calls["routed"], calls["Needleman-Wunsch"])
-            self.assertGreater(calls["routed"], 50)
+FORCED = forced_classes(test_pairwise_aligner)
+globals().update(FORCED)
 
-    suite.addTests(loader.loadTestsFromTestCase(TestForcedRerun))
-    return suite
+
+def skipped(test):
+    """Return whether a decorator skips a test case class or method."""
+    return getattr(test, "__unittest_skip__", False)
+
+
+class TestForcedRerun(unittest.TestCase):
+    """Check the forced re-run as a whole; its classes sort before this one."""
+
+    def test_routed(self):
+        loader = unittest.TestLoader()
+        tests = [
+            name
+            for cls in FORCED.values()
+            if not skipped(cls)
+            for name in loader.getTestCaseNames(cls)
+            if not skipped(getattr(cls, name))
+        ]
+        if calls["tests"] < len(tests):
+            self.skipTest("needs the whole forced re-run in this process")
+        self.assertGreater(calls["routed"], 50)
 
 
 if __name__ == "__main__":

@@ -736,6 +736,7 @@ LinearPaths_wanted(const Aligner* self, Algorithm algorithm, int nA, int nB)
     const size_t na = (size_t)nA + 1;
     const size_t rowbytes = ((size_t)nB + 1) * sizeof(Trace) + sizeof(Trace*);
     size_t nbytes;  /* of the full traceback matrix */
+    double peak;
     LinearPlan plan;
     if (!linear_enabled) return false;
     if (algorithm != NeedlemanWunschSmithWaterman || self->mode != Global)
@@ -744,7 +745,12 @@ LinearPaths_wanted(const Aligner* self, Algorithm algorithm, int nA, int nB)
     if (!linear_plan(&plan, &linear_nw_compare, nA, nB)) return false;
     if (linear_threshold < 0) return true;
     nbytes = (na <= SIZE_MAX / rowbytes) ? na * rowbytes : SIZE_MAX;
-    return nbytes > (size_t)linear_threshold && plan.peak < (double)nbytes;
+    /* LinearPaths_align keeps a copy of the substitution matrix, on top of
+     * the one each kernel makes while it runs without the GIL */
+    peak = plan.peak;
+    if (self->substitution_matrix.obj)
+        peak += (double)self->substitution_matrix.len;
+    return nbytes > (size_t)linear_threshold && peak < (double)nbytes;
 }
 
 /* Return (score, paths) as the alignment kernels do, for a LinearPaths
