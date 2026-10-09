@@ -32,6 +32,7 @@ from Bio.Align import substitution_matrices
 from Bio.Seq import reverse_complement
 
 import test_pairwise_aligner
+from memory_growth import requires_growth_measurement
 
 set_limits = _pairwisealigner._set_traceback_limits
 
@@ -39,8 +40,9 @@ set_limits = _pairwisealigner._set_traceback_limits
 DEFAULT = set_limits(None, 1, 1)
 set_limits(*DEFAULT)
 
-# Route every Needleman-Wunsch alignment to the linear-space traceback.
-ALWAYS = 0
+# Route every Needleman-Wunsch alignment to the linear-space traceback,
+# even where it holds more memory than the full matrix.
+ALWAYS = -1
 
 SLOW = os.environ.get("BIOPAITHON_SLOW_TESTS") == "1"
 
@@ -172,23 +174,24 @@ class TestDefaults(unittest.TestCase):
             self.assertIs(type(alignments._paths), PathGenerator, aligner.algorithm)
 
     def test_threshold(self):
-        # The full Needleman-Wunsch matrix of 2 x 3 letters is 3 rows of 4
-        # one-byte cells and a row pointer.
-        nbytes = 3 * (4 + struct.calcsize("P"))
+        # The full Needleman-Wunsch matrix of 200 x 200 letters is 201 rows
+        # of 201 one-byte cells and a row pointer.
+        nbytes = 201 * (201 + struct.calcsize("P"))
         aligner = nw_aligner()
+        seqs = ("ACGT" * 50, "AGCT" * 50)
         with limits(nbytes, 1, 1):
-            self.assertIs(type(aligner.align("AC", "ACG")._paths), PathGenerator)
+            self.assertIs(type(aligner.align(*seqs)._paths), PathGenerator)
         with limits(nbytes - 1, 1, 1):
-            self.assertIs(type(aligner.align("AC", "ACG")._paths), LinearPaths)
+            self.assertIs(type(aligner.align(*seqs)._paths), LinearPaths)
 
     def test_set_traceback_limits(self):
         with limits(*DEFAULT):
             self.assertEqual(set_limits(5, 6, 7), DEFAULT)
             self.assertEqual(set_limits(None, 1, 2), (5, 6, 7))
-            self.assertEqual(set_limits(*DEFAULT), (None, 1, 2))
+            self.assertEqual(set_limits(ALWAYS, 3, 4), (None, 1, 2))
+            self.assertEqual(set_limits(*DEFAULT), (ALWAYS, 3, 4))
             self.assertRaises(ValueError, set_limits, None, 0, 1)
             self.assertRaises(ValueError, set_limits, None, 1, 0)
-            self.assertRaises(ValueError, set_limits, -1, 1, 1)
             self.assertEqual(set_limits(*DEFAULT), DEFAULT)
 
     def test_laziness(self):
@@ -204,6 +207,41 @@ class TestDefaults(unittest.TestCase):
         alignments = forced_align(aligner, "TACCG", "ACG")
         self.assertEqual(len(alignments), len(aligner.align("TACCG", "ACG")))
         self.assertTrue(alignments._paths._materialized)
+
+
+@requires_growth_measurement
+class TestMemory(unittest.TestCase):
+    """The linear-space traceback is used only where it holds less memory."""
+
+    def peak(self, aligner, seqs, threshold):
+        """Return the alignments, and the most memory traced finding [0]."""
+        import tracemalloc  # not on PyPy, where this class is skipped
+
+        tracemalloc.start()
+        try:
+            with limits(threshold, 1, 1):
+                alignments = aligner.align(*seqs)
+            alignments[0]
+            return alignments, tracemalloc.get_traced_memory()[1]
+        finally:
+            tracemalloc.stop()
+
+    def test_memory(self):
+        # A row of trace bits costs less than a row of doubles, so a short
+        # target against a long query has too few rows to save.
+        aligner = nw_aligner()
+        rng = random.Random(8)
+        shapes = [(20, 100000, False), (50, 100000, True), (100000, 50, True)]
+        for nA, nB, routed in shapes:
+            seqs = (random_dna(rng, nA), random_dna(rng, nB))
+            alignments, full = self.peak(aligner, seqs, None)
+            self.assertIs(type(alignments._paths), PathGenerator)
+            alignments, linear = self.peak(aligner, seqs, ALWAYS)
+            self.assertIs(type(alignments._paths), LinearPaths)
+            self.assertEqual(linear < full, routed, (nA, nB, linear, full))
+            with limits(0, 1, 1):
+                alignments = aligner.align(*seqs)
+            self.assertEqual(type(alignments._paths) is LinearPaths, routed)
 
 
 class TestDifferential(unittest.TestCase):

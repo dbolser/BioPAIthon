@@ -77,25 +77,28 @@ class AlignmentExtensionTests(unittest.TestCase):
 
         It is switched off by default; the private test hook switches it on.
         The first path comes from checkpointed rows, the second from the full
-        matrix.
+        matrix.  The second aligner's substitution matrix is copied.
         """
         from Bio.Align import PairwiseAligner
         from Bio.Align import _pairwisealigner
+        from Bio.Align import substitution_matrices
 
-        aligner = PairwiseAligner()
+        matrix = substitution_matrices.load("NUC.4.4")
+        aligners = [PairwiseAligner(), PairwiseAligner(substitution_matrix=matrix)]
         target = "AGAACTTATCGCTTGACGTAAC"
         query = "AGAACTATCGCTGACGTTAAC"
 
         def align():
-            previous = _pairwisealigner._set_traceback_limits(0, 64, 16)
-            try:
-                alignments = aligner.align(target, query)
-            finally:
-                _pairwisealigner._set_traceback_limits(*previous)
-            str(alignments[0])
-            str(alignments[1])
-            alignments.rewind()
-            str(alignments[0])
+            for aligner in aligners:
+                previous = _pairwisealigner._set_traceback_limits(-1, 64, 16)
+                try:
+                    alignments = aligner.align(target, query)
+                finally:
+                    _pairwisealigner._set_traceback_limits(*previous)
+                str(alignments[0])
+                str(alignments[1])
+                alignments.rewind()
+                str(alignments[0])
 
         assert_bounded_growth(self, align)
 

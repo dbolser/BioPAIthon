@@ -19,11 +19,16 @@
  *   a strip's rows from its checkpoint, keeping their trace bits, and
  *   follow the traceback up through it.  Only the columns left of where the
  *   path leaves the strip are needed.  A strip over the block budget is
- *   bisected: sweep to its middle row, solve the bottom half, then the top
- *   half.  Same per-cell code, same trace bits, same path.  (Hirschberg's
- *   forward-and-reverse midpoints would pick another co-optimal path.)
+ *   bisected where that saves memory: sweep to its middle row, solve the
+ *   bottom half, then the top half.  Same per-cell code, same trace bits,
+ *   same path.  (Hirschberg's forward-and-reverse midpoints would pick
+ *   another co-optimal path.)
  * - len() and later paths build the full matrix with the existing kernel
  *   and delegate to its PathGenerator, after checking it agrees.
+ *
+ * It is used only where it holds less memory than the matrix.  A row of
+ * trace bits costs less than a row of doubles, so a short target against
+ * a long query has too few rows to save.
  *
  * Settings, substitution matrix and sequences are copied at align(), so
  * later changes to them cannot change the results.  Each algorithm
@@ -66,6 +71,16 @@ typedef struct {
                        const int* sB, int nB, unsigned char strand);
 } LinearKernel;
 
+/* How a LinearPaths object runs, fixed at align() from the limits. */
+typedef struct {
+    size_t rowsize;      /* doubles in a saved row */
+    size_t stride;       /* rows between checkpoints */
+    size_t count;        /* number of checkpoints */
+    size_t depth;        /* most levels of bisection, each holding a row */
+    size_t cells;        /* trace cells in a block */
+    double peak;         /* most bytes held at once, an estimate */
+} LinearPlan;
+
 struct LinearPaths {
     PyObject_HEAD
     Aligner aligner;     /* snapshot of the settings, used as a C struct only */
@@ -77,9 +92,7 @@ struct LinearPaths {
     int nB;
     unsigned char strand;
     double score;
-    size_t rowsize;      /* doubles in a saved row */
-    size_t stride;       /* rows between checkpoints */
-    size_t block_bytes;  /* budget for the trace bits of one block */
+    LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
     PyObject* first;     /* the first path, once known */
@@ -100,9 +113,10 @@ struct LinearWalker {
     size_t capacity;
 };
 
-/* Limits, set by _set_traceback_limits; align() reads them under the GIL. */
+/* Limits, set by _set_traceback_limits; align() reads them under the GIL.
+ * A negative threshold routes every alignment, for testing. */
 static bool linear_enabled = false;
-static size_t linear_threshold = 0;
+static Py_ssize_t linear_threshold = 0;
 static size_t linear_checkpoint_bytes = (size_t)32 << 20;
 static size_t linear_block_bytes = (size_t)16 << 20;
 
@@ -388,18 +402,59 @@ static const LinearKernel linear_nw_matrix = {
 
 /* -------------------- the strip driver ------------------- */
 
+/* Plan from the limits: as many checkpoints as the checkpoint budget holds,
+ * evenly spaced, and strips halved while their trace bits are over the
+ * block budget and halving saves memory: it costs a row for the new level,
+ * and saves the trace bits of half the rows.  Returns false if the sizes
+ * overflow. */
+static bool
+linear_plan(LinearPlan* plan, const LinearKernel* kernel, int nA, int nB)
+{
+    const size_t width = (size_t)nB + 1;
+    const size_t tb = kernel->trace_bytes;
+    size_t rowbytes;
+    size_t rows;
+
+    if (width > (SIZE_MAX / sizeof(double) - kernel->ncarried)
+                / kernel->ndoubles) return false;
+    plan->rowsize = kernel->ncarried + kernel->ndoubles * width;
+    rowbytes = plan->rowsize * sizeof(double);
+    plan->count = linear_checkpoint_bytes / rowbytes;
+    if (plan->count < 1) plan->count = 1;
+    if (plan->count > (size_t)nA) plan->count = (size_t)nA;
+    plan->stride = ((size_t)nA + plan->count - 1) / plan->count;
+    plan->count = ((size_t)nA + plan->stride - 1) / plan->stride;
+    plan->depth = 0;
+    rows = plan->stride;
+    while (rows > 1 && rows > linear_block_bytes / tb / width
+                    && rows / 2 > rowbytes / tb / width) {
+        rows -= rows / 2;
+        plan->depth++;
+    }
+    if (rows > SIZE_MAX / tb / width || plan->depth > SIZE_MAX / rowbytes)
+        return false;
+    plan->cells = rows * width;
+    /* the sequences, the checkpoints, the row being recomputed, a row per
+     * level, a block, and a row of scratch trace bits */
+    plan->peak = (double)sizeof(int) * ((double)nA + (double)nB)
+               + (double)rowbytes * (double)(plan->count + 1 + plan->depth)
+               + (double)tb * ((double)plan->cells + (double)width);
+    return true;
+}
+
 typedef struct {
     LinearPaths* lp;
     double* work;          /* the rows of a block being recomputed */
     unsigned char* block;  /* the trace bits of a block */
-    size_t budget;         /* most cells a block may hold, if over one row */
     unsigned char* scratch;/* trace bits of a row, when not kept */
     double* arena;         /* one row per level of bisection */
     LinearWalker walker;
 } LinearSolver;
 
 /* Follow the path from the walker, in row r1 and a column c, up to row
- * r0, starting from the values of row r0 in inrow. */
+ * r0, starting from the values of row r0 in inrow.  A strip of at most
+ * the planned rows and columns fits in the block by the planned depth, so
+ * any narrower or shorter one does too. */
 static int
 linear_solve(LinearSolver* S, int r0, int r1, const double* inrow,
              size_t level)
@@ -412,7 +467,7 @@ linear_solve(LinearSolver* S, int r0, int r1, const double* inrow,
     const size_t used = kernel->ncarried + kernel->ndoubles * width;
     int status;
 
-    if (rows == 1 || rows <= S->budget / width) {
+    if (rows == 1 || rows <= self->plan.cells / width) {
         memcpy(S->work, inrow, used * sizeof(double));
         if (kernel->sweep(self, S->work, r0, r1, c, S->block,
                           width * kernel->trace_bytes) < 0) return -1;
@@ -420,7 +475,7 @@ linear_solve(LinearSolver* S, int r0, int r1, const double* inrow,
     }
     else {
         const int mid = r0 + (int)(rows / 2);
-        double* row = S->arena + level * self->rowsize;
+        double* row = S->arena + level * self->plan.rowsize;
         memcpy(row, inrow, used * sizeof(double));
         if (kernel->sweep(self, row, r0, mid, c, S->scratch, 0) < 0)
             return -1;
@@ -436,51 +491,33 @@ static PyObject*
 LinearPaths_first_path(LinearPaths* self)
 {
     const LinearKernel* kernel = self->kernel;
-    const int nA = self->nA;
-    const size_t width = (size_t)self->nB + 1;
-    const size_t stride = self->stride;
-    const size_t count = ((size_t)nA + stride - 1) / stride;
-    const size_t rowbytes = self->rowsize * sizeof(double);
-    size_t cells;
-    size_t depth = 0;
-    size_t rows = stride;
+    const LinearPlan* plan = &self->plan;
+    const size_t rowbytes = plan->rowsize * sizeof(double);
     size_t k;
     int status = LINEAR_EXITED;
     PyObject* path = NULL;
     LinearSolver S = {0};
 
     S.lp = self;
-    S.budget = self->block_bytes / kernel->trace_bytes;
-    if (S.budget < 1) S.budget = 1;
-    cells = (stride <= S.budget / width) ? stride * width : S.budget;
-    if (cells < width) cells = width;
-    while (rows > 1 && rows > S.budget / width) {
-        rows -= rows / 2;
-        depth++;
-    }
-    if (depth > SIZE_MAX / rowbytes) {
-        PyErr_NoMemory();
-        return NULL;
-    }
     S.work = PyMem_Malloc(rowbytes);
-    S.block = PyMem_Malloc(cells * kernel->trace_bytes);
-    S.scratch = PyMem_Malloc(width * kernel->trace_bytes);
-    S.arena = PyMem_Malloc(depth ? depth * rowbytes : 1);
+    S.block = PyMem_Malloc(plan->cells * kernel->trace_bytes);
+    S.scratch = PyMem_Malloc(((size_t)self->nB + 1) * kernel->trace_bytes);
+    S.arena = PyMem_Malloc(plan->depth ? plan->depth * rowbytes : 1);
     if (!S.work || !S.block || !S.scratch || !S.arena) {
         PyErr_NoMemory();
         goto exit;
     }
-    S.walker.i = nA;
+    S.walker.i = self->nA;
     S.walker.j = self->nB;
-    for (k = count; k-- > 0; ) {
-        const size_t r0 = k * stride;
-        const size_t r1 = Py_MIN(r0 + stride, (size_t)nA);
+    for (k = plan->count; k-- > 0; ) {
+        const size_t r0 = k * plan->stride;
+        const size_t r1 = Py_MIN(r0 + plan->stride, (size_t)self->nA);
         if (S.walker.i != (int)r1) {
             LINEAR_INTERNAL_ERROR;
             goto exit;
         }
         status = linear_solve(&S, (int)r0, (int)r1,
-                              self->checkpoints + k * self->rowsize, 0);
+                              self->checkpoints + k * plan->rowsize, 0);
         if (status < 0) goto exit;
         if (status == LINEAR_ENDED) break;
     }
@@ -500,48 +537,30 @@ exit:
 
 /* The forward pass: compute the score, and save the checkpoints. */
 static int
-LinearPaths_forward(LinearPaths* self, size_t checkpoint_bytes)
+LinearPaths_forward(LinearPaths* self)
 {
     const LinearKernel* kernel = self->kernel;
-    const int nA = self->nA;
-    const int nB = self->nB;
-    const size_t width = (size_t)nB + 1;
-    size_t rowbytes;
-    size_t count;
-    size_t stride;
+    const LinearPlan* plan = &self->plan;
+    const size_t rowbytes = plan->rowsize * sizeof(double);
     size_t k;
     double* row = NULL;
     unsigned char* scratch = NULL;
     int status = -1;
 
-    if (width > (SIZE_MAX / sizeof(double) - kernel->ncarried)
-                / kernel->ndoubles) {
-        PyErr_NoMemory();
-        return -1;
-    }
-    self->rowsize = kernel->ncarried + kernel->ndoubles * width;
-    rowbytes = self->rowsize * sizeof(double);
-    /* as many checkpoints as the budget holds, evenly spaced */
-    count = checkpoint_bytes / rowbytes;
-    if (count < 1) count = 1;
-    if (count > (size_t)nA) count = (size_t)nA;
-    stride = ((size_t)nA + count - 1) / count;
-    count = ((size_t)nA + stride - 1) / stride;
-    self->stride = stride;
-    self->checkpoints = PyMem_Malloc(count * rowbytes);
+    self->checkpoints = PyMem_Malloc(plan->count * rowbytes);
     row = PyMem_Malloc(rowbytes);
-    scratch = PyMem_Malloc(width * kernel->trace_bytes);
+    scratch = PyMem_Malloc(((size_t)self->nB + 1) * kernel->trace_bytes);
     if (!self->checkpoints || !row || !scratch) {
         PyErr_NoMemory();
         goto exit;
     }
     kernel->start(self, row);
-    for (k = 0; k < count; k++) {
-        const size_t r0 = k * stride;
-        const size_t r1 = Py_MIN(r0 + stride, (size_t)nA);
-        memcpy(self->checkpoints + k * self->rowsize, row, rowbytes);
-        if (kernel->sweep(self, row, (int)r0, (int)r1, nB, scratch, 0) < 0)
-            goto exit;
+    for (k = 0; k < plan->count; k++) {
+        const size_t r0 = k * plan->stride;
+        const size_t r1 = Py_MIN(r0 + plan->stride, (size_t)self->nA);
+        memcpy(self->checkpoints + k * plan->rowsize, row, rowbytes);
+        if (kernel->sweep(self, row, (int)r0, (int)r1, self->nB,
+                          scratch, 0) < 0) goto exit;
     }
     self->score = kernel->score(self, row);
     status = 0;
@@ -707,19 +726,25 @@ static PyTypeObject LinearPaths_Type = {
 
 /* ------------------- the hooks into align() ------------------- */
 
-/* Whether align() should return a LinearPaths object.  self is the
- * snapshot of the aligner taken by align(). */
+/* Whether align() should return a LinearPaths object: when the full
+ * traceback matrix would be over the threshold, and the linear-space
+ * traceback would hold less memory than it.  self is the snapshot of the
+ * aligner taken by align(). */
 static bool
 LinearPaths_wanted(const Aligner* self, Algorithm algorithm, int nA, int nB)
 {
     const size_t na = (size_t)nA + 1;
     const size_t rowbytes = ((size_t)nB + 1) * sizeof(Trace) + sizeof(Trace*);
     size_t nbytes;  /* of the full traceback matrix */
+    LinearPlan plan;
     if (!linear_enabled) return false;
     if (algorithm != NeedlemanWunschSmithWaterman || self->mode != Global)
         return false;
+    /* both Needleman-Wunsch kernels have the same sizes */
+    if (!linear_plan(&plan, &linear_nw_compare, nA, nB)) return false;
+    if (linear_threshold < 0) return true;
     nbytes = (na <= SIZE_MAX / rowbytes) ? na * rowbytes : SIZE_MAX;
-    return nbytes > linear_threshold;
+    return nbytes > (size_t)linear_threshold && plan.peak < (double)nbytes;
 }
 
 /* Return (score, paths) as the alignment kernels do, for a LinearPaths
@@ -758,14 +783,14 @@ LinearPaths_align(const Aligner* self, const int* sA, int nA,
     paths->nA = nA;
     paths->nB = nB;
     paths->strand = strand;
-    paths->block_bytes = linear_block_bytes;
+    if (!linear_plan(&paths->plan, paths->kernel, nA, nB)) goto nomemory;
     paths->sA = PyMem_Malloc((size_t)nA * sizeof(int));
     paths->sB = PyMem_Malloc((size_t)nB * sizeof(int));
     paths->lock = PyThread_allocate_lock();
     if (!paths->sA || !paths->sB || !paths->lock) goto nomemory;
     memcpy(paths->sA, sA, (size_t)nA * sizeof(int));
     memcpy(paths->sB, sB, (size_t)nB * sizeof(int));
-    if (LinearPaths_forward(paths, linear_checkpoint_bytes) < 0) {
+    if (LinearPaths_forward(paths) < 0) {
         Py_DECREF(paths);
         return NULL;
     }
@@ -792,20 +817,18 @@ linear_set_traceback_limits(PyObject* module, PyObject* args)
         value = PyLong_AsSsize_t(threshold);
         if (value == -1 && PyErr_Occurred()) return NULL;
     }
-    if (value < 0 || checkpoint_bytes < 1 || block_bytes < 1) {
-        PyErr_SetString(PyExc_ValueError,
-                        "threshold must be None or at least 0, "
-                        "and the budgets at least 1");
+    if (checkpoint_bytes < 1 || block_bytes < 1) {
+        PyErr_SetString(PyExc_ValueError, "the budgets must be at least 1");
         return NULL;
     }
     previous = Py_BuildValue("(Nnn)",
-                             linear_enabled ? PyLong_FromSize_t(linear_threshold)
+                             linear_enabled ? PyLong_FromSsize_t(linear_threshold)
                                             : (Py_INCREF(Py_None), Py_None),
                              (Py_ssize_t)linear_checkpoint_bytes,
                              (Py_ssize_t)linear_block_bytes);
     if (!previous) return NULL;
     linear_enabled = (threshold != Py_None);
-    linear_threshold = (size_t)value;
+    linear_threshold = value;
     linear_checkpoint_bytes = (size_t)checkpoint_bytes;
     linear_block_bytes = (size_t)block_bytes;
     return previous;
@@ -818,7 +841,8 @@ static PyMethodDef linear_module_methods[] = {
      "_set_traceback_limits(threshold_bytes, checkpoint_bytes, block_bytes)\n"
      "--\n\n"
      "Use the linear-space traceback above threshold_bytes of traceback\n"
-     "matrix (None: never); return the previous limits.  Testing only."
+     "matrix where it needs less memory (None: never; negative: always);\n"
+     "return the previous limits.  Testing only."
     },
     {NULL, NULL, 0, NULL}  /* Sentinel */
 };
