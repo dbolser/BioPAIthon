@@ -127,7 +127,7 @@ def kcluster(
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
     transpose: int = False,
-    npass: int = 1,
+    npass: int | np.integer[Any] = 1,
     method: str = "a",
     dist: str = "e",
     initialid: "ArrayLike | None" = None,
@@ -217,7 +217,7 @@ def kcluster(
 def kmedoids(
     distance: "ArrayLike",
     nclusters: SupportsIndex = 2,
-    npass: int = 1,
+    npass: int | np.integer[Any] = 1,
     initialid: "ArrayLike | None" = None,
     rng_seed: int | None = None,
 ) -> "tuple[NDArray[np.intc], float, int]":
@@ -398,8 +398,8 @@ def somcluster(
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
     transpose: int = False,
-    nxgrid: int = 2,
-    nygrid: int = 1,
+    nxgrid: int | np.integer[Any] = 2,
+    nygrid: int | np.integer[Any] = 1,
     inittau: float = 0.02,
     niter: SupportsIndex = 1,
     dist: str = "e",
@@ -859,7 +859,7 @@ class Record:
         self,
         nclusters: SupportsIndex = 2,
         transpose: int = False,
-        npass: int = 1,
+        npass: int | np.integer[Any] = 1,
         method: str = "a",
         dist: str = "e",
         initialid: "ArrayLike | None" = None,
@@ -930,8 +930,8 @@ class Record:
     def somcluster(
         self,
         transpose: int = False,
-        nxgrid: int = 2,
-        nygrid: int = 1,
+        nxgrid: int | np.integer[Any] = 2,
+        nygrid: int | np.integer[Any] = 1,
         inittau: float = 0.02,
         niter: SupportsIndex = 1,
         dist: str = "e",
@@ -1395,8 +1395,8 @@ def __check_weight(weight: "ArrayLike | None", ndata: int) -> "NDArray[np.float6
 
 
 def __check_initialid(
-    initialid: "ArrayLike | None", npass: int, nitems: int
-) -> "tuple[NDArray[np.intc], int]":
+    initialid: "ArrayLike | None", npass: int | np.integer[Any], nitems: int
+) -> "tuple[NDArray[np.intc], int | np.integer[Any]]":
     if initialid is None:
         if npass <= 0:
             raise ValueError("npass should be a positive integer")
