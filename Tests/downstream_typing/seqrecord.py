@@ -14,6 +14,8 @@ from typing_extensions import assert_type
 
 from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
+from Bio.SeqFeature import SeqFeature
+from Bio.SeqFeature import SimpleLocation
 from Bio.SeqRecord import SeqRecord
 
 record = SeqRecord(Seq("ACGT"), id="test")
@@ -27,13 +29,16 @@ assert_type(record[np.int64(0)], str)
 
 SeqRecord(Seq("A"), id=1)  # type: ignore[arg-type]
 
-# The seq and id are None only on a blank record still being built, so they
-# are used without narrowing first; wrong uses are still errors.
+# The seq and id are rarely None (see SeqRecord.id), so they are used without
+# narrowing first; wrong uses are still errors.
 assert_type(record.seq, Seq | MutableSeq | Any)
 record.seq.translate()
 record.id.upper()
 record.seq.frobnicate()  # type: ignore[union-attr]
 n: int = record.id  # type: ignore[assignment]
+# Hence extracting a feature from the record's seq, the commonest call, gives
+# a Seq.
+assert_type(SeqFeature(SimpleLocation(0, 2)).extract(record.seq), Seq)
 
 # Records derived from a record are SeqRecords.
 assert_type(record.reverse_complement(), SeqRecord)

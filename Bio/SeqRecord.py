@@ -229,9 +229,11 @@ class SeqRecord:
     # taxonomy and keywords) and Reference objects here.
     _AnnotationsDict = dict[str, Any]
 
-    # The id is None only on a blank record still being built, so it is typed
-    # str | Any (typeshed's trick) rather than str | None, sparing users the
-    # narrowing; the __init__ argument stays str | None.
+    # The id is None on a blank record still being built, and where Bio.Align
+    # reads a file with no name or id column (BED, bigBed, BLAST tabular).
+    # That is rare, so it is typed str | Any (typeshed's trick) rather than
+    # str | None, sparing users the narrowing; the __init__ argument stays
+    # str | None.
     id: str | Any
     annotations: _AnnotationsDict
     dbxrefs: list[str]
@@ -393,7 +395,9 @@ class SeqRecord:
             self._per_letter_annotations.clear()
         dict.update(self._per_letter_annotations, value)  # type: ignore
 
-    # As for id above: None only on a blank record, so Any, not None.
+    # As for id above: None on a blank record, and where Bio.Align reads a
+    # file without the sequences (SAM with no @SQ lines, some BLAST tabular),
+    # so Any, not None.
     @property
     def seq(self) -> Seq | MutableSeq | Any:
         """The sequence itself, as a Seq or MutableSeq object."""
