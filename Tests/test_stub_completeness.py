@@ -10,9 +10,9 @@ runtime name whose __module__ is not the module's own name, taking it for an
 import, and a C type's __module__ comes from its tp_name. No C type in Bio
 has a fully dotted tp_name ("_pairwisealigner.PairwiseAligner" gives
 "_pairwisealigner", "AlignmentCounts" gives "builtins"), so stubtest skips
-them all. This test closes that gap: for each extension module in
-pyproject.toml with a .pyi beside its C source, every public name in
-dir(module) must be declared at the top level of the stub.
+them all. This test closes that gap: every extension module in
+pyproject.toml must have a .pyi beside its C source, and every public name in
+dir(module) must be declared at the top level of that stub.
 """
 
 import ast
@@ -27,6 +27,11 @@ except ImportError:  # Python 3.10
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PYPROJECT = os.path.join(ROOT, "pyproject.toml")
+
+# Extensions not stubbed yet. Bio.Cluster._cluster gets its stub together with
+# the annotations of Bio/Cluster/__init__.py. An entry that has gained a stub
+# fails the test below, so delete it in the pull request that adds the stub.
+UNSTUBBED = {"Bio.Cluster._cluster"}
 
 
 def _extension_modules():
@@ -58,7 +63,22 @@ def _declared_names(path):
 
 @unittest.skipIf(tomllib is None, "needs tomllib, new in Python 3.11")
 class StubCompletenessTests(unittest.TestCase):
-    """Check each stubbed C extension declares every public name it has."""
+    """Check each C extension has a stub declaring every public name it has."""
+
+    def test_every_extension_has_a_stub(self):
+        """Every extension in pyproject.toml, bar UNSTUBBED, has a .pyi stub."""
+        extensions = _extension_modules()
+        # Guard against passing vacuously, if pyproject.toml were restructured.
+        self.assertTrue(extensions, "found no extension module in pyproject.toml")
+        unstubbed = sorted(
+            name for name in extensions if not os.path.isfile(_stub_path(name))
+        )
+        self.assertEqual(
+            unstubbed,
+            sorted(UNSTUBBED),
+            "each C extension needs a .pyi stub named after it, beside its "
+            "C source; UNSTUBBED must list exactly those still without one",
+        )
 
     def test_stubbed_extensions_declare_public_names(self):
         """Every public name of a stubbed extension is in its stub."""

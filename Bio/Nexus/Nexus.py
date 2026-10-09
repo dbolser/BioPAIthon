@@ -2107,7 +2107,7 @@ class Nexus:
 
 
 try:
-    from . import cnexus  # type: ignore
+    from . import cnexus
 except ImportError as ex:
     warnings.warn(
         f"Import of C module failed ({ex}). Falling back to slow Python implementation",
