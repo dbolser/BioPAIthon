@@ -37,6 +37,9 @@ dist
 #Ignore the .tox directory from running tox locally
 .tox/
 
+#Ignore pytest's cache directory
+.pytest_cache/
+
 #Ignore the MANIFEST file created automatically from MANIFEST.in
 MANIFEST
 
