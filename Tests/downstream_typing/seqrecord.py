@@ -7,8 +7,11 @@
 Type-checked with the mypy.ini beside it, never run.
 """
 
+from typing import Any
+
 from typing_extensions import assert_type
 
+from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -20,3 +23,23 @@ assert_type(record[0], str)
 assert_type(record[1:], SeqRecord)
 
 SeqRecord(Seq("A"), id=1)  # type: ignore[arg-type]
+
+# The seq and id are None only on a blank record still being built, so they
+# are used without narrowing first; wrong uses are still errors.
+assert_type(record.seq, Seq | MutableSeq | Any)
+record.seq.translate()
+record.id.upper()
+record.seq.frobnicate()  # type: ignore[union-attr]
+n: int = record.id  # type: ignore[assignment]
+
+# Records derived from a record are SeqRecords.
+assert_type(record.reverse_complement(), SeqRecord)
+assert_type(record.upper(), SeqRecord)
+
+# Annotation values may be lists, as GenBank and EMBL store them.
+record.annotations["taxonomy"].append("x")
+SeqRecord(Seq("A"), annotations={"taxonomy": ["Bacteria"]})
+
+assert_type(record.count("A"), int)
+assert_type(record.isupper(), bool)
+assert_type(record.islower(), bool)
