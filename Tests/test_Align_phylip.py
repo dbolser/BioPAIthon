@@ -1389,6 +1389,38 @@ class TestPhylipRelaxed(unittest.TestCase):
                 with self.assertRaises(ValueError) as cm:
                     AlignIO.write(msa, StringIO(), "phylip-relaxed")
                 self.assertEqual(str(cm.exception), message)
+        # The reader splits names at any whitespace that str.split() knows,
+        # including non-ASCII whitespace that Bio.AlignIO's writer lets
+        # through.
+        for name in ("Homo\xa0sapiens", "Homo\u2003sapiens", "Homo\x1fsapiens"):
+            with self.subTest(name=name):
+                alignment.sequences[2].id = name
+                with self.assertRaises(ValueError) as cm:
+                    format(alignment, "phylip-relaxed")
+                self.assertEqual(
+                    str(cm.exception), f"Whitespace not allowed in identifier: {name}"
+                )
+
+    def test_write_repeated_names(self):
+        # Including names that are equal only once cleaned; RAxML refuses
+        # repeated names, and so does Bio.AlignIO's phylip-relaxed.
+        for names, message in (
+            (["a", "b", "a"], "Repeated name 'a' (originally 'a')"),
+            (["a(1)", "a1"], "Repeated name 'a1' (originally 'a1')"),
+            (["a1", "a(1)"], "Repeated name 'a1' (originally 'a(1)')"),
+        ):
+            with self.subTest(names=names):
+                records = [SeqRecord(Seq("ACGT"), id=name) for name in names]
+                coordinates = np.array([[0, 4]] * len(records))
+                alignment = Align.Alignment(records, coordinates)
+                with self.assertRaises(ValueError) as cm:
+                    format(alignment, "phylip-relaxed")
+                self.assertEqual(str(cm.exception), message)
+                with self.assertRaises(ValueError) as cm:
+                    AlignIO.write(
+                        MultipleSeqAlignment(records), StringIO(), "phylip-relaxed"
+                    )
+                self.assertTrue(str(cm.exception).startswith(message))
 
     def test_write_without_names(self):
         # A line starting with whitespace would not read back.
@@ -1400,6 +1432,7 @@ class TestPhylipRelaxed(unittest.TestCase):
                 [SeqRecord(Seq("ACGT"), id="a"), SeqRecord(Seq("ACGT"), id="")],
             ),
             ("only removed characters", [SeqRecord(Seq("ACGT"), id="()")]),
+            ("id None", [SeqRecord(Seq("ACGT"), id=None)]),
         ):
             alignment = Align.Alignment(sequences, coordinates[: len(sequences)])
             with self.subTest(case=case):
