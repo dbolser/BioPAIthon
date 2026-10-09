@@ -30,7 +30,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
     def _read_next_alignment(self, stream):
         line = stream.readline()
         if not line:
-            if stream.tell() == 0:
+            if self._at_start():
                 raise ValueError("Empty file.") from None
             return
         # Whitelisted headers we know about.

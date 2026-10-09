@@ -12,6 +12,10 @@ Unless you are writing a new parser or writer for Bio.Align, you should not
 use this module.  It provides base classes to try and simplify things.
 """
 
+import io
+import os
+import stat
+import tempfile
 from abc import ABC
 from abc import abstractmethod
 from typing import Optional
@@ -19,6 +23,35 @@ from typing import Optional
 from Bio import StreamModeError
 from Bio.Align import Alignments
 from Bio.Align import AlignmentsAbstractBaseClass
+
+
+def _can_seek(stream):
+    """Return True if the stream can seek back to an earlier position (PRIVATE).
+
+    On Windows, seekable() returns True for a pipe although seek() does nothing
+    (CPython issue gh-86768), so a stream with a file descriptor can seek only
+    if the descriptor refers to a regular file.
+    """
+    try:
+        seekable = stream.seekable
+    except AttributeError:
+        if not hasattr(stream, "seek"):
+            return False
+    else:
+        if not seekable():
+            return False
+    if isinstance(stream, tempfile.SpooledTemporaryFile):
+        # Its fileno() moves the data from memory to disk, and in text mode
+        # loses it if a for loop over the stream has disabled tell().
+        return True
+    try:
+        fileno = stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        return True  # no file descriptor, as for StringIO
+    try:
+        return stat.S_ISREG(os.fstat(fileno).st_mode)
+    except OSError:
+        return False
 
 
 class AlignmentIterator(AlignmentsAbstractBaseClass):
@@ -34,6 +67,9 @@ class AlignmentIterator(AlignmentsAbstractBaseClass):
 
     mode = "t"  # assume text files by default
     fmt: str | None = None  # to be defined in the subclass
+    # Whether anything was read after the header; see rewind().  __init__
+    # clears it, so a subclass that does not call __init__ behaves as before.
+    _started = True
 
     def __init__(self, source):
         """Create an AlignmentIterator object.
@@ -72,6 +108,7 @@ class AlignmentIterator(AlignmentsAbstractBaseClass):
             if stream is not source:
                 stream.close()
             raise exc from None
+        self._started = False
 
     def __next__(self):
         """Return the next alignment."""
@@ -79,6 +116,7 @@ class AlignmentIterator(AlignmentsAbstractBaseClass):
             stream = self._stream
         except AttributeError:
             raise StopIteration from None
+        self._started = True
         alignment = self._read_next_alignment(stream)
         if alignment is None:
             self._len = self._index
@@ -93,10 +131,21 @@ class AlignmentIterator(AlignmentsAbstractBaseClass):
         is rewound to the beginning, and the number of alignments is calculated
         by iterating over the alignments. The iterator is then returned to its
         original position in the file.
+
+        If the stream cannot seek, such as a pipe, the number of alignments is
+        known only after iterating over all of them; before that, a TypeError
+        is raised.
         """
         try:
             length = self._len
         except AttributeError:
+            if not _can_seek(self._stream):
+                # Counting would consume the stream.  A TypeError lets list()
+                # fall back to plain iteration.
+                raise TypeError(
+                    "the number of alignments in a stream that cannot seek "
+                    "is unknown until all of them have been read"
+                ) from None
             index = self._index
             self.rewind()
             length = 0
@@ -194,7 +243,23 @@ class AlignmentIterator(AlignmentsAbstractBaseClass):
     def _read_next_alignment(self, stream):
         """Read one Alignment from the stream, and return it."""
 
+    def _at_start(self):
+        """Return True if nothing has been read from the stream (PRIVATE).
+
+        Parsers use this to tell an empty file from the end of a full one.
+        """
+        stream = self._stream
+        if _can_seek(stream):
+            return stream.tell() == 0
+        return self._index == 0
+
     def rewind(self):  # noqa: D102
+        if not _can_seek(self._stream):
+            if not self._started:
+                return  # the header was just read, so we are at the start
+            raise io.UnsupportedOperation(
+                "cannot rewind a stream that does not support seeking"
+            )
         self._stream.seek(0)
         self._read_header(self._stream)
         self._index = 0

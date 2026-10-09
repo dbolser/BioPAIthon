@@ -59,6 +59,21 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align.parse()`` can now read a stream that cannot seek, such as a pipe,
+``sys.stdin`` fed by a pipe, or a network handle, in all of its text formats:
+every format except bigBed, bigMaf and bigPsl. Such a stream used to fail
+with ``io.UnsupportedOperation`` or ``AttributeError``. On Windows, where a
+pipe claims it can seek but cannot (CPython issue gh-86768), most formats
+failed with a misleading error instead, and some silently gave too few
+alignments or none. A stream that cannot seek can be read only once. Until
+every alignment has been read, ``len()`` raises ``TypeError``, which lets
+``list()`` work; on Windows it used to give a wrong count for some formats.
+The exception is hhr, whose header gives the count. Reading the alignments a
+second time, or a ``for`` loop after ``next()``, raises
+``io.UnsupportedOperation``, where Windows could silently return nothing.
+``alignments[:]`` still needs a stream that can seek. Files, ``StringIO`` and
+other streams that can seek behave as before.
+
 The C extensions in ``Bio.Nexus``, ``Bio.motifs``, ``Bio.PDB`` and
 ``Bio.SeqIO`` now ship type stubs too. Type checkers such as mypy used to
 report ``from Bio.PDB.kdtrees import KDTree`` as a missing module; now they
