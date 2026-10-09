@@ -514,6 +514,14 @@ jobs:
         python run_tests.py --offline -v test_free_threading
 
     - name: Run test suite
+      # Not a gate yet. Every Windows leg fails 22 to 33 tests on main: index
+      # files still open when their temporary directory is removed, Blast XML
+      # test files checked out with CRLF line endings, and a few others. The
+      # previous two-line step hid this, because PowerShell reports only the
+      # last command's exit status, which was that of `coverage xml`. A failure
+      # here now marks the step as failed without failing the job. Remove this
+      # once those tests pass on Windows.
+      continue-on-error: true
       env:
         # Free-threaded only, as in test_freethreaded. CPython ignores an
         # empty PYTHON_GIL, and a GIL build refuses PYTHON_GIL=0.

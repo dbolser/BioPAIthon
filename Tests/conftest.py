@@ -44,6 +44,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from pkgutil import iter_modules
 
+import numpy as np
 import pytest
 
 from Bio import MissingExternalDependencyError
@@ -375,7 +376,11 @@ def _module_hygiene(request):
     # unless the module itself set one on import (see _import_guard).
     os.environ["LANG"] = request.node.stash.get(_MODULE_LANG, SYSTEM_LANG)
     cwd = os.getcwd()
-    yield
+    # Restore NumPy's print options afterwards, as some docstring examples
+    # set them (Bio.Align's to print five elements per row).  Under
+    # pytest-xdist any module may run after test_docstrings.py.
+    with np.printoptions():
+        yield
     # Running under PyPy we were leaking file handles...
     gc.collect()
     now = os.getcwd()

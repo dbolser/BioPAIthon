@@ -20232,6 +20232,10 @@ class TestGILRelease(unittest.TestCase):
             mutator.join()
 
     @unittest.skipUnless(os.name == "posix", "sends SIGINT; requires POSIX")
+    @unittest.skipIf(
+        platform.python_implementation() == "PyPy",
+        "under PyPy, SIGINT does not interrupt the C kernels",
+    )
     def test_sigint_interrupts_score(self):
         # A 500k x 500k alignment needs 2.5e11 matrix cells (many minutes
         # of work on any current machine); if SIGINT is only serviced
