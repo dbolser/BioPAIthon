@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include "_pairwisealigner.h"
 #include "substitution_matrices/_arraycore.h"
+#include "../_freethreading.h"
 
 
 #define STARTPOINT 0x8
@@ -629,7 +630,7 @@ PathGenerator_fogsaa_length(PathGenerator* self)
     return 1;
 }
 
-static Py_ssize_t PathGenerator_length(PathGenerator* self) {
+static Py_ssize_t PathGenerator_length_impl(PathGenerator* self) {
     Py_ssize_t length = self->length;
     if (length == 0) {
         switch (self->algorithm) {
@@ -708,6 +709,18 @@ static Py_ssize_t PathGenerator_length(PathGenerator* self) {
         default:
             break;
     }
+    return length;
+}
+
+/* A path generator keeps its position in its own trace matrices, so
+ * iterating, counting and resetting it each hold its lock. */
+static Py_ssize_t
+PathGenerator_length(PathGenerator* self)
+{
+    Py_ssize_t length;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    length = PathGenerator_length_impl(self);
+    Py_END_CRITICAL_SECTION();
     return length;
 }
 
@@ -1630,7 +1643,7 @@ PathGenerator_next_FOGSAA(PathGenerator* self)
 }
 
 static PyObject *
-PathGenerator_next(PathGenerator* self)
+PathGenerator_next_impl(PathGenerator* self)
 {
     const Mode mode = self->mode;
     const Algorithm algorithm = self->algorithm;
@@ -1675,10 +1688,20 @@ PathGenerator_next(PathGenerator* self)
     }
 }
 
+static PyObject *
+PathGenerator_next(PathGenerator* self)
+{
+    PyObject* path;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    path = PathGenerator_next_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return path;
+}
+
 static const char PathGenerator_reset__doc__[] = "reset the iterator";
 
 static PyObject*
-PathGenerator_reset(PathGenerator* self)
+PathGenerator_reset_impl(PathGenerator* self)
 {
     switch (self->mode) {
         case Local:
@@ -1708,6 +1731,16 @@ PathGenerator_reset(PathGenerator* self)
     }
     Py_INCREF(Py_None);
     return Py_None;
+}
+
+static PyObject*
+PathGenerator_reset(PathGenerator* self)
+{
+    PyObject* result;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    result = PathGenerator_reset_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return result;
 }
 
 static PyMethodDef PathGenerator_methods[] = {
@@ -1772,6 +1805,7 @@ static Algorithm _get_algorithm(Aligner* self)
 static int
 Aligner_init(Aligner *self, PyObject *args, PyObject *kwds)
 {
+    Py_BEGIN_CRITICAL_SECTION(self);
     self->mode = Global;
     self->match = 1.0;
     self->mismatch = 0.0;
@@ -1807,6 +1841,7 @@ Aligner_init(Aligner *self, PyObject *args, PyObject *kwds)
     self->algorithm = Unknown;
     self->alphabet = NULL;
     self->wildcard = -1;
+    Py_END_CRITICAL_SECTION();
     return 0;
 }
 
@@ -1836,18 +1871,29 @@ Aligner_str(Aligner* self)
     char text[1024];
     char* p = text;
     char* value;
-    PyObject* substitution_matrix = self->substitution_matrix.obj;
-    /* Formatting with %R runs the gap functions' __repr__, which may
-     * reconfigure the aligner, so hold our own references to them. */
-    PyObject* insertion_score_function = self->insertion_score_function;
-    PyObject* deletion_score_function = self->deletion_score_function;
+    Aligner settings;
+    PyObject* substitution_matrix;
+    PyObject* insertion_score_function;
+    PyObject* deletion_score_function;
     void* args[3];
     int n = 0;
     PyObject* wildcard = NULL;
     PyObject* s = NULL;
 
-    Py_XINCREF(insertion_score_function);
-    Py_XINCREF(deletion_score_function);
+    /* Copy the settings under the aligner's lock, and format the copy.
+     * Formatting with %R runs the gap functions' __repr__, which may
+     * reconfigure the aligner, so hold our own references to the objects
+     * among the settings. */
+    Py_BEGIN_CRITICAL_SECTION(self);
+    settings = *self;
+    Py_XINCREF(settings.substitution_matrix.obj);
+    Py_XINCREF(settings.insertion_score_function);
+    Py_XINCREF(settings.deletion_score_function);
+    Py_END_CRITICAL_SECTION();
+    self = &settings;
+    substitution_matrix = self->substitution_matrix.obj;
+    insertion_score_function = self->insertion_score_function;
+    deletion_score_function = self->deletion_score_function;
     p += sprintf(p, "Pairwise sequence aligner with parameters\n");
     if (substitution_matrix) {
 #ifdef PYPY_VERSION
@@ -1975,6 +2021,7 @@ Aligner_str(Aligner* self)
 
 exit:
     Py_XDECREF(wildcard);
+    Py_XDECREF(substitution_matrix);
     Py_XDECREF(insertion_score_function);
     Py_XDECREF(deletion_score_function);
     return s;
@@ -3943,6 +3990,31 @@ Aligner_get_algorithm(Aligner* self, void* closure)
             break;
     }
     return PyUnicode_FromString(s);
+}
+
+/* Attribute access holds the aligner's lock, so that a getter, or a
+ * snapshot, never sees a setter in another thread halfway through
+ * replacing a gap function or the substitution matrix.  The Python
+ * subclass's __getattr__ and __setattr__ reach these through
+ * __getattribute__ and __setattr__. */
+static PyObject*
+Aligner_getattro(Aligner* self, PyObject* name)
+{
+    PyObject* value;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    value = PyObject_GenericGetAttr((PyObject*)self, name);
+    Py_END_CRITICAL_SECTION();
+    return value;
+}
+
+static int
+Aligner_setattro(Aligner* self, PyObject* name, PyObject* value)
+{
+    int status;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    status = PyObject_GenericSetAttr((PyObject*)self, name, value);
+    Py_END_CRITICAL_SECTION();
+    return status;
 }
 
 static PyGetSetDef Aligner_getset[] = {
@@ -7533,15 +7605,22 @@ static bool _map_indices(int* indices, Py_ssize_t n,
 static bool _prepare_indices(Py_buffer* substitution_matrix,
                              int* sA, Py_ssize_t nA, int* sB, Py_ssize_t nB)
 {
-    if (PyObject_IsInstance(substitution_matrix->obj,
-                            (PyObject*)Array_Type)) {
+    PyObject* matrix = substitution_matrix->obj;
+    if (PyObject_IsInstance(matrix, (PyObject*)Array_Type)) {
         const PyTypeObject* basetype = Array_Type->tp_base;
         const Py_ssize_t offset = basetype->tp_basicsize;
-        Fields* fields = (Fields*)((intptr_t)substitution_matrix->obj + offset);
+        Fields* fields = (Fields*)((intptr_t)matrix + offset);
         Py_buffer* buffer = &fields->mapping;
-        const int* mapping = buffer->buf;
+        const int* mapping;
+        Py_ssize_t m = 0;
+        /* The array publishes its mapping under its lock, and then never
+         * changes or frees it while the array exists; the caller holds a
+         * buffer export, and so a reference, of the array. */
+        Py_BEGIN_CRITICAL_SECTION(matrix);
+        mapping = buffer->buf;
+        if (mapping) m = buffer->len / buffer->itemsize;
+        Py_END_CRITICAL_SECTION();
         if (mapping) {
-            const Py_ssize_t m = buffer->len / buffer->itemsize;
             if (!_map_indices(sA, nA, mapping, m)) return false;
             if (!_map_indices(sB, nB, mapping, m)) return false;
             return true;
@@ -7967,6 +8046,8 @@ static PyTypeObject Aligner_Type = {
     .tp_dealloc = (destructor)Aligner_dealloc,
     .tp_repr = (reprfunc)Aligner_repr,
     .tp_str = (reprfunc)Aligner_str,
+    .tp_getattro = (getattrofunc)Aligner_getattro,
+    .tp_setattro = (setattrofunc)Aligner_setattro,
     .tp_flags =Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     .tp_doc = Aligner_doc,
     .tp_methods = Aligner_methods,
@@ -8001,6 +8082,10 @@ PyInit__pairwisealigner(void)
 
     module = PyModule_Create(&moduledef);
     if (!module) return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     Py_INCREF(&Aligner_Type);
     /* Reference to Aligner_Type will be stolen by PyModule_AddObject

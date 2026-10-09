@@ -9,6 +9,7 @@
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include "float.h"
+#include "../_freethreading.h"
 
 
 #define FRAMESHIFT_MINUS_TWO 0x1
@@ -124,7 +125,7 @@ PathGenerator_create_path(PathGenerator* self, int j) {
     return PyErr_NoMemory();
 }
 
-static Py_ssize_t PathGenerator_length(PathGenerator* self) {
+static Py_ssize_t PathGenerator_length_impl(PathGenerator* self) {
     Py_ssize_t count = self->length;
     if (count == 0) {
         int i;
@@ -169,6 +170,18 @@ exit:
     return count;
 }
 
+/* A path generator keeps its position in its own trace matrix, so
+ * iterating, counting and resetting it each hold its lock. */
+static Py_ssize_t
+PathGenerator_length(PathGenerator* self)
+{
+    Py_ssize_t count;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    count = PathGenerator_length_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return count;
+}
+
 static void
 PathGenerator_dealloc(PathGenerator* self)
 {
@@ -186,7 +199,7 @@ PathGenerator_dealloc(PathGenerator* self)
 }
 
 static PyObject *
-PathGenerator_next(PathGenerator* self)
+PathGenerator_next_impl(PathGenerator* self)
 {
     int i = 0;
     int j;
@@ -268,13 +281,25 @@ PathGenerator_next(PathGenerator* self)
     return PathGenerator_create_path(self, j);
 }
 
+static PyObject *
+PathGenerator_next(PathGenerator* self)
+{
+    PyObject* path;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    path = PathGenerator_next_impl(self);
+    Py_END_CRITICAL_SECTION();
+    return path;
+}
+
 static const char PathGenerator_reset__doc__[] = "reset the iterator";
 
 static PyObject*
 PathGenerator_reset(PathGenerator* self)
 {
+    Py_BEGIN_CRITICAL_SECTION(self);
     Trace** M = self->M;
     if (M[0][0].path != NONE) M[0][0].path = 0;
+    Py_END_CRITICAL_SECTION();
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -1091,6 +1116,10 @@ PyInit__codonaligner(void)
 
     module = PyModule_Create(&moduledef);
     if (!module) return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     Py_INCREF(&AlignerType);
     /* Reference to AlignerType will be stolen by PyModule_AddObject

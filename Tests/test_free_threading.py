@@ -28,6 +28,11 @@ import support
 import Bio
 
 DECLARED = {
+    "Bio.Align._aligncore",
+    "Bio.Align._alignmentcounts",
+    "Bio.Align._codonaligner",
+    "Bio.Align._pairwisealigner",
+    "Bio.Align.substitution_matrices._arraycore",
     "Bio.Cluster._cluster",
     "Bio.Nexus.cnexus",
     "Bio.PDB._bcif_helper",
@@ -37,13 +42,7 @@ DECLARED = {
     "Bio.motifs._pwm",
 }
 
-PENDING = {
-    "Bio.Align._aligncore",
-    "Bio.Align._alignmentcounts",
-    "Bio.Align._codonaligner",
-    "Bio.Align._pairwisealigner",
-    "Bio.Align.substitution_matrices._arraycore",
-}
+PENDING = set()
 
 # Loads one extension module from its file, bypassing the package __init__
 # (which could import other extensions), and reports the GIL state after.

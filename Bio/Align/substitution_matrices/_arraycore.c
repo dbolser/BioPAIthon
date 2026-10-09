@@ -1,6 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "_arraycore.h"
+#include "../../_freethreading.h"
 
 
 static PyTypeObject Array_Type;
@@ -32,11 +33,13 @@ Array_finalize(PyObject *self, PyObject *obj)
     PyTypeObject* basetype = Array_Type.tp_base;
     Fields* self_fields = (Fields*)((intptr_t)self + basetype->tp_basicsize);
     const Fields* obj_fields = (Fields*)((intptr_t)obj + basetype->tp_basicsize);
+    Py_BEGIN_CRITICAL_SECTION2(self, obj);
     PyObject* alphabet = obj_fields->alphabet;
     if (alphabet) {
         Py_INCREF(alphabet);
         self_fields->alphabet = obj_fields->alphabet;
     }
+    Py_END_CRITICAL_SECTION2();
     Py_RETURN_NONE;
 }
 
@@ -49,18 +52,30 @@ static PyMethodDef Array_methods[] = {
 static PyObject *Array_get_alphabet(PyObject *self, void *closure) {
     PyTypeObject* basetype = Array_Type.tp_base;
     Fields* fields = (Fields*)((intptr_t)self + basetype->tp_basicsize);
-    PyObject* alphabet = fields->alphabet;
+    PyObject* alphabet;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    alphabet = fields->alphabet;
+    Py_XINCREF(alphabet);
+    Py_END_CRITICAL_SECTION();
     if (!alphabet) Py_RETURN_NONE;
-    Py_INCREF(alphabet);
     return alphabet;
 }
 
+/* The alphabet can be set only once.  The mapping is built in a local
+ * buffer, and published together with the alphabet under the array's
+ * lock, after checking again that no other thread has set it meanwhile.
+ * Once published, neither is changed or freed while the array exists. */
 static int Array_set_alphabet(PyObject *self, PyObject *arg, void *closure) {
     Py_buffer view;
+    Py_buffer mapping_buffer = {0};
+    int already_set;
     const Py_ssize_t length = PySequence_Size(arg);
     PyTypeObject* basetype = Array_Type.tp_base;
     Fields* fields = (Fields*)((intptr_t)self + basetype->tp_basicsize);
-    if (fields->alphabet) {
+    Py_BEGIN_CRITICAL_SECTION(self);
+    already_set = fields->alphabet != NULL;
+    Py_END_CRITICAL_SECTION();
+    if (already_set) {
         PyErr_SetString(PyExc_ValueError, "the alphabet has already been set.");
         return -1;
     }
@@ -139,7 +154,7 @@ static int Array_set_alphabet(PyObject *self, PyObject *arg, void *closure) {
             }
             mapping[character] = i;
         }
-        if (PyBuffer_FillInfo(&fields->mapping,
+        if (PyBuffer_FillInfo(&mapping_buffer,
                               NULL,
                               mapping,
                               mapping_size * sizeof(int),
@@ -148,10 +163,21 @@ static int Array_set_alphabet(PyObject *self, PyObject *arg, void *closure) {
             PyMem_Free(mapping);
             return -1;
         }
-        fields->mapping.itemsize = sizeof(int);
+        mapping_buffer.itemsize = sizeof(int);
     }
-    Py_INCREF(arg);
-    fields->alphabet = arg;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    already_set = fields->alphabet != NULL;
+    if (!already_set) {
+        fields->mapping = mapping_buffer;
+        Py_INCREF(arg);
+        fields->alphabet = arg;
+    }
+    Py_END_CRITICAL_SECTION();
+    if (already_set) {
+        PyMem_Free(mapping_buffer.buf);
+        PyErr_SetString(PyExc_ValueError, "the alphabet has already been set.");
+        return -1;
+    }
     return 0;
 }
 
@@ -251,6 +277,10 @@ PyInit__arraycore(void)
     Py_DECREF(baseclass);
 
     if (PyModule_AddObjectRef(mod, "Array", (PyObject *)&Array_Type) < 0) {
+        Py_DECREF(mod);
+        return NULL;
+    }
+    if (Bio_module_gil_not_used(mod) < 0) {
         Py_DECREF(mod);
         return NULL;
     }

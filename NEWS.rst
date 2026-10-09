@@ -59,6 +59,22 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
+also declare that they can run without the GIL. So importing ``Bio.Align``,
+``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
+or ``Bio.Blast``, or reading NEXUS files with ``Bio.SeqIO``, no longer turns
+the GIL back on; of the C extensions, only ``Bio.Cluster``'s still does.
+Without the GIL, threads sharing a ``PairwiseAligner``, the alignments it
+returns, or a substitution matrix could crash Python; this is fixed. Each
+``score()``, ``align()``, ``counts()`` or ``str()`` call uses the aligner's
+settings as they were when it started, so a thread may change the settings
+while others are aligning; which calls see the change is not defined. When
+several threads set the alphabet of the same new substitution matrix, exactly
+one of them now succeeds. Builds with the GIL behave as before, with one
+exception: ``object.__setattr__(aligner, name, value)`` on a
+``PairwiseAligner`` now raises ``TypeError``, as the aligner now defines its
+own ``__setattr__``. Use ``setattr(aligner, name, value)`` instead.
+
 The ``test`` extra now also installs pytest-xdist and pytest-cov, so the test
 suite can run in parallel, with ``python -m pytest --offline -n auto`` in
 ``Tests/``. Unless ``--dist`` says otherwise, each test module runs on a
@@ -220,11 +236,8 @@ by ``Bio.Nexus``, ``Bio.motifs``, ``Bio.SeqIO``'s ``twobit`` parser, and
 ``Bio.PDB``'s ``kdtrees``, ``ccealign`` and BinaryCIF modules. Importing an
 extension without that declaration turns the GIL back on for the whole
 process, with a ``RuntimeWarning``. Reading 2bit files with ``Bio.SeqIO``,
-or NEXUS files with ``Bio.Nexus``, no longer does so. ``Bio.motifs``,
-``Bio.PDB``, ``Bio.AlignIO``, ``Bio.Phylo`` and ``Bio.SeqIO``'s ``nexus``
-parser still import ``Bio.Align``, whose extensions are not declared yet, so
-for now they still turn the GIL on. A new CI job runs the test suite on Python
-3.14t.
+or NEXUS files with ``Bio.Nexus``, no longer does so. A new CI job runs the
+test suite on Python 3.14t.
 
 ``Bio.Seq`` is now fully type-annotated, so type checkers such as mypy see
 what its functions and methods return instead of ``Any``. A method of ``Seq``

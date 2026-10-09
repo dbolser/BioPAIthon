@@ -14,6 +14,7 @@
 #include <inttypes.h>
 #include "_pairwisealigner.h"
 #include "substitution_matrices/_arraycore.h"
+#include "../_freethreading.h"
 
 
 static PyTypeObject* Aligner_Type = NULL;
@@ -889,6 +890,8 @@ sequence_converter(PyObject* argument, void* pointer)
     } else PyErr_Clear();
     view->buf = NULL;
     if (PySequence_Check(argument)) {
+        /* Hold our own reference, released at the end of the call. */
+        Py_INCREF(argument);
         view->obj = argument;
         return 1;
     }
@@ -1288,8 +1291,13 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
             PyTypeObject* basetype = Array_Type->tp_base;
             Fields* fields = (Fields*)((intptr_t)substitution_matrix.obj + basetype->tp_basicsize);
             Py_buffer* mapping_buffer = &fields->mapping;
+            /* The array publishes its mapping under its lock, and then
+             * never changes or frees it while the array exists; our buffer
+             * export holds a reference to the array. */
+            Py_BEGIN_CRITICAL_SECTION(substitution_matrix.obj);
             mapping = mapping_buffer->buf;
             if (mapping) m = mapping_buffer->len / mapping_buffer->itemsize;
+            Py_END_CRITICAL_SECTION();
         }
     }
 
@@ -1615,8 +1623,10 @@ error:
 
 exit:
     if (sequence_buffers) {
-        for (k = 0; k < n; k++)
+        for (k = 0; k < n; k++) {
             if (sequence_buffers[k].buf) PyBuffer_Release(&sequence_buffers[k]);
+            else Py_XDECREF(sequence_buffers[k].obj);
+        }
         PyMem_Free(sequence_buffers);
     }
     coordinates_converter(NULL, &coordinates);
@@ -1662,6 +1672,10 @@ PyInit__alignmentcounts(void)
 
     module = PyModule_Create(&moduledef);
     if (!module) return NULL;
+    if (Bio_module_gil_not_used(module) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
 
     PyObject *mod;
     mod = PyImport_ImportModule("Bio.Align.substitution_matrices._arraycore");

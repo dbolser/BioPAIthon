@@ -6,8 +6,12 @@
 """Tests for the Alignment class in Bio.Align."""
 
 import inspect
+import os
+import platform
 import re
+import subprocess
 import sys
+import sysconfig
 import unittest
 from io import StringIO
 
@@ -25,8 +29,10 @@ import support
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import _aligncore
+from Bio.Align import _alignmentcounts
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
+from Bio.Seq import SequenceDataAbstractBaseClass
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import gc_fraction
@@ -3759,6 +3765,105 @@ class TestAlign_read_parse_write(unittest.TestCase):
             handle=support.DATA / "Clustalw" / "opuntia.aln", fmt="clustal"
         )
         self.assertEqual(alignment.shape, (7, 156))
+
+
+class LazyData(SequenceDataAbstractBaseClass):
+    """Sequence data read on demand, as by the lazy SeqIO parsers."""
+
+    def __init__(self, data, readable=True):
+        """Hold the data; if readable is False, reading any of it fails."""
+        self.data = data
+        self.readable = readable
+        super().__init__()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, key):
+        data = self.data[key]
+        if data and not self.readable:
+            raise ValueError("cannot read the sequence")
+        return data
+
+
+class TestAlignmentCountsLazyData(unittest.TestCase):
+    """Count aligned sequences whose data is read on demand.
+
+    The C code reads such data through the sequence protocol, which runs
+    Python code partway through the count.
+    """
+
+    def test_own_references(self):
+        """Check counting holds its own references to the sequences."""
+        # The first read clears the list of sequences, which holds the only
+        # references to them. The child runs with PYTHONMALLOC=debug, which
+        # overwrites freed memory, so reading a freed sequence crashes it.
+        code = """\
+import numpy as np
+
+from Bio.Align import _alignmentcounts
+from Bio.Seq import SequenceDataAbstractBaseClass
+
+
+class LazyData(SequenceDataAbstractBaseClass):
+    sequences = None
+
+    def __init__(self, data):
+        self.data = data
+        super().__init__()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, key):
+        if self.sequences is not None:
+            sequences, self.sequences = self.sequences, None
+            sequences.clear()
+        return self.data[key]
+
+
+sequences = [LazyData(b"ACGTACGTAC"), LazyData(b"ACGTTCGTAC")]
+sequences[0].sequences = sequences
+coordinates = np.array([[0, 5, 10], [0, 5, 10]])
+strands = np.zeros(2, bool)
+counts = _alignmentcounts.AlignmentCounts(sequences, coordinates, strands)
+assert (counts.identities, counts.mismatches) == (9, 1), counts
+"""
+        env = os.environ.copy()
+        env["PYTHONMALLOC"] = "debug"
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython"
+        and not sysconfig.get_config_var("Py_GIL_DISABLED"),
+        "GIL-enabled CPython reference counts are required",
+    )
+    def test_reference_counts(self):
+        """Check counting releases its references to the sequences."""
+        target = LazyData(b"ACGTACGTAC")
+        query = LazyData(b"ACGTTCGTAC")
+        unreadable = LazyData(b"ACGTTCGTAC", readable=False)
+        objects = (target, query, unreadable)
+        coordinates = np.array([[0, 5, 10], [0, 5, 10]])
+        strands = np.zeros(2, bool)
+        expected = [sys.getrefcount(obj) for obj in objects]
+        for _ in range(100):
+            counts = _alignmentcounts.AlignmentCounts(
+                [target, query], coordinates, strands
+            )
+            self.assertEqual(counts.identities, 9)
+            with self.assertRaises(ValueError):
+                _alignmentcounts.AlignmentCounts(
+                    [target, unreadable], coordinates, strands
+                )
+        self.assertEqual([sys.getrefcount(obj) for obj in objects], expected)
 
 
 if __name__ == "__main__":

@@ -20444,7 +20444,8 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
         # own buffer export of the matrix (whose view holds a reference to
         # it), and must drop them all on every exit path: success, a
         # sequence the matrix cannot score, and an exception or Ctrl-C
-        # raised inside a gap function.
+        # raised inside a gap function. str(aligner) holds references to
+        # all three while formatting.
         matrix = substitution_matrices.load("BLOSUM62")
         failure = []
 
@@ -20473,6 +20474,7 @@ assert aligner.deletion_score == -1.0, aligner.deletion_score
             for _ in aligner.align(seqA, seqB):
                 pass
             alignment.counts(aligner)
+            str(aligner)
             with self.assertRaises(ValueError):
                 aligner.score(seqA, bad)
             with self.assertRaises(ValueError):
