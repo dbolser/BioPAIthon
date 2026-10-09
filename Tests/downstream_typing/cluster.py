@@ -36,8 +36,10 @@ ids: NDArray[np.integer[Any]] = clusterid
 not_floats: NDArray[np.floating[Any]] = clusterid  # type: ignore[assignment]
 clusterid, error = kcluster(data)  # type: ignore[misc]
 
-# An int works as the transpose flag, as the Tutorial uses it.
+# An int works as the transpose flag, as the Tutorial uses it. A count the
+# C code takes as is can be a NumPy integer.
 kcluster(data, transpose=1)
+kcluster(data, nclusters=np.int64(2))
 kcluster(data, method=1)  # type: ignore[arg-type]
 
 # somcluster reads data.shape before converting data to an array, so a list
@@ -70,7 +72,7 @@ tree = Tree(copies)
 
 assert_type(treecluster(data), Tree)
 assert_type(treecluster(None, distancematrix=[[], [1.0]]), Tree)
-cut: NDArray[np.integer[Any]] = tree.cut(2)
+cut: NDArray[np.integer[Any]] = tree.cut(np.int64(2))
 order: NDArray[np.integer[Any]] = tree.sort([1.0, 2.0, 3.0])
 
 # A Record made without a handle is filled in by hand. mask stays None

@@ -18,6 +18,7 @@ from collections.abc import Sequence
 from typing import Any
 from typing import cast
 from typing import IO
+from typing import SupportsIndex
 from typing import TYPE_CHECKING
 
 try:
@@ -101,7 +102,7 @@ class Tree(_cluster.Tree):
         return indices
 
     def cut(  # type: ignore[override]
-        self, nclusters: int | None = None
+        self, nclusters: SupportsIndex | None = None
     ) -> "NDArray[np.intc]":
         """Create clusters by cutting the hierarchical clustering tree.
 
@@ -122,7 +123,7 @@ class Tree(_cluster.Tree):
 
 def kcluster(
     data: "ArrayLike",
-    nclusters: int = 2,
+    nclusters: SupportsIndex = 2,
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
     transpose: int = False,
@@ -215,7 +216,7 @@ def kcluster(
 
 def kmedoids(
     distance: "ArrayLike",
-    nclusters: int = 2,
+    nclusters: SupportsIndex = 2,
     npass: int = 1,
     initialid: "ArrayLike | None" = None,
     rng_seed: int | None = None,
@@ -400,7 +401,7 @@ def somcluster(
     nxgrid: int = 2,
     nygrid: int = 1,
     inittau: float = 0.02,
-    niter: int = 1,
+    niter: SupportsIndex = 1,
     dist: str = "e",
     rng_seed: int | None = None,
 ) -> "tuple[NDArray[np.intc], NDArray[np.float64]]":
@@ -856,7 +857,7 @@ class Record:
 
     def kcluster(
         self,
-        nclusters: int = 2,
+        nclusters: SupportsIndex = 2,
         transpose: int = False,
         npass: int = 1,
         method: str = "a",
@@ -932,7 +933,7 @@ class Record:
         nxgrid: int = 2,
         nygrid: int = 1,
         inittau: float = 0.02,
-        niter: int = 1,
+        niter: SupportsIndex = 1,
         dist: str = "e",
         rng_seed: int | None = None,
     ) -> "tuple[NDArray[np.intc], NDArray[np.float64]]":
