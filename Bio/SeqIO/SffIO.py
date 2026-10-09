@@ -386,7 +386,8 @@ def _sff_do_slow_index(handle):
     assert 1 == struct.calcsize(">B")  # noqa: S101
     assert 1 == struct.calcsize(">s")  # noqa: S101
     assert 1 == struct.calcsize(">c")  # noqa: S101
-    assert read_header_size % 8 == 0  # Important for padding calc later!  # noqa: S101
+    # Important for padding calc later!
+    assert read_header_size % 8 == 0  # noqa: S101
     for read in range(number_of_reads):
         record_offset = handle.tell()
         if record_offset == index_offset:
@@ -775,7 +776,8 @@ class SffIterator(SequenceIterator):
     # [rest of read header depends on the name length etc]
     read_header_fmt = ">2HI4H"
     read_header_size = struct.calcsize(read_header_fmt)
-    assert read_header_size % 8 == 0  # Important for padding calc later!  # noqa: S101
+    # Important for padding calc later!
+    assert read_header_size % 8 == 0  # noqa: S101
 
     def __init__(self, source, alphabet=None, trim=False):
         """Iterate over Standard Flowgram Format (SFF) reads (as SeqRecord objects).
