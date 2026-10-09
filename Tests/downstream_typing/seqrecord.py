@@ -9,6 +9,7 @@ Type-checked with the mypy.ini beside it, never run.
 
 from typing import Any
 
+import numpy as np
 from typing_extensions import assert_type
 
 from Bio.Seq import MutableSeq
@@ -21,6 +22,8 @@ assert_type(Seq("A"), Seq)
 assert_type(record, SeqRecord)
 assert_type(record[0], str)
 assert_type(record[1:], SeqRecord)
+# Any integer type indexes a record, as it does a Seq.
+assert_type(record[np.int64(0)], str)
 
 SeqRecord(Seq("A"), id=1)  # type: ignore[arg-type]
 
