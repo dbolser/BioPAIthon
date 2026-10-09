@@ -9,12 +9,25 @@
 You are expected to use this module via the Bio.Align functions.
 """
 
+from itertools import chain
+
 from Bio.Align import Alignment
 from Bio.Align import interfaces
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 _PHYLIP_ID_WIDTH = 10
+
+
+def _parse_header(line):
+    """Return the number of sequences and their length from a header line (PRIVATE)."""
+    words = line.split()
+    if len(words) == 2:
+        try:
+            return int(words[0]), int(words[1])
+        except ValueError:
+            pass
+    raise ValueError("Expected two integers in the first line, received '%s'" % line)
 
 
 class AlignmentWriter(interfaces.AlignmentWriter):
@@ -68,6 +81,10 @@ class AlignmentIterator(interfaces.AlignmentIterator):
     The parser determines from the file contents if the file format is
     sequential or interleaved, and parses the file accordingly.
 
+    A file may hold several alignments one after another, each starting with
+    its own header line, as PHYLIP's seqboot writes them. The number of
+    columns in each header says where that alignment ends.
+
     For more information on the file format, please see:
     http://evolution.genetics.washington.edu/phylip/doc/sequence.html
     http://evolution.genetics.washington.edu/phylip/doc/main.html#inputfiles
@@ -79,18 +96,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         line = stream.readline()
         if not line:
             raise ValueError("Empty file.") from None
-
-        words = line.split()
-        if len(words) == 2:
-            try:
-                self._number_of_seqs = int(words[0])
-                self._length_of_seqs = int(words[1])
-                return
-            except ValueError:
-                pass
-        raise ValueError(
-            "Expected two integers in the first line, received '%s'" % line
-        )
+        self._number_of_seqs, self._length_of_seqs = _parse_header(line)
 
     def _parse_interleaved_first_block(self, lines, seqs, names):
         for line in lines:
@@ -102,7 +108,12 @@ class AlignmentIterator(interfaces.AlignmentIterator):
 
     def _parse_interleaved_other_blocks(self, stream, seqs):
         i = 0
-        for line in stream:
+        # Stop when the last row is complete, as another alignment may follow.
+        length = len(seqs[-1][0])
+        while length < self._length_of_seqs:
+            line = stream.readline()
+            if not line:
+                break
             line = line.rstrip()
             if not line:
                 if i != self._number_of_seqs:
@@ -115,10 +126,13 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 seq = line.replace(" ", "")
                 seqs[i].append(seq)
                 i += 1
+                if i == self._number_of_seqs:
+                    length += len(seq)
         if i != 0 and i != self._number_of_seqs:
             raise ValueError("Unexpected file format")
 
-    def _parse_sequential(self, lines, seqs, names, length):
+    def _parse_sequential(self, lines, seqs, names):
+        length = 0
         for line in lines:
             if length == 0:
                 line = line.rstrip()
@@ -132,19 +146,29 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             seqs[-1].append(seq)
             length += len(seq)
             if length == self._length_of_seqs:
+                if len(names) == self._number_of_seqs:
+                    # The last sequence is complete; another alignment may follow.
+                    break
                 length = 0
-        return length
 
     def _read_file(self, stream):
         names = []
         seqs = []
         lines = [stream.readline() for i in range(self._number_of_seqs)]
+        if all(
+            len(line[_PHYLIP_ID_WIDTH:].replace(" ", "").strip())
+            == self._length_of_seqs
+            for line in lines
+        ):
+            # One line per sequence; anything after it is another alignment.
+            self._parse_interleaved_first_block(lines, seqs, names)
+            return names, seqs
         line = stream.readline()
         if line.rstrip():
             # sequential file format
             lines.append(line)
-            length = self._parse_sequential(lines, seqs, names, 0)
-            self._parse_sequential(stream, seqs, names, length)
+            lines = chain(lines, iter(stream.readline, ""))
+            self._parse_sequential(lines, seqs, names)
         else:
             # interleaved file format
             self._parse_interleaved_first_block(lines, seqs, names)
@@ -155,7 +179,13 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         try:
             self._number_of_seqs
         except AttributeError:
-            return
+            # Not the first alignment; skip blank lines to the next header.
+            line = stream.readline()
+            while line.isspace():
+                line = stream.readline()
+            if not line:
+                return
+            self._number_of_seqs, self._length_of_seqs = _parse_header(line)
         names, seqs = self._read_file(stream)
 
         seqs = ["".join(seq) for seq in seqs]

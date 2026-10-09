@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 import support
 
 from Bio import Align
+from Bio import AlignIO
 from Bio.Align import substitution_matrices
 
 substitution_matrix = substitution_matrices.load("BLOSUM62")
@@ -1099,6 +1100,153 @@ AlignmentCounts object with
         self.assertEqual(counts.identities, 667)
         self.assertEqual(counts.mismatches, 35)
         self.assertEqual(counts.positives, 681)
+
+
+def read_text(filename):
+    """Return the text of a file in Tests/Phylip, ending in a newline."""
+    text = (support.DATA / "Phylip" / filename).read_text()
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+def summarize(alignment):
+    """Return the ids and gapped rows, which is all a PHYLIP file holds."""
+    return [(record.id, row) for record, row in zip(alignment.sequences, alignment)]
+
+
+class ForwardOnly:
+    """A text stream that can only be read forwards, like a pipe."""
+
+    def __init__(self, text):
+        """Hold the text in a stream that only read and readline reach."""
+        self._stream = StringIO(text)
+
+    def read(self, size=-1):
+        return self._stream.read(size)
+
+    def readline(self):
+        return self._stream.readline()
+
+
+class TestPhylipMultiple(unittest.TestCase):
+    """Files holding several alignments, as PHYLIP's seqboot writes them."""
+
+    def parse(self, text):
+        return list(Align.parse(StringIO(text), "phylip"))
+
+    def check_twice(self, filename, shape):
+        expected = summarize(Align.read(support.DATA / "Phylip" / filename, "phylip"))
+        alignments = self.parse(read_text(filename) * 2)
+        self.assertEqual([alignment.shape for alignment in alignments], [shape] * 2)
+        self.assertEqual(
+            [summarize(alignment) for alignment in alignments], [expected] * 2
+        )
+
+    def test_interleaved_twice(self):
+        # The second header follows the last block without a blank line.
+        self.check_twice("interlaced.phy", (3, 384))
+
+    def test_sequential_twice(self):
+        # Each sequence is wrapped over several lines.
+        self.check_twice("sequential.phy", (3, 384))
+
+    def test_one_line_per_sequence_twice(self):
+        self.check_twice("horses.phy", (10, 40))
+
+    def test_blank_lines_between_alignments(self):
+        text = read_text("interlaced.phy") + "\n\n" + read_text("horses.phy")
+        alignments = self.parse(text)
+        self.assertEqual(
+            [alignment.shape for alignment in alignments], [(3, 384), (10, 40)]
+        )
+        self.assertEqual(
+            [summarize(alignment) for alignment in alignments],
+            [
+                summarize(Align.read(support.DATA / "Phylip" / filename, "phylip"))
+                for filename in ("interlaced.phy", "horses.phy")
+            ],
+        )
+
+    def check_alignio(self, msas, fmt, shapes):
+        stream = StringIO()
+        AlignIO.write(msas, stream, fmt)
+        text = stream.getvalue()
+        alignments = self.parse(text)
+        self.assertEqual([alignment.shape for alignment in alignments], shapes)
+        # AlignIO keeps columns that are all gaps; Bio.Align drops them.
+        expected = []
+        for msa in AlignIO.parse(StringIO(text), fmt):
+            columns = zip(*(record.seq for record in msa))
+            columns = [column for column in columns if set(column) != {"-"}]
+            rows = ["".join(row) for row in zip(*columns)]
+            expected.append([(record.id, row) for record, row in zip(msa, rows)])
+        self.assertEqual([summarize(alignment) for alignment in alignments], expected)
+
+    def test_alignio_one_line_per_sequence(self):
+        horses = AlignIO.read(support.DATA / "Phylip" / "horses.phy", "phylip")
+        msas = [horses, horses[:5], horses]
+        self.check_alignio(msas, "phylip", [(10, 40), (5, 40), (10, 40)])
+
+    def test_alignio_interleaved_and_sequential(self):
+        # AlignIO writes 50 columns per block, and the next header straight
+        # after the last block. Two of the three rows of interlaced.phy share
+        # an all-gap column.
+        interlaced = AlignIO.read(support.DATA / "Phylip" / "interlaced.phy", "phylip")
+        msas = [interlaced, interlaced[:2], interlaced]
+        shapes = [(3, 384), (2, 383), (3, 384)]
+        for fmt in ("phylip", "phylip-sequential"):
+            with self.subTest(fmt=fmt):
+                self.check_alignio(msas, fmt, shapes)
+
+    def test_align_write(self):
+        alignments = [
+            Align.read(support.DATA / "Phylip" / filename, "phylip")
+            for filename in ("interlaced.phy", "horses.phy")
+        ]
+        stream = StringIO()
+        self.assertEqual(Align.write(alignments, stream, "phylip"), 2)
+        stream.seek(0)
+        self.assertEqual(
+            [summarize(alignment) for alignment in Align.parse(stream, "phylip")],
+            [summarize(alignment) for alignment in alignments],
+        )
+
+    def test_ways_of_reading(self):
+        # One interleaved, one sequential and one single-block alignment.
+        filenames = ("interlaced.phy", "sequential.phy", "horses.phy")
+        text = "".join(read_text(filename) for filename in filenames)
+        expected = [
+            summarize(Align.read(support.DATA / "Phylip" / filename, "phylip"))
+            for filename in filenames
+        ]
+        self.assertEqual(
+            [summarize(alignment) for alignment in self.parse(text)], expected
+        )
+        # next() reads forwards only, so it needs no seek.
+        alignments = Align.parse(ForwardOnly(text), "phylip")
+        self.assertEqual([summarize(next(alignments)) for _ in filenames], expected)
+        with self.assertRaises(StopIteration):
+            next(alignments)
+        with NamedTemporaryFile("w+t") as stream:
+            stream.write(text)
+            stream.seek(0)
+            alignments = Align.parse(stream, "phylip")
+            self.assertEqual(summarize(next(alignments)), expected[0])
+            self.assertEqual(len(alignments), 3)
+            self.assertEqual(summarize(next(alignments)), expected[1])
+            self.assertEqual(
+                [summarize(alignment) for alignment in alignments[:]], expected
+            )
+            self.assertEqual(summarize(next(alignments)), expected[2])
+            for _ in range(2):
+                self.assertEqual(
+                    [summarize(alignment) for alignment in alignments], expected
+                )
+            stream.seek(0)
+            with self.assertRaises(ValueError) as cm:
+                Align.read(stream, "phylip")
+        self.assertEqual(str(cm.exception), "More than one alignment found in file")
 
 
 if __name__ == "__main__":

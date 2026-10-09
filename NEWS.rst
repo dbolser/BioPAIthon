@@ -59,6 +59,17 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align.parse(..., "phylip")`` now reads files holding several
+alignments one after another, each with its own header line, such as the
+bootstrap replicates that PHYLIP's ``seqboot`` writes, or what
+``Bio.Align.write`` and ``Bio.AlignIO.write`` write given several alignments.
+It used to read everything after the first header as one alignment, and
+raised ``ValueError`` or ``IndexError``. The length in each header now says
+where that alignment ends, so ``Bio.Align.read`` raises "More than one
+alignment found in file" on such a file. Blank lines after an alignment are
+skipped; trailing blank lines used to raise ``ValueError`` in some layouts.
+Files holding one alignment read as before.
+
 The test suite is now run by pytest 9 or later, which the ``test`` extra
 installs. The tests are still written with ``unittest``, and ``python
 run_tests.py --offline`` in ``Tests/`` still works: it is now a shim that
