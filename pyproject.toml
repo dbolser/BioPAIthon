@@ -89,6 +89,8 @@ test = [
     "mmtf-python",
     "numpy!=2.1.0",
     "pytest>=9",
+    "pytest-cov",
+    "pytest-xdist",
     "scipy",
 ]
 
@@ -206,3 +208,19 @@ python_classes = []
 python_functions = []
 # Like run_tests.py, report a module that fails to import and run the rest.
 addopts = "--continue-on-collection-errors"
+
+# Coverage of the test suite, as CI measures it with pytest-cov:
+#   cd Tests && python -m pytest --offline --cov --cov-config=../pyproject.toml
+# coverage reads its configuration only from the current directory unless
+# told otherwise, hence --cov-config. These are packages, not paths: run from
+# Tests/, a path BioSQL would name the test data directory Tests/BioSQL.
+[tool.coverage.run]
+source_pkgs = ["Bio", "BioSQL"]
+
+[tool.coverage.report]
+# Besides coverage's own defaults (such as "# pragma: no cover"), leave out
+# debug-only code and the self-tests of modules that can be run as scripts.
+exclude_also = [
+    "if __debug__:",
+    "if __name__ == .__main__.:",
+]

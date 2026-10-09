@@ -24,6 +24,12 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
 
 Only unittest.TestCase subclasses are collected (python_classes and
 python_functions are empty), exactly what run_tests.py used to run.
+
+With pytest-xdist the suite can run in parallel, as with ``-n auto --dist
+loadfile``, which keeps each module's tests together on one worker.  The
+workers report their import-time skips to the controller, which prints them
+and applies ``--check-skips``.  The BioSQL test modules all go to the same
+worker, as those for one database server share its test database.
 """
 
 import contextlib
@@ -166,6 +172,11 @@ _UNEXPECTED_SKIPS = pytest.StashKey[list]()
 _MODULE_LANG = pytest.StashKey[str]()
 # Whether any test was deselected, as by -k or --deselect.
 _DESELECTED = pytest.StashKey[bool]()
+
+# The keys under which a pytest-xdist worker sends the two above to the
+# controller, which runs no tests, collects nothing, and so sees neither.
+_WORKER_IMPORT_SKIPS = "biopython_import_skips"
+_WORKER_DESELECTED = "biopython_deselected"
 
 
 def pytest_addoption(parser):
@@ -378,8 +389,50 @@ def pytest_deselected(items):
         items[0].config.stash[_DESELECTED] = True
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_make_scheduler(config, log):
+    """Schedule all the BioSQL test modules as one under --dist loadfile.
+
+    The modules for one database server (MySQLdb and mysql_connector for
+    MySQL, psycopg2 for PostgreSQL, each with its _online variant) create
+    and drop the same test database named in biosql.ini (see
+    common_BioSQL.py), so they must not run at the same time.  The sqlite3
+    modules use temporary files and would be safe apart, but are kept with
+    the rest for simplicity.  Every other module is scheduled as a file of
+    its own, as usual.
+    """
+    if config.getoption("dist") != "loadfile":
+        return None
+    from xdist.scheduler import LoadFileScheduling
+
+    class BioSQLLoadFileScheduling(LoadFileScheduling):
+        def _split_scope(self, nodeid):
+            filename = nodeid.split("::", 1)[0].rsplit("/", 1)[-1]
+            if filename.startswith("test_BioSQL_"):
+                return "BioSQL"
+            return super()._split_scope(nodeid)
+
+    return BioSQLLoadFileScheduling(config, log)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error):
+    """Merge what a pytest-xdist worker saw into the controller's records."""
+    output = getattr(node, "workeroutput", {})
+    node.config.stash[_IMPORT_SKIPS].update(output.get(_WORKER_IMPORT_SKIPS, {}))
+    if output.get(_WORKER_DESELECTED):
+        node.config.stash[_DESELECTED] = True
+
+
 def pytest_sessionfinish(session):
     config = session.config
+    workeroutput = getattr(config, "workeroutput", None)
+    if workeroutput is not None:
+        # This is a pytest-xdist worker, which sends its records to the
+        # controller (see pytest_testnodedown); the controller does the rest.
+        workeroutput[_WORKER_IMPORT_SKIPS] = config.stash[_IMPORT_SKIPS]
+        workeroutput[_WORKER_DESELECTED] = config.stash.get(_DESELECTED, False)
+        return
     if (
         session.exitstatus == pytest.ExitCode.NO_TESTS_COLLECTED
         and config.stash[_IMPORT_SKIPS]

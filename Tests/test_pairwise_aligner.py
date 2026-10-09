@@ -20238,6 +20238,24 @@ class TestGILRelease(unittest.TestCase):
         # after the C kernel returns, the 30-second timeout below expires
         # and the test fails.  With the kernels checking signals, the
         # child dies within milliseconds of the signal.
+        #
+        # The signal is sent a second after the child is about to call
+        # score(), but on a loaded machine (as when the suite runs in
+        # parallel) the child may not have got there by then.  It then
+        # exits 43, or dies of the signal if it lands between the two try
+        # blocks.  Neither outcome says anything about the kernel, so the
+        # test tries again, and skips as inconclusive after three tries.
+        for _ in range(3):
+            if self.interrupt_score() == 42:
+                return
+        self.skipTest("inconclusive under load: SIGINT never landed in score()")
+
+    def interrupt_score(self):
+        """Send SIGINT to a child running a long score(); return its exit code.
+
+        That is 42 if the signal interrupted score(), and 43 or -SIGINT if it
+        arrived before the call; anything else fails the test.
+        """
         import signal
         import time
 
@@ -20249,34 +20267,37 @@ n = 500000
 sA = "".join(rng.choice("ACGT") for _ in range(n))
 sB = "".join(rng.choice("ACGT") for _ in range(n))
 aligner = Align.PairwiseAligner()
-print("started", flush=True)
+try:
+    print("started", flush=True)
+except KeyboardInterrupt:
+    sys.exit(43)
 try:
     aligner.score(sA, sB)
 except KeyboardInterrupt:
     sys.exit(42)
 """
-        process = subprocess.Popen(
+        with subprocess.Popen(
             [sys.executable, "-c", child_code],
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
             text=True,
-        )
-        try:
-            self.assertEqual(process.stdout.readline().strip(), "started")
-            time.sleep(1.0)  # let the child enter the kernel
-            process.send_signal(signal.SIGINT)
+        ) as process:
             try:
-                process.communicate(timeout=30)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.communicate()
-                self.fail("SIGINT did not interrupt aligner.score()")
-            self.assertEqual(process.returncode, 42)
-        finally:
-            if process.poll() is None:
-                process.kill()
-                process.communicate()
-            process.stdout.close()
+                if process.stdout.readline().strip() == "started":
+                    time.sleep(1.0)  # let the child enter the kernel
+                    process.send_signal(signal.SIGINT)
+                try:
+                    _, stderr = process.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    _, stderr = process.communicate()
+                    self.fail(f"SIGINT did not interrupt aligner.score()\n{stderr}")
+            finally:
+                if process.poll() is None:
+                    process.kill()
+        if process.returncode not in (42, 43, -signal.SIGINT):
+            self.fail(f"child exited with {process.returncode}\n{stderr}")
+        return process.returncode
 
 
 class TestReconfigureDuringCall(unittest.TestCase):

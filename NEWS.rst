@@ -59,6 +59,15 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The ``test`` extra now also installs pytest-xdist and pytest-cov, so the test
+suite can run in parallel, with ``python -m pytest --offline -n auto --dist
+loadfile`` in ``Tests/``. Each test module runs on a single worker, and the
+BioSQL modules all share one, as they share a test database. Modules skipped
+at import are reported, and checked by ``--check-skips``, just as in a serial
+run, which stays the default. Coverage is now configured in
+``pyproject.toml``, replacing ``Tests/.coveragerc``, and measures the
+``BioSQL`` package as well as ``Bio``.
+
 ``Bio.Cluster`` is now fully type-annotated, and its C extension has a type
 stub, so type checkers such as mypy see what its functions return instead of
 ``Any``. ``kcluster``, for example, returns an integer array of cluster ids,

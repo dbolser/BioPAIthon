@@ -82,7 +82,6 @@ if not requires_internet.check.available:
         )
         return responses
 
-    NCBIWWW.time.sleep = mock.Mock()  # we don't want to wait 20 sec for each test...
     NCBIWWW.urlopen = mock.Mock(side_effect=mock_response())
 
 
@@ -98,6 +97,15 @@ if not requires_internet.check.available:
 
 
 class TestQblast(unittest.TestCase):
+    def setUp(self):
+        if not requires_internet.check.available:
+            # We don't want to wait 20 sec for each test... NCBIWWW.time is
+            # the time module itself, so sleep is mocked only while a test
+            # here runs, not for every other test in the process.
+            patcher = mock.patch.object(NCBIWWW.time, "sleep")
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def test_blastp_nr_actin(self):
         # Simple protein blast filtered for rat only, using protein
         # GI:160837788 aka NP_075631.2
