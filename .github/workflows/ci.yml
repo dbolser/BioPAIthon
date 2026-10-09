@@ -595,7 +595,7 @@ jobs:
     # free-threaded wheel.
     - name: Install Python dependencies
       run: |
-        python -m pip install numpy scipy matplotlib reportlab pillow msgpack mmtf-python networkx rdflib coverage
+        python -m pip install numpy scipy matplotlib reportlab pillow msgpack mmtf-python networkx rdflib coverage pytest
 
     - name: Debug Info
       run: |
