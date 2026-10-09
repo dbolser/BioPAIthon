@@ -72,6 +72,33 @@ class AlignmentExtensionTests(unittest.TestCase):
 
         assert_bounded_growth(self, align)
 
+    def test_pairwise_aligner_linear_traceback(self):
+        """Use the linear-space traceback repeatedly.
+
+        It is switched off by default; the private test hook switches it on.
+        The first path comes from checkpointed rows, the second from the full
+        matrix.
+        """
+        from Bio.Align import PairwiseAligner
+        from Bio.Align import _pairwisealigner
+
+        aligner = PairwiseAligner()
+        target = "AGAACTTATCGCTTGACGTAAC"
+        query = "AGAACTATCGCTGACGTTAAC"
+
+        def align():
+            previous = _pairwisealigner._set_traceback_limits(0, 64, 16)
+            try:
+                alignments = aligner.align(target, query)
+            finally:
+                _pairwisealigner._set_traceback_limits(*previous)
+            str(alignments[0])
+            str(alignments[1])
+            alignments.rewind()
+            str(alignments[0])
+
+        assert_bounded_growth(self, align)
+
 
 @requires_growth_measurement
 class StructureExtensionTests(unittest.TestCase):

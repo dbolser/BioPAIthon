@@ -129,6 +129,7 @@ sources = ["Bio/Align/_codonaligner.c"]
 [[tool.setuptools.ext-modules]]
 name = "Bio.Align._pairwisealigner"
 sources = ["Bio/Align/_pairwisealigner.c"]
+depends = ["Bio/Align/_pairwisealigner.h", "Bio/Align/_pairwisealigner_linear.h"]
 
 [[tool.setuptools.ext-modules]]
 name = "Bio.Align.substitution_matrices._arraycore"
