@@ -1727,10 +1727,20 @@ that reads is a ``SequenceIterator`` subclass which reads text (``"t"`` in
 its ``modes``), and defines two class attributes. ``record_start_marker``
 is a bytes regular expression which matches the first line of each record,
 and ``parse_id_from_header`` is a class method which returns the record id
-from that line. If you replace how a built-in format is read, indexing it
-still finds each record and its key as before, and reads the record with
-your class. The exceptions are ``"sff"``, ``"sff-trim"`` and
-``"uniprot-xml"``, which can then not be indexed.
+from that line.
+
+If you replace how a built-in format is read, ``SeqIO.index`` and
+``SeqIO.index_db`` can still index it, except ``"sff"``, ``"sff-trim"`` and
+``"uniprot-xml"``. The index reads each record with your class, from a text
+handle, and your class must give the record the id the index found for it.
+For ``"ace"``, ``"embl"``, ``"fasta"``, ``"gb"``, ``"genbank"``, ``"imgt"``,
+``"phd"``, ``"pir"``, ``"qual"`` and ``"swiss"``, the index finds the
+records with your class's ``record_start_marker``. A subclass of the
+built-in class inherits it; without it, indexing fails. For ``"ace"``,
+``"fasta"``, ``"phd"``, ``"pir"`` and ``"qual"``, the keys also come from
+your class's ``parse_id_from_header``. A database made by ``index_db``
+keeps the keys it was built with, so rebuild it if your class changes the
+ids.
 
 A registration lasts until the Python process ends, and only that process
 knows about it. So register at the top level of a module, rather than

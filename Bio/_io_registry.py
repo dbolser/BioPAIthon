@@ -89,10 +89,15 @@ class FormatRegistry(dict):
         # locks.  Storing happens under it, and only if the entry is still the
         # value read above, so that concurrent first accesses agree on one
         # resolved value (in particular, on one wrapper class), and a value
-        # assigned in the meantime is not overwritten.
+        # assigned in the meantime is not overwritten.  An entry deleted in
+        # the meantime (SeqIO.register_format drops convert shortcuts) was
+        # present when looked up, so the lookup still returns it.
         with self._lock:
-            if super().__getitem__(name) is value:
+            current = super().get(name, _ABSENT)
+            if current is value:
                 super().__setitem__(name, resolved)
+                return resolved
+            if current is _ABSENT:
                 return resolved
         return self[name]
 

@@ -1319,14 +1319,24 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
 
     With replace=True, SeqIO.convert stops using its built-in shortcuts that
     read a format whose iterator is replaced, or write one whose writer is
-    replaced, so that it uses the replacements.
+    replaced, so that it uses the replacements.  Putting the built-in
+    iterator or writer back does not bring those shortcuts back.
 
     Bio.SeqIO.index and index_db can index a new format if its iterator is a
     SequenceIterator subclass which reads text ("t" in its modes), sets
-    record_start_marker, and overrides parse_id_from_header.  Replacing a
-    built-in format's iterator keeps its indexing, which then finds each
-    record and its key as before and parses it with the replacement, except
-    for "sff", "sff-trim" and "uniprot-xml", which can then not be indexed.
+    record_start_marker, and overrides parse_id_from_header.
+
+    Replacing a built-in format's iterator keeps its indexing, except for
+    "sff", "sff-trim" and "uniprot-xml", which can then not be indexed.  The
+    index parses each record with the replacement, from a text handle, and
+    the replacement must give the record the id the index found for it.
+    For "ace", "embl", "fasta", "gb", "genbank", "imgt", "phd", "pir", "qual"
+    and "swiss", the index finds the records with the replacement's
+    record_start_marker.  A subclass of the built-in iterator inherits it;
+    without it, index and index_db raise an error.  For "ace", "fasta",
+    "phd", "pir" and "qual", the keys also come from the replacement's
+    parse_id_from_header.  A database made by index_db keeps the keys it was
+    built with, so rebuild it if a replacement changes the ids.
     """
     # Same checks and messages as parse, write and index:
     if not isinstance(name, str):

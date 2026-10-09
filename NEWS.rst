@@ -68,11 +68,16 @@ optionally, ``AlignmentWriter`` classes. Each can instead be named by an
 import string such as ``"package.module:attr"``, imported on first use.
 Replacing a format that exists, built in or registered, needs
 ``replace=True``. ``SeqIO.convert`` then stops using its built-in shortcuts
-for the replaced reader or writer. ``SeqIO.index`` and ``index_db`` can
-index a new format whose reader is a ``SequenceIterator`` subclass that
-reads text and defines ``record_start_marker`` and ``parse_id_from_header``.
-Replacing a built-in format's reader keeps its indexing, except for "sff",
-"sff-trim" and "uniprot-xml", which can then not be indexed.
+for the replaced reader or writer, for the rest of the process.
+``SeqIO.index`` and ``index_db`` can index a new format whose reader is a
+``SequenceIterator`` subclass that reads text and defines
+``record_start_marker`` and ``parse_id_from_header``. Replacing a built-in
+format's reader keeps its indexing, except for "sff", "sff-trim" and
+"uniprot-xml", which can then not be indexed. For formats indexed by record
+start, such as fasta and genbank, the index then takes
+``record_start_marker`` from the replacement, and for ace, fasta, phd, pir
+and qual it also takes the keys from its ``parse_id_from_header``. A
+subclass of the built-in reader inherits both.
 ``Bio.Align.formats`` still lists the built-in formats only. A registration
 lasts until the process ends; the Tutorial's new "Adding a file format"
 sections explain where to register.

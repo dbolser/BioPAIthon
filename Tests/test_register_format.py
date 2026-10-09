@@ -563,6 +563,23 @@ class Registry(unittest.TestCase):
         self.assertIsNone(dict.__getitem__(registry, "fmt"))
         self.assertEqual(dict.__getitem__(registry, "new"), "a.b:c")
 
+    def test_entry_dropped_while_resolving(self):
+        """A lookup returns what it resolved if the entry is deleted meanwhile.
+
+        SeqIO.register_format deletes convert shortcuts, possibly while
+        another thread is importing one in SeqIO.convert.
+        """
+
+        def factory(name):
+            del registry[name]
+            return "handler"
+
+        for lookup in [FormatRegistry.__getitem__, FormatRegistry.get]:
+            with self.subTest(lookup=lookup.__name__):
+                registry = FormatRegistry({"fmt": None}, factory)
+                self.assertEqual(lookup(registry, "fmt"), "handler")
+                self.assertNotIn("fmt", registry)
+
 
 class StaysWithoutImportlibMetadata(unittest.TestCase):
     """Using the built-in formats does not import importlib.metadata."""
