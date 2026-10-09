@@ -88,7 +88,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             else:
                 lines[-1] += line.strip()
         if not lines:
-            if self._stream.tell() == 0:
+            if self._at_start():
                 raise ValueError("Empty file.")
             return
         state = ""
