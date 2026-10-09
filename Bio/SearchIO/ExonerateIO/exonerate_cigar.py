@@ -90,7 +90,7 @@ class ExonerateCigarIndexer(ExonerateVulgarIndexer):
         handle.seek(pos)
         # get line, check if it's a vulgar line, and get query ID
         line = handle.readline()
-        assert line.startswith(self._query_mark), line
+        assert line.startswith(self._query_mark), line  # noqa: S101
         id = re.search(_RE_CIGAR, line.decode())
         return id.group(1)
 

@@ -321,7 +321,7 @@ class InfernalTabParser(_BaseInfernalParser):
     def _adjust_coords(self, frag):
         """Adjust start and end coordinates according to strand (PRIVATE)."""
         strand = frag["hit_strand"]
-        assert strand is not None
+        assert strand is not None  # noqa: S101
         # switch start <--> end coordinates if strand is -1 and the strand to an integer (0 or -1)
         if strand == "-":
             hit_start = frag["hit_start"]

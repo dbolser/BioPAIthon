@@ -29,6 +29,17 @@ repos:
             '--config=lint.isort.force-single-line=true',
             '--config=lint.isort.order-by-type=false',
         ]
+    # No assert in the parser packages: python -O strips it, so a check on
+    # input must raise ValueError instead. An assert on the parser's own
+    # computed state may stay, with "# noqa: S101" on its first line (black
+    # moves a trailing comment to the last line of a wrapped statement, where
+    # ruff ignores it). Excluded: non-parser modules, and the deprecated
+    # NCBIXML and NCBIWWW. See IMPROVEMENTS.md §0.8.
+    -   id: ruff-check
+        name: ruff S101 (parser packages)
+        args: [--select=S101]
+        files: ^Bio/(Align|AlignIO|Blast|SearchIO|SeqIO)/
+        exclude: ^Bio/(Align/(substitution_matrices/|analysis\.py)|Blast/NCBI(XML|WWW)\.py)
 -   repo: https://github.com/psf/black-pre-commit-mirror
     rev: 24.10.0
     hooks:

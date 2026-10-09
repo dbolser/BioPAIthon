@@ -133,7 +133,9 @@ def FastaTwoLineParser(handle):
             f"two-line-per-record FASTA format. Have title line '{line}'"
         )
     else:
-        assert line[0] != ">", "line[0] == '>' ; this should be impossible!"
+        assert (  # noqa: S101
+            line[0] != ">"
+        ), "line[0] == '>' ; this should be impossible!"
 
 
 class FastaIterator(SequenceIterator):
@@ -256,7 +258,7 @@ the 'fasta-pearson' format, as it explicitly indicates which lines are comments.
         try:
             first_word = title.split(None, 1)[0]
         except IndexError:
-            assert not title, repr(title)
+            assert not title, repr(title)  # noqa: S101
             # Should we use SeqRecord default for no ID?
             first_word = ""
         return SeqRecord._from_validated(
@@ -293,7 +295,7 @@ class FastaTwoLineIterator(SequenceIterator):
         try:
             first_word = title.split(None, 1)[0]
         except IndexError:
-            assert not title, repr(title)
+            assert not title, repr(title)  # noqa: S101
             # Should we use SeqRecord default for no ID?
             first_word = ""
         return SeqRecord(
@@ -550,8 +552,8 @@ class FastaWriter(SequenceWriter):
             title = f"{id} {description}"
         else:
             title = id
-        assert "\n" not in title
-        assert "\r" not in title
+        assert "\n" not in title  # noqa: S101
+        assert "\r" not in title  # noqa: S101
         lines = [f">{title}\n"]
 
         data = _get_seq_string(record)  # Catches sequence being None
@@ -580,8 +582,8 @@ class FastaWriter(SequenceWriter):
             else:
                 title = id
 
-        assert "\n" not in title
-        assert "\r" not in title
+        assert "\n" not in title  # noqa: S101
+        assert "\r" not in title  # noqa: S101
         self.handle.write(f">{title}\n")
 
         data = _get_seq_string(record)  # Catches sequence being None
@@ -650,8 +652,8 @@ class FastaTwoLineWriter(FastaWriter):
             title = f"{id} {description}"
         else:
             title = id
-        assert "\n" not in title
-        assert "\r" not in title
+        assert "\n" not in title  # noqa: S101
+        assert "\r" not in title  # noqa: S101
 
         data = _get_seq_string(record)  # Catches sequence being None
         if "\n" in data or "\r" in data:

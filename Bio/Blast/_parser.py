@@ -73,8 +73,8 @@ class DTDHandler:
         self.end_methods[name] = getattr(XMLHandler, end_method)
 
     def _externalEntityRefHandler(self, context, base, systemId, publicId):
-        assert context is None
-        assert base is None
+        assert context is None  # noqa: S101
+        assert base is None  # noqa: S101
         self.parseFile(systemId)
         return 1
 
@@ -1054,7 +1054,7 @@ class XMLHandler:
                         pass
                     else:
                         # v2 XML
-                        assert query_strand == "Plus"
+                        assert query_strand == "Plus"  # noqa: S101
             if program in ("blastn", "megablast"):
                 try:
                     target_strand = hsp.hit_strand
@@ -1245,7 +1245,7 @@ class XMLHandler:
                 f"unexpected reference to external entity {systemId!r} outside "
                 f"the DOCTYPE declaration: line {self._parser.CurrentLineNumber}"
             )
-        assert base is None
+        assert base is None  # noqa: S101
         if systemId not in (
             "NCBI_BlastOutput.dtd",
             "http://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd",

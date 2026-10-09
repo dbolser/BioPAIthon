@@ -154,7 +154,7 @@ def fragcascade(attr, seq_type, doc=""):
     or ``hit`` properties of the object if they are not None.
 
     """
-    assert seq_type in ("hit", "query")
+    assert seq_type in ("hit", "query")  # noqa: S101
     attr_name = f"_{seq_type}_{attr}"
 
     def getter(self):

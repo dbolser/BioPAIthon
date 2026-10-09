@@ -627,7 +627,9 @@ class BlastXmlIndexer(SearchIndexer):
                         f" <Iteration> at offset {start_offset}, not:\n{line!r}"
                     )
                 block = b"".join(block)
-            assert block.count(qstart_mark) == 1, "XML without line breaks? %r" % block
+            assert block.count(qstart_mark) == 1, (  # noqa: S101
+                "XML without line breaks? %r" % block
+            )
             if block.count(qend_mark) != 1:
                 raise ValueError(
                     "Expected one </Iteration> closing the <Iteration> at offset"

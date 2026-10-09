@@ -22,7 +22,9 @@ class _BaseInfernalParser:
         if hid not in hit_dict:
             hit_dict[hid] = {"attrs": hit_attrs, "hsps": []}
         else:
-            assert hit_dict[hid]["attrs"]["query_id"] == hit_attrs["query_id"]
+            assert (  # noqa: S101
+                hit_dict[hid]["attrs"]["query_id"] == hit_attrs["query_id"]
+            )
             seen_description = hit_dict[hid]["attrs"]["description"]
             if seen_description != hit_attrs["description"]:
                 raise ValueError(

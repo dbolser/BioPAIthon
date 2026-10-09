@@ -513,7 +513,7 @@ class UniprotIterator(SequenceIterator):
         self._append_to_annotations("geneLocation", element.attrib["type"])
 
     def _create_record(self, entry):
-        assert entry.tag == NS + "entry"
+        assert entry.tag == NS + "entry"  # noqa: S101
         # ============================================#
         # Initialize SeqRecord
         record = SeqRecord(None, id="")

@@ -361,7 +361,7 @@ def _create_hsp(hid, qid, psl):
                 " one of each per block"
             )
     else:
-        assert len(query_range_all) == len(hit_range_all)
+        assert len(query_range_all) == len(hit_range_all)  # noqa: S101
 
     frags = []
     # iterating over query_range_all, but hit_range_all works just as well
@@ -399,7 +399,7 @@ def _create_hsp(hid, qid, psl):
             )
     # and check block spans as well
     hit_spans = [span / blocksize_multiplier for span in hsp.hit_span_all]
-    assert hit_spans == hsp.query_span_all == psl["blocksizes"]
+    assert hit_spans == hsp.query_span_all == psl["blocksizes"]  # noqa: S101
     # set its attributes
     hsp.match_num = psl["matches"]
     hsp.mismatch_num = psl["mismatches"]
@@ -451,7 +451,7 @@ class BlatPslParser:
 
     def _parse_row(self):
         """Return a dictionary of parsed column values (PRIVATE)."""
-        assert self.line
+        assert self.line  # noqa: S101
         cols = [x for x in self.line.strip().split("\t") if x]
         self._validate_cols(cols)
 

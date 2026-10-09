@@ -429,8 +429,8 @@ class HSP(_BaseHSP):
 
     # coordinate properties #
     def _get_coords(self, seq_type, coord_type):
-        assert seq_type in ("hit", "query")
-        assert coord_type in ("start", "end")
+        assert seq_type in ("hit", "query")  # noqa: S101
+        assert coord_type in ("start", "end")  # noqa: S101
         coord_name = "%s_%s" % (seq_type, coord_type)
         coords = [getattr(frag, coord_name) for frag in self.fragments]
         if None in coords:
@@ -505,7 +505,7 @@ class HSP(_BaseHSP):
 
     def _inter_ranges_get(self, seq_type):
         # this property assumes that there are no mixed strands in a hit/query
-        assert seq_type in ("query", "hit")
+        assert seq_type in ("query", "hit")  # noqa: S101
         strand = getattr(self, "%s_strand_all" % seq_type)[0]
         coords = getattr(self, "%s_range_all" % seq_type)
         # determine function used to set inter range
@@ -540,7 +540,7 @@ class HSP(_BaseHSP):
     )
 
     def _inter_spans_get(self, seq_type):
-        assert seq_type in ("query", "hit")
+        assert seq_type in ("query", "hit")  # noqa: S101
         attr_name = "%s_inter_ranges" % seq_type
         return [coord[1] - coord[0] for coord in getattr(self, attr_name)]
 
@@ -883,7 +883,7 @@ class HSPFragment(_BaseHSP):
         :type seq_type: string, choice of 'hit' or 'query'
 
         """
-        assert seq_type in ("hit", "query")
+        assert seq_type in ("hit", "query")  # noqa: S101
         if seq is None:
             return seq  # return immediately if seq is None
         else:
@@ -1034,7 +1034,7 @@ class HSPFragment(_BaseHSP):
         return strand
 
     def _get_strand(self, seq_type):
-        assert seq_type in ("hit", "query")
+        assert seq_type in ("hit", "query")  # noqa: S101
         strand = getattr(self, "_%s_strand" % seq_type)
 
         if strand is None:

@@ -685,7 +685,7 @@ def _get_sanger_quality_str(record: SeqRecord) -> str:
 
 
 # Only map 0 to 62, we need to give a warning on truncating at 62
-assert 62 + SOLEXA_SCORE_OFFSET == 126
+assert 62 + SOLEXA_SCORE_OFFSET == 126  # noqa: S101
 _phred_to_illumina_quality_str = {
     qp: chr(qp + SOLEXA_SCORE_OFFSET) for qp in range(62 + 1)
 }
@@ -760,7 +760,7 @@ def _get_illumina_quality_str(record: SeqRecord) -> str:
 
 
 # Only map 0 to 62, we need to give a warning on truncating at 62
-assert 62 + SOLEXA_SCORE_OFFSET == 126
+assert 62 + SOLEXA_SCORE_OFFSET == 126  # noqa: S101
 _solexa_to_solexa_quality_str = {
     qs: chr(min(126, qs + SOLEXA_SCORE_OFFSET)) for qs in range(-5, 62 + 1)
 }
@@ -1114,7 +1114,9 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
         if not quality_string.isascii():
             # Look for invalid non-ascii characters
             index = _find_index_where(quality_string, lambda c: not c.isascii())
-            assert index >= 0, "Non-ascii char in qualities not found. Biopython bug?"
+            assert (  # noqa: S101
+                index >= 0
+            ), "Non-ascii char in qualities not found. Biopython bug?"
 
             details = "is not an ASCII character"
             raise InvalidCharError(quality_string, index, details)
@@ -1151,7 +1153,7 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
 class FastqPhredIterator(FastqIteratorAbstractBaseClass):
     """Parser for FASTQ files."""
 
-    assert SANGER_SCORE_OFFSET == ord("!")
+    assert SANGER_SCORE_OFFSET == ord("!")  # noqa: S101
     # Originally, I used a list expression for each record:
     #
     # qualities = [ord(letter)-SANGER_SCORE_OFFSET for letter in quality_string]
@@ -1646,7 +1648,7 @@ class QualPhredIterator(SequenceIterator):
             return record
 
 
-assert SANGER_SCORE_OFFSET == ord("!")
+assert SANGER_SCORE_OFFSET == ord("!")  # noqa: S101
 
 
 class FastqPhredWriter(SequenceWriter):
@@ -2194,7 +2196,7 @@ def _fastq_sanger_convert_fastq_sanger(
         + [chr(ascii) for ascii in range(33, 127)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2214,7 +2216,7 @@ def _fastq_solexa_convert_fastq_solexa(
         + [chr(ascii) for ascii in range(59, 127)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2234,7 +2236,7 @@ def _fastq_illumina_convert_fastq_illumina(
         + [chr(ascii) for ascii in range(64, 127)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2252,7 +2254,7 @@ def _fastq_illumina_convert_fastq_sanger(
         + [chr(33 + q) for q in range(62 + 1)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2273,7 +2275,7 @@ def _fastq_sanger_convert_fastq_illumina(
         + [trunc_char for ascii in range(96, 127)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic2(
         in_file,
         out_file,
@@ -2300,7 +2302,7 @@ def _fastq_solexa_convert_fastq_sanger(
         ]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2321,7 +2323,7 @@ def _fastq_sanger_convert_fastq_solexa(
         + [trunc_char for ascii in range(96, 127)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic2(
         in_file,
         out_file,
@@ -2348,7 +2350,7 @@ def _fastq_solexa_convert_fastq_illumina(
         ]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2366,7 +2368,7 @@ def _fastq_illumina_convert_fastq_solexa(
         + [chr(64 + int(round(solexa_quality_from_phred(q)))) for q in range(62 + 1)]
         + [chr(0) for ascii in range(127, 256)]
     )
-    assert len(mapping) == 256
+    assert len(mapping) == 256  # noqa: S101
     return _fastq_generic(in_file, out_file, mapping)
 
 
@@ -2430,7 +2432,9 @@ def _fastq_convert_qual(
                 qualities_strs = [mapping[ascii_] for ascii_ in qual]
             except KeyError:
                 invalid_index = _find_index_where(qual, lambda x: x not in mapping)
-                assert invalid_index >= 0, "Invalid char not in mapping not found!"
+                assert (  # noqa: S101
+                    invalid_index >= 0
+                ), "Invalid char not in mapping not found!"
                 raise InvalidCharError(
                     qual,
                     invalid_index,
@@ -2447,7 +2451,9 @@ def _fastq_convert_qual(
                     out_handle.write(data[:59] + "\n")
                     data = data[60:]
                 else:
-                    assert data[58] == " ", "Internal logic failure in wrapping"
+                    assert (  # noqa: S101
+                        data[58] == " "
+                    ), "Internal logic failure in wrapping"
                     out_handle.write(data[:58] + "\n")
                     data = data[59:]
             out_handle.write(data + "\n")

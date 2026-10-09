@@ -207,7 +207,7 @@ class PhylipIterator(AlignmentIterator):
         except ValueError:
             raise ValueError("First line should have two integers") from None
 
-        assert self._is_header(line)
+        assert self._is_header(line)  # noqa: S101
 
         if (
             self.records_per_alignment is not None
@@ -387,7 +387,7 @@ class SequentialPhylipIterator(PhylipIterator):
         except ValueError:
             raise ValueError("First line should have two integers") from None
 
-        assert self._is_header(line)
+        assert self._is_header(line)  # noqa: S101
 
         if (
             self.records_per_alignment is not None

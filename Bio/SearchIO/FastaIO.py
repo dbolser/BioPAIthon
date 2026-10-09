@@ -400,7 +400,7 @@ class FastaM10Parser:
                             # make sure strand is different and then append hsp to
                             # existing hit
                             for hsp in hit.hsps:
-                                assert strand != hsp.query_strand
+                                assert strand != hsp.query_strand  # noqa: S101
                                 qresult[hit.id].append(hsp)
                     line = self.line
 

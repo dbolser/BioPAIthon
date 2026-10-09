@@ -87,7 +87,7 @@ class Hmmer2TextParser:
                     state = "OPTIONS"
                 continue
 
-            assert state == "OPTIONS"
+            assert state == "OPTIONS"  # noqa: S101
             if "program" not in meta:
                 raise ValueError(
                     "Expected a program line such as 'hmmpfam - search one or"

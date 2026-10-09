@@ -264,7 +264,7 @@ class BlastTabParser:
                     qres_iter = self._parse_qresult()
                 except KeyError:
                     # no fields means the query has no results
-                    assert "fields" not in comments
+                    assert "fields" not in comments  # noqa: S101
                     # create an iterator returning one empty qresult
                     # if the query has no results
                     qres_iter = iter([QueryResult()])
@@ -356,7 +356,7 @@ class BlastTabParser:
                     in_mapping = True
             # make sure that any unhandled field is not supported
             if not in_mapping:
-                assert sname not in _SUPPORTED_FIELDS
+                assert sname not in _SUPPORTED_FIELDS  # noqa: S101
 
         return {"qresult": qresult, "hit": hit, "hsp": hsp, "frag": frag}
 
@@ -488,7 +488,7 @@ class BlastTabParser:
         Returns ``HSPFragment`` frame given the object, its sequence type,
         and its parsed dictionary values.
         """
-        assert seq_type in ("query", "hit")
+        assert seq_type in ("query", "hit")  # noqa: S101
         frame = getattr(frag, "%s_frame" % seq_type, None)
         if frame is not None:
             return frame
@@ -508,7 +508,7 @@ class BlastTabParser:
         # NOTE: this will never set the strands as 0 for protein
         # queries / hits, since we can't detect the blast flavors
         # from the columns alone.
-        assert seq_type in ("query", "hit")
+        assert seq_type in ("query", "hit")  # noqa: S101
         strand = getattr(frag, "%s_strand" % seq_type, None)
         if strand is not None:
             return strand
@@ -745,7 +745,7 @@ class BlastTabWriter:
                     elif field in _COLUMN_FRAG:
                         value = getattr(hsp, _COLUMN_FRAG[field][0])
                     else:
-                        assert field not in _SUPPORTED_FIELDS
+                        assert field not in _SUPPORTED_FIELDS  # noqa: S101
                         continue
 
                     # adjust from and to according to strand, if from and to
@@ -764,7 +764,7 @@ class BlastTabWriter:
 
     def _adjust_coords(self, field, value, hsp):
         """Adjust start and end coordinates according to strand (PRIVATE)."""
-        assert field in ("qstart", "qend", "sstart", "send")
+        assert field in ("qstart", "qend", "sstart", "send")  # noqa: S101
         # determine sequence type to operate on based on field's first letter
         seq_type = "query" if field.startswith("q") else "hit"
 
