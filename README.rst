@@ -208,9 +208,9 @@ Now change directory to the Biopython source code folder and run::
     python run_tests.py
 
 Substitute ``python`` with your specific version if required, for example
-``python3``, or ``pypy3``. On PyPy, use ``pip install -e . pytest`` instead:
-the ``test`` extra needs SciPy, which has no PyPy wheels and needs OpenBLAS to
-build from source.
+``python3``, or ``pypy3``. On PyPy, use ``pip install -e . "pytest>=9"``
+instead: the ``test`` extra needs SciPy, which has no PyPy wheels and needs
+OpenBLAS to build from source.
 
 To exclude tests that require an internet connection (and which may take a
 long time), use the ``--offline`` option::
@@ -230,11 +230,12 @@ directory and type::
     python run_tests.py
 
 The ``test`` extra installs pytest, which runs the tests, and the optional
-packages the Linux CI jobs test with. ``pip install -e . pytest`` also works,
-and is what to use on PyPy (see above), but then every test needing one of
-those packages, all of ``Bio.Graphics`` included, is skipped rather than run.
-``run_tests.py`` passes its arguments on to pytest, so ``python -m pytest``
-in ``Tests`` is equivalent, and takes all of pytest's own options.
+packages the Linux CI jobs test with. ``pip install -e . "pytest>=9"`` also
+works, and is what to use on PyPy (see above), but then every test needing one
+of those packages, all of ``Bio.Graphics`` included, is skipped rather than
+run. ``run_tests.py`` passes its arguments on to pytest, so
+``python -m pytest`` in ``Tests`` is equivalent, and takes all of pytest's own
+options.
 
 If you want to skip the online tests (which is recommended when doing repeated
 testing), use::

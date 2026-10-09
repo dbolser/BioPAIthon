@@ -136,9 +136,9 @@ of them, or just those of one module:
    $ python -m pytest --offline test_docstrings.py
    $ python -m pytest test_docstrings.py::Bio.Seq
 
-pytest also works from the top level source directory, given the test
-files with their ``Tests/`` prefix. The tests still run inside
-``Tests``:
+With the editable install shown above, pytest also works from the top
+level source directory, given the test files with their ``Tests/``
+prefix. The tests still run inside ``Tests``:
 
 .. code:: console
 
