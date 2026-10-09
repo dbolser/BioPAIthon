@@ -2006,10 +2006,12 @@ class Position(ABC):
 
     if TYPE_CHECKING:
         # Every position here can be shifted and flipped, and SimpleLocation
-        # relies on both. Declared for type checkers only, so that at run time
-        # a subclass is still not required to define them.
+        # relies on both. Abstract for type checkers only: mypy requires a
+        # subclass to define them, while at run time it is still not required.
+        @abstractmethod
         def __add__(self, offset: int) -> "Position": ...
 
+        @abstractmethod
         def _flip(self, length: int) -> "Position": ...
 
     @abstractmethod

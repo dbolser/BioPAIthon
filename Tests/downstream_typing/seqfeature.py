@@ -98,5 +98,15 @@ int(UnknownPosition())  # type: ignore[call-overload]
 SimpleLocation(UnknownPosition(), 5)
 SimpleLocation("1", 5)  # type: ignore[arg-type]
 
+
+# A Position must define __add__ and _flip, which SimpleLocation relies on,
+# though nothing enforces that at run time.
+class HalfPosition(Position):
+    def __repr__(self) -> str:
+        return "HalfPosition()"
+
+
+HalfPosition()  # type: ignore[abstract]
+
 # Only None is accepted for the obsolete sub_features.
 SeqFeature(location, sub_features=[f])  # type: ignore[arg-type]
