@@ -20453,11 +20453,11 @@ scores = []
 
 
 class Finalizer:
-    # Kept alive only by a gap function's closure, so it is finalized while
-    # a setter frees that function, and then scores with the aligner.
+    # Kept alive only by a gap function's closure, so it is finalized when
+    # a setter drops that function, and then scores with the aligner.
 
     def __del__(self):
-        scores.append(aligner.score("HEAGAWGHEE", "PAWHEAE"))
+        scores.append(aligner.score(seqA, seqB))
 
 
 def make_gap_function():
@@ -20470,7 +20470,10 @@ def make_gap_function():
     return gap_function
 
 
+seqA = "HEAGAWGHEE"
+seqB = "PAWHEAE"
 aligner = Align.PairwiseAligner()
+finalized = 0
 for name, value in [
     ("gap_score", -2.0),
     ("insertion_score", -2.0),
@@ -20484,14 +20487,19 @@ for name, value in [
 ]:
     aligner.insertion_score = make_gap_function()
     aligner.deletion_score = make_gap_function()
+    del scores[:]
     setattr(aligner, name, value)
+    # Each finalizer must have seen the whole new setting.
+    expected = aligner.score(seqA, seqB)
+    assert scores and scores == [expected] * len(scores), (name, scores, expected)
+    finalized += len(scores)
+assert finalized == 13, finalized
 aligner.gap_score = -1.0
-assert len(scores) == 18, scores
 
 
 class Matrix(np.ndarray):
-    # The aligner holds the only reference, so this is finalized while the
-    # setter replaces it; by then the aligner must use the new matrix.
+    # The aligner holds the only reference, so this is finalized when the
+    # setter replaces it, and must then see the new matrix.
 
     def __del__(self):
         scores.append(aligner.score(sequence, sequence))

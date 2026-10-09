@@ -394,6 +394,82 @@ with ThreadPoolExecutor(max_workers=8) as executor:
 print("OK")
 """
 
+# Four threads count an alignment of lazy sequences, through the private
+# AlignmentCounts constructor, while two others keep replacing the
+# sequences in the list they all share and changing its length.
+COUNTS_SHARED_LIST = """\
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, Event
+
+import numpy as np
+
+from Bio.Align import _alignmentcounts
+from Bio.Seq import SequenceDataAbstractBaseClass
+
+if sys._is_gil_enabled():
+    print("SKIP: the GIL is enabled")
+    sys.exit()
+
+
+class LazyData(SequenceDataAbstractBaseClass):
+    # Sequence data read on demand, through the sequence protocol.
+
+    def __init__(self, data):
+        self.data = data
+        super().__init__()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+
+target = b"ACGTACGTAC" * 10
+query = b"ACGTTCGTAC" * 10
+sequences = [LazyData(target), LazyData(query)]
+coordinates = np.array([np.arange(0, 101, 5), np.arange(0, 101, 5)])
+strands = np.zeros(2, bool)
+barrier = Barrier(6)
+done = Event()
+
+
+def count():
+    barrier.wait()
+    for _ in range(2000):
+        try:
+            counts = _alignmentcounts.AlignmentCounts(sequences, coordinates, strands)
+        except ValueError:
+            continue  # the list had three sequences when copied
+        if (counts.identities, counts.mismatches) != (90, 10):
+            raise AssertionError(f"{counts.identities} identities")
+
+
+def change():
+    # Replace the sequences with new objects, freeing the old ones, and
+    # change the length of the list.
+    barrier.wait()
+    while not done.is_set():
+        sequences[0] = LazyData(target)
+        sequences[1] = LazyData(query)
+        sequences.append(LazyData(query))
+        del sequences[2]
+
+
+with ThreadPoolExecutor(max_workers=6) as executor:
+    changers = [executor.submit(change) for _ in range(2)]
+    try:
+        counters = [executor.submit(count) for _ in range(4)]
+        for future in counters:
+            future.result()
+    finally:
+        done.set()
+    for future in changers:
+        future.result()
+print("OK")
+"""
+
 # Four threads race to set the alphabet of a new substitution matrix.
 SET_ALPHABET = """\
 import sys
@@ -504,6 +580,14 @@ class ThreadTests(unittest.TestCase):
         Each count must be that of one of the configurations the aligner had.
         """
         self.run_child(COUNTS_WHILE_RECONFIGURED)
+
+    def test_counts_shared_list(self):
+        """Check threads can count while others change the list of sequences.
+
+        Each count must be right, or fail cleanly if the list was the wrong
+        length when it was read.
+        """
+        self.run_child(COUNTS_SHARED_LIST)
 
     def test_set_alphabet(self):
         """Check only one of several threads can set a matrix's alphabet.

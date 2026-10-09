@@ -3949,9 +3949,25 @@ static int
 Aligner_setattro(Aligner* self, PyObject* name, PyObject* value)
 {
     int status;
+    PyObject* insertion_score_function;
+    PyObject* deletion_score_function;
+    PyObject* matrix;
     Py_BEGIN_CRITICAL_SECTION(self);
+    /* A setter may drop the aligner's references to the gap functions or
+     * the substitution matrix.  Hold them until the setter has finished
+     * and the lock is released, so that a finalizer this runs sees the
+     * complete new setting, and does not run under the lock. */
+    insertion_score_function = self->insertion_score_function;
+    deletion_score_function = self->deletion_score_function;
+    matrix = self->substitution_matrix.obj;
+    Py_XINCREF(insertion_score_function);
+    Py_XINCREF(deletion_score_function);
+    Py_XINCREF(matrix);
     status = PyObject_GenericSetAttr((PyObject*)self, name, value);
     Py_END_CRITICAL_SECTION();
+    Py_XDECREF(insertion_score_function);
+    Py_XDECREF(deletion_score_function);
+    Py_XDECREF(matrix);
     return status;
 }
 

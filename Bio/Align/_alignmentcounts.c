@@ -890,8 +890,6 @@ sequence_converter(PyObject* argument, void* pointer)
     } else PyErr_Clear();
     view->buf = NULL;
     if (PySequence_Check(argument)) {
-        /* Hold our own reference, released at the end of the call. */
-        Py_INCREF(argument);
         view->obj = argument;
         return 1;
     }
@@ -1151,7 +1149,8 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     PyObject* sequence;
     Aligner snapshot;
     Aligner* aligner = NULL;
-    PyObject* sequences;
+    PyObject* list;
+    PyObject* sequences = NULL;
     Py_buffer* sequence_buffers = NULL;
     Py_buffer coordinates = {0};
     Py_buffer strands = {0};
@@ -1211,11 +1210,17 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     static char *kwlist[] = {"sequences", "coordinates", "strands", "argument", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, keywords, "O!O&O&|O", kwlist,
-                                     &PyList_Type, &sequences,
+                                     &PyList_Type, &list,
                                      coordinates_converter, &coordinates,
                                      strands_converter , &strands,
                                      &argument))
         return 0;
+
+    /* Work on a private copy of the list, which holds a reference to each
+     * sequence: the caller's list may change while the counts are made,
+     * in another thread or in a lazy sequence's __getitem__. */
+    sequences = PyList_GetSlice(list, 0, PY_SSIZE_T_MAX);
+    if (!sequences) goto exit;
 
     if (argument == NULL) {
     }
@@ -1622,12 +1627,11 @@ error:
 
 exit:
     if (sequence_buffers) {
-        for (k = 0; k < n; k++) {
+        for (k = 0; k < n; k++)
             if (sequence_buffers[k].buf) PyBuffer_Release(&sequence_buffers[k]);
-            else Py_XDECREF(sequence_buffers[k].obj);
-        }
         PyMem_Free(sequence_buffers);
     }
+    Py_XDECREF(sequences);
     coordinates_converter(NULL, &coordinates);
     strands_converter(NULL, &strands);
     substitution_matrix_converter(NULL, &substitution_matrix);
