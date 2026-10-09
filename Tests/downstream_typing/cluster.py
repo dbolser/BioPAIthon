@@ -73,6 +73,8 @@ class Table:
 
 
 somcluster(Table())
+# A memoryview has a shape, though no __array__.
+somcluster(memoryview(bytes(48)).cast("d", [3, 2]))
 
 columnmean, coordinates, components, eigenvalues = pca(data)
 

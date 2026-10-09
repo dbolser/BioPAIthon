@@ -19,9 +19,14 @@ from numpy.typing import NDArray
 _Buffer: TypeAlias = ReadableBuffer | NDArray[Any]
 # An array the function fills in place.
 _OutBuffer: TypeAlias = WriteableBuffer | NDArray[Any]
+# A row of a distance matrix given as a list: any 1D buffer of doubles.
+# The rows' type is a TypeVar because list is invariant, so a list of NumPy
+# arrays fits as well as a list of array.array("d").
+_RowT = TypeVar("_RowT", bound=_Buffer)
+_OutRowT = TypeVar("_OutRowT", bound=_OutBuffer)
 # A distance matrix: a 1D or 2D array, or a list of rows, row i holding i
 # distances.
-_DistanceMatrix: TypeAlias = _Buffer | list[NDArray[Any]]
+_DistanceMatrix: TypeAlias = _Buffer | list[_RowT]
 
 _TreeT = TypeVar("_TreeT", bound=Tree)
 # Tree takes a list of any Node subclass, such as Bio.Cluster.Node.
@@ -83,7 +88,7 @@ def kcluster(
     rng_seed: int | None = None,
 ) -> tuple[float, int]: ...
 def kmedoids(
-    distance: _DistanceMatrix,
+    distance: _DistanceMatrix[_RowT],
     nclusters: SupportsIndex,
     npass: SupportsIndex,
     clusterid: _OutBuffer,
@@ -99,7 +104,7 @@ def treecluster(
     transpose: SupportsIndex,
     method: str,
     dist: str,
-    distancematrix: _DistanceMatrix | None,
+    distancematrix: _DistanceMatrix[_RowT] | None,
 ) -> None: ...
 def somcluster(
     clusterids: _OutBuffer,
@@ -140,7 +145,7 @@ def distancematrix(
     weight: _Buffer,
     transpose: SupportsIndex,
     dist: str,
-    distancematrix: list[NDArray[Any]],
+    distancematrix: list[_OutRowT],
 ) -> None: ...
 
 # The C function ignores keyword arguments.

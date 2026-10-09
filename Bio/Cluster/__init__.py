@@ -47,7 +47,8 @@ if TYPE_CHECKING:
 
         somcluster reads data.shape before it converts data to an array.
         A NumPy array qualifies, as do other array types with a shape and
-        an __array__ method.
+        an __array__ method. A memoryview has a shape but no __array__, so
+        somcluster names it separately.
         """
 
         @property
@@ -411,7 +412,7 @@ def treecluster(
 
 
 def somcluster(
-    data: "_ShapedArrayLike",
+    data: "_ShapedArrayLike | memoryview[Any]",
     mask: "ArrayLike | None" = None,
     weight: "ArrayLike | None" = None,
     transpose: int | np.integer[Any] = False,
@@ -467,10 +468,12 @@ def somcluster(
        data values for the centroid of the cluster in the SOM grid cell
        with coordinates [ix, iy].
     """
+    # typeshed lets memoryview.shape be None, but it is a tuple in Python 3.
+    datashape = cast("tuple[int, ...]", data.shape)
     if transpose:
-        ndata, nitems = data.shape
+        ndata, nitems = datashape
     else:
-        nitems, ndata = data.shape
+        nitems, ndata = datashape
     data = __check_data(data)
     shape = data.shape
     mask = __check_mask(mask, shape)
