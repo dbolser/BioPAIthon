@@ -28,11 +28,6 @@ except ImportError:  # Python 3.10
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PYPROJECT = os.path.join(ROOT, "pyproject.toml")
 
-# Extensions not stubbed yet. Bio.Cluster._cluster gets its stub together with
-# the annotations of Bio/Cluster/__init__.py. An entry that has gained a stub
-# fails the test below, so delete it in the pull request that adds the stub.
-UNSTUBBED = {"Bio.Cluster._cluster"}
-
 
 def _extension_modules():
     """Return the dotted names of the C extensions in pyproject.toml."""
@@ -66,7 +61,7 @@ class StubCompletenessTests(unittest.TestCase):
     """Check each C extension has a stub declaring every public name it has."""
 
     def test_every_extension_has_a_stub(self):
-        """Every extension in pyproject.toml, bar UNSTUBBED, has a .pyi stub."""
+        """Every extension in pyproject.toml has a .pyi stub."""
         extensions = _extension_modules()
         # Guard against passing vacuously, if pyproject.toml were restructured.
         self.assertTrue(extensions, "found no extension module in pyproject.toml")
@@ -75,9 +70,8 @@ class StubCompletenessTests(unittest.TestCase):
         )
         self.assertEqual(
             unstubbed,
-            sorted(UNSTUBBED),
-            "each C extension needs a .pyi stub named after it, beside its "
-            "C source; UNSTUBBED must list exactly those still without one",
+            [],
+            "each C extension needs a .pyi stub named after it, beside its C source",
         )
 
     def test_stubbed_extensions_declare_public_names(self):

@@ -9,9 +9,9 @@
 #       --allowlist Tests/downstream_typing/stubtest_allowlist.txt \
 #       Bio.Align._aligncore Bio.Align._alignmentcounts \
 #       Bio.Align._codonaligner Bio.Align._pairwisealigner \
-#       Bio.Align.substitution_matrices._arraycore Bio.Nexus.cnexus \
-#       Bio.PDB._bcif_helper Bio.PDB.ccealign Bio.PDB.kdtrees \
-#       Bio.SeqIO._twoBitIO Bio.motifs._pwm
+#       Bio.Align.substitution_matrices._arraycore Bio.Cluster._cluster \
+#       Bio.Nexus.cnexus Bio.PDB._bcif_helper Bio.PDB.ccealign \
+#       Bio.PDB.kdtrees Bio.SeqIO._twoBitIO Bio.motifs._pwm
 #
 # The CI job "typing" runs it against the installed package, over every
 # extension in pyproject.toml that has a stub.
