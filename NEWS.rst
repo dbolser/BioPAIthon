@@ -59,6 +59,17 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Cluster`` now releases the GIL while its C code clusters, so other
+threads keep running, and threads clustering different data at the same time
+run in parallel on any build of Python. This covers ``kcluster``,
+``kmedoids``, ``treecluster``, ``somcluster``, ``clusterdistance``,
+``clustercentroids``, ``distancematrix`` and ``pca``. On 3.12, four threads
+each running ``treecluster`` or ``kcluster`` on their own matrix finished
+about 3.5 and 3.1 times faster than running the four calls one after another;
+before, threads gave no speed-up. A thread that writes to an array while
+another thread is clustering it may now change the result of that call.
+Ctrl-C still waits for a long clustering call to finish.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
