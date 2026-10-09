@@ -680,11 +680,12 @@ exit:
  * or NULL with an exception set; free it with PyMem_Free. Check and use
  * the copy, never the caller's array: another thread could change the
  * caller's array after the check, and the kernel would then index out of
- * bounds. */
+ * bounds. The buffer is contiguous, so view->len is its size in bytes;
+ * PyMem_Malloc(0) returns a valid pointer. */
 static int*
 copy_indices(const Py_buffer* view)
 {
-    const size_t size = (size_t)view->shape[0] * sizeof(int);
+    const size_t size = (size_t)view->len;
     int* indices = PyMem_Malloc(size);
 
     if (!indices) {
