@@ -17,10 +17,12 @@ import numbers
 from typing import Any
 from typing import cast
 from collections.abc import Iterator
+from collections.abc import Mapping
 from typing import NoReturn
 from typing import Optional
 from typing import overload
 from collections.abc import Sequence
+from typing import SupportsIndex
 from typing import TYPE_CHECKING
 from typing import Union
 
@@ -106,7 +108,8 @@ class _RestrictedDict(dict[str, Sequence[Any]]):
             )
         dict.__setitem__(self, key, value)
 
-    def update(self, new_dict):
+    # Unlike dict.update, this takes only a mapping, hence the ignore.
+    def update(self, new_dict: Mapping[str, Sequence[Any]]) -> None:  # type: ignore[override]
         # Force this to go via our strict __setitem__ method
         for key, value in new_dict.items():
             self[key] = value
@@ -222,9 +225,14 @@ class SeqRecord:
 
     """
 
-    _AnnotationsDictValue = str | int
-    _AnnotationsDict = dict[str, _AnnotationsDictValue]
+    # Values are not just str or int: GenBank and EMBL store lists (such as
+    # taxonomy and keywords) and Reference objects here.
+    _AnnotationsDict = dict[str, Any]
 
+    # The id is None only on a blank record still being built, so it is typed
+    # str | Any (typeshed's trick) rather than str | None, sparing users the
+    # narrowing; the __init__ argument stays str | None.
+    id: str | Any
     annotations: _AnnotationsDict
     dbxrefs: list[str]
     _per_letter_annotations: _RestrictedDict | None
@@ -385,8 +393,9 @@ class SeqRecord:
             self._per_letter_annotations.clear()
         dict.update(self._per_letter_annotations, value)  # type: ignore
 
+    # As for id above: None only on a blank record, so Any, not None.
     @property
-    def seq(self) -> Union["Seq", "MutableSeq"] | None:
+    def seq(self) -> Seq | MutableSeq | Any:
         """The sequence itself, as a Seq or MutableSeq object."""
         return self._seq
 
@@ -418,7 +427,7 @@ class SeqRecord:
         description: str = "<unknown description>",
         dbxrefs: list[str] | None = None,
         features: list["SeqFeature"] | None = None,
-        annotations: dict[str, str | int] | None = None,
+        annotations: _AnnotationsDict | None = None,
         letter_annotations: dict[str, Sequence] | None = None,
     ) -> "SeqRecord":
         """Faster constructor for post-validated data (PRIVATE).
@@ -478,7 +487,9 @@ class SeqRecord:
         """
         ...
 
-    def __getitem__(self, index):
+    # SupportsIndex, not int: mypy decides int and numbers.Integral cannot
+    # overlap, so with int it would skip the integer branch unchecked.
+    def __getitem__(self, index: SupportsIndex | slice) -> "str | SeqRecord":
         """Return a sub-sequence or an individual letter.
 
         Slicing, e.g. my_record[5:10], returns a new SeqRecord for
@@ -1151,7 +1162,12 @@ class SeqRecord:
             dbxrefs=self.dbxrefs[:],
         )
 
-    def count(self, sub, start=None, end=None):
+    def count(
+        self,
+        sub: str | bytes | bytearray | Seq | MutableSeq,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the number of non-overlapping occurrences of sub in seq[start:end].
 
         Optional arguments start and end are interpreted as in slice notation.
@@ -1265,14 +1281,14 @@ class SeqRecord:
             ),
         )
 
-    def isupper(self):
+    def isupper(self) -> bool:
         """Return True if all ASCII characters in the record's sequence are uppercase.
 
         If there are no cased characters, the method returns False.
         """
         return self.seq.isupper()
 
-    def islower(self):
+    def islower(self) -> bool:
         """Return True if all ASCII characters in the record's sequence are lowercase.
 
         If there are no cased characters, the method returns False.
@@ -1476,7 +1492,7 @@ class SeqRecord:
             # NOTE - In the common case of gene before CDS (and similar) with
             # the exact same locations, this will still maintain gene before CDS
 
-            def key_fun(f):
+            def key_fun(f: "SeqFeature") -> tuple[int, int]:
                 """Sort on known start position, with unknown positions last."""
                 try:
                     return (0, int(f.location.start))

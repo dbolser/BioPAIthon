@@ -59,6 +59,17 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.SeqRecord`` is now fully type-annotated. A record's ``seq`` and ``id``
+are ``None`` only on a blank record still being built, so type checkers such
+as mypy no longer make you rule out ``None`` before using them:
+``record.seq.translate()`` and ``record.id.upper()`` now pass, while a
+misuse such as ``record.seq.frobnicate()`` is still an error. The values in
+``annotations`` are typed ``Any`` rather than ``str | int``, as GenBank and
+EMBL records keep lists and ``Reference`` objects there, so
+``record.annotations["taxonomy"].append("Bacteria")`` passes too. ``count``,
+``isupper`` and ``islower`` now have types, so ``mypy --strict`` no longer
+reports calls to them as untyped. Nothing changes at run time.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
