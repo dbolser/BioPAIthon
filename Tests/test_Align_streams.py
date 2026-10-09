@@ -289,6 +289,19 @@ class TestSeekableBehaviour(unittest.TestCase):
             self.assertEqual(second, first)
             self.assertEqual(len(alignments), 5)
 
+    def test_fileno_raises_value_error(self):
+        # A stream that can seek but has no working file descriptor.
+        class Stream(StringIO):
+            def fileno(self):
+                raise ValueError("no file descriptor")
+
+        with open(EMBOSS) as handle:
+            stream = Stream(handle.read())
+        alignments = Align.parse(stream, "emboss")
+        self.assertEqual(len(alignments), 5)
+        self.assertEqual(len(list(alignments)), 5)
+        self.assertEqual(len(list(alignments)), 5)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

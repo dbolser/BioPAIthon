@@ -41,7 +41,7 @@ def _can_seek(stream):
             return False
     try:
         fileno = stream.fileno()
-    except (AttributeError, OSError):
+    except (AttributeError, OSError, ValueError):
         return True  # no file descriptor, as for StringIO
     try:
         return stat.S_ISREG(os.fstat(fileno).st_mode)
