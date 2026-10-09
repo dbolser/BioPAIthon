@@ -67,11 +67,30 @@ import re
 import warnings
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Iterator
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+from typing import overload
+from typing import TYPE_CHECKING
+from typing import TypeVar
 
 from Bio import BiopythonParserWarning
+from Bio.Data import CodonTable
 from Bio.Seq import MutableSeq
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
+
+if TYPE_CHECKING:
+    from Bio.SeqRecord import SeqRecord
+
+# A position method that returns its own class, as Bio/PDB/Entity.py does.
+_ExactPositionT = TypeVar("_ExactPositionT", bound="ExactPosition")
+_WithinPositionT = TypeVar("_WithinPositionT", bound="WithinPosition")
+_BetweenPositionT = TypeVar("_BetweenPositionT", bound="BetweenPosition")
+_BeforePositionT = TypeVar("_BeforePositionT", bound="BeforePosition")
+_AfterPositionT = TypeVar("_AfterPositionT", bound="AfterPosition")
+_OneOfPositionT = TypeVar("_OneOfPositionT", bound="OneOfPosition")
 
 # Regular expressions for location parsing
 
@@ -163,7 +182,7 @@ _re_location_category = re.compile(
 _SCALAR_TYPES = frozenset((str, int, float, type(None)))
 
 
-def _copy_qualifier_value(value):
+def _copy_qualifier_value(value: Any) -> Any:
     """Return an independent copy of one qualifier value (PRIVATE).
 
     The common case, a list of strings as every flat-file parser produces, is
@@ -203,12 +222,12 @@ class SeqFeature:
 
     def __init__(
         self,
-        location=None,
-        type="",
-        id="<unknown id>",
-        qualifiers=None,
-        sub_features=None,
-    ):
+        location: "SimpleLocation | CompoundLocation | None" = None,
+        type: str = "",
+        id: str | None = "<unknown id>",
+        qualifiers: Mapping[str, Any] | None = None,
+        sub_features: None = None,
+    ) -> None:
         """Initialize a SeqFeature on a sequence.
 
         location can either be a SimpleLocation (with strand argument also
@@ -239,16 +258,21 @@ class SeqFeature:
             raise TypeError(
                 "SimpleLocation, CompoundLocation (or None) required for the location"
             )
-        self.location = location
+        # None on a feature still being built, and on the rare one whose
+        # location a parser could not read, after a BiopythonParserWarning.
+        # So typeshed's "X | Any" trick: users need not rule out None first.
+        self.location: SimpleLocation | CompoundLocation | Any = location
         self.type = type
-        self.id = id
-        self.qualifiers = {}
+        # Bio.SwissProt leaves it None for good on a feature with no FTId, so
+        # this None is honest, not the "X | Any" case above.
+        self.id: str | None = id
+        self.qualifiers: dict[str, Any] = {}
         if qualifiers is not None:
             self.qualifiers.update(qualifiers)
         if sub_features is not None:
             raise TypeError("Rather than sub_features, use a CompoundLocation")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Check if two SeqFeature objects should be considered equal."""
         return (
             isinstance(other, SeqFeature)
@@ -258,7 +282,7 @@ class SeqFeature:
             and self.qualifiers == other.qualifiers
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Return the hash value of the SeqFeature object.
 
         The qualifiers dictionary is deliberately left out: it is mutable, so
@@ -269,7 +293,7 @@ class SeqFeature:
         """
         return hash((self.id, self.type, self.location))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the feature as a string for debugging."""
         answer = f"{self.__class__.__name__}({self.location!r}"
         if self.type:
@@ -281,7 +305,7 @@ class SeqFeature:
         answer += ")"
         return answer
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the full feature as a python string."""
         out = f"type: {self.type}\n"
         out += f"location: {self.location}\n"
@@ -292,7 +316,7 @@ class SeqFeature:
             out += f"    Key: {qual_key}, Value: {self.qualifiers[qual_key]}\n"
         return out
 
-    def _shift(self, offset):
+    def _shift(self, offset: int) -> "SeqFeature":
         """Return a copy of the feature with its location shifted (PRIVATE).
 
         The annotation qualifiers and their values are copied, so editing a
@@ -308,7 +332,7 @@ class SeqFeature:
             },
         )
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "SeqFeature":
         """Return a copy of the feature with its location flipped (PRIVATE).
 
         The argument length gives the length of the parent sequence. For
@@ -329,7 +353,46 @@ class SeqFeature:
             },
         )
 
-    def extract(self, parent_sequence, references=None):
+    @overload
+    def extract(self, parent_sequence: str, references: None = None) -> str: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: Seq | MutableSeq, references: None = None
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: None = None
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(self, parent_sequence: str, references: Mapping[str, str]) -> str: ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: Seq | MutableSeq,
+        references: Mapping[str, Seq | MutableSeq],
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: Mapping[str, "SeqRecord"]
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord]",
+    ) -> "str | Seq | SeqRecord": ...
+
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord] | None" = None,
+    ) -> "str | Seq | SeqRecord":
         """Extract the feature's sequence from supplied parent sequence.
 
         The parent_sequence can be a Seq like object or a string, and will
@@ -371,16 +434,40 @@ class SeqFeature:
             )
         return self.location.extract(parent_sequence, references=references)
 
+    @overload
     def translate(
         self,
-        parent_sequence,
-        table="Standard",
-        start_offset=None,
-        stop_symbol="*",
-        to_stop=False,
-        cds=None,
-        gap=None,
-    ):
+        parent_sequence: Seq | MutableSeq,
+        table: str | int | CodonTable.CodonTable = "Standard",
+        start_offset: int | None = None,
+        stop_symbol: str = "*",
+        to_stop: bool = False,
+        cds: bool | None = None,
+        gap: str | None = None,
+    ) -> Seq: ...
+
+    @overload
+    def translate(
+        self,
+        parent_sequence: "SeqRecord",
+        table: str | int | CodonTable.CodonTable = "Standard",
+        start_offset: int | None = None,
+        stop_symbol: str = "*",
+        to_stop: bool = False,
+        cds: bool | None = None,
+        gap: str | None = None,
+    ) -> "SeqRecord": ...
+
+    def translate(
+        self,
+        parent_sequence: "Seq | MutableSeq | SeqRecord",
+        table: str | int | CodonTable.CodonTable = "Standard",
+        start_offset: int | None = None,
+        stop_symbol: str = "*",
+        to_stop: bool = False,
+        cds: bool | None = None,
+        gap: str | None = None,
+    ) -> "Seq | SeqRecord":
         """Get a translation of the feature's sequence.
 
         This method is intended for CDS or other features that code proteins
@@ -466,7 +553,7 @@ class SeqFeature:
             gap=gap,
         )
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Boolean value of an instance of this class (True).
 
         This behavior is for backwards compatibility, since until the
@@ -480,7 +567,7 @@ class SeqFeature:
         """
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the region where the feature is located.
 
         >>> from Bio.Seq import Seq
@@ -508,7 +595,7 @@ class SeqFeature:
         """
         return len(self.location)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         """Iterate over the parent positions within the feature.
 
         The iteration order is strand aware, and can be thought of as moving
@@ -534,7 +621,7 @@ class SeqFeature:
         """
         return iter(self.location)
 
-    def __contains__(self, value):
+    def __contains__(self, value: int) -> bool:
         """Check if an integer position is within the feature.
 
         >>> from Bio.SeqFeature import SeqFeature, SimpleLocation
@@ -608,9 +695,9 @@ class Reference:
 
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the class."""
-        self.location = []
+        self.location: list[SimpleLocation | CompoundLocation] = []
         self.authors = ""
         self.consrtm = ""
         self.title = ""
@@ -619,7 +706,7 @@ class Reference:
         self.pubmed_id = ""
         self.comment = ""
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the full Reference object as a python string."""
         out = ""
         for single_location in self.location:
@@ -634,12 +721,14 @@ class Reference:
         out += f"comment: {self.comment}\n"
         return out
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the Reference object as a string for debugging."""
         # TODO - Update this is __init__ later accepts values
         return f"{self.__class__.__name__}(title={self.title!r}, ...)"
 
-    def __eq__(self, other):
+    # Only a Reference compares; anything else raises AttributeError, as it
+    # always has, so the parameter is narrower than object's.
+    def __eq__(self, other: "Reference") -> bool:  # type: ignore[override]
         """Check if two Reference objects should be considered equal.
 
         Note prior to Biopython 1.70 the location was not compared, as
@@ -656,7 +745,7 @@ class Reference:
             and self.location == other.location
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Return the hash value of the Reference object.
 
         Only the scalar fields are hashed.  ``location`` is a list, and
@@ -683,12 +772,17 @@ class Location(ABC):
     """Abstract base class representing a location."""
 
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the Location object as a string for debugging."""
         return f"{self.__class__.__name__}(...)"
 
     @staticmethod
-    def fromstring(text, length=None, circular=False, stranded=True):
+    def fromstring(
+        text: str,
+        length: int | None = None,
+        circular: bool = False,
+        stranded: bool = True,
+    ) -> "SimpleLocation | CompoundLocation":
         """Create a Location object from a string.
 
         This should accept any valid location string in the INSDC Feature Table
@@ -732,9 +826,10 @@ class Location(ABC):
         >>> Location.fromstring("AL391218.9:105173..108462", 2000000)
         SimpleLocation(ExactPosition(105172), ExactPosition(108462), strand=1, ref='AL391218.9')
 
-        >>> Location.fromstring("<2644..159", 2868, "circular")
+        >>> Location.fromstring("<2644..159", 2868, circular=True)
         CompoundLocation([SimpleLocation(BeforePosition(2643), ExactPosition(2868), strand=1), SimpleLocation(ExactPosition(0), ExactPosition(159), strand=1)], 'join')
         """
+        strand: int | None
         if text.startswith("complement("):
             if text[-1] != ")":
                 raise ValueError(f"closing bracket missing in '{text}'")
@@ -764,7 +859,7 @@ class Location(ABC):
             if strand == -1:
                 loc.parts.reverse()
             return loc
-        locs = []
+        locs: list[SimpleLocation] = []
         for part in parts:
             loc = SimpleLocation.fromstring(part, length, circular)
             if loc is None:
@@ -875,7 +970,14 @@ class SimpleLocation(Location):
     would use a BeforePosition object for the start.
     """
 
-    def __init__(self, start, end, strand=None, ref=None, ref_db=None):
+    def __init__(
+        self,
+        start: "int | Position",
+        end: "int | Position",
+        strand: int | None = None,
+        ref: str | None = None,
+        ref_db: str | None = None,
+    ) -> None:
         """Initialize the class.
 
         start and end arguments specify the values where the feature begins
@@ -932,13 +1034,13 @@ class SimpleLocation(Location):
         """
         # TODO - Check 0 <= start <= end (<= length of reference)
         if isinstance(start, Position):
-            self._start = start
+            self._start: Position = start
         elif isinstance(start, int):
             self._start = ExactPosition(start)
         else:
             raise TypeError(f"start={start!r} {type(start)}")
         if isinstance(end, Position):
-            self._end = end
+            self._end: Position = end
         elif isinstance(end, int):
             self._end = ExactPosition(end)
         else:
@@ -956,9 +1058,13 @@ class SimpleLocation(Location):
         self.ref = ref
         self.ref_db = ref_db
 
+    # There is no stranded argument, unlike Location.fromstring.
     @staticmethod
-    def fromstring(text, length=None, circular=False):
+    def fromstring(  # type: ignore[override]
+        text: str, length: int | None = None, circular: bool = False
+    ) -> "SimpleLocation | CompoundLocation":
         """Create a SimpleLocation object from a string."""
+        strand: int | None
         if text.startswith("complement("):
             text = text[11:-1]
             strand = -1
@@ -967,13 +1073,13 @@ class SimpleLocation(Location):
         # Try simple cases first for speed
         try:
             s, e = text.split("..")
-            s = int(s) - 1
-            e = int(e)
+            start = int(s) - 1
+            end = int(e)
         except ValueError:
             pass
         else:
-            if 0 <= s < e:
-                return SimpleLocation(s, e, strand)
+            if 0 <= start < end:
+                return SimpleLocation(start, end, strand)
         # Try general case
         try:
             ref, text = text.split(":")
@@ -1008,7 +1114,8 @@ class SimpleLocation(Location):
             e_pos = Position.fromstring(e)
             # We have seen Ensembl data in "GenBank Format" with length zero in the LOCUS
             # and variation features with s_pos >= e_pos - they are not origin wrapping!
-            if e_pos <= s_pos and length and s_pos < length:
+            # (No "?" gets this far, so neither position is an UnknownPosition.)
+            if e_pos <= s_pos and length and s_pos < length:  # type: ignore[operator]
                 # Assuming this is meant to be origin wrapping.
                 # Create a CompoundLocation of the wrapped feature,
                 # consisting of two SimpleLocation objects to extend to
@@ -1042,24 +1149,24 @@ class SimpleLocation(Location):
             # NOTE - We can imagine between locations like "2^4", but this
             # is just "3".  Similarly, "2^5" is just "3..4"
             s, e = text.split("^")
-            s = int(s)
-            e = int(e)
-            if s + 1 == e or (s == length and e == 1):
-                s_pos = ExactPosition(s)
+            start = int(s)
+            end = int(e)
+            if start + 1 == end or (start == length and end == 1):
+                s_pos = ExactPosition(start)
                 e_pos = s_pos
             else:
                 raise LocationParserError(f"invalid feature location '{text}'")
-        if s_pos < 0:
+        if s_pos < 0:  # type: ignore[operator]  # not an UnknownPosition, as above
             raise LocationParserError(
                 f"negative starting position in feature location '{text}'"
             )
         return SimpleLocation(s_pos, e_pos, strand, ref=ref)
 
-    def _get_strand(self):
+    def _get_strand(self) -> int | None:
         """Get function for the strand property (PRIVATE)."""
         return self._strand
 
-    def _set_strand(self, value):
+    def _set_strand(self, value: int | None) -> None:
         """Set function for the strand property (PRIVATE)."""
         if value not in [+1, -1, 0, None]:
             raise ValueError(f"Strand should be +1, -1, 0 or None, not {value!r}")
@@ -1071,7 +1178,7 @@ class SimpleLocation(Location):
         doc="Strand of the location (+1, -1, 0 or None).",
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the SimpleLocation object (with python counting).
 
         For the simple case this uses the python splicing syntax, [122:150]
@@ -1094,7 +1201,7 @@ class SimpleLocation(Location):
             # strand = 0, stranded but strand unknown, ? in GFF3
             return answer + "(?)"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the SimpleLocation object as a string for debugging."""
         optional = ""
         if self.strand is not None:
@@ -1105,7 +1212,15 @@ class SimpleLocation(Location):
             optional += f", ref_db={self.ref_db!r}"
         return f"{self.__class__.__name__}({self.start!r}, {self.end!r}{optional})"
 
-    def __add__(self, other):
+    @overload
+    def __add__(self, other: "SimpleLocation") -> "CompoundLocation": ...
+
+    @overload
+    def __add__(self, other: int) -> "SimpleLocation": ...
+
+    def __add__(
+        self, other: "SimpleLocation | int"
+    ) -> "SimpleLocation | CompoundLocation":
         """Combine location with another SimpleLocation object, or shift it.
 
         You can add two feature locations to make a join CompoundLocation:
@@ -1153,14 +1268,14 @@ class SimpleLocation(Location):
             # This will allow CompoundLocation's __radd__ to be called:
             return NotImplemented
 
-    def __radd__(self, other):
+    def __radd__(self, other: int) -> "SimpleLocation":
         """Return a SimpleLocation object by shifting the location by an integer amount."""
         if isinstance(other, int):
             return self._shift(other)
         else:
             return NotImplemented
 
-    def __sub__(self, other):
+    def __sub__(self, other: int) -> "SimpleLocation":
         """Subtracting an integer will shift the start and end by that amount.
 
         >>> from Bio.SeqFeature import SimpleLocation
@@ -1178,7 +1293,7 @@ class SimpleLocation(Location):
         else:
             return NotImplemented
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return True regardless of the length of the location.
 
         This behavior is for backwards compatibility, since until the
@@ -1189,7 +1304,7 @@ class SimpleLocation(Location):
         """
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the region described by the SimpleLocation object.
 
         Note that extra care may be needed for fuzzy locations, e.g.
@@ -1200,9 +1315,11 @@ class SimpleLocation(Location):
         >>> len(loc)
         5
         """
-        return int(self._end) - int(self._start)
+        # This raises TypeError for an UnknownPosition, which is not an int,
+        # as do __contains__, __iter__ and extract.
+        return int(self._end) - int(self._start)  # type: ignore[call-overload]
 
-    def __contains__(self, value):
+    def __contains__(self, value: int) -> bool:
         """Check if an integer position is within the SimpleLocation object.
 
         Note that extra care may be needed for fuzzy locations, e.g.
@@ -1220,12 +1337,12 @@ class SimpleLocation(Location):
                 "Currently we only support checking for integer "
                 "positions being within a SimpleLocation."
             )
-        if value < self._start or value >= self._end:
+        if value < self._start or value >= self._end:  # type: ignore[operator]
             return False
         else:
             return True
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         """Iterate over the parent positions within the SimpleLocation object.
 
         >>> from Bio.SeqFeature import SimpleLocation
@@ -1251,11 +1368,11 @@ class SimpleLocation(Location):
         [9, 8, 7, 6, 5]
         """
         if self.strand == -1:
-            yield from range(self._end - 1, self._start - 1, -1)
+            yield from range(self._end - 1, self._start - 1, -1)  # type: ignore[operator]
         else:
-            yield from range(self._start, self._end)
+            yield from range(self._start, self._end)  # type: ignore[call-overload]
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Implement equality by comparing all the location attributes.
 
         See also __hash__, which is kept consistent with this method.
@@ -1270,7 +1387,7 @@ class SimpleLocation(Location):
             and self.ref_db == other.ref_db
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Implement hash with all the location attributes.
 
         Based on start, end, strand, ref and ref_db, matching the attributes
@@ -1282,7 +1399,7 @@ class SimpleLocation(Location):
         """
         return hash((self._start, self._end, self._strand, self.ref, self.ref_db))
 
-    def _shift(self, offset):
+    def _shift(self, offset: int) -> "SimpleLocation":
         """Return a copy of the SimpleLocation shifted by an offset (PRIVATE).
 
         Returns self when location is relative to an external reference.
@@ -1296,7 +1413,7 @@ class SimpleLocation(Location):
             strand=self.strand,
         )
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "SimpleLocation":
         """Return a copy of the location after the parent is reversed (PRIVATE).
 
         Returns self when location is relative to an external reference.
@@ -1318,7 +1435,7 @@ class SimpleLocation(Location):
         )
 
     @property
-    def parts(self):
+    def parts(self) -> list["SimpleLocation"]:
         """Read only list of sections (always one, the SimpleLocation object).
 
         This is a convenience property allowing you to write code handling
@@ -1327,8 +1444,12 @@ class SimpleLocation(Location):
         """
         return [self]
 
+    # A position is an int, apart from the rare UnknownPosition, on which
+    # arithmetic fails at run time anyway. So start and end use typeshed's
+    # "X | Any" trick: users need not narrow them to do arithmetic, yet an
+    # isinstance check still narrows them to a position class.
     @property
-    def start(self):
+    def start(self) -> int | Any:
         """Start location - left most (minimum) value, regardless of strand.
 
         Read only, returns an integer like position object, possibly a fuzzy
@@ -1337,7 +1458,7 @@ class SimpleLocation(Location):
         return self._start
 
     @property
-    def end(self):
+    def end(self) -> int | Any:
         """End location - right most (maximum) value, regardless of strand.
 
         Read only, returns an integer like position object, possibly a fuzzy
@@ -1345,7 +1466,46 @@ class SimpleLocation(Location):
         """
         return self._end
 
-    def extract(self, parent_sequence, references=None):
+    @overload
+    def extract(self, parent_sequence: str, references: None = None) -> str: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: Seq | MutableSeq, references: None = None
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: None = None
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(self, parent_sequence: str, references: Mapping[str, str]) -> str: ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: Seq | MutableSeq,
+        references: Mapping[str, Seq | MutableSeq],
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: Mapping[str, "SeqRecord"]
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord]",
+    ) -> "str | Seq | SeqRecord": ...
+
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord] | None" = None,
+    ) -> "str | Seq | SeqRecord":
         """Extract the sequence from supplied parent sequence using the SimpleLocation object.
 
         The parent_sequence can be a Seq like object or a string, and will
@@ -1374,7 +1534,8 @@ class SimpleLocation(Location):
                     f"Feature references another sequence ({self.ref}),"
                     " not found in references"
                 )
-            parent_sequence = references[self.ref]
+            # self.ref is a key of references by now, so it is a str.
+            parent_sequence = references[self.ref]  # type: ignore[index]
         f_seq = parent_sequence[int(self.start) : int(self.end)]
         if isinstance(f_seq, MutableSeq):
             f_seq = Seq(f_seq)
@@ -1389,7 +1550,7 @@ FeatureLocation = SimpleLocation  # OBSOLETE; for backward compatibility only.
 class CompoundLocation(Location):
     """For handling joins etc where a feature location has several parts."""
 
-    def __init__(self, parts, operator="join"):
+    def __init__(self, parts: Sequence[SimpleLocation], operator: str = "join") -> None:
         """Initialize the class.
 
         >>> from Bio.SeqFeature import SimpleLocation, CompoundLocation
@@ -1464,15 +1625,15 @@ class CompoundLocation(Location):
                 f"CompoundLocation should have at least 2 parts, not {parts!r}"
             )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the CompoundLocation object (with python counting)."""
         return "%s{%s}" % (self.operator, ", ".join(str(loc) for loc in self.parts))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the CompoundLocation object as string for debugging."""
         return f"{self.__class__.__name__}({self.parts!r}, {self.operator!r})"
 
-    def _get_strand(self):
+    def _get_strand(self) -> int | None:
         """Get function for the strand property (PRIVATE)."""
         # Historically a join on the reverse strand has been represented
         # in Biopython with both the parent SeqFeature and its children
@@ -1485,7 +1646,7 @@ class CompoundLocation(Location):
         else:
             return None  # i.e. mixed strands
 
-    def _set_strand(self, value):
+    def _set_strand(self, value: int | None) -> None:
         """Set function for the strand property (PRIVATE)."""
         # Should this be allowed/encouraged?
         for loc in self.parts:
@@ -1525,7 +1686,9 @@ class CompoundLocation(Location):
         """,
     )
 
-    def __add__(self, other):
+    def __add__(
+        self, other: "SimpleLocation | CompoundLocation | int"
+    ) -> "CompoundLocation":
         """Combine locations, or shift the location by an integer offset.
 
         >>> from Bio.SeqFeature import SimpleLocation
@@ -1572,7 +1735,7 @@ class CompoundLocation(Location):
         else:
             raise NotImplementedError
 
-    def __radd__(self, other):
+    def __radd__(self, other: SimpleLocation | int) -> "CompoundLocation":
         """Add a feature to the left."""
         if isinstance(other, SimpleLocation):
             return CompoundLocation([other] + self.parts, self.operator)
@@ -1581,14 +1744,14 @@ class CompoundLocation(Location):
         else:
             raise NotImplementedError
 
-    def __contains__(self, value):
+    def __contains__(self, value: int) -> bool:
         """Check if an integer position is within the CompoundLocation object."""
         for loc in self.parts:
             if value in loc:
                 return True
         return False
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Return True regardless of the length of the location.
 
         This behavior is for backwards compatibility, since until the
@@ -1599,16 +1762,16 @@ class CompoundLocation(Location):
         """
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the CompoundLocation object."""
         return sum(len(loc) for loc in self.parts)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         """Iterate over the parent positions within the CompoundLocation object."""
         for loc in self.parts:
             yield from loc
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Check if all parts of CompoundLocation are equal to all parts of other CompoundLocation.
 
         See also __hash__, which is kept consistent with this method.
@@ -1624,7 +1787,7 @@ class CompoundLocation(Location):
                 return False
         return True
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Implement hash with all the location attributes.
 
         Based on operator and parts, matching the attributes used by
@@ -1637,13 +1800,13 @@ class CompoundLocation(Location):
         """
         return hash((self.operator, tuple(self.parts)))
 
-    def _shift(self, offset):
+    def _shift(self, offset: int) -> "CompoundLocation":
         """Return a copy of the CompoundLocation shifted by an offset (PRIVATE)."""
         return CompoundLocation(
             [loc._shift(offset) for loc in self.parts], self.operator
         )
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "CompoundLocation":
         """Return a copy of the locations after the parent is reversed (PRIVATE).
 
         Note that the order of the parts is NOT reversed unless all parts
@@ -1739,7 +1902,7 @@ class CompoundLocation(Location):
             )
 
     @property
-    def start(self):
+    def start(self) -> int | Any:
         """Start location - left most (minimum) value, regardless of strand.
 
         Read only, returns an integer like position object, possibly a fuzzy
@@ -1751,7 +1914,7 @@ class CompoundLocation(Location):
         return min(loc.start for loc in self.parts)
 
     @property
-    def end(self):
+    def end(self) -> int | Any:
         """End location - right most (maximum) value, regardless of strand.
 
         Read only, returns an integer like position object, possibly a fuzzy
@@ -1763,16 +1926,55 @@ class CompoundLocation(Location):
         return max(loc.end for loc in self.parts)
 
     @property
-    def ref(self):
+    def ref(self) -> None:
         """Not present in CompoundLocation, dummy method for API compatibility."""
         return None
 
     @property
-    def ref_db(self):
+    def ref_db(self) -> None:
         """Not present in CompoundLocation, dummy method for API compatibility."""
         return None
 
-    def extract(self, parent_sequence, references=None):
+    @overload
+    def extract(self, parent_sequence: str, references: None = None) -> str: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: Seq | MutableSeq, references: None = None
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: None = None
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(self, parent_sequence: str, references: Mapping[str, str]) -> str: ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: Seq | MutableSeq,
+        references: Mapping[str, Seq | MutableSeq],
+    ) -> Seq: ...
+
+    @overload
+    def extract(
+        self, parent_sequence: "SeqRecord", references: Mapping[str, "SeqRecord"]
+    ) -> "SeqRecord": ...
+
+    @overload
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord]",
+    ) -> "str | Seq | SeqRecord": ...
+
+    def extract(
+        self,
+        parent_sequence: "str | Seq | MutableSeq | SeqRecord",
+        references: "Mapping[str, str | Seq | MutableSeq | SeqRecord] | None" = None,
+    ) -> "str | Seq | SeqRecord":
         """Extract the sequence from supplied parent sequence using the CompoundLocation object.
 
         The parent_sequence can be a Seq like object or a string, and will
@@ -1802,13 +2004,23 @@ class CompoundLocation(Location):
 class Position(ABC):
     """Abstract base class representing a position."""
 
+    if TYPE_CHECKING:
+        # Every position here can be shifted and flipped, and SimpleLocation
+        # relies on both. Abstract for type checkers only: mypy requires a
+        # subclass to define them, while at run time it is still not required.
+        @abstractmethod
+        def __add__(self, offset: int) -> "Position": ...
+
+        @abstractmethod
+        def _flip(self, length: int) -> "Position": ...
+
     @abstractmethod
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the Position object as a string for debugging."""
         return f"{self.__class__.__name__}(...)"
 
     @staticmethod
-    def fromstring(text, offset=0):
+    def fromstring(text: str, offset: int = 0) -> "Position":
         """Build a Position object from the text string.
 
         For an end position, leave offset as zero (default):
@@ -1937,27 +2149,29 @@ class ExactPosition(int, Position):
 
     """
 
-    def __new__(cls, position, extension=0):
+    def __new__(
+        cls: type[_ExactPositionT], position: int, extension: int = 0
+    ) -> _ExactPositionT:
         """Create an ExactPosition object."""
         if extension != 0:
             raise AttributeError(f"Non-zero extension {extension} for exact position.")
         return int.__new__(cls, position)
 
     # Must define this on Python 3.8 onwards because we redefine __repr__
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the ExactPosition object (with python counting)."""
         return str(int(self))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the ExactPosition object as a string for debugging."""
         return "%s(%i)" % (self.__class__.__name__, int(self))
 
-    def __add__(self, offset):
+    def __add__(self: _ExactPositionT, offset: int) -> _ExactPositionT:
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         # By default preserve any subclass
         return self.__class__(int(self) + offset)
 
-    def _flip(self, length):
+    def _flip(self: _ExactPositionT, length: int) -> _ExactPositionT:
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         # By default preserve any subclass
         return self.__class__(length - int(self))
@@ -1977,19 +2191,19 @@ class UnknownPosition(Position):
     This is used in UniProt, e.g. ? or in the XML as unknown.
     """
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the UnknownPosition object as a string for debugging."""
         return f"{self.__class__.__name__}()"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Return the hash value of the UnknownPosition object."""
         return hash(None)
 
-    def __add__(self, offset):
+    def __add__(self, offset: int) -> "UnknownPosition":
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         return self
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "UnknownPosition":
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return self
 
@@ -2063,7 +2277,12 @@ class WithinPosition(int, Position):
 
     """
 
-    def __new__(cls, position, left, right):
+    _left: int
+    _right: int
+
+    def __new__(
+        cls: type[_WithinPositionT], position: int, left: int, right: int
+    ) -> _WithinPositionT:
         """Create a WithinPosition object."""
         if not (position == left or position == right):
             raise RuntimeError(
@@ -2075,14 +2294,15 @@ class WithinPosition(int, Position):
         obj._right = right
         return obj
 
-    def __getnewargs__(self):
+    # More than int's, as __new__ takes more.
+    def __getnewargs__(self) -> tuple[int, int, int]:  # type: ignore[override]
         """Return the arguments accepted by __new__.
 
         Necessary to allow pickling and unpickling of class instances.
         """
         return (int(self), self._left, self._right)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the WithinPosition object as a string for debugging."""
         return "%s(%i, left=%i, right=%i)" % (
             self.__class__.__name__,
@@ -2091,17 +2311,17 @@ class WithinPosition(int, Position):
             self._right,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the WithinPosition object (with python counting)."""
         return f"({self._left}.{self._right})"
 
-    def __add__(self, offset):
+    def __add__(self: _WithinPositionT, offset: int) -> _WithinPositionT:
         """Return a copy of the position object with its location shifted."""
         return self.__class__(
             int(self) + offset, self._left + offset, self._right + offset
         )
 
-    def _flip(self, length):
+    def _flip(self: _WithinPositionT, length: int) -> _WithinPositionT:
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return self.__class__(
             length - int(self), length - self._right, length - self._left
@@ -2167,7 +2387,12 @@ class BetweenPosition(int, Position):
 
     """
 
-    def __new__(cls, position, left, right):
+    _left: int
+    _right: int
+
+    def __new__(
+        cls: type[_BetweenPositionT], position: int, left: int, right: int
+    ) -> _BetweenPositionT:
         """Create a new instance in BetweenPosition object."""
         if not (position == left or position == right):
             raise ValueError(
@@ -2180,14 +2405,15 @@ class BetweenPosition(int, Position):
         obj._right = right
         return obj
 
-    def __getnewargs__(self):
+    # More than int's, as __new__ takes more.
+    def __getnewargs__(self) -> tuple[int, int, int]:  # type: ignore[override]
         """Return the arguments accepted by __new__.
 
         Necessary to allow pickling and unpickling of class instances.
         """
         return (int(self), self._left, self._right)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the BetweenPosition object as a string for debugging."""
         return "%s(%i, left=%i, right=%i)" % (
             self.__class__.__name__,
@@ -2196,17 +2422,17 @@ class BetweenPosition(int, Position):
             self._right,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the BetweenPosition object (with python counting)."""
         return f"({self._left}^{self._right})"
 
-    def __add__(self, offset):
+    def __add__(self: _BetweenPositionT, offset: int) -> _BetweenPositionT:
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         return self.__class__(
             int(self) + offset, self._left + offset, self._right + offset
         )
 
-    def _flip(self, length):
+    def _flip(self: _BetweenPositionT, length: int) -> _BetweenPositionT:
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return self.__class__(
             length - int(self), length - self._right, length - self._left
@@ -2247,25 +2473,27 @@ class BeforePosition(int, Position):
     """
 
     # Subclasses int so can't use __init__
-    def __new__(cls, position, extension=0):
+    def __new__(
+        cls: type[_BeforePositionT], position: int, extension: int = 0
+    ) -> _BeforePositionT:
         """Create a new instance in BeforePosition object."""
         if extension != 0:
             raise AttributeError(f"Non-zero extension {extension} for exact position.")
         return int.__new__(cls, position)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the location as a string for debugging."""
         return "%s(%i)" % (self.__class__.__name__, int(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the BeforePosition object (with python counting)."""
         return f"<{int(self)}"
 
-    def __add__(self, offset):
+    def __add__(self: _BeforePositionT, offset: int) -> _BeforePositionT:
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         return self.__class__(int(self) + offset)
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "AfterPosition":
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return AfterPosition(length - int(self))
 
@@ -2311,25 +2539,27 @@ class AfterPosition(int, Position):
     """
 
     # Subclasses int so can't use __init__
-    def __new__(cls, position, extension=0):
+    def __new__(
+        cls: type[_AfterPositionT], position: int, extension: int = 0
+    ) -> _AfterPositionT:
         """Create a new instance of the AfterPosition object."""
         if extension != 0:
             raise AttributeError(f"Non-zero extension {extension} for exact position.")
         return int.__new__(cls, position)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the location as a string for debugging."""
         return "%s(%i)" % (self.__class__.__name__, int(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the AfterPosition object (with python counting)."""
         return f">{int(self)}"
 
-    def __add__(self, offset):
+    def __add__(self: _AfterPositionT, offset: int) -> _AfterPositionT:
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         return self.__class__(int(self) + offset)
 
-    def _flip(self, length):
+    def _flip(self, length: int) -> "BeforePosition":
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return BeforePosition(length - int(self))
 
@@ -2367,7 +2597,11 @@ class OneOfPosition(int, Position):
 
     """
 
-    def __new__(cls, position, choices):
+    position_choices: Sequence[Position]
+
+    def __new__(
+        cls: type[_OneOfPositionT], position: int, choices: Sequence[Position]
+    ) -> _OneOfPositionT:
         """Initialize with a set of possible positions.
 
         choices is a list of Position derived objects, specifying possible
@@ -2375,7 +2609,8 @@ class OneOfPosition(int, Position):
 
         position is an integer specifying the default behavior.
         """
-        if position not in choices:
+        # The choices are int positions such as ExactPosition.
+        if position not in choices:  # type: ignore[comparison-overlap]
             raise ValueError(
                 f"OneOfPosition: {position!r} should match one of {choices!r}"
             )
@@ -2383,14 +2618,17 @@ class OneOfPosition(int, Position):
         obj.position_choices = choices
         return obj
 
-    def __getnewargs__(self):
+    # More than int's, as __new__ takes more.
+    def __getnewargs__(  # type: ignore[override]
+        self,
+    ) -> tuple[int, Sequence[Position]]:
         """Return the arguments accepted by __new__.
 
         Necessary to allow pickling and unpickling of class instances.
         """
         return (int(self), self.position_choices)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Represent the OneOfPosition object as a string for debugging."""
         return "%s(%i, choices=%r)" % (
             self.__class__.__name__,
@@ -2398,7 +2636,7 @@ class OneOfPosition(int, Position):
             self.position_choices,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return a representation of the OneOfPosition object (with python counting)."""
         out = "one-of("
         for position in self.position_choices:
@@ -2406,13 +2644,13 @@ class OneOfPosition(int, Position):
         # replace the last comma with the closing parenthesis
         return out[:-1] + ")"
 
-    def __add__(self, offset):
+    def __add__(self: _OneOfPositionT, offset: int) -> _OneOfPositionT:
         """Return a copy of the position object with its location shifted (PRIVATE)."""
         return self.__class__(
             int(self) + offset, [p + offset for p in self.position_choices]
         )
 
-    def _flip(self, length):
+    def _flip(self: _OneOfPositionT, length: int) -> _OneOfPositionT:
         """Return a copy of the location after the parent is reversed (PRIVATE)."""
         return self.__class__(
             length - int(self), [p._flip(length) for p in self.position_choices[::-1]]

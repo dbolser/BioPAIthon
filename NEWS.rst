@@ -59,6 +59,21 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.SeqFeature`` is now fully type-annotated. A feature's ``extract``
+returns a ``str`` for a ``str``, a ``Seq`` for a ``Seq`` or ``MutableSeq``,
+and a ``SeqRecord`` for a ``SeqRecord``, as it does at run time, and
+``translate`` returns a ``Seq`` or a ``SeqRecord`` the same way. A location's
+``start`` and ``end`` are typed ``int | Any``: a position is an ``int``,
+except the rare ``UnknownPosition``, so coordinates need no narrowing before
+arithmetic. Likewise mypy asks for no ``None`` check on
+``SeqFeature.location``. It is ``None`` only on a feature still being built,
+or after a parser warned that it could not read the location, so code handling
+those should check it. A feature's ``id`` is ``str | None``, because
+``Bio.SwissProt`` leaves it ``None`` on a feature with no FTId. Adding two
+locations gives a ``CompoundLocation``, adding an integer shifts one, and
+shifting a position keeps its class. Nothing changes at run time, but code
+checked with mypy may see new errors where these values were ``Any`` before.
+
 ``Bio.Align``'s Stockholm reader now reads the per-residue annotations of
 ``#=GR`` lines by column. A ``#=GR`` line has one character per alignment
 column, and each sequence now keeps the characters in the columns where it has
