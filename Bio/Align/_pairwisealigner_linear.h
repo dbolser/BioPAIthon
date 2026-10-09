@@ -100,7 +100,8 @@ struct LinearPaths {
     bool primed;         /* paths has already yielded the first path */
     Py_ssize_t position; /* paths returned since the last reset */
     PyThread_type_lock lock;
-    bool locked;         /* lock and owner are read and set under the GIL */
+    bool locked;         /* locked and owner are read and set in a critical
+                          * section on the object */
     unsigned long owner;
 };
 
@@ -128,12 +129,19 @@ static size_t linear_block_bytes = (size_t)16 << 20;
 /* next(), len() and reset() hold the lock throughout, so that calls from
  * other threads wait while the GIL is released.  Signal handlers run while
  * it is held, so a call from the thread holding it fails rather than
- * waiting for itself. */
+ * waiting for itself.  Without the GIL, another thread could read locked
+ * and owner while the thread taking the lock has set only one of them, and
+ * so take itself for the holder; the critical sections make each pair of
+ * reads and writes one step. */
 static int
 linear_lock(LinearPaths* self)
 {
     const unsigned long thread = PyThread_get_thread_ident();
-    if (self->locked && self->owner == thread) {
+    bool held;
+    Py_BEGIN_CRITICAL_SECTION(self);
+    held = self->locked && self->owner == thread;
+    Py_END_CRITICAL_SECTION();
+    if (held) {
         PyErr_SetString(PyExc_RuntimeError,
                         "alignments used while they are being computed");
         return -1;
@@ -143,15 +151,19 @@ linear_lock(LinearPaths* self)
         PyThread_acquire_lock(self->lock, 1);
         Py_END_ALLOW_THREADS
     }
+    Py_BEGIN_CRITICAL_SECTION(self);
     self->locked = true;
     self->owner = thread;
+    Py_END_CRITICAL_SECTION();
     return 0;
 }
 
 static void
 linear_unlock(LinearPaths* self)
 {
+    Py_BEGIN_CRITICAL_SECTION(self);
     self->locked = false;
+    Py_END_CRITICAL_SECTION();
     PyThread_release_lock(self->lock);
 }
 

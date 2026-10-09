@@ -612,6 +612,57 @@ with ThreadPoolExecutor(max_workers=4) as executor:
 print("OK")
 """
 
+# Eight threads share the alignments of one linear-space traceback, mostly
+# taking their length, which takes and releases their lock each time. A
+# thread that held the lock before must not take itself for the holder
+# while another thread is taking it.
+SHARED_LINEAR_PATHS = """\
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
+from Bio.Align import PairwiseAligner, _pairwisealigner
+
+if sys._is_gil_enabled():
+    print("SKIP: the GIL is enabled")
+    sys.exit()
+
+aligner = PairwiseAligner(mismatch_score=0, gap_score=0)  # Needleman-Wunsch
+seqA = "GAACTTGACGTTAGCCTA"
+seqB = "GACATGACGTAACCA"
+expected = set(aligner.align(seqA, seqB)._paths)
+previous = _pairwisealigner._set_traceback_limits(-1, 1, 1)  # always linear
+try:
+    paths = aligner.align(seqA, seqB)._paths
+finally:
+    _pairwisealigner._set_traceback_limits(*previous)
+if type(paths).__name__ != "LinearPaths":
+    raise AssertionError(f"got {type(paths).__name__}")
+barrier = Barrier(8)
+
+
+def work(i):
+    barrier.wait()
+    for j in range(20000):
+        if j % 100 == i:
+            paths.reset()
+        elif j % 10 == 0:
+            try:
+                path = next(paths)
+            except StopIteration:
+                continue
+            if path not in expected:
+                raise AssertionError(f"unexpected path {path}")
+        elif len(paths) != len(expected):
+            raise AssertionError(f"{len(paths)} paths, expected {len(expected)}")
+
+
+with ThreadPoolExecutor(max_workers=8) as executor:
+    for future in [executor.submit(work, i) for i in range(8)]:
+        future.result()
+print("OK")
+"""
+
 
 @unittest.skipUnless(
     sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
@@ -689,6 +740,13 @@ class ThreadTests(unittest.TestCase):
         """
         env = dict(os.environ, PYTHONMALLOC="debug")
         self.run_child(RELEASE_MATRIX_WHILE_RECONFIGURED, env=env)
+
+    def test_shared_linear_paths(self):
+        """Check threads can count, iterate over and reset linear-space alignments.
+
+        No thread may take itself for the one computing them.
+        """
+        self.run_child(SHARED_LINEAR_PATHS)
 
 
 if __name__ == "__main__":
