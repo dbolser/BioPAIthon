@@ -135,6 +135,10 @@ request, e.g.::
     $ python run_tests.py
     $ git commit ...
 
+The ``dev`` dependency group brings pytest, which runs the tests.
+``python -m pytest`` in ``Tests`` is equivalent to ``python run_tests.py``,
+and takes all of pytest's own options.
+
 Have a look at the `related chapter <http://biopython.org/DIST/docs/tutorial/Tutorial.html#chapter%3Atesting>`_ in the documentation for more details.
 
 Online Entrez tests require an NCBI API key supplied through the

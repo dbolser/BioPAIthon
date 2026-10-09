@@ -1597,7 +1597,23 @@ module, removing the cwd dependency entirely and unlocking parallelism. Delete
 the `os.chdir("Tests")` in `test_PDB_StructureAlignment.py:225`.
 **Effort M · Impact high**
 
-### 4.3 The runner reports 501 "tests" that are really 3,050 test cases, and discards their output
+### 4.3 The runner reports 501 "tests" that are really 3,050 test cases, and discards their output **[runner FIXED, parallel runs open]**
+
+> **Status: pytest is the runner.** PR #175 replaced the bespoke runner
+> with pytest 9, keeping the `unittest.TestCase` tests. Results are per
+> test, a test's output is shown when it fails, and `-k`, `-x`, `--lf`,
+> `--durations` and `--junitxml` all work. `run_tests.py` is
+> now a shim that translates its old command line, so documented
+> commands stay valid. The doctests are not collected with
+> `--doctest-modules`, as the fix below proposed, but by name through
+> `Tests/test_docstrings.py`, one test per docstring, with failures
+> shown inline. From `Tests/`, `--doctest-modules` cannot see
+> `Tests/conftest.py`, and a root conftest would import the source
+> tree ahead of the installed package CI tests. PR #193 documented
+> pytest in the Tutorial's testing chapter, `README.rst` and
+> `CONTRIBUTING.rst`. Still open: parallel runs with pytest-xdist, CI
+> calling pytest directly, and dropping the session `chdir` into
+> `Tests/`.
 
 `Ran 501 tests` counts *modules* (209 unit-test + 292 doctest). Loading them
 individually gives 3,050 actual test cases. Worse,
