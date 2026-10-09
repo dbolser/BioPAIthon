@@ -705,7 +705,7 @@ the acceptance gate.
 > `FormatRegistry` (`Bio/_io_registry.py`). SeqIO and `Bio.Align` look format
 > names up through it, and `Bio.Phylo` has too since PR #174, so a
 > `Bio.Align` format name no longer has to be a module name. PR #185 added
-> `register_format()` to SeqIO and `Bio.Align`, and PR #NNN the entry-point
+> `register_format()` to SeqIO and `Bio.Align`, and PR #198 the entry-point
 > plugins, both following the "Decided API" list below. AlignIO and SearchIO
 > are left as they are, by decision. The NumPy consequence this section
 > first reported went with PR #73: `import Bio.SeqIO` loads no format module,
