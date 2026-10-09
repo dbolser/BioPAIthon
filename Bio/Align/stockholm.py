@@ -113,8 +113,12 @@ class AlignmentIterator(interfaces.AlignmentIterator):
     annotations (lines starting with #=GR) are stored in the dictionary
     record.letter_annotations.
 
-    Wrap-around alignments are not supported - each sequence must be on
-    a single line.
+    Interleaved alignments are read: the aligned sequences may be split over
+    several blocks, each listing every sequence once, in any order. Blank
+    lines between blocks are optional. Within a block, the sequences and
+    their #=GR and #=GC lines must all have the same width. The pieces of
+    each sequence, and of each #=GR and #=GC line, are joined in block order.
+    A sequence name that repeats in any other way raises a ValueError.
 
     For more information on the file format, please see:
     http://sonnhammer.sbc.su.se/Stockholm.html
@@ -319,8 +323,109 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     if residue != ord("-")
                 )
 
-    def _read_next_alignment(self, stream):
+    @staticmethod
+    def _join_blocks(stream):
+        """Read the lines of one alignment, joining interleaved blocks (PRIVATE).
+
+        The aligned sequences may be split over several blocks, each listing
+        every sequence once, in any order, with or without blank lines between
+        blocks. If no sequence name repeats, the lines are returned unchanged.
+        Otherwise every sequence, #=GR and #=GC piece must have its block's
+        width, and the pieces of each sequence, and of each of its #=GR lines,
+        are joined in block order, giving the lines of a single block: first
+        the other lines in their original order, then each sequence followed
+        by its #=GR lines, then the closing // if the record has one. The
+        #=GC pieces stay among the other lines; the reader joins them.
+        """
+        lines = []
+        names = []
+        header = 0
         for line in stream:
+            lines.append(line)
+            line = line.strip()
+            if line == "//":
+                break
+            if line == "# STOCKHOLM 1.0":
+                # _read_next_alignment starts a new alignment here, even if
+                # the previous one lacked its //, so only count names from here
+                header = len(lines) - 1
+                names = []
+            elif line and not line.startswith("#"):
+                names.append(line.split(None, 1)[0])
+        unique = dict.fromkeys(names)
+        if len(unique) == len(names):
+            return lines
+        n = len(unique)
+        for start in range(0, len(names), n):
+            if set(names[start : start + n]) != unique.keys():
+                raise ValueError(
+                    "Sequence names repeat, but not as blocks that each list "
+                    f"all {n} sequences once"
+                )
+        sequences = {seqname: [] for seqname in unique}
+        annotations = {seqname: defaultdict(list) for seqname in unique}
+        widths = []  # of each block
+        gc_widths = defaultdict(list)  # of the pieces of each #=GC feature
+        others = lines[:header]
+        count = 0
+        seqname = None
+        for line in lines[header:]:
+            line = line.strip()
+            if line == "//":
+                break
+            elif line.startswith("#=GR "):
+                terms = line[5:].split(None, 2)
+                if terms[0] != seqname:
+                    raise ValueError(
+                        f"Expected #=GR line for {seqname} (the preceding "
+                        f"sequence), found:\n{line}"
+                    )
+                text = terms[2].strip()
+                if len(text) != widths[-1]:
+                    raise ValueError(
+                        f"#=GR {terms[1]} line of {seqname} has length "
+                        f"{len(text)}, expected {widths[-1]}"
+                    )
+                annotations[seqname][terms[1]].append(text)
+            elif line and not line.startswith("#"):
+                try:
+                    seqname, aligned_sequence = line.split(None, 1)
+                except ValueError:
+                    raise ValueError(
+                        "Could not split line into sequence name and aligned sequence:\n"
+                        + line
+                    ) from None
+                if count % n == 0:  # first sequence of a block
+                    widths.append(len(aligned_sequence))
+                elif len(aligned_sequence) != widths[-1]:
+                    raise ValueError(
+                        f"Aligned sequence {seqname} consists of {len(aligned_sequence)} letters, expected {widths[-1]} letters"
+                    )
+                count += 1
+                sequences[seqname].append(aligned_sequence)
+            else:
+                if line.startswith("#=GC "):
+                    feature, text = line[5:].split(None, 1)
+                    gc_widths[feature].append(len(text))
+                others.append(line)
+        for feature, lengths in gc_widths.items():
+            # A #=GC line may come before or after the sequences of its
+            # block, so match the pieces to the blocks by their order.
+            if lengths != widths:
+                raise ValueError(
+                    f"#=GC {feature} lines have lengths {lengths}, expected "
+                    f"the block widths {widths}"
+                )
+        for seqname, pieces in sequences.items():
+            others.append(f"{seqname} {''.join(pieces)}")
+            for feature, texts in annotations[seqname].items():
+                others.append(f"#=GR {seqname} {feature} {''.join(texts)}")
+        if line == "//":
+            others.append(line)
+        return others
+
+    def _read_next_alignment(self, stream):
+        for line in self._join_blocks(stream):
             line = line.strip()
             if not line:
                 continue

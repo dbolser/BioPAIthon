@@ -10,6 +10,7 @@ from io import StringIO
 import support
 
 from Bio import Align
+from Bio import AlignIO
 from Bio.Align import substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -7762,6 +7763,324 @@ B ACAGT
                 )
                 with self.assertRaisesRegex(ValueError, "#=GR SS line of A "):
                     Align.read(stream, "stockholm")
+
+
+class TestStockholm_interleaved_blocks(unittest.TestCase):
+    """Join the pieces of sequences split over several blocks."""
+
+    def check_write_read(self, alignment):
+        stream = StringIO()
+        Align.write(alignment, stream, "stockholm")
+        stream.seek(0)
+        written = Align.read(stream, "stockholm")
+        self.assertEqual(written, alignment)
+        self.assertEqual(
+            [record.id for record in written.sequences],
+            [record.id for record in alignment.sequences],
+        )
+        self.assertEqual(
+            [record.letter_annotations for record in written.sequences],
+            [record.letter_annotations for record in alignment.sequences],
+        )
+        self.assertEqual(written.column_annotations, alignment.column_annotations)
+
+    def test_simple(self):
+        """Read the two blocks of simple.sth as one alignment."""
+        path = support.DATA / "Stockholm" / "simple.sth"
+        alignment = Align.read(path, "stockholm")
+        self.assertEqual(alignment.shape, (2, 101))
+        self.assertEqual(
+            [record.id for record in alignment.sequences],
+            ["AP001509.1", "AE007476.1"],
+        )
+        self.assertEqual(
+            alignment[0],
+            "UUAAUCGAGCUCAACACUCUUCGUAUAUCCUC-UCAAUAUGGGAUGAGGGUCUCUAC-AGGUACCGUAAAUACCUAGCUACGAAAAGAAUGCAGUUAAUGU",
+        )
+        self.assertEqual(
+            alignment[1],
+            "AAAAUUGAAUAUCGUUUUACUUGUUUAU-GUCGUGAAU-UGGCACGA-CGUUUCUACAAGGUGCCGG-AACACCUAACAAUAAGUAAGUCAGCAGUGAGAU",
+        )
+        # AlignIO keeps the three columns that are all gaps; Bio.Align drops them.
+        msa = AlignIO.read(path, "stockholm")
+        columns = zip(*(record.seq for record in msa))
+        columns = [column for column in columns if set(column) != {"-"}]
+        rows = ["".join(row) for row in zip(*columns)]
+        self.assertEqual(msa.get_alignment_length(), 104)
+        self.assertEqual([alignment[0], alignment[1]], rows)
+        self.assertEqual(
+            alignment.column_annotations,
+            {
+                "consensus secondary structure": ".................<<<<<<<<...<<<<<<<.......>>>>>>>........<<<<<<.......>>>>>>..>>>>>>>>..............."
+            },
+        )
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations,
+            {
+                "secondary structure": "-----------------<<<<<<<<---..<<<<------->>->>..--------<<<<<------->>>>>--->>>>>>>>---------------"
+            },
+        )
+        self.assertEqual(
+            alignment.sequences[1].letter_annotations,
+            {
+                "secondary structure": "-----------------<<<<<<<<----<<.<<------>>.>>---------.<<<<<------>>>>>.-->>>>>>>>---------------"
+            },
+        )
+        self.assertEqual(len(alignment.sequences[0].seq), 99)
+        self.assertEqual(len(alignment.sequences[1].seq), 97)
+        self.check_write_read(alignment)
+
+    def test_two_blocks(self):
+        """Read two blocks with or without a blank line between them."""
+        for separator in ("\n", ""):
+            with self.subTest(separator=separator):
+                stream = StringIO(
+                    f"""\
+# STOCKHOLM 1.0
+A ACGTA
+B AC-TA
+{separator}A CCCCC
+B GG-GG
+//
+"""
+                )
+                alignment = Align.read(stream, "stockholm")
+                self.assertEqual(alignment.shape, (2, 10))
+                self.assertEqual(
+                    [record.id for record in alignment.sequences], ["A", "B"]
+                )
+                self.assertEqual(alignment[0], "ACGTACCCCC")
+                self.assertEqual(alignment[1], "AC-TAGG-GG")
+
+    def test_several_alignments(self):
+        """Join the blocks of each alignment in a file separately."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGTA
+B AC-TA
+
+A CCCCC
+B GG-GG
+//
+# STOCKHOLM 1.0
+A ACG
+B A-G
+//
+# STOCKHOLM 1.0
+A AC
+B AC
+A GT
+B G-
+//
+"""
+        )
+        alignments = Align.parse(stream, "stockholm")
+        self.assertEqual(len(alignments), 3)
+        self.assertEqual(
+            [(alignment[0], alignment[1]) for alignment in alignments],
+            [("ACGTACCCCC", "AC-TAGG-GG"), ("ACG", "A-G"), ("ACGT", "ACG-")],
+        )
+
+    def test_missing_end_of_alignment(self):
+        """Do not join the sequences of an alignment lacking its // to the next."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGT
+B ACGT
+# STOCKHOLM 1.0
+A TTTT
+B TT-T
+//
+"""
+        )
+        # As before, a new header starts a new alignment, dropping the first.
+        alignments = list(Align.parse(stream, "stockholm"))
+        self.assertEqual(len(alignments), 1)
+        self.assertEqual(alignments[0].shape, (2, 4))
+        self.assertEqual(alignments[0][0], "TTTT")
+        self.assertEqual(alignments[0][1], "TT-T")
+
+    def test_block_order(self):
+        """Read a block that lists the sequences in another order."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGTA
+B AC-TA
+
+B GG-GG
+A CCCCC
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(alignment.shape, (2, 10))
+        self.assertEqual([record.id for record in alignment.sequences], ["A", "B"])
+        self.assertEqual(alignment[0], "ACGTACCCCC")
+        self.assertEqual(alignment[1], "AC-TAGG-GG")
+
+    def test_block_widths(self):
+        """Read blocks of different widths."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGTA
+B AC-TA
+
+A CCC
+B GGG
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(alignment.shape, (2, 8))
+        self.assertEqual(alignment[0], "ACGTACCC")
+        self.assertEqual(alignment[1], "AC-TAGGG")
+
+    def test_hmmalign_style(self):
+        """Join #=GR and #=GC pieces, with a shorter last block."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+#=GS s1 DE first
+s1         ACDEFGHIKL
+#=GR s1 PP 89******99
+s2         ACDEF.GHIK
+#=GR s2 PP 89***.****
+#=GC PP_cons ********9*
+#=GC RF      xxxxx.xxxx
+
+s1         MNPQ
+#=GR s1 PP **97
+s2         MNPQ
+#=GR s2 PP ****
+#=GC PP_cons ****
+#=GC RF      xxxx
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(alignment.shape, (2, 14))
+        self.assertEqual(alignment[0], "ACDEFGHIKLMNPQ")
+        self.assertEqual(alignment[1], "ACDEF-GHIKMNPQ")
+        self.assertEqual(alignment.sequences[0].description, "first")
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations,
+            {"posterior probability": "89******99**97"},
+        )
+        self.assertEqual(
+            alignment.sequences[1].letter_annotations,
+            {"posterior probability": "89***********"},
+        )
+        self.assertEqual(
+            alignment.column_annotations,
+            {
+                "consensus posterior probability": "********9*****",
+                "reference coordinate annotation": "xxxxx.xxxxxxxx",
+            },
+        )
+        self.check_write_read(alignment)
+
+    def test_repeats_not_in_blocks(self):
+        """Reject repeated names that do not form whole blocks."""
+        cases = {
+            "A,B,A": "A ACGT\nB ACGT\nA AC-T\n",
+            "A,A,B": "A ACGT\nA ACGA\nB AC-T\n",
+            "A,B,C,B": "A ACGT\nB ACGT\nC ACGT\nB AC-T\n",
+            "block 2 missing a name": "A ACGTA\nB ACGTA\n\nA CCCCC\n",
+            "new name in block 2": "A ACGTA\nB ACGTA\n\nA CCCCC\nB GGGGG\nC TTTTT\n",
+        }
+        for case, sequences in cases.items():
+            with self.subTest(case=case):
+                stream = StringIO(f"# STOCKHOLM 1.0\n{sequences}//\n")
+                with self.assertRaisesRegex(
+                    ValueError, "^Sequence names repeat, but not as blocks"
+                ):
+                    Align.read(stream, "stockholm")
+
+    def test_widths_within_block(self):
+        """Reject a block whose sequences differ in width."""
+        # The joined sequences would have the same length, but misaligned.
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGTA
+B ACG
+
+A CCC
+B GGGGG
+//
+"""
+        )
+        with self.assertRaisesRegex(
+            ValueError, "^Aligned sequence B consists of 3 letters, expected 5 letters"
+        ):
+            Align.read(stream, "stockholm")
+
+    def test_markup_widths(self):
+        """Reject #=GR or #=GC pieces that do not match their block's width."""
+        # Pieces of widths 4 and 4 have the total width of blocks 5 and 3,
+        # but would shift the annotation across the block boundary.
+        cases = {
+            "#=GR": (
+                "A ACGTA\n#=GR A SS <<<<\nB ACGTA\n\nA CCC\n#=GR A SS >>>>\nB GGG\n",
+                "^#=GR SS line of A has length 4, expected 5$",
+            ),
+            "#=GC": (
+                "A ACGTA\nB ACGTA\n#=GC SS_cons <<<<\n\n"
+                "A CCC\nB GGG\n#=GC SS_cons >>>>\n",
+                r"^#=GC SS_cons lines have lengths \[4, 4\], expected the "
+                r"block widths \[5, 3\]$",
+            ),
+            "#=GC in one block only": (
+                "A ACGTA\nB ACGTA\n#=GC SS_cons <<<>>>>>\n\nA CCC\nB GGG\n",
+                r"^#=GC SS_cons lines have lengths \[8\], expected the "
+                r"block widths \[5, 3\]$",
+            ),
+        }
+        for case, (sequences, message) in cases.items():
+            with self.subTest(case=case):
+                stream = StringIO(f"# STOCKHOLM 1.0\n{sequences}//\n")
+                with self.assertRaisesRegex(ValueError, message):
+                    Align.read(stream, "stockholm")
+        # A #=GC line may come before the sequences of its block.
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+#=GC SS_cons <<<<<
+A ACGTA
+B ACGTA
+
+#=GC SS_cons >>>
+A CCC
+B GGG
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(
+            alignment.column_annotations,
+            {"consensus secondary structure": "<<<<<>>>"},
+        )
+
+    def test_gr_after_other_sequence(self):
+        """Reject a #=GR line that does not follow its own sequence."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGTA
+B ACGTA
+#=GR A SS <<<<<
+
+A CCCCC
+B GGGGG
+//
+"""
+        )
+        with self.assertRaisesRegex(ValueError, "^Expected #=GR line for B "):
+            Align.read(stream, "stockholm")
 
 
 if __name__ == "__main__":
