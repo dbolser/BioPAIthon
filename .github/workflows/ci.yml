@@ -349,6 +349,51 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # Linux aarch64. release.yml ships manylinux aarch64 wheels, which
+  # cibuildwheel only import-tests; this job runs the suite on that platform.
+  # It also matters for floating point: aarch64 always has fused multiply-add,
+  # and GCC contracts a*b+c into one by default (-ffp-contract=fast), whereas
+  # on baseline x86-64 it cannot. Minimal dependencies, as on macOS.
+  test_linux_arm:
+    timeout-minutes: 15
+    needs: [style, build]
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.14"]
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python packaging tools
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+
+    - name: Install minimal Python dependencies
+      run: |
+        python -m pip install numpy
+
+    - name: Debug Info
+      run: |
+        python -m pip list
+        python -c "import platform, sysconfig; print(platform.machine(), sysconfig.get_config_var('CC'))"
+        gcc --version
+
+    - name: Install from source
+      run: |
+        python -m pip install .
+
+    - name: Run test suite
+      run: |
+        cd Tests
+        python run_tests.py --offline
+
   test_windows:
     timeout-minutes: 15
     needs: [style, build]
@@ -446,7 +491,7 @@ jobs:
   # Flag step
   check_tests:
     timeout-minutes: 10
-    needs: [test_linux, test_macos, test_windows]
+    needs: [test_linux, test_macos, test_linux_arm, test_windows]
     runs-on: ubuntu-latest
     steps:
       - run: echo All tests passed.
