@@ -59,6 +59,20 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+Installed packages can now add file formats to ``Bio.SeqIO`` and
+``Bio.Align`` by declaring entry points, in the groups
+``biopaithon.seqio.iterators``, ``biopaithon.seqio.writers`` and
+``biopaithon.align``, so nobody has to call ``register_format``. They are
+looked for once per process, the first time a format name is not otherwise
+known, so ``import Bio.SeqIO`` and the built-in formats cost no more than
+before, and a format's module is imported when it is first used. An entry
+point is ignored, with a ``BiopythonWarning``, if it names a built-in
+format, if its name is not one the package accepts (SeqIO names are lower
+case), or if two installed packages give its name different objects.
+``register_format`` replaces a format from an entry point without
+``replace=True``. The Tutorial's "Adding a file format" sections show the
+``pyproject.toml`` lines.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
