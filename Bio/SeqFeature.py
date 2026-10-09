@@ -258,8 +258,9 @@ class SeqFeature:
             raise TypeError(
                 "SimpleLocation, CompoundLocation (or None) required for the location"
             )
-        # None only on a feature still being built, so typeshed's "X | Any"
-        # trick: users need not rule out None before using the location.
+        # None on a feature still being built, and on the rare one whose
+        # location a parser could not read, after a BiopythonParserWarning.
+        # So typeshed's "X | Any" trick: users need not rule out None first.
         self.location: SimpleLocation | CompoundLocation | Any = location
         self.type = type
         # Bio.SwissProt leaves it None for good on a feature with no FTId, so
@@ -825,7 +826,7 @@ class Location(ABC):
         >>> Location.fromstring("AL391218.9:105173..108462", 2000000)
         SimpleLocation(ExactPosition(105172), ExactPosition(108462), strand=1, ref='AL391218.9')
 
-        >>> Location.fromstring("<2644..159", 2868, "circular")
+        >>> Location.fromstring("<2644..159", 2868, circular=True)
         CompoundLocation([SimpleLocation(BeforePosition(2643), ExactPosition(2868), strand=1), SimpleLocation(ExactPosition(0), ExactPosition(159), strand=1)], 'join')
         """
         strand: int | None
