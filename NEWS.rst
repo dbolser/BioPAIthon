@@ -207,7 +207,7 @@ with the GIL forced off (``PYTHON_GIL=0``), this could corrupt memory or hang.
 ``clustercentroids`` and ``clusterdistance`` now check and use a private copy
 of the ``clusterid``, ``index1`` and ``index2`` arrays they are given, so
 another thread changing those arrays during the call can no longer send them
-out of bounds. Builds with the GIL behave as before.
+out of bounds.
 
 ``Bio.Align.parse(..., "phylip")`` now reads files holding several
 alignments one after another, each with its own header line, such as the
