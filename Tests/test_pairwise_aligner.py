@@ -7,9 +7,11 @@
 
 import array
 import os
+import platform
 import random
 import subprocess
 import sys
+import sysconfig
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -28,11 +30,18 @@ import support
 from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonWarning
 from Bio import Align
+from Bio.Align import substitution_matrices
 from Bio.Align.substitution_matrices import Array
 from Bio import SeqIO
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+
+_stable_cpython_refcounts = (
+    platform.python_implementation() == "CPython"
+    and not sysconfig.get_config_var("Py_GIL_DISABLED")
+)
 
 
 class TestAlignerProperties(unittest.TestCase):
@@ -20268,6 +20277,254 @@ except KeyboardInterrupt:
                 process.kill()
                 process.communicate()
             process.stdout.close()
+
+
+class TestReconfigureDuringCall(unittest.TestCase):
+    """Python code that reconfigures the aligner while a call is running.
+
+    score(), align(), alignment.counts(aligner) and str(aligner) call into
+    Python partway through: gap functions, and the gap functions' __repr__.
+    That code may replace the aligner's substitution matrix or gap
+    functions, freeing the old ones.  Each call must finish with the
+    settings it started with, without touching freed memory.
+
+    The crash tests run in a child process with PYTHONMALLOC=debug, which
+    overwrites freed memory, so a use-after-free crashes the child rather
+    than passing unnoticed.
+    """
+
+    def run_child(self, code):
+        env = os.environ.copy()
+        env["PYTHONMALLOC"] = "debug"
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
+    def test_gap_function_reconfigures_aligner(self):
+        self.run_child(
+            """
+from Bio import Align
+from Bio.Align import substitution_matrices
+
+A = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSG"
+B = "MKTAYIAKQWRQISFVKSHFRQLEEPRLGLIEVAPILSRVGWDGTQDNLSGA"
+reconfigured = []
+
+
+class GapFunction:
+    # On its fifth call, drop the aligner's substitution matrix and replace
+    # its gap functions.  The aligner holds the only references to both, so
+    # the matrix is freed at once, and this object as soon as it returns.
+
+    def __init__(self, aligner):
+        self.aligner = aligner
+        self.calls = 0
+
+    def __call__(self, start, length):
+        self.calls += 1
+        if self.calls == 5 and self.aligner is not None:
+            self.aligner.substitution_matrix = None
+            self.aligner.gap_score = lambda start, length: -100.0
+            self.aligner = None
+            reconfigured.append(True)
+        return -5.0 - length
+
+
+def make_aligner(reconfigure):
+    aligner = Align.PairwiseAligner()
+    aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
+    aligner.gap_score = GapFunction(aligner if reconfigure else None)
+    return aligner
+
+
+def summary(counts):
+    return (
+        counts.score,
+        counts.substitution_score,
+        counts.gap_score,
+        counts.aligned,
+        counts.identities,
+        counts.positives,
+        counts.open_gaps,
+        counts.extend_gaps,
+    )
+
+
+expected_alignments = make_aligner(False).align(A, B)
+expected_alignment = expected_alignments[0]
+expected_counts = summary(expected_alignment.counts(make_aligner(False)))
+assert expected_alignments.score == 201.0, expected_alignments.score
+
+score = make_aligner(True).score(A, B)
+assert score == 201.0, score
+alignments = make_aligner(True).align(A, B)
+assert alignments.score == 201.0, alignments.score
+assert str(alignments[0]) == str(expected_alignment), alignments[0]
+counts = summary(expected_alignment.counts(make_aligner(True)))
+assert counts == expected_counts, (counts, expected_counts)
+assert len(reconfigured) == 3, reconfigured
+"""
+        )
+
+    def test_str_gap_function_repr_reconfigures_aligner(self):
+        self.run_child(
+            """
+from Bio import Align
+
+
+class InsertionFunction:
+    # str(aligner) formats this __repr__ first; it drops the aligner's only
+    # reference to the deletion function, which is formatted next.
+
+    def __init__(self, aligner):
+        self.aligner = aligner
+
+    def __call__(self, start, length):
+        return -1.0
+
+    def __repr__(self):
+        self.aligner.deletion_score = -1.0
+        return "<insertion function>"
+
+
+class DeletionFunction:
+    def __call__(self, start, length):
+        return -1.0
+
+    def __repr__(self):
+        return "<deletion function>"
+
+
+aligner = Align.PairwiseAligner()
+aligner.insertion_score = InsertionFunction(aligner)
+aligner.deletion_score = DeletionFunction()
+text = str(aligner)
+assert "insertion_score_function: <insertion function>" in text, text
+assert "deletion_score_function: <deletion function>" in text, text
+assert aligner.deletion_score == -1.0, aligner.deletion_score
+"""
+        )
+
+    @unittest.skipUnless(
+        _stable_cpython_refcounts,
+        "GIL-enabled CPython reference counts are required",
+    )
+    def test_reference_counts(self):
+        # Each call holds its own references to both gap functions and its
+        # own buffer export of the matrix (whose view holds a reference to
+        # it), and must drop them all on every exit path: success, a
+        # sequence the matrix cannot score, and an exception or Ctrl-C
+        # raised inside a gap function.
+        matrix = substitution_matrices.load("BLOSUM62")
+        failure = []
+
+        def insertion_score(start, length):
+            if failure:
+                raise failure[0]
+            return -5.0 - length
+
+        def deletion_score(start, length):
+            if failure:
+                raise failure[0]
+            return -4.0 - length
+
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        aligner.insertion_score = insertion_score
+        aligner.deletion_score = deletion_score
+        seqA = "HEAGAWGHEE"
+        seqB = "PAWHEAE"
+        bad = "PAWJHEAE"  # J is not in the BLOSUM62 alphabet
+        alignment = aligner.align(seqA, seqB)[0]
+        objects = (matrix, insertion_score, deletion_score)
+        expected = [sys.getrefcount(obj) for obj in objects]
+        for _ in range(100):
+            aligner.score(seqA, seqB)
+            for _ in aligner.align(seqA, seqB):
+                pass
+            alignment.counts(aligner)
+            with self.assertRaises(ValueError):
+                aligner.score(seqA, bad)
+            with self.assertRaises(ValueError):
+                aligner.align(seqA, bad)
+        for exception in (ValueError, KeyboardInterrupt):
+            failure[:] = [exception]
+            for _ in range(100):
+                with self.assertRaises(exception):
+                    aligner.score(seqA, seqB)
+                with self.assertRaises(exception):
+                    aligner.align(seqA, seqB)
+                with self.assertRaises(exception):
+                    alignment.counts(aligner)
+        self.assertEqual([sys.getrefcount(obj) for obj in objects], expected)
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython",
+        "PyPy's memoryview does not count buffer exports",
+    )
+    def test_counts_releases_only_its_own_export(self):
+        # counts(aligner) used to release a buffer export of the aligner's
+        # matrix that it had never taken, so each call drove a memoryview's
+        # export count down by one.
+        matrix = memoryview(np.eye(4))
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        sequence = np.array([0, 1, 2, 3], np.int32)
+        alignment = aligner.align(sequence, sequence)[0]
+        for _ in range(3):
+            self.assertEqual(alignment.counts(aligner).substitution_score, 4.0)
+        with self.assertRaises(BufferError):
+            matrix.release()  # the aligner still holds its export
+        aligner.substitution_matrix = None
+        matrix.release()
+
+    @unittest.skipUnless(
+        platform.python_implementation() == "CPython" and sys.version_info >= (3, 12),
+        "a Python class can only export a buffer with __buffer__ on CPython 3.12+",
+    )
+    def test_python_buffer_matrix(self):
+        # A Python class's __buffer__ exports through a private wrapper that
+        # cannot be exported again, so the aligner stores a memoryview of
+        # such a matrix, and each call takes its own export of that.
+        class Matrix:
+            def __init__(self):
+                self.data = np.eye(4)
+
+            def __buffer__(self, flags):
+                return memoryview(self.data)
+
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = Matrix()
+        self.assertIsInstance(aligner.substitution_matrix, memoryview)
+        sequence = np.array([0, 1, 2, 3], np.int32)
+        self.assertEqual(aligner.score(sequence, sequence), 4.0)
+        alignment = aligner.align(sequence, sequence)[0]
+        self.assertEqual(alignment.counts(aligner).substitution_score, 4.0)
+
+    def test_matrix_resized_in_place(self):
+        # NumPy can resize an array in place even while the aligner holds a
+        # buffer export of it.  Each call exports the matrix afresh, so it
+        # must check the shape again rather than index a 16-element vector
+        # as a 16 x 16 matrix.
+        matrix = np.eye(4)
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = matrix
+        sequence = np.array([0, 1, 2, 3], np.int32)
+        alignment = aligner.align(sequence, sequence)[0]
+        self.assertEqual(aligner.score(sequence, sequence), 4.0)
+        matrix.resize(16, refcheck=False)
+        message = "substitution matrix is no longer a square matrix of float values"
+        with self.assertRaisesRegex(ValueError, message):
+            aligner.score(sequence, sequence)
+        with self.assertRaisesRegex(ValueError, message):
+            aligner.align(sequence, sequence)
+        with self.assertRaisesRegex(ValueError, message):
+            alignment.counts(aligner)
 
 
 class TestAlgorithmRestrictions(unittest.TestCase):

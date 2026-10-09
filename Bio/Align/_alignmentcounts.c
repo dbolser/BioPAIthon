@@ -1146,6 +1146,7 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     Py_ssize_t jA, jB;
     Py_ssize_t n = 0;
     PyObject* sequence;
+    Aligner snapshot;
     Aligner* aligner = NULL;
     PyObject* sequences;
     Py_buffer* sequence_buffers = NULL;
@@ -1216,11 +1217,12 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     if (argument == NULL) {
     }
     else if (PyObject_TypeCheck(argument, Aligner_Type)) {
-        aligner = (Aligner*)argument;
-        if (aligner->substitution_matrix.obj) {
-            substitution_matrix = aligner->substitution_matrix;
-            Py_INCREF(substitution_matrix.obj);
-        }
+        /* Work on a snapshot, as gap functions may reconfigure the aligner. */
+        if (Aligner_snapshot((Aligner*)argument, &snapshot) < 0) goto exit;
+        aligner = &snapshot;
+        /* Take over the snapshot's matrix export; released at exit. */
+        substitution_matrix = snapshot.substitution_matrix;
+        snapshot.substitution_matrix.obj = NULL;
         wildcard = aligner->wildcard;
     }
     else if (PyUnicode_Check(argument)) {
@@ -1620,6 +1622,7 @@ exit:
     coordinates_converter(NULL, &coordinates);
     strands_converter(NULL, &strands);
     substitution_matrix_converter(NULL, &substitution_matrix);
+    if (aligner) Aligner_snapshot_release(aligner);
 
     return (PyObject*) counts;
 }
