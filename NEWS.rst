@@ -59,6 +59,20 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Seq`` is now fully type-annotated, so type checkers such as mypy see
+what its functions and methods return instead of ``Any``. A method of ``Seq``
+or ``MutableSeq`` returns the class it is called on, so
+``MutableSeq("ATG").translate()`` is a ``MutableSeq``, and so is a slice of a
+``MutableSeq``, which was typed as a ``Seq`` before. ``split`` and ``rsplit``
+return a list of ``Seq``. The module functions ``transcribe``,
+``back_transcribe`` and ``translate`` return a ``str`` for a ``str``, and a
+``Seq`` for a ``Seq`` or ``MutableSeq``. ``complement``, ``complement_rna``,
+``reverse_complement`` and ``reverse_complement_rna`` return the type they are
+given, and of these only ``reverse_complement`` accepts a ``SeqRecord``, so
+passing one to the others is now a type error as well as a run-time one.
+Nothing changes at run time, but code checked with mypy may see new errors
+where these values were ``Any`` before.
+
 ``Bio.Medline.parse()`` again treats a line holding only whitespace, such as
 ``"   \n"``, like an empty line: it ends the current record, and between
 records it is skipped. Since Biopython 1.84 such a line was read as a field

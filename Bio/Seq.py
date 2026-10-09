@@ -22,16 +22,29 @@ import numbers
 import warnings
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import Iterable
+from collections.abc import Iterator
+from collections.abc import Mapping
+from typing import NoReturn
 from typing import Optional
 from typing import overload
-from typing import Union
+from typing import SupportsIndex
+from typing import TYPE_CHECKING
+from typing import TypeVar
 
 from Bio import BiopythonWarning
 from Bio.Data import CodonTable
 from Bio.Data import IUPACData
 
+if TYPE_CHECKING:
+    from Bio.SeqRecord import SeqRecord
 
-def _maketrans(complement_mapping):
+# The type of a method's own Seq or MutableSeq (or subclass), as in
+# Bio/PDB/Entity.py; typing.Self needs Python 3.11.
+_SeqT = TypeVar("_SeqT", bound="_SeqAbstractBaseClass")
+
+
+def _maketrans(complement_mapping: Mapping[str, str]) -> bytes:
     """Make a python string translation table (PRIVATE).
 
     Arguments:
@@ -96,40 +109,50 @@ class SequenceDataAbstractBaseClass(ABC):
 
     __slots__ = ()
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Check if ``__getitem__`` returns a bytes-like object."""
         assert self[:0] == b""
 
     @abstractmethod
-    def __len__(self):
+    def __len__(self) -> int:
         pass
+
+    @overload
+    def __getitem__(self, key: int) -> int: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> "bytes | SequenceDataAbstractBaseClass": ...
 
     @abstractmethod
-    def __getitem__(self, key):
+    def __getitem__(
+        self, key: int | slice
+    ) -> "int | bytes | SequenceDataAbstractBaseClass":
         pass
 
-    def __bytes__(self):
-        return self[:]
+    def __bytes__(self) -> bytes:
+        return self[:]  # type: ignore[return-value]  # bytes, per the class docstring
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(bytes(self))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return bytes(self) == other
 
-    def __lt__(self, other):
+    def __lt__(self, other: "bytes | SequenceDataAbstractBaseClass") -> bool:
         return bytes(self) < other
 
-    def __le__(self, other):
+    def __le__(self, other: "bytes | SequenceDataAbstractBaseClass") -> bool:
         return bytes(self) <= other
 
-    def __gt__(self, other):
+    def __gt__(self, other: "bytes | SequenceDataAbstractBaseClass") -> bool:
         return bytes(self) > other
 
-    def __ge__(self, other):
+    def __ge__(self, other: "bytes | SequenceDataAbstractBaseClass") -> bool:
         return bytes(self) >= other
 
-    def __add__(self, other):
+    def __add__(
+        self, other: "bytes | SequenceDataAbstractBaseClass"
+    ) -> "bytes | SequenceDataAbstractBaseClass":
         try:
             return bytes(self) + bytes(other)
         except UndefinedSequenceError:
@@ -137,16 +160,18 @@ class SequenceDataAbstractBaseClass(ABC):
             # will be handled by _UndefinedSequenceData.__radd__ or
             # by _PartiallyDefinedSequenceData.__radd__
 
-    def __radd__(self, other):
+    def __radd__(
+        self, other: "bytes | SequenceDataAbstractBaseClass"
+    ) -> "bytes | SequenceDataAbstractBaseClass":
         return other + bytes(self)
 
-    def __mul__(self, other):
+    def __mul__(self, other: SupportsIndex) -> "bytes | SequenceDataAbstractBaseClass":
         return other * bytes(self)
 
-    def __contains__(self, item):
+    def __contains__(self, item: bytes) -> bool:
         return bytes(self).__contains__(item)
 
-    def decode(self, encoding="utf-8"):
+    def decode(self, encoding: str = "utf-8") -> str:
         """Decode the data as bytes using the codec registered for encoding.
 
         encoding
@@ -154,7 +179,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).decode(encoding)
 
-    def count(self, sub, start=None, end=None):
+    def count(
+        self,
+        sub: bytes,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the number of non-overlapping occurrences of sub in data[start:end].
 
         Optional arguments start and end are interpreted as in slice notation.
@@ -162,7 +192,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).count(sub, start, end)
 
-    def find(self, sub, start=None, end=None):
+    def find(
+        self,
+        sub: bytes,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the lowest index in data where subsection sub is found.
 
         Return the lowest index in data where subsection sub is found,
@@ -173,7 +208,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).find(sub, start, end)
 
-    def rfind(self, sub, start=None, end=None):
+    def rfind(
+        self,
+        sub: bytes,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the highest index in data where subsection sub is found.
 
         Return the highest index in data where subsection sub is found,
@@ -184,7 +224,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).rfind(sub, start, end)
 
-    def index(self, sub, start=None, end=None):
+    def index(
+        self,
+        sub: bytes,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the lowest index in data where subsection sub is found.
 
         Return the lowest index in data where subsection sub is found,
@@ -195,7 +240,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).index(sub, start, end)
 
-    def rindex(self, sub, start=None, end=None):
+    def rindex(
+        self,
+        sub: bytes,
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the highest index in data where subsection sub is found.
 
         Return the highest index in data where subsection sub is found,
@@ -206,7 +256,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).rindex(sub, start, end)
 
-    def startswith(self, prefix, start=None, end=None):
+    def startswith(
+        self,
+        prefix: bytes | tuple[bytes, ...],
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> bool:
         """Return True if data starts with the specified prefix, False otherwise.
 
         With optional start, test data beginning at that position.
@@ -215,7 +270,12 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).startswith(prefix, start, end)
 
-    def endswith(self, suffix, start=None, end=None):
+    def endswith(
+        self,
+        suffix: bytes | tuple[bytes, ...],
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> bool:
         """Return True if data ends with the specified suffix, False otherwise.
 
         With optional start, test data beginning at that position.
@@ -224,7 +284,9 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).endswith(suffix, start, end)
 
-    def split(self, sep=None, maxsplit=-1):
+    def split(
+        self, sep: bytes | None = None, maxsplit: SupportsIndex = -1
+    ) -> list[bytes]:
         """Return a list of the sections in the data, using sep as the delimiter.
 
         sep
@@ -237,7 +299,9 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).split(sep, maxsplit)
 
-    def rsplit(self, sep=None, maxsplit=-1):
+    def rsplit(
+        self, sep: bytes | None = None, maxsplit: SupportsIndex = -1
+    ) -> list[bytes]:
         """Return a list of the sections in the data, using sep as the delimiter.
 
         sep
@@ -252,28 +316,28 @@ class SequenceDataAbstractBaseClass(ABC):
         """
         return bytes(self).rsplit(sep, maxsplit)
 
-    def strip(self, chars=None):
+    def strip(self, chars: bytes | None = None) -> bytes:
         """Strip leading and trailing characters contained in the argument.
 
         If the argument is omitted or None, strip leading and trailing ASCII whitespace.
         """
         return bytes(self).strip(chars)
 
-    def lstrip(self, chars=None):
+    def lstrip(self, chars: bytes | None = None) -> bytes:
         """Strip leading characters contained in the argument.
 
         If the argument is omitted or None, strip leading ASCII whitespace.
         """
         return bytes(self).lstrip(chars)
 
-    def rstrip(self, chars=None):
+    def rstrip(self, chars: bytes | None = None) -> bytes:
         """Strip trailing characters contained in the argument.
 
         If the argument is omitted or None, strip trailing ASCII whitespace.
         """
         return bytes(self).rstrip(chars)
 
-    def removeprefix(self, prefix):
+    def removeprefix(self, prefix: bytes) -> bytes:
         """Remove the prefix if present."""
         # Want to do just this, but need Python 3.9+
         # return bytes(self).removeprefix(prefix)
@@ -286,7 +350,7 @@ class SequenceDataAbstractBaseClass(ABC):
             else:
                 return data
 
-    def removesuffix(self, suffix):
+    def removesuffix(self, suffix: bytes) -> bytes:
         """Remove the suffix if present."""
         # Want to do just this, but need Python 3.9+
         # return bytes(self).removesuffix(suffix)
@@ -299,37 +363,41 @@ class SequenceDataAbstractBaseClass(ABC):
             else:
                 return data
 
-    def upper(self):
+    def upper(self) -> "bytes | SequenceDataAbstractBaseClass":
         """Return a copy of data with all ASCII characters converted to uppercase."""
         return bytes(self).upper()
 
-    def lower(self):
+    def lower(self) -> "bytes | SequenceDataAbstractBaseClass":
         """Return a copy of data with all ASCII characters converted to lowercase."""
         return bytes(self).lower()
 
-    def isupper(self):
+    def isupper(self) -> bool:
         """Return True if all ASCII characters in data are uppercase.
 
         If there are no cased characters, the method returns False.
         """
         return bytes(self).isupper()
 
-    def islower(self):
+    def islower(self) -> bool:
         """Return True if all ASCII characters in data are lowercase.
 
         If there are no cased characters, the method returns False.
         """
         return bytes(self).islower()
 
-    def replace(self, old, new):
+    def replace(
+        self, old: bytes, new: bytes
+    ) -> "bytes | SequenceDataAbstractBaseClass":
         """Return a copy with all occurrences of substring old replaced by new."""
         return bytes(self).replace(old, new)
 
-    def translate(self, table, delete=b""):
+    def translate(
+        self, table: bytes | None, delete: bytes = b""
+    ) -> "bytes | SequenceDataAbstractBaseClass":
         """Return a copy with each character mapped by the given translation table.
 
-          table
-            Translation table, which must be a bytes object of length 256.
+        Arguments:
+         - table - Translation table, which must be a bytes object of length 256.
 
         All characters occurring in the optional argument delete are removed.
         The remaining characters are mapped through the given translation table.
@@ -337,7 +405,7 @@ class SequenceDataAbstractBaseClass(ABC):
         return bytes(self).translate(table, delete)
 
     @property
-    def defined(self):
+    def defined(self) -> bool:
         """Return True if the sequence is defined, False if undefined or partially defined.
 
         Zero-length sequences are always considered to be defined.
@@ -345,7 +413,7 @@ class SequenceDataAbstractBaseClass(ABC):
         return True
 
     @property
-    def defined_ranges(self):
+    def defined_ranges(self) -> tuple[tuple[int, int], ...]:
         """Return a tuple of the ranges where the sequence contents is defined.
 
         The return value has the format ((start1, end1), (start2, end2), ...).
@@ -368,14 +436,19 @@ class _SeqAbstractBaseClass(ABC):
     __slots__ = ("_data",)
     __array_ufunc__ = None  # turn off numpy Ufuncs
 
+    _data: bytes | bytearray | SequenceDataAbstractBaseClass
+
     @abstractmethod
-    def __init__(self):
+    def __init__(
+        self,
+        data: "str | bytes | bytearray | _SeqAbstractBaseClass | SequenceDataAbstractBaseClass",
+    ) -> None:
         pass
 
-    def __bytes__(self):
+    def __bytes__(self) -> bytes:
         return bytes(self._data)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return (truncated) representation of the sequence."""
         data = self._data
         if isinstance(data, _UndefinedSequenceData):
@@ -386,10 +459,10 @@ class _SeqAbstractBaseClass(ABC):
                 if len(seq) > 60:
                     start = seq[:54].decode("ASCII")
                     end = seq[-3:].decode("ASCII")
-                    seq = f"{start}...{end}"
+                    text = f"{start}...{end}"
                 else:
-                    seq = seq.decode("ASCII")
-                d[position] = seq
+                    text = seq.decode("ASCII")
+                d[position] = text
             return "Seq(%r, length=%d)" % (d, len(self))
         if len(data) > 60:
             # Shows the last three letters as it is often useful to see if
@@ -399,14 +472,14 @@ class _SeqAbstractBaseClass(ABC):
             end = data[-3:].decode("ASCII")
             return f"{self.__class__.__name__}('{start}...{end}')"
         else:
-            data = data.decode("ASCII")
-            return f"{self.__class__.__name__}('{data}')"
+            text = data.decode("ASCII")
+            return f"{self.__class__.__name__}('{text}')"
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return the full sequence as a python string."""
         return self._data.decode("ASCII")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """Compare the sequence to another sequence or a string.
 
         Sequences are equal to each other if their sequence contents is
@@ -448,7 +521,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self._data == other
 
-    def __lt__(self, other):
+    def __lt__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the less-than operand."""
         if isinstance(other, _SeqAbstractBaseClass):
             return self._data < other._data
@@ -457,7 +530,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self._data < other
 
-    def __le__(self, other):
+    def __le__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the less-than or equal operand."""
         if isinstance(other, _SeqAbstractBaseClass):
             return self._data <= other._data
@@ -466,7 +539,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self._data <= other
 
-    def __gt__(self, other):
+    def __gt__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the greater-than operand."""
         if isinstance(other, _SeqAbstractBaseClass):
             return self._data > other._data
@@ -475,7 +548,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self._data > other
 
-    def __ge__(self, other):
+    def __ge__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the greater-than or equal operand."""
         if isinstance(other, _SeqAbstractBaseClass):
             return self._data >= other._data
@@ -484,21 +557,21 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self._data >= other
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Return the length of the sequence."""
         return len(self._data)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Return an iterable of the sequence."""
         return self._data.decode("ASCII").__iter__()
 
     @overload
-    def __getitem__(self, index: int) -> str: ...
+    def __getitem__(self, index: SupportsIndex) -> str: ...
 
     @overload
-    def __getitem__(self, index: slice) -> "Seq": ...
+    def __getitem__(self: _SeqT, index: slice) -> _SeqT: ...
 
-    def __getitem__(self, index):
+    def __getitem__(self: _SeqT, index: SupportsIndex | slice) -> str | _SeqT:
         """Return a subsequence as a single letter or as a sequence object.
 
         If the index is an integer, a single letter is returned as a Python
@@ -516,14 +589,15 @@ class _SeqAbstractBaseClass(ABC):
         >>> mutable_seq[5:8]
         MutableSeq('ACG')
         """
+        # The ignores are as mypy does not narrow index by numbers.Integral.
         if isinstance(index, numbers.Integral):
             # Return a single letter as a string
-            return chr(self._data[index])
+            return chr(self._data[index])  # type: ignore[call-overload]
         else:
             # Return the (sub)sequence as another Seq/MutableSeq object
-            return self.__class__(self._data[index])
+            return self.__class__(self._data[index])  # type: ignore[arg-type, index]
 
-    def __add__(self, other):
+    def __add__(self: _SeqT, other: "str | _SeqAbstractBaseClass") -> _SeqT:
         """Add a sequence or string to this sequence.
 
         >>> from Bio.Seq import Seq, MutableSeq
@@ -541,7 +615,7 @@ class _SeqAbstractBaseClass(ABC):
             # this. If not, returning NotImplemented will trigger a TypeError.
             return NotImplemented
 
-    def __radd__(self, other):
+    def __radd__(self: _SeqT, other: str) -> _SeqT:
         """Add a sequence string on the left.
 
         >>> from Bio.Seq import Seq, MutableSeq
@@ -557,7 +631,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return NotImplemented
 
-    def __mul__(self, other):
+    def __mul__(self: _SeqT, other: SupportsIndex) -> _SeqT:
         """Multiply sequence by integer.
 
         >>> from Bio.Seq import Seq, MutableSeq
@@ -575,7 +649,7 @@ class _SeqAbstractBaseClass(ABC):
         data = self._data.__mul__(other)
         return self.__class__(data)
 
-    def __rmul__(self, other):
+    def __rmul__(self: _SeqT, other: SupportsIndex) -> _SeqT:
         """Multiply integer by sequence.
 
         >>> from Bio.Seq import Seq
@@ -591,7 +665,7 @@ class _SeqAbstractBaseClass(ABC):
         data = self._data.__mul__(other)
         return self.__class__(data)
 
-    def __imul__(self, other):
+    def __imul__(self: _SeqT, other: SupportsIndex) -> _SeqT:
         """Multiply the sequence object by other and assign.
 
         >>> from Bio.Seq import Seq
@@ -625,7 +699,12 @@ class _SeqAbstractBaseClass(ABC):
         data = self._data.__mul__(other)
         return self.__class__(data)
 
-    def count(self, sub, start=None, end=None):
+    def count(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return a non-overlapping count, like that of a python string.
 
         The number of occurrences of substring argument sub in the
@@ -678,7 +757,12 @@ class _SeqAbstractBaseClass(ABC):
             )
         return self._data.count(sub, start, end)
 
-    def count_overlap(self, sub, start=None, end=None):
+    def count_overlap(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return an overlapping count.
 
         Returns an integer, the number of occurrences of substring
@@ -751,7 +835,9 @@ class _SeqAbstractBaseClass(ABC):
             else:
                 return overlap_count
 
-    def __contains__(self, item):
+    def __contains__(
+        self, item: "str | bytes | bytearray | _SeqAbstractBaseClass"
+    ) -> bool:
         """Return True if item is a subsequence of the sequence, and False otherwise.
 
         e.g.
@@ -771,7 +857,12 @@ class _SeqAbstractBaseClass(ABC):
             item = item.encode("ASCII")
         return item in self._data
 
-    def find(self, sub, start=None, end=None):
+    def find(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the lowest index in the sequence where subsequence sub is found.
 
         With optional arguments start and end, return the lowest index in the
@@ -812,7 +903,12 @@ class _SeqAbstractBaseClass(ABC):
             )
         return self._data.find(sub, start, end)
 
-    def rfind(self, sub, start=None, end=None):
+    def rfind(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the highest index in the sequence where subsequence sub is found.
 
         With optional arguments start and end, return the highest index in the
@@ -853,7 +949,12 @@ class _SeqAbstractBaseClass(ABC):
             )
         return self._data.rfind(sub, start, end)
 
-    def index(self, sub, start=None, end=None):
+    def index(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the lowest index in the sequence where subsequence sub is found.
 
         With optional arguments start and end, return the lowest index in the
@@ -907,7 +1008,12 @@ class _SeqAbstractBaseClass(ABC):
             )
         return self._data.index(sub, start, end)
 
-    def rindex(self, sub, start=None, end=None):
+    def rindex(
+        self,
+        sub: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> int:
         """Return the highest index in the sequence where subsequence sub is found.
 
         With optional arguments start and end, return the highest index in the
@@ -961,7 +1067,9 @@ class _SeqAbstractBaseClass(ABC):
             )
         return self._data.rindex(sub, start, end)
 
-    def search(self, subs):
+    def search(
+        self, subs: "Iterable[str | bytes | bytearray | _SeqAbstractBaseClass]"
+    ) -> Iterator[tuple[int, str]]:
         """Search the substrings subs in self and yield the index and substring found.
 
         Arguments:
@@ -1002,7 +1110,12 @@ class _SeqAbstractBaseClass(ABC):
                         yield (start, sub.decode())
                         break
 
-    def startswith(self, prefix, start=None, end=None):
+    def startswith(
+        self,
+        prefix: "str | bytes | bytearray | _SeqAbstractBaseClass | tuple[str | _SeqAbstractBaseClass, ...]",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> bool:
         """Return True if the sequence starts with the given prefix, False otherwise.
 
         Return True if the sequence starts with the specified prefix
@@ -1023,17 +1136,23 @@ class _SeqAbstractBaseClass(ABC):
         True
         """
         if isinstance(prefix, tuple):
-            prefix = tuple(
+            prefixes = tuple(
                 bytes(p) if isinstance(p, _SeqAbstractBaseClass) else p.encode("ASCII")
                 for p in prefix
             )
+            return self._data.startswith(prefixes, start, end)
         elif isinstance(prefix, _SeqAbstractBaseClass):
             prefix = bytes(prefix)
         elif isinstance(prefix, str):
             prefix = prefix.encode("ASCII")
         return self._data.startswith(prefix, start, end)
 
-    def endswith(self, suffix, start=None, end=None):
+    def endswith(
+        self,
+        suffix: "str | bytes | bytearray | _SeqAbstractBaseClass | tuple[str | _SeqAbstractBaseClass, ...]",
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+    ) -> bool:
         """Return True if the sequence ends with the given suffix, False otherwise.
 
         Return True if the sequence ends with the specified suffix
@@ -1054,17 +1173,22 @@ class _SeqAbstractBaseClass(ABC):
         True
         """
         if isinstance(suffix, tuple):
-            suffix = tuple(
+            suffixes = tuple(
                 bytes(p) if isinstance(p, _SeqAbstractBaseClass) else p.encode("ASCII")
                 for p in suffix
             )
+            return self._data.endswith(suffixes, start, end)
         elif isinstance(suffix, _SeqAbstractBaseClass):
             suffix = bytes(suffix)
         elif isinstance(suffix, str):
             suffix = suffix.encode("ASCII")
         return self._data.endswith(suffix, start, end)
 
-    def split(self, sep=None, maxsplit=-1):
+    def split(
+        self,
+        sep: "str | bytes | bytearray | _SeqAbstractBaseClass | None" = None,
+        maxsplit: SupportsIndex = -1,
+    ) -> "list[Seq]":
         """Return a list of subsequences when splitting the sequence by separator sep.
 
         Return a list of the subsequences in the sequence (as Seq objects),
@@ -1107,7 +1231,11 @@ class _SeqAbstractBaseClass(ABC):
             sep = sep.encode("ASCII")
         return [Seq(part) for part in self._data.split(sep, maxsplit)]
 
-    def rsplit(self, sep=None, maxsplit=-1):
+    def rsplit(
+        self,
+        sep: "str | bytes | bytearray | _SeqAbstractBaseClass | None" = None,
+        maxsplit: SupportsIndex = -1,
+    ) -> "list[Seq]":
         """Return a list of subsequences by splitting the sequence from the right.
 
         Return a list of the subsequences in the sequence (as Seq objects),
@@ -1150,7 +1278,11 @@ class _SeqAbstractBaseClass(ABC):
             sep = sep.encode("ASCII")
         return [Seq(part) for part in self._data.rsplit(sep, maxsplit)]
 
-    def strip(self, chars=None, inplace=False):
+    def strip(
+        self: _SeqT,
+        chars: "str | bytes | bytearray | _SeqAbstractBaseClass | None" = None,
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a sequence object with leading and trailing ends stripped.
 
         With default arguments, leading and trailing whitespace is removed:
@@ -1204,7 +1336,11 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self.__class__(data)
 
-    def lstrip(self, chars=None, inplace=False):
+    def lstrip(
+        self: _SeqT,
+        chars: "str | bytes | bytearray | _SeqAbstractBaseClass | None" = None,
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a sequence object with leading and trailing ends stripped.
 
         With default arguments, leading whitespace is removed:
@@ -1259,7 +1395,11 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self.__class__(data)
 
-    def rstrip(self, chars=None, inplace=False):
+    def rstrip(
+        self: _SeqT,
+        chars: "str | bytes | bytearray | _SeqAbstractBaseClass | None" = None,
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a sequence object with trailing ends stripped.
 
         With default arguments, trailing whitespace is removed:
@@ -1314,7 +1454,11 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self.__class__(data)
 
-    def removeprefix(self, prefix, inplace=False):
+    def removeprefix(
+        self: _SeqT,
+        prefix: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a new Seq object with prefix (left) removed.
 
         This behaves like the python string method of the same name.
@@ -1345,7 +1489,7 @@ class _SeqAbstractBaseClass(ABC):
             ) from None
         except AttributeError:
             # Fall back for pre-Python 3.9
-            data = self._data
+            data = self._data  # type: ignore[assignment]
             if data.startswith(prefix):
                 data = data[len(prefix) :]
         if inplace:
@@ -1356,7 +1500,11 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self.__class__(data)
 
-    def removesuffix(self, suffix, inplace=False):
+    def removesuffix(
+        self: _SeqT,
+        suffix: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a new Seq object with suffix (right) removed.
 
         This behaves like the python string method of the same name.
@@ -1388,7 +1536,7 @@ class _SeqAbstractBaseClass(ABC):
             ) from None
         except AttributeError:
             # Fall back for pre-Python 3.9
-            data = self._data
+            data = self._data  # type: ignore[assignment]
             if data.endswith(suffix):
                 data = data[: -len(suffix)]
         if inplace:
@@ -1399,7 +1547,7 @@ class _SeqAbstractBaseClass(ABC):
         else:
             return self.__class__(data)
 
-    def upper(self, inplace=False):
+    def upper(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the sequence in upper case.
 
         An upper-case copy of the sequence is returned if inplace is False,
@@ -1446,12 +1594,12 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         else:
             return self.__class__(data)
 
-    def lower(self, inplace=False):
+    def lower(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the sequence in lower case.
 
         An lower-case copy of the sequence is returned if inplace is False,
@@ -1498,19 +1646,19 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         else:
             return self.__class__(data)
 
-    def isupper(self):
+    def isupper(self) -> bool:
         """Return True if all ASCII characters in data are uppercase.
 
         If there are no cased characters, the method returns False.
         """
         return self._data.isupper()
 
-    def islower(self):
+    def islower(self) -> bool:
         """Return True if all ASCII characters in data are lowercase.
 
         If there are no cased characters, the method returns False.
@@ -1518,8 +1666,13 @@ class _SeqAbstractBaseClass(ABC):
         return self._data.islower()
 
     def translate(
-        self, table="Standard", stop_symbol="*", to_stop=False, cds=False, gap="-"
-    ):
+        self: _SeqT,
+        table: str | int | CodonTable.CodonTable = "Standard",
+        stop_symbol: str = "*",
+        to_stop: bool = False,
+        cds: bool = False,
+        gap: str | None = "-",
+    ) -> _SeqT:
         """Turn a nucleotide sequence into a protein sequence by creating a new sequence object.
 
         This method will translate DNA or RNA sequences. It should not
@@ -1612,13 +1765,13 @@ class _SeqAbstractBaseClass(ABC):
                     "This may become an error in future.",
                     BiopythonWarning,
                 )
-            return Seq(None, n // 3)
+            return Seq(None, n // 3)  # type: ignore[return-value]  # only a Seq is undefined
 
         return self.__class__(
             _translate_str(str(self), table, stop_symbol, to_stop, cds, gap=gap)
         )
 
-    def complement(self, inplace=False):
+    def complement(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the complement as a DNA sequence.
 
         >>> Seq("CGA").complement()
@@ -1662,11 +1815,11 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data)
 
-    def complement_rna(self, inplace=False):
+    def complement_rna(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the complement as an RNA sequence.
 
         >>> Seq("CGA").complement_rna()
@@ -1709,11 +1862,11 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data)
 
-    def reverse_complement(self, inplace=False):
+    def reverse_complement(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the reverse complement as a DNA sequence.
 
         >>> Seq("CGA").reverse_complement()
@@ -1757,11 +1910,11 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[::-1] = data
+            self._data[::-1] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data[::-1])
 
-    def reverse_complement_rna(self, inplace=False):
+    def reverse_complement_rna(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the reverse complement as an RNA sequence.
 
         >>> Seq("CGA").reverse_complement_rna()
@@ -1805,11 +1958,11 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[::-1] = data
+            self._data[::-1] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data[::-1])
 
-    def transcribe(self, inplace=False):
+    def transcribe(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Transcribe a DNA sequence into RNA and return the RNA sequence as a new Seq object.
 
         Following the usual convention, the sequence is interpreted as the
@@ -1859,11 +2012,11 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data)
 
-    def back_transcribe(self, inplace=False):
+    def back_transcribe(self: _SeqT, inplace: bool = False) -> _SeqT:
         """Return the DNA sequence from an RNA sequence by creating a new Seq object.
 
         >>> from Bio.Seq import Seq
@@ -1907,11 +2060,14 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data)
 
-    def join(self, other):
+    def join(
+        self: _SeqT,
+        other: "str | _SeqAbstractBaseClass | Iterable[str | _SeqAbstractBaseClass]",
+    ) -> _SeqT:
         """Return a merge of the sequences in other, spaced by the sequence from self.
 
         Accepts a Seq object, MutableSeq object, or string (and iterates over
@@ -1949,7 +2105,12 @@ class _SeqAbstractBaseClass(ABC):
                 )
         return self.__class__(str(self).join([str(_) for _ in other]))
 
-    def replace(self, old, new, inplace=False):
+    def replace(
+        self: _SeqT,
+        old: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        new: "str | bytes | bytearray | _SeqAbstractBaseClass",
+        inplace: bool = False,
+    ) -> _SeqT:
         """Return a copy with all occurrences of subsequence old replaced by new.
 
         >>> s = Seq("ACGTAACCGGTT")
@@ -1990,12 +2151,12 @@ class _SeqAbstractBaseClass(ABC):
         if inplace:
             if not isinstance(self._data, bytearray):
                 raise TypeError("Sequence is immutable")
-            self._data[:] = data
+            self._data[:] = data  # type: ignore[assignment]  # made from a bytearray
             return self
         return self.__class__(data)
 
     @property
-    def defined(self):
+    def defined(self) -> bool:
         """Return True if the sequence is defined, False if undefined or partially defined.
 
         Zero-length sequences are always considered to be defined.
@@ -2006,7 +2167,7 @@ class _SeqAbstractBaseClass(ABC):
             return self._data.defined
 
     @property
-    def defined_ranges(self):
+    def defined_ranges(self) -> tuple[tuple[int, int], ...]:
         """Return a tuple of the ranges where the sequence contents is defined.
 
         The return value has the format ((start1, end1), (start2, end2), ...).
@@ -2050,7 +2211,7 @@ class Seq(_SeqAbstractBaseClass):
             | None
         ),
         length: int | None = None,
-    ):
+    ) -> None:
         """Create a Seq object.
 
         Arguments:
@@ -2161,7 +2322,7 @@ class Seq(_SeqAbstractBaseClass):
                 "data should be a string, bytes, bytearray, Seq, or MutableSeq object"
             )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Hash of the sequence as a string for comparison.
 
         See Seq object comparison documentation (method ``__eq__`` in
@@ -2199,7 +2360,9 @@ class MutableSeq(_SeqAbstractBaseClass):
     or biological methods as the Seq object.
     """
 
-    def __init__(self, data):
+    _data: bytearray
+
+    def __init__(self, data: "str | bytes | bytearray | Seq | MutableSeq") -> None:
         """Create a MutableSeq object."""
         if isinstance(data, bytearray):
             self._data = data
@@ -2218,7 +2381,15 @@ class MutableSeq(_SeqAbstractBaseClass):
                 "MutableSeq object"
             )
 
-    def __setitem__(self, index, value):
+    @overload
+    def __setitem__(self, index: SupportsIndex, value: str) -> None: ...
+
+    @overload
+    def __setitem__(self, index: slice, value: "str | Seq | MutableSeq") -> None: ...
+
+    def __setitem__(
+        self, index: SupportsIndex | slice, value: "str | Seq | MutableSeq"
+    ) -> None:
         """Set a subsequence of single letter via value parameter.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2226,21 +2397,23 @@ class MutableSeq(_SeqAbstractBaseClass):
         >>> my_seq
         MutableSeq('TCTCGACGTCG')
         """
+        # The ignores are as mypy does not narrow index by numbers.Integral,
+        # nor value by index.
         if isinstance(index, numbers.Integral):
             # Replacing a single letter with a new string
-            self._data[index] = ord(value)
+            self._data[index] = ord(value)  # type: ignore[arg-type]
         else:
             # Replacing a sub-sequence
             if isinstance(value, MutableSeq):
-                self._data[index] = value._data
+                self._data[index] = value._data  # type: ignore[index]
             elif isinstance(value, Seq):
-                self._data[index] = bytes(value)
+                self._data[index] = bytes(value)  # type: ignore[index]
             elif isinstance(value, str):
-                self._data[index] = value.encode("ASCII")
+                self._data[index] = value.encode("ASCII")  # type: ignore[index]
             else:
                 raise TypeError(f"received unexpected type '{type(value).__name__}'")
 
-    def __delitem__(self, index):
+    def __delitem__(self, index: SupportsIndex | slice) -> None:
         """Delete a subsequence of single letter.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2251,7 +2424,7 @@ class MutableSeq(_SeqAbstractBaseClass):
         # Could be deleting a single letter, or a slice
         del self._data[index]
 
-    def append(self, c):
+    def append(self, c: str) -> None:
         """Add a subsequence to the mutable sequence object.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2263,7 +2436,7 @@ class MutableSeq(_SeqAbstractBaseClass):
         """
         self._data.append(ord(c.encode("ASCII")))
 
-    def insert(self, i, c):
+    def insert(self, i: SupportsIndex, c: str) -> None:
         """Add a subsequence to the mutable sequence object at a given index.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2278,7 +2451,7 @@ class MutableSeq(_SeqAbstractBaseClass):
         """
         self._data.insert(i, ord(c.encode("ASCII")))
 
-    def pop(self, i=(-1)):
+    def pop(self, i: SupportsIndex = (-1)) -> str:
         """Remove a subsequence of a single letter at given index.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2297,7 +2470,7 @@ class MutableSeq(_SeqAbstractBaseClass):
         del self._data[i]
         return chr(c)
 
-    def remove(self, item):
+    def remove(self, item: str) -> None:
         """Remove a subsequence of a single letter from mutable sequence.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2316,14 +2489,14 @@ class MutableSeq(_SeqAbstractBaseClass):
         except ValueError:
             raise ValueError("value not found in MutableSeq") from None
 
-    def reverse(self):
+    def reverse(self) -> None:
         """Modify the mutable sequence to reverse itself.
 
         No return value.
         """
         self._data.reverse()
 
-    def extend(self, other):
+    def extend(self, other: "str | Seq | MutableSeq") -> None:
         """Add a sequence to the original mutable sequence object.
 
         >>> my_seq = MutableSeq('ACTCGACGTCG')
@@ -2362,7 +2535,7 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
 
     __slots__ = ("_length",)
 
-    def __init__(self, length):
+    def __init__(self, length: int) -> None:
         """Initialize the object with the sequence length.
 
         The calling function is responsible for ensuring that the length is
@@ -2371,7 +2544,13 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
         self._length = length
         super().__init__()
 
-    def __getitem__(self, key: slice) -> Union[bytes, "_UndefinedSequenceData"]:
+    @overload
+    def __getitem__(self, key: int) -> NoReturn: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> "bytes | _UndefinedSequenceData": ...
+
+    def __getitem__(self, key: int | slice) -> "bytes | _UndefinedSequenceData":
         if isinstance(key, slice):
             start, end, step = key.indices(self._length)
             size = len(range(start, end, step))
@@ -2381,13 +2560,15 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
         else:
             raise UndefinedSequenceError("Sequence content is undefined")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._length
 
-    def __bytes__(self):
+    def __bytes__(self) -> NoReturn:
         raise UndefinedSequenceError("Sequence content is undefined")
 
-    def __add__(self, other):
+    def __add__(
+        self, other: bytes | SequenceDataAbstractBaseClass
+    ) -> "_UndefinedSequenceData | _PartiallyDefinedSequenceData":
         length = len(self) + len(other)
         try:
             other = bytes(other)
@@ -2401,24 +2582,26 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
             data = {len(self): other}
             return _PartiallyDefinedSequenceData(length, data)
 
-    def __radd__(self, other):
+    def __radd__(
+        self, other: bytes | SequenceDataAbstractBaseClass
+    ) -> "_PartiallyDefinedSequenceData":
         data = {0: bytes(other)}
         length = len(other) + len(self)
         return _PartiallyDefinedSequenceData(length, data)
 
-    def upper(self):
+    def upper(self) -> "_UndefinedSequenceData":
         """Return an upper case copy of the sequence."""
         # An upper case copy of an undefined sequence is an undefined
         # sequence of the same length
         return _UndefinedSequenceData(self._length)
 
-    def lower(self):
+    def lower(self) -> "_UndefinedSequenceData":
         """Return a lower case copy of the sequence."""
         # A lower case copy of an undefined sequence is an undefined
         # sequence of the same length
         return _UndefinedSequenceData(self._length)
 
-    def isupper(self):
+    def isupper(self) -> NoReturn:
         """Return True if all ASCII characters in data are uppercase.
 
         If there are no cased characters, the method returns False.
@@ -2426,7 +2609,7 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
         # Character case is irrelevant for an undefined sequence
         raise UndefinedSequenceError("Sequence content is undefined")
 
-    def islower(self):
+    def islower(self) -> NoReturn:
         """Return True if all ASCII characters in data are lowercase.
 
         If there are no cased characters, the method returns False.
@@ -2434,7 +2617,7 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
         # Character case is irrelevant for an undefined sequence
         raise UndefinedSequenceError("Sequence content is undefined")
 
-    def replace(self, old, new):
+    def replace(self, old: bytes, new: bytes) -> "_UndefinedSequenceData":
         """Return a copy with all occurrences of substring old replaced by new."""
         # Replacing substring old by new in an undefined sequence will result
         # in an undefined sequence of the same length, if old and new have the
@@ -2444,12 +2627,12 @@ class _UndefinedSequenceData(SequenceDataAbstractBaseClass):
         return _UndefinedSequenceData(self._length)
 
     @property
-    def defined(self):
+    def defined(self) -> bool:
         """Return False, as the sequence is not defined and has a non-zero length."""
         return False
 
     @property
-    def defined_ranges(self):
+    def defined_ranges(self) -> tuple[tuple[int, int], ...]:
         """Return a tuple of the ranges where the sequence contents is defined.
 
         As the sequence contents of an _UndefinedSequenceData object is fully
@@ -2471,7 +2654,7 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
 
     __slots__ = ("_length", "_data")
 
-    def __init__(self, length, data):
+    def __init__(self, length: int, data: dict[int, bytes]) -> None:
         """Initialize with the sequence length and defined sequence segments.
 
         The calling function is responsible for ensuring that the length is
@@ -2481,7 +2664,17 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
         self._data = data
         super().__init__()
 
-    def __getitem__(self, key: slice | int) -> bytes | SequenceDataAbstractBaseClass:
+    @overload
+    def __getitem__(self, key: int) -> int: ...
+
+    @overload
+    def __getitem__(
+        self, key: slice
+    ) -> "bytes | _UndefinedSequenceData | _PartiallyDefinedSequenceData": ...
+
+    def __getitem__(
+        self, key: int | slice
+    ) -> "int | bytes | _UndefinedSequenceData | _PartiallyDefinedSequenceData":
         if isinstance(key, slice):
             start, end, step = key.indices(self._length)
             size = len(range(start, end, step))
@@ -2528,9 +2721,9 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
                     previous = start
                 end = start + len(seq)
             if len(data) == 1:
-                seq = data.get(0)
-                if seq is not None and len(seq) == size:
-                    return seq  # Fully defined sequence; return bytes
+                first = data.get(0)
+                if first is not None and len(first) == size:
+                    return first  # Fully defined sequence; return bytes
             if step < 0:
                 # use this after we drop Python 3.7:
                 # data = {start: data[start] for start in reversed(data)}
@@ -2545,13 +2738,15 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
                     return seq[key - start]
             raise UndefinedSequenceError("Sequence at position %d is undefined" % key)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._length
 
-    def __bytes__(self):
+    def __bytes__(self) -> NoReturn:
         raise UndefinedSequenceError("Sequence content is only partially defined")
 
-    def __add__(self, other):
+    def __add__(
+        self, other: bytes | SequenceDataAbstractBaseClass
+    ) -> "_PartiallyDefinedSequenceData":
         length = len(self) + len(other)
         data = dict(self._data)
         items = list(self._data.items())
@@ -2579,7 +2774,9 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
                 data[len(self)] = other
         return _PartiallyDefinedSequenceData(length, data)
 
-    def __radd__(self, other):
+    def __radd__(
+        self, other: bytes | SequenceDataAbstractBaseClass
+    ) -> "_PartiallyDefinedSequenceData":
         length = len(other) + len(self)
         try:
             other = bytes(other)
@@ -2597,10 +2794,10 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
                 data[len(other) + start] = seq
         return _PartiallyDefinedSequenceData(length, data)
 
-    def __mul__(self, other):
+    def __mul__(self, other: SupportsIndex) -> "_PartiallyDefinedSequenceData":
         length = self._length
         items = self._data.items()
-        data = {}
+        data: dict[int, bytes] = {}
         end = -1
         previous = 0  # not needed here, but it keeps flake happy
         for i in range(other):
@@ -2612,19 +2809,20 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
                     data[start] = seq
                     previous = start
             end = start + len(seq)
-        return _PartiallyDefinedSequenceData(length * other, data)
+        # Seq.__mul__ has checked that other is a numbers.Integral
+        return _PartiallyDefinedSequenceData(length * other, data)  # type: ignore[operator]
 
-    def upper(self):
+    def upper(self) -> "_PartiallyDefinedSequenceData":
         """Return an upper case copy of the sequence."""
         data = {start: seq.upper() for start, seq in self._data.items()}
         return _PartiallyDefinedSequenceData(self._length, data)
 
-    def lower(self):
+    def lower(self) -> "_PartiallyDefinedSequenceData":
         """Return a lower case copy of the sequence."""
         data = {start: seq.lower() for start, seq in self._data.items()}
         return _PartiallyDefinedSequenceData(self._length, data)
 
-    def isupper(self):
+    def isupper(self) -> NoReturn:
         """Return True if all ASCII characters in data are uppercase.
 
         If there are no cased characters, the method returns False.
@@ -2632,7 +2830,7 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
         # Character case is irrelevant for an undefined sequence
         raise UndefinedSequenceError("Sequence content is only partially defined")
 
-    def islower(self):
+    def islower(self) -> NoReturn:
         """Return True if all ASCII characters in data are lowercase.
 
         If there are no cased characters, the method returns False.
@@ -2640,7 +2838,9 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
         # Character case is irrelevant for an undefined sequence
         raise UndefinedSequenceError("Sequence content is only partially defined")
 
-    def translate(self, table, delete=b""):
+    def translate(
+        self, table: bytes | None, delete: bytes = b""
+    ) -> "_PartiallyDefinedSequenceData":
         """Return a copy with each character mapped by the given translation table.
 
           table
@@ -2653,7 +2853,7 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
         data = {start: seq.translate(table, delete) for start, seq in items}
         return _PartiallyDefinedSequenceData(self._length, data)
 
-    def replace(self, old, new):
+    def replace(self, old: bytes, new: bytes) -> "_PartiallyDefinedSequenceData":
         """Return a copy with all occurrences of substring old replaced by new."""
         # Replacing substring old by new in the undefined sequence segments
         # will result in an undefined sequence segment of the same length, if
@@ -2669,12 +2869,12 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
         return _PartiallyDefinedSequenceData(self._length, data)
 
     @property
-    def defined(self):
+    def defined(self) -> bool:
         """Return False, as the sequence is not fully defined and has a non-zero length."""
         return False
 
     @property
-    def defined_ranges(self):
+    def defined_ranges(self) -> tuple[tuple[int, int], ...]:
         """Return a tuple of the ranges where the sequence contents is defined.
 
         The return value has the format ((start1, end1), (start2, end2), ...).
@@ -2687,7 +2887,15 @@ class _PartiallyDefinedSequenceData(SequenceDataAbstractBaseClass):
 # The functions work both on Seq objects, and on strings.
 
 
-def transcribe(dna):
+@overload
+def transcribe(dna: str) -> str: ...
+
+
+@overload
+def transcribe(dna: Seq | MutableSeq) -> Seq: ...
+
+
+def transcribe(dna: str | Seq | MutableSeq) -> str | Seq:
     """Transcribe a DNA sequence into RNA.
 
     Following the usual convention, the sequence is interpreted as the
@@ -2711,7 +2919,15 @@ def transcribe(dna):
         return dna.replace("T", "U").replace("t", "u")
 
 
-def back_transcribe(rna):
+@overload
+def back_transcribe(rna: str) -> str: ...
+
+
+@overload
+def back_transcribe(rna: Seq | MutableSeq) -> Seq: ...
+
+
+def back_transcribe(rna: str | Seq | MutableSeq) -> str | Seq:
     """Return the RNA sequence back-transcribed into DNA.
 
     If given a string, returns a new string object.
@@ -2732,8 +2948,14 @@ def back_transcribe(rna):
 
 
 def _translate_str(
-    sequence, table, stop_symbol="*", to_stop=False, cds=False, pos_stop="X", gap=None
-):
+    sequence: str,
+    table: str | int | CodonTable.CodonTable,
+    stop_symbol: str = "*",
+    to_stop: bool = False,
+    cds: bool = False,
+    pos_stop: str = "X",
+    gap: str | None = None,
+) -> str:
     """Translate nucleotide string into a protein string (PRIVATE).
 
     Arguments:
@@ -2797,7 +3019,7 @@ def _translate_str(
     Bio.Data.CodonTable.TranslationError: Extra in frame stop codon 'TAG' found.
     """
     try:
-        table_id = int(table)
+        table_id = int(table)  # type: ignore[arg-type]  # TypeError for a CodonTable
     except ValueError:
         # Assume it's a table name
         # The same table can be used for RNA or DNA
@@ -2910,9 +3132,36 @@ def _translate_str(
     return "".join(amino_acids)
 
 
+@overload
 def translate(
-    sequence, table="Standard", stop_symbol="*", to_stop=False, cds=False, gap=None
-):
+    sequence: str,
+    table: str | int | CodonTable.CodonTable = "Standard",
+    stop_symbol: str = "*",
+    to_stop: bool = False,
+    cds: bool = False,
+    gap: str | None = None,
+) -> str: ...
+
+
+@overload
+def translate(
+    sequence: Seq | MutableSeq,
+    table: str | int | CodonTable.CodonTable = "Standard",
+    stop_symbol: str = "*",
+    to_stop: bool = False,
+    cds: bool = False,
+    gap: str | None = None,
+) -> Seq: ...
+
+
+def translate(
+    sequence: str | Seq | MutableSeq,
+    table: str | int | CodonTable.CodonTable = "Standard",
+    stop_symbol: str = "*",
+    to_stop: bool = False,
+    cds: bool = False,
+    gap: str | None = None,
+) -> str | Seq:
     """Translate a nucleotide sequence into amino acids.
 
     If given a string, returns a new string object. Given a Seq or
@@ -3015,7 +3264,25 @@ def translate(
         return _translate_str(sequence, table, stop_symbol, to_stop, cds, gap=gap)
 
 
-def reverse_complement(sequence, inplace=False):
+@overload
+def reverse_complement(sequence: str, inplace: bool = False) -> str: ...
+
+
+@overload
+def reverse_complement(sequence: Seq, inplace: bool = False) -> Seq: ...
+
+
+@overload
+def reverse_complement(sequence: MutableSeq, inplace: bool = False) -> MutableSeq: ...
+
+
+@overload
+def reverse_complement(sequence: "SeqRecord", inplace: bool = False) -> "SeqRecord": ...
+
+
+def reverse_complement(
+    sequence: "str | Seq | MutableSeq | SeqRecord", inplace: bool = False
+) -> "str | Seq | MutableSeq | SeqRecord":
     """Return the reverse complement as a DNA sequence.
 
     If given a string, returns a new string object.
@@ -3074,13 +3341,29 @@ def reverse_complement(sequence, inplace=False):
     # Assume it's a string.
     if inplace:
         raise TypeError("strings are immutable")
-    sequence = sequence.encode("ASCII")
-    sequence = sequence.translate(_dna_complement_table)
-    sequence = sequence.decode("ASCII")
+    data = sequence.encode("ASCII")
+    data = data.translate(_dna_complement_table)
+    sequence = data.decode("ASCII")
     return sequence[::-1]
 
 
-def reverse_complement_rna(sequence, inplace=False):
+@overload
+def reverse_complement_rna(sequence: str, inplace: bool = False) -> str: ...
+
+
+@overload
+def reverse_complement_rna(sequence: Seq, inplace: bool = False) -> Seq: ...
+
+
+@overload
+def reverse_complement_rna(
+    sequence: MutableSeq, inplace: bool = False
+) -> MutableSeq: ...
+
+
+def reverse_complement_rna(
+    sequence: str | Seq | MutableSeq, inplace: bool = False
+) -> str | Seq | MutableSeq:
     """Return the reverse complement as an RNA sequence.
 
     If given a string, returns a new string object.
@@ -3150,13 +3433,27 @@ def reverse_complement_rna(sequence, inplace=False):
     # Assume it's a string.
     if inplace:
         raise TypeError("strings are immutable")
-    sequence = sequence.encode("ASCII")
-    sequence = sequence.translate(_rna_complement_table)
-    sequence = sequence.decode("ASCII")
+    data = sequence.encode("ASCII")
+    data = data.translate(_rna_complement_table)
+    sequence = data.decode("ASCII")
     return sequence[::-1]
 
 
-def complement(sequence, inplace=False):
+@overload
+def complement(sequence: str, inplace: bool = False) -> str: ...
+
+
+@overload
+def complement(sequence: Seq, inplace: bool = False) -> Seq: ...
+
+
+@overload
+def complement(sequence: MutableSeq, inplace: bool = False) -> MutableSeq: ...
+
+
+def complement(
+    sequence: str | Seq | MutableSeq, inplace: bool = False
+) -> str | Seq | MutableSeq:
     """Return the complement as a DNA sequence.
 
     If given a string, returns a new string object.
@@ -3225,12 +3522,26 @@ def complement(sequence, inplace=False):
     # Assume it's a string.
     if inplace is True:
         raise TypeError("strings are immutable")
-    sequence = sequence.encode("ASCII")
-    sequence = sequence.translate(_dna_complement_table)
-    return sequence.decode("ASCII")
+    data = sequence.encode("ASCII")
+    data = data.translate(_dna_complement_table)
+    return data.decode("ASCII")
 
 
-def complement_rna(sequence, inplace=False):
+@overload
+def complement_rna(sequence: str, inplace: bool = False) -> str: ...
+
+
+@overload
+def complement_rna(sequence: Seq, inplace: bool = False) -> Seq: ...
+
+
+@overload
+def complement_rna(sequence: MutableSeq, inplace: bool = False) -> MutableSeq: ...
+
+
+def complement_rna(
+    sequence: str | Seq | MutableSeq, inplace: bool = False
+) -> str | Seq | MutableSeq:
     """Return the complement as an RNA sequence.
 
     If given a string, returns a new string object.
@@ -3299,9 +3610,9 @@ def complement_rna(sequence, inplace=False):
     # Assume it's a string.
     if inplace:
         raise TypeError("strings are immutable")
-    sequence = sequence.encode("ASCII")
-    sequence = sequence.translate(_rna_complement_table)
-    return sequence.decode("ASCII")
+    data = sequence.encode("ASCII")
+    data = data.translate(_rna_complement_table)
+    return data.decode("ASCII")
 
 
 if __name__ == "__main__":
