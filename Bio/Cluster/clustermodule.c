@@ -912,12 +912,15 @@ typedef struct {
 
 /* A Tree's n and nodes are read and written only in its critical section,
  * except when it is created and destroyed, when no other thread can see it.
- * None of the code run in a Tree's critical section calls into Python. */
+ * None of the code run in a Tree's critical section calls into Python.
+ *
+ * The nodes array is in the raw memory domain (PyMem_RawMalloc), because
+ * treecluster allocates it in cluster.c with the GIL released. */
 
 static void
 PyTree_dealloc(PyTree* self)
 {
-    if (self->n) PyMem_Free(self->nodes);
+    if (self->n) PyMem_RawFree(self->nodes);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -941,7 +944,7 @@ nodes_from_list(PyObject* list, int* pn)
         PyErr_SetString(PyExc_ValueError, "List is empty");
         return NULL;
     }
-    nodes = PyMem_Malloc(n*sizeof(Node));
+    nodes = PyMem_RawMalloc(n*sizeof(Node));
     if (!nodes) {
         PyErr_NoMemory();
         return NULL;
@@ -950,7 +953,7 @@ nodes_from_list(PyObject* list, int* pn)
         PyNode* p;
         PyObject* row = PyList_GET_ITEM(list, i);
         if (!PyType_IsSubtype(Py_TYPE(row), &PyNodeType)) {
-            PyMem_Free(nodes);
+            PyMem_RawFree(nodes);
             PyErr_Format(PyExc_TypeError,
                          "Row %d in list is not a Node object", i);
             return NULL;
@@ -1003,7 +1006,7 @@ PyTree_new(PyTypeObject *type, PyObject* args, PyObject* kwds)
     /* --- Check if this is a bona fide tree ------------------------------- */
     flag = PyMem_Malloc((2*n+1)*sizeof(int));
     if (!flag) {
-        PyMem_Free(nodes);
+        PyMem_RawFree(nodes);
         Py_DECREF(self);
         return PyErr_NoMemory();
     }
@@ -1029,7 +1032,7 @@ PyTree_new(PyTypeObject *type, PyObject* args, PyObject* kwds)
     PyMem_Free(flag);
     if (i < n) {
         /* break encountered */
-        PyMem_Free(nodes);
+        PyMem_RawFree(nodes);
         Py_DECREF(self);
         PyErr_SetString(PyExc_ValueError, "Inconsistent tree");
         return NULL;
@@ -1392,6 +1395,20 @@ static PyTypeObject PyTreeType = {
 /* -- Methods -------------------------------------------------------------- */
 /* ========================================================================= */
 
+/* Each function below releases the GIL around its call into the C
+ * Clustering Library, once every argument is checked. The library calls no
+ * Python API, and allocates in the raw memory domain (see cluster.c). It
+ * touches only buffers whose exports the function holds until the call
+ * returns, and memory the function allocated itself. The index arrays it
+ * reads are private copies (clustercentroids, clusterdistance) or arrays
+ * the Python layer in __init__.py has just created (kcluster, kmedoids).
+ * Another thread may still write the caller's data, mask, weight or
+ * distance values meanwhile. The results are then unspecified, but the
+ * library never uses those values as indices or sizes.
+ *
+ * Tree.sort and Tree.cut keep the GIL: they run in the tree's critical
+ * section, which releasing the GIL would suspend. */
+
 /* version */
 static char version__doc__[] =
 "version() -> string\n"
@@ -1553,6 +1570,7 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
             goto exit;
         }
     }
+    Py_BEGIN_ALLOW_THREADS
     kcluster(nclusters,
              nrows,
              ncols,
@@ -1567,6 +1585,7 @@ py_kcluster(PyObject* self, PyObject* args, PyObject* keywords)
              &error,
              &ifound,
              rng_seed);
+    Py_END_ALLOW_THREADS
 exit:
     data_converter(NULL, &data);
     mask_converter(NULL, &mask);
@@ -1686,6 +1705,7 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
                         "more clusters requested than items to be clustered");
         goto exit;
     }
+    Py_BEGIN_ALLOW_THREADS
     kmedoids(nclusters,
              distances.n,
              distances.values,
@@ -1694,6 +1714,7 @@ py_kmedoids(PyObject* self, PyObject* args, PyObject* keywords)
              &error,
              &ifound,
              rng_seed);
+    Py_END_ALLOW_THREADS
 
 exit:
     distancematrix_converter(NULL, &distances);
@@ -1881,6 +1902,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
             goto exit;
         }
 
+        Py_BEGIN_ALLOW_THREADS
         nodes = treecluster(nrows,
                             ncols,
                             data.values,
@@ -1890,6 +1912,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
                             dist,
                             method,
                             NULL);
+        Py_END_ALLOW_THREADS
     }
     else { /* use the distance matrix instead of the values in data */
         if (!strchr("sma", method)) {
@@ -1899,6 +1922,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
             goto exit;
         }
         nitems = distances.n;
+        Py_BEGIN_ALLOW_THREADS
         nodes = treecluster(nitems,
                             nitems,
                             0,
@@ -1908,6 +1932,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
                             dist,
                             method,
                             distances.values);
+        Py_END_ALLOW_THREADS
     }
 
     if (!nodes) {
@@ -1924,7 +1949,7 @@ py_treecluster(PyObject* self, PyObject* args, PyObject* keywords)
     }
     Py_END_CRITICAL_SECTION();
     if (nodes) {
-        PyMem_Free(nodes);
+        PyMem_RawFree(nodes);
         PyErr_SetString(PyExc_RuntimeError, "expected an empty tree");
         goto exit;
     }
@@ -2074,6 +2099,7 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                     "(last dimension is %d; expected %d)", celldata.nz, ndata);
         goto exit;
     }
+    Py_BEGIN_ALLOW_THREADS
     somcluster(nrows,
                ncols,
                data.values,
@@ -2088,6 +2114,7 @@ py_somcluster(PyObject* self, PyObject* args, PyObject* keywords)
                celldata.values,
                indices.buf,
                rng_seed);
+    Py_END_ALLOW_THREADS
     Py_INCREF(Py_None);
     result = Py_None;
 
@@ -2218,6 +2245,7 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
     indices2 = copy_indices(&index2);
     if (!indices2) goto exit;
 
+    Py_BEGIN_ALLOW_THREADS
     distance = clusterdistance(nrows,
                                ncols,
                                data.values,
@@ -2230,6 +2258,7 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
                                dist,
                                method,
                                transpose);
+    Py_END_ALLOW_THREADS
 
     if (distance < -0.5) /* Actually -1.0; avoiding roundoff errors */
         PyErr_SetString(PyExc_IndexError, "index out of range");
@@ -2366,6 +2395,7 @@ py_clustercentroids(PyObject* self, PyObject* args, PyObject* keywords)
                      "(%zd, expected %d)", cmask.view.shape[1], ncols);
         goto exit;
     }
+    Py_BEGIN_ALLOW_THREADS
     ok = getclustercentroids(nclusters,
                              data.nrows,
                              data.ncols,
@@ -2376,6 +2406,7 @@ py_clustercentroids(PyObject* self, PyObject* args, PyObject* keywords)
                              cmask.values,
                              transpose,
                              method);
+    Py_END_ALLOW_THREADS
 exit:
     data_converter(NULL, &data);
     mask_converter(NULL, &mask);
@@ -2492,6 +2523,7 @@ py_distancematrix(PyObject* self, PyObject* args, PyObject* keywords)
     }
     if (_convert_list_to_distancematrix(list, &distances) == 0) goto exit;
 
+    Py_BEGIN_ALLOW_THREADS
     distancematrix(nrows,
                    ncols,
                    data.values,
@@ -2500,6 +2532,7 @@ py_distancematrix(PyObject* self, PyObject* args, PyObject* keywords)
                    dist,
                    transpose,
                    distances.values);
+    Py_END_ALLOW_THREADS
 
     Py_INCREF(Py_None);
     result = Py_None;
@@ -2615,7 +2648,9 @@ py_pca(PyObject* self, PyObject* args)
         for (j = 0; j < ncols; j++)
             u[i][j] = values[i][j] - p[j];
     /* -- Perform the principal component analysis ----------------------- */
+    Py_BEGIN_ALLOW_THREADS
     error = pca(nrows, ncols, u, v, eigenvalues.buf);
+    Py_END_ALLOW_THREADS
     /* ------------------------------------------------------------------- */
 exit:
     data_converter(NULL, &data);
