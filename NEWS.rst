@@ -59,6 +59,22 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+BioPAIthon now supports the free-threaded build of Python 3.14 (3.14t), and
+releases include ``cp314t`` wheels for it. Every C extension declares that it
+can run without the GIL, so importing BioPAIthon leaves the GIL off, and
+threads can align, cluster and search KD-trees in parallel. The package
+metadata says so with the classifier ``Programming Language :: Python :: Free
+Threading :: 2 - Beta``. Threads may share objects. If one thread
+reconfigures a shared aligner, parser, tree or iterator while others use it,
+Python cannot crash, but what the others see is not defined. The same holds
+if your code writes to a NumPy array while a call it was passed to is still
+running. Code written in Python is no more thread-safe than before: threads
+reading one 2bit-backed ``Seq``, for example, share its file handle. The
+free-threaded CI job now runs the test suite as users' programs run, without
+``PYTHON_GIL=0`` to keep the GIL off. There are no ``cp313t`` wheels, as free
+threading is experimental in Python 3.13; BioPAIthon still installs there
+from the source distribution.
+
 On a free-threaded build of Python, the five C extensions of ``Bio.Align`` now
 also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``

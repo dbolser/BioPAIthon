@@ -522,10 +522,6 @@ jobs:
       # here now marks the step as failed without failing the job. Remove this
       # once those tests pass on Windows.
       continue-on-error: true
-      env:
-        # Free-threaded only, as in test_freethreaded. CPython ignores an
-        # empty PYTHON_GIL, and a GIL build refuses PYTHON_GIL=0.
-        PYTHON_GIL: ${{ endsWith(matrix.python-version, 't') && '0' || '' }}
       run: |
         cd Tests
         python -m pytest --offline -n auto --dist loadfile --cov --cov-config=../pyproject.toml --cov-report=xml:coverage.xml
@@ -578,11 +574,9 @@ jobs:
         cd Tests
         python -m pytest --offline -n auto --dist loadfile
 
-  # The free-threaded (no GIL) build of CPython. So far only some extensions
-  # declare that they can run without the GIL (Tests/test_free_threading.py
-  # lists which), and importing any other turns the GIL back on, so the suite
-  # runs with PYTHON_GIL=0 to keep it off throughout. The declarations
-  # themselves are checked in their own step, where the modules decide.
+  # The free-threaded (no GIL) build of CPython. Every C extension declares
+  # that it can run without the GIL, as checked in its own step below, so the
+  # suite runs as users' programs do, with no PYTHON_GIL override.
   test_freethreaded:
     timeout-minutes: 20
     needs: [style, build]
@@ -621,10 +615,21 @@ jobs:
         cd Tests
         python run_tests.py --offline -v test_free_threading
 
+    # A dependency that has not declared it can run without the GIL turns the
+    # GIL back on for the rest of the process when imported. fontTools, which
+    # matplotlib loads in test_Phylo_matplotlib, does so at present. So these
+    # thread tests, which run in the test process, could run in the suite
+    # with the GIL on; they run here first, with it off. The Bio.Align and
+    # Bio.Cluster thread tests start their own processes, so need no step.
+    - name: Run the in-process thread tests
+      run: |
+        cd Tests
+        python -m pytest --offline -v test_PDB_CEAligner.py::RunCEAlignThreadTests test_SeqIO_TwoBitIO.py::ConcurrentConvert test_motifs.py::ConcurrentCalculate
+
     - name: Run test suite
       run: |
         cd Tests
-        PYTHON_GIL=0 python run_tests.py --offline
+        python run_tests.py --offline
 
   # Flag step
   check_tests:

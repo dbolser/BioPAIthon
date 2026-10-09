@@ -998,7 +998,7 @@ matches the documented API. Hand-write `.pyi` stubs starting with
 `Bio/Align/_pairwisealigner.pyi` and `Bio/Cluster/_cluster.pyi`.
 **Effort S (`__all__`) / M (stubs) · Impact high**
 
-### 1.9 No C extension ever releases the GIL, so threads give zero speed-up **[aligner and kdtrees FIXED]**
+### 1.9 No C extension ever releases the GIL, so threads give zero speed-up **[aligner, kdtrees and free-threaded builds FIXED]**
 
 > **Status: the two hottest extensions now release the GIL.** PR #75 wrapped
 > the NW/SW/Gotoh pairwise alignment kernels and PR #74 the `kdtrees` build
@@ -1008,7 +1008,10 @@ matches the documented API. Hand-write `.pyi` stubs starting with
 > several threads is safe, and `neighbor_simple_search` no longer corrupts
 > the tree by re-sorting the shared point list. The `cluster.c` kernels are
 > the remaining slice; PR #89's removal of the file-scope RNG state was its
-> prerequisite. `ccealign`'s kernels stay GIL-bound for now.
+> prerequisite. `ccealign`'s kernels stay GIL-bound for now. On the
+> free-threaded build of Python 3.14 there is no GIL to release: every
+> extension now declares it can run without one (§1.10), so threads run
+> all of them in parallel there, `Bio.Cluster` and `ccealign` included.
 
 `grep -rn "Py_BEGIN_ALLOW_THREADS" --include=*.c .` returns **nothing** across
 all 13 extensions. Measured on a 14-core machine,
@@ -1035,7 +1038,7 @@ bodies in `_pairwisealigner.c:4593-5300`, `findPath`/`calcS`/`calcDM` in
 periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 **Effort M · Impact high**
 
-### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope state **[static-state half FIXED]**
+### 1.10 Free-threaded CPython is unsupported and blocked by mutable file-scope state **[FIXED — without multi-phase init]**
 
 > **Status: the named static-state blockers are gone.** PR #74 threads the
 > kdtrees sort dimension through per-call state instead of
@@ -1045,9 +1048,30 @@ periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 > `rng_seed=` keyword for `kcluster`/`kmedoids`/`somcluster` and stopped
 > the library silently resetting the process-wide `rand()` stream (a
 > regression test now checks `Bio.Cluster` never touches `rand()`).
-> The multi-phase init migration across the remaining extensions, the
-> `Py_mod_gil` slot and a `3.14t` CI job are still to do, tracked in
-> `TODO.md`.
+>
+> **Free threading is supported.** Every extension now declares, in its
+> single-phase `PyInit_*`, that it can run without the GIL
+> (`PyUnstable_Module_SetGIL` through `Bio/_freethreading.h`, which compiles
+> to nothing on GIL builds and PyPy): PR #171 for the six that needed no
+> other change, PR #189 for `Bio.Cluster` and PR #190 for the five
+> `Bio.Align` ones, which lock the per-object state other calls could free.
+> PRs #173 and #181 first fixed, on every build, the bugs that made a
+> shared aligner unsafe: each call now snapshots the aligner's settings and
+> checks private copies of the sequence indices. The 3.14t CI job runs the
+> suite with no `PYTHON_GIL` override, and the release workflow builds
+> `cp314t` wheels, whose test fails if importing the extensions turns the
+> GIL on (PR #NNN).
+>
+> **The multi-phase init migration planned below was rejected.** Free
+> threading does not need it: CPython's free-threading HOWTO gives
+> `PyUnstable_Module_SetGIL` as the route for single-phase modules. The
+> file-scope state left (type pointers and static type objects) is written
+> once at import, under the import lock, and only read after, so it is no
+> data race. The real bugs were per-object, and module state fixes none of
+> them. Moving `_pairwisealigner`'s `Array_Type` into module state would
+> also mean heap types for the aligner, rewriting upstream's most-edited C
+> file and changing behaviour users can see. Module state is for isolating
+> subinterpreters; if that is ever wanted, it is an item of its own.
 
 No `Py_mod_gil`, `Py_MOD_GIL_NOT_USED` or `Py_GIL_DISABLED` anywhere; all 13
 modules use single-phase init with `m_size = -1`. A single-phase module without a
@@ -2021,8 +2045,9 @@ Two defects were found while surveying and belong to no pull request:
 10. **§1.9 then §1.10** — releasing the GIL is what makes the free-threading
     work worthwhile, but §1.10's static-state cleanup is a prerequisite for
     doing §1.9 safely under a free-threaded build. *(The aligner and kdtrees
-    kernels release the GIL and the static-state cleanup is done; the
-    multi-phase-init migration is the open remainder.)*
+    kernels release the GIL, and free threading is supported; the
+    multi-phase-init migration was rejected, see §1.10. Releasing the GIL
+    in the `cluster.c` kernels is the open remainder.)*
 
 ---
 

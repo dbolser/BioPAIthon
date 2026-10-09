@@ -32,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -169,14 +170,17 @@ sources = ["Bio/SeqIO/_twoBitIO.c"]
 # Wheel build settings, shared by .github/workflows/release.yml and any local
 # `cibuildwheel` run, so the two cannot drift.
 [tool.cibuildwheel]
-build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+# cp314t is the free-threaded build of Python 3.14. cp313t is not built, as
+# free threading is experimental in 3.13; installing from the sdist works there.
+build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp314t-*"]
 # 32-bit targets are unsupported. PyPy is skipped for now: it is supported via
 # the sdist, but the C extensions are not exercised on PyPy in CI yet.
 skip = ["*_i686", "*-win32", "pp*"]
 build-frontend = "build"
-# Import every compiled extension explicitly. A wheel that imports `Bio` but
-# silently shipped no C extensions would otherwise pass this check.
-test-command = 'python -c "import Bio, Bio.Align._aligncore, Bio.Align._alignmentcounts, Bio.Align._codonaligner, Bio.Align._pairwisealigner, Bio.Align.substitution_matrices._arraycore, Bio.Nexus.cnexus, Bio.motifs._pwm, Bio.Cluster._cluster, Bio.PDB.ccealign, Bio.PDB.kdtrees, Bio.PDB._bcif_helper, Bio.SeqIO._twoBitIO; print(Bio.__version__)"'
+# Imports every compiled extension, and on a free-threaded build checks that
+# the GIL is still off afterwards. The script is in .github/ so that it is
+# not run from the source tree, which would shadow the installed wheel.
+test-command = "python {project}/.github/check_wheel.py"
 
 # GitHub retired the macos-13 (Intel) runners and deprecated macos-14, so all
 # macOS wheels are built on an arm64 runner. x86_64 is cross-compiled there.
