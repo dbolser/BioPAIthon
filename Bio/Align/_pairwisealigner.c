@@ -4632,7 +4632,12 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
 /* The Needleman-Wunsch, Smith-Waterman, and Gotoh dynamic programming
  * loops below run in pure C: they touch only buffers allocated before
  * the loops start, scores copied from the aligner into C locals, and
- * the sequence buffers held alive by the caller.  PAIRWISE_NOGIL_BEGIN
+ * the sequences.  With a substitution matrix the kernels read private
+ * copies of the sequences, whose indices were checked against the
+ * matrix (see _copy_indices); without one they read the caller's
+ * buffers, held alive by the buffer exports, and only compare their
+ * letters, so a change to those cannot make a kernel read out of
+ * bounds.  PAIRWISE_NOGIL_BEGIN
  * therefore releases the GIL around them, so that other Python threads
  * can run concurrently, and PAIRWISE_NOGIL_CHECK reacquires it briefly
  * at regular intervals to run PyErr_CheckSignals, so that Ctrl-C can
@@ -7473,10 +7478,9 @@ Aligner_fogsaa_align_matrix(Aligner* self,
     FOGSAA_EXIT_ALIGN
 }
 
-static bool _check_indices(Py_buffer* view, Py_buffer* substitution_matrix) {
+static bool _check_indices(const int* indices, Py_ssize_t n,
+                           Py_buffer* substitution_matrix) {
     const Py_ssize_t m = substitution_matrix->shape[0];
-    const int* indices = view->buf;
-    const Py_ssize_t n = view->len / view->itemsize;
     Py_ssize_t i;
     for (i = 0; i < n; i++) {
         const int index = indices[i];
@@ -7496,10 +7500,9 @@ static bool _check_indices(Py_buffer* view, Py_buffer* substitution_matrix) {
     return true;
 }
 
-static bool _map_indices(Py_buffer* view, const int* mapping, Py_ssize_t m) {
+static bool _map_indices(int* indices, Py_ssize_t n,
+                         const int* mapping, Py_ssize_t m) {
     Py_ssize_t i;
-    const Py_ssize_t n = view->len / view->itemsize;
-    int* const indices = view->buf;
     for (i = 0; i < n; i++) {
         int index = indices[i];
         if (index < 0) {
@@ -7525,7 +7528,8 @@ static bool _map_indices(Py_buffer* view, const int* mapping, Py_ssize_t m) {
     return true;
 }
 
-static bool _prepare_indices(Py_buffer* substitution_matrix, Py_buffer* bA, Py_buffer* bB)
+static bool _prepare_indices(Py_buffer* substitution_matrix,
+                             int* sA, Py_ssize_t nA, int* sB, Py_ssize_t nB)
 {
     if (PyObject_IsInstance(substitution_matrix->obj,
                             (PyObject*)Array_Type)) {
@@ -7536,14 +7540,35 @@ static bool _prepare_indices(Py_buffer* substitution_matrix, Py_buffer* bA, Py_b
         const int* mapping = buffer->buf;
         if (mapping) {
             const Py_ssize_t m = buffer->len / buffer->itemsize;
-            if (!_map_indices(bA, mapping, m)) return false;
-            if (!_map_indices(bB, mapping, m)) return false;
+            if (!_map_indices(sA, nA, mapping, m)) return false;
+            if (!_map_indices(sB, nB, mapping, m)) return false;
             return true;
         }
     }
-    if (!_check_indices(bA, substitution_matrix)) return false;
-    if (!_check_indices(bB, substitution_matrix)) return false;
+    if (!_check_indices(sA, nA, substitution_matrix)) return false;
+    if (!_check_indices(sB, nB, substitution_matrix)) return false;
     return true;
+}
+
+/* Return a private copy of a sequence's letters, to be released with
+ * PyMem_Free, or NULL with an exception set.
+ *
+ * With a substitution matrix, the letters are indices into the matrix,
+ * so they are checked, and mapped through the matrix's alphabet, before
+ * the kernels use them.  Doing that in a copy leaves the caller's buffer
+ * unchanged, and the kernels then read exactly the indices that were
+ * checked, even if the caller's buffer changes in the meantime: another
+ * thread may write to it while a kernel runs without the GIL, and so may
+ * a gap function. */
+static int* _copy_indices(const Py_buffer* view)
+{
+    int* indices = PyMem_Malloc((size_t)view->len);
+    if (!indices) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    memcpy(indices, view->buf, (size_t)view->len);
+    return indices;
 }
 
 static int
@@ -7619,6 +7644,8 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     int nB;
     Py_buffer bA = {0};
     Py_buffer bB = {0};
+    int* copyA = NULL;
+    int* copyB = NULL;
     Aligner snapshot;
     Mode mode;
     Algorithm algorithm;
@@ -7641,10 +7668,6 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
 
-    if (substitution_matrix) {
-        if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
-    }
-
     {
         const Py_ssize_t lA = bA.len / bA.itemsize;
         const Py_ssize_t lB = bB.len / bB.itemsize;
@@ -7659,8 +7682,23 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
         nA = (int) lA;
         nB = (int) lB;
     }
-    sA = bA.buf;
-    sB = bB.buf;
+
+    if (substitution_matrix) {
+        /* The letters index the matrix: check them in private copies. */
+        copyA = _copy_indices(&bA);
+        if (!copyA) goto exit;
+        copyB = _copy_indices(&bB);
+        if (!copyB) goto exit;
+        if (!_prepare_indices(&self->substitution_matrix,
+                              copyA, nA, copyB, nB)) goto exit;
+        sA = copyA;
+        sB = copyB;
+    }
+    else {
+        /* The letters are only compared, never used as indices. */
+        sA = bA.buf;
+        sB = bB.buf;
+    }
 
     switch (algorithm) {
         case NeedlemanWunschSmithWaterman:
@@ -7737,6 +7775,8 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
+    PyMem_Free(copyA);
+    PyMem_Free(copyB);
     Aligner_snapshot_release(&snapshot);
     sequence_converter(NULL, &bA);
     sequence_converter(NULL, &bB);
@@ -7755,6 +7795,8 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     int nB;
     Py_buffer bA = {0};
     Py_buffer bB = {0};
+    int* copyA = NULL;
+    int* copyB = NULL;
     Aligner snapshot;
     Mode mode;
     Algorithm algorithm;
@@ -7777,10 +7819,6 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
 
-    if (substitution_matrix) {
-        if (!_prepare_indices(&self->substitution_matrix, &bA, &bB)) goto exit;
-    }
-
     {
         const Py_ssize_t lA = bA.len / bA.itemsize;
         const Py_ssize_t lB = bB.len / bB.itemsize;
@@ -7795,8 +7833,23 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         nA = (int) lA;
         nB = (int) lB;
     }
-    sA = bA.buf;
-    sB = bB.buf;
+
+    if (substitution_matrix) {
+        /* The letters index the matrix: check them in private copies. */
+        copyA = _copy_indices(&bA);
+        if (!copyA) goto exit;
+        copyB = _copy_indices(&bB);
+        if (!copyB) goto exit;
+        if (!_prepare_indices(&self->substitution_matrix,
+                              copyA, nA, copyB, nB)) goto exit;
+        sA = copyA;
+        sB = copyB;
+    }
+    else {
+        /* The letters are only compared, never used as indices. */
+        sA = bA.buf;
+        sB = bB.buf;
+    }
 
     switch (algorithm) {
         case NeedlemanWunschSmithWaterman:
@@ -7873,6 +7926,8 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
+    PyMem_Free(copyA);
+    PyMem_Free(copyB);
     Aligner_snapshot_release(&snapshot);
     sequence_converter(NULL, &bA);
     sequence_converter(NULL, &bB);
