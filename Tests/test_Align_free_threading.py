@@ -10,6 +10,7 @@ skips if the GIL is enabled, as it would be if Bio.Align imported an
 extension that has not declared it can run without the GIL.
 """
 
+import os
 import subprocess
 import sys
 import sysconfig
@@ -547,6 +548,60 @@ for _ in range(200):
 print("OK")
 """
 
+# Four threads keep giving a shared aligner a substitution matrix whose
+# __release_buffer__ method sleeps, and then dropping it again by setting
+# match_score, mismatch_score or substitution_matrix. Sleeping detaches the
+# thread, and so lets another thread take the aligner's lock while a setter
+# is releasing the old matrix.
+RELEASE_MATRIX_WHILE_RECONFIGURED = """\
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
+import numpy as np
+
+from Bio.Align import PairwiseAligner
+
+if sys._is_gil_enabled():
+    print("SKIP: the GIL is enabled")
+    sys.exit()
+
+
+class Matrix(np.ndarray):
+    def __release_buffer__(self, view):
+        time.sleep(1e-5)
+
+
+aligner = PairwiseAligner()
+sequence = np.arange(4, dtype=np.int32)
+settings = (
+    ("match_score", 1.0),
+    ("mismatch_score", 0.0),
+    ("substitution_matrix", None),
+    ("substitution_matrix", np.eye(4)),
+)
+barrier = Barrier(4)
+
+
+def change(i):
+    barrier.wait()
+    for j in range(2000):
+        aligner.substitution_matrix = np.eye(4).view(Matrix)
+        name, value = settings[(i + j) % len(settings)]
+        setattr(aligner, name, value)
+        # Every setting scores four matches as 4.0.
+        score = aligner.score(sequence, sequence)
+        if score != 4.0:
+            raise AssertionError(f"score {score} after setting {name}")
+
+
+with ThreadPoolExecutor(max_workers=4) as executor:
+    for future in [executor.submit(change, i) for i in range(4)]:
+        future.result()
+print("OK")
+"""
+
 
 @unittest.skipUnless(
     sysconfig.get_config_var("Py_GIL_DISABLED"), "requires a free-threaded build"
@@ -554,9 +609,13 @@ print("OK")
 class ThreadTests(unittest.TestCase):
     """Bio.Align's C extensions, called from several threads at once."""
 
-    def run_child(self, code):
+    def run_child(self, code, env=None):
         result = subprocess.run(
-            [sys.executable, "-c", code], capture_output=True, text=True, timeout=300
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=300,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         if result.stdout.startswith("SKIP"):
@@ -611,6 +670,15 @@ class ThreadTests(unittest.TestCase):
         The mapping used for scoring must belong to the alphabet that was set.
         """
         self.run_child(SET_ALPHABET)
+
+    def test_release_matrix_while_reconfigured(self):
+        """Check threads can drop a matrix whose buffer release lets others in.
+
+        Each export of the matrix must be released once. PYTHONMALLOC=debug
+        overwrites freed memory, so that releasing one twice crashes.
+        """
+        env = dict(os.environ, PYTHONMALLOC="debug")
+        self.run_child(RELEASE_MATRIX_WHILE_RECONFIGURED, env=env)
 
 
 if __name__ == "__main__":

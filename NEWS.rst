@@ -64,19 +64,23 @@ also declare that they can run without the GIL. So importing ``Bio.Align``,
 ``Bio.AlignIO``, ``Bio.PDB``, ``Bio.motifs``, ``Bio.Phylo``, ``Bio.SearchIO``
 or ``Bio.Blast``, or reading NEXUS files with ``Bio.SeqIO``, no longer turns
 the GIL back on. With ``Bio.Cluster`` declared too, none of BioPAIthon's C
-extensions does so any more.
-Without the GIL, threads sharing a ``PairwiseAligner``, the alignments it
-returns, or a substitution matrix could crash Python; this is fixed. Each
-``score()``, ``align()``, ``counts()`` or ``str()`` call uses the aligner's
-settings as they were when it started, so a thread may change the settings
-while others are aligning; which calls see the change is not defined. A
-``CodonAligner`` changed while in use cannot crash either, but a call may then
-mix its old and new scores. When several threads set the alphabet of the same
-new substitution matrix, exactly one of them now succeeds. Builds with the GIL
-get one fix from this: if replacing a gap function ran a finalizer that used
-the aligner, Python could crash, and a finalizer run by replacing the
-substitution matrix saw no matrix at all; such a finalizer now sees the new
-setting.
+extensions does so any more. Without the GIL, threads sharing a
+``PairwiseAligner``, the alignments it returns, or a substitution matrix could
+crash Python; this is fixed. Each ``score()``, ``align()``, ``counts()`` or
+``str()`` call uses the aligner's settings as they were when it started, so a
+thread may change the settings while others are aligning; which calls see the
+change is not defined. One exception: sequences such as lists of letters are
+first turned into indices in Python, using the substitution matrix's alphabet,
+so if another thread changes the matrix during such a call, its result may fit
+neither matrix (it cannot crash). A ``CodonAligner`` changed while in use
+cannot crash either, but a call may then mix its old and new scores. When
+several threads set the alphabet of the same new substitution matrix, exactly
+one of them now succeeds. Builds with the GIL get two fixes from this. If
+replacing a gap function ran a finalizer that used the aligner, Python could
+crash, and a finalizer run by replacing the substitution matrix saw no matrix
+at all. Likewise, if dropping the substitution matrix ran its
+``__release_buffer__`` method, and that used the aligner, Python could crash.
+Such code now sees the new setting.
 
 The ``test`` extra now also installs pytest-xdist and pytest-cov, so the test
 suite can run in parallel, with ``python -m pytest --offline -n auto`` in

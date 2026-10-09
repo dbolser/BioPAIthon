@@ -20514,6 +20514,62 @@ assert scores == [8.0], scores
         )
 
     @unittest.skipUnless(
+        platform.python_implementation() == "CPython" and sys.version_info >= (3, 12),
+        "requires __release_buffer__, new in Python 3.12",
+    )
+    def test_release_buffer_uses_aligner_during_setter(self):
+        self.run_child(
+            """
+import sys
+import sysconfig
+
+import numpy as np
+
+from Bio import Align
+
+scores = []
+releasing = []
+
+
+class Matrix(np.ndarray):
+    # A setter dropping this matrix releases the aligner's buffer export of
+    # it, which runs this method.  It scores with the aligner, and then
+    # makes the same setting again, which drops the matrix again if the
+    # aligner still holds it.
+
+    def __release_buffer__(self, view):
+        if releasing:
+            releasing.pop()
+            scores.append(aligner.score(sequence, sequence))
+            setattr(aligner, name, value)
+
+
+sequence = np.arange(4, dtype=np.int32)
+aligner = Align.PairwiseAligner()
+for name, value in [
+    ("match_score", 2.0),
+    ("mismatch_score", -3.0),
+    ("substitution_matrix", None),
+    ("substitution_matrix", 3 * np.eye(4)),
+]:
+    matrix = np.eye(4).view(Matrix)
+    aligner.substitution_matrix = matrix
+    expected_refcount = sys.getrefcount(matrix) - 1
+    del scores[:]
+    releasing.append(True)
+    setattr(aligner, name, value)
+    assert not releasing, name
+    if not sysconfig.get_config_var("Py_GIL_DISABLED"):
+        # The export was released once, not twice.
+        refcount = sys.getrefcount(matrix)
+        assert refcount == expected_refcount, (name, refcount, expected_refcount)
+    # The method must have seen the whole new setting.
+    expected = aligner.score(sequence, sequence)
+    assert scores == [expected], (name, scores, expected)
+"""
+        )
+
+    @unittest.skipUnless(
         _stable_cpython_refcounts,
         "GIL-enabled CPython reference counts are required",
     )

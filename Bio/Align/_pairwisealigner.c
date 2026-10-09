@@ -2074,17 +2074,26 @@ Aligner_get_match_score(Aligner* self, void* closure)
     return PyFloat_FromDouble(self->match);
 }
 
+/* Releasing the aligner's export of its substitution matrix can run Python
+ * code (a __release_buffer__ method), which may use or reconfigure the
+ * aligner, or, without the GIL, let another thread take the aligner's lock.
+ * So a setter that drops the matrix first takes the export out of the
+ * aligner and completes the new setting, and only then releases it. */
+
 static int
 Aligner_set_match_score(Aligner* self, PyObject* value, void* closure)
 {
     const double match = PyFloat_AsDouble(value);
+    Py_buffer old;
     if (PyErr_Occurred()) {
         PyErr_SetString(PyExc_ValueError, "invalid match score");
         return -1;
     }
-    PyBuffer_Release(&self->substitution_matrix);
-    /* does nothing if self->substitution_matrix.obj is NULL */
+    old = self->substitution_matrix;
+    self->substitution_matrix.obj = NULL;
     self->match = match;
+    PyBuffer_Release(&old);
+    /* does nothing if old.obj is NULL */
     return 0;
 }
 
@@ -2103,13 +2112,16 @@ static int
 Aligner_set_mismatch_score(Aligner* self, PyObject* value, void* closure)
 {
     const double mismatch = PyFloat_AsDouble(value);
+    Py_buffer old;
     if (PyErr_Occurred()) {
         PyErr_SetString(PyExc_ValueError, "invalid mismatch score");
         return -1;
     }
-    PyBuffer_Release(&self->substitution_matrix);
-    /* does nothing if self->substitution_matrix.obj is NULL */
+    old = self->substitution_matrix;
+    self->substitution_matrix.obj = NULL;
     self->mismatch = mismatch;
+    PyBuffer_Release(&old);
+    /* does nothing if old.obj is NULL */
     return 0;
 }
 
@@ -2178,7 +2190,9 @@ Aligner_set_substitution_matrix(Aligner* self, PyObject* values, void* closure)
     Py_buffer view;
     Py_buffer old;
     if (values == Py_None) {
-        PyBuffer_Release(&self->substitution_matrix);
+        old = self->substitution_matrix;
+        self->substitution_matrix.obj = NULL;
+        PyBuffer_Release(&old);
         return 0;
     }
     if (substitution_matrix_converter(values, &view) == 0) return -1;
