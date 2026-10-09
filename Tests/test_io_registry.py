@@ -268,7 +268,12 @@ class BuiltinTables(unittest.TestCase):
         for fmt in Align.formats:
             with self.subTest(fmt=fmt):
                 module = Align._registry[fmt]
-                self.assertIs(module, importlib.import_module(f"Bio.Align.{fmt}"))
+                if fmt == "phylip-relaxed":
+                    # A format name that is not a module name.
+                    expected = importlib.import_module("Bio.Align.phylip")._relaxed
+                else:
+                    expected = importlib.import_module(f"Bio.Align.{fmt}")
+                self.assertIs(module, expected)
                 self.assertTrue(hasattr(module, "AlignmentIterator"))
 
     def test_phylo(self):

@@ -230,7 +230,11 @@ class AlignFormatErrors(FormatErrorTestCase):
                 ("NOPE", ValueError, "Unknown file format nope"),
                 ("", ValueError, "Unknown file format "),
                 (None, AttributeError, self.no_lower),
-                ("phylip-relaxed", ValueError, "Unknown file format phylip-relaxed"),
+                (
+                    "phylip-sequential",
+                    ValueError,
+                    "Unknown file format phylip-sequential",
+                ),
             ],
         )
 
@@ -252,7 +256,11 @@ class AlignFormatErrors(FormatErrorTestCase):
                 ("NOPE", ValueError, "Unknown file format nope"),
                 ("", ValueError, "Unknown file format "),
                 (None, AttributeError, self.no_lower),
-                ("phylip-relaxed", ValueError, "Unknown file format phylip-relaxed"),
+                (
+                    "phylip-sequential",
+                    ValueError,
+                    "Unknown file format phylip-sequential",
+                ),
                 (
                     "hhr",
                     ValueError,
@@ -275,7 +283,7 @@ class AlignFormatErrors(FormatErrorTestCase):
         table = [
             ("nope", ValueError, "Unknown file format nope"),
             ("NOPE", ValueError, "Unknown file format nope"),
-            ("phylip-relaxed", ValueError, "Unknown file format phylip-relaxed"),
+            ("phylip-sequential", ValueError, "Unknown file format phylip-sequential"),
             ("hhr", ValueError, no_writer),
             ("bigbed", ValueError, "bigbed is a binary file format"),
         ]
