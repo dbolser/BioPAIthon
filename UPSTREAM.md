@@ -145,6 +145,50 @@ cites by name, and in `stockholm.py` and `phylip.py`, which PR #155 edited.
   htslib caps per-block input instead. Reproduced on 1.85; needs the same
   duplicate-check before filing.
 
+## Draft only, not sent
+
+Material for Dan to rewrite in his own words and send, or not. **Nothing in
+this section has been sent: no issue, comment or pull request has been opened
+on `biopython/biopython` about it.**
+
+### A format-registration hook and plugin entry points
+
+- **What the fork is adding.** A public
+  `Bio.SeqIO.register_format(name, iterator=None, writer=None, *, replace=False)`
+  and `Bio.Align.register_format(name, module, *, replace=False)`, plus
+  entry-point plugins in the groups `biopaithon.seqio.iterators`,
+  `biopaithon.seqio.writers` and `biopaithon.align`. The contract is decided in
+  `IMPROVEMENTS.md` §1.2. The private registry it builds on has landed
+  ([#149](https://github.com/dbolser/BioPAIthon/pull/149)); the hook and the
+  plugins have not.
+- **Why upstream may care.** Upstream's format tables are private. It has no
+  public registration hook and no entry points, and no open issue or pull
+  request proposes one (searched 2026-10-06, `master` at `372c71069`,
+  1.89.dev0). Downstream code assigns into the private
+  `SeqIO._FormatToIterator` and `_FormatToWriter` instead: hybran, LMAT,
+  recentrifuge and psico do, and tfbayes does the same to AlignIO's table.
+- **The question worth asking is the group names.** The fork uses its own
+  `biopaithon.*` groups so that it claims nothing in upstream's namespace. If
+  upstream wanted a hook, shared `biopython.*` group names would let one plugin
+  package serve both projects. The fork could read those groups as well
+  without breaking its own plugins.
+- **Related upstream threads.** #3614, #3926 and #894 are open; #4627 is
+  merged.
+  [#3614](https://github.com/biopython/biopython/issues/3614): the "Unknown
+  format" error should list the formats.
+  [#3926](https://github.com/biopython/biopython/pull/3926): a stalled 2022 WIP
+  pull request for public readable and writable format lists. peterjc liked it
+  as a single source of truth; mdehoon wanted one `formats`, as `Bio.Align`
+  has. [#894](https://github.com/biopython/biopython/issues/894): delay
+  SeqIO's imports. [#4627](https://github.com/biopython/biopython/pull/4627)
+  (merged 2024) went the same way for `MultipleSeqAlignment`. Upstream's
+  `import Bio.SeqIO` still imports every format module, `Bio.AlignIO`,
+  `Bio.Align` and NumPy; this fork's
+  [#73](https://github.com/dbolser/BioPAIthon/pull/73) made it lazy.
+- **Form.** Information, not a pull request, as in
+  [How reports are made](#how-reports-are-made). Any code is offered as a
+  description.
+
 ## Disclosed, in progress
 
 Both of the memory-safety findings have now been passed on. Neither is closed.
