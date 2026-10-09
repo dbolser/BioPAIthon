@@ -1168,6 +1168,15 @@ class TestPhylipMultiple(unittest.TestCase):
             ],
         )
 
+    def test_trailing_blank_lines(self):
+        # Blank and whitespace-only lines up to the end of the file are skipped.
+        for filename in ("interlaced.phy", "sequential.phy", "horses.phy"):
+            with self.subTest(filename=filename):
+                expected = Align.read(support.DATA / "Phylip" / filename, "phylip")
+                text = read_text(filename) + "\n  \n\n"
+                alignment = Align.read(StringIO(text), "phylip")
+                self.assertEqual(summarize(alignment), summarize(expected))
+
     def check_alignio(self, msas, fmt, shapes):
         stream = StringIO()
         AlignIO.write(msas, stream, fmt)
