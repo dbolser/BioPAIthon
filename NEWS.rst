@@ -59,6 +59,20 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align``'s Stockholm reader now reads the per-residue annotations of
+``#=GR`` lines by column. A ``#=GR`` line has one character per alignment
+column, and each sequence now keeps the characters in the columns where it has
+a letter. The reader used to delete every ``.`` (every ``-`` for ``CSA``)
+instead. That shifted an annotation using ``.`` as a symbol, as in
+``example_nonstandardannotations.sth``, and raised ``TypeError`` on reading
+back ``Bio.Align``'s own output for letter annotations containing ``.``.
+Values change for ``#=GR`` lines with ``.`` in a residue column, or with a
+character other than ``.`` (``-`` for ``CSA``) in a gap column. A ``#=GR``
+line must now span the alignment, as ``#=GC`` lines already must, and one that
+does not raises ``ValueError``. Reading a file with a ``#=GR`` line per
+sequence is also faster: 20,000 sequences took about 5 seconds and now take
+under 2.
+
 ``Bio.Cluster`` can now run without the GIL on a free-threaded build of
 Python, and importing it no longer turns the GIL back on. Threads sharing one
 ``Tree`` can now sort, scale, cut, index and print it at the same time; before,
