@@ -59,6 +59,13 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The test suite no longer changes into ``Tests/`` before it runs. Each test
+runs in whichever directory pytest was started in, and finds its data from its
+own location, so ``python -m pytest --offline /path/to/Tests`` works from any
+directory. Only the docstring examples still run inside ``Tests/``, as they
+name files relative to it. CI now runs the suite from outside the checkout, so
+a test that reads its data relative to the current directory fails there.
+
 ``Bio.Cluster`` now releases the GIL while its C code clusters, so other
 threads keep running, and threads clustering different data at the same time
 run in parallel on any build of Python. This covers ``kcluster``,

@@ -157,10 +157,14 @@ python -m pytest --offline test_docstrings.py              # all doctests
 python -m pytest --offline "test_docstrings.py::Bio.Seq"   # one module's doctests
 ```
 
-pytest can also be run from the repository root (`python -m pytest --offline
-Tests/test_Seq_objs.py`); the tests still run inside `Tests/`. Only
-`unittest.TestCase` subclasses are collected, so write new tests as those, not
-as plain pytest functions.
+pytest can be run from any directory, such as the repository root (`python -m
+pytest --offline Tests/test_Seq_objs.py`). Only `unittest.TestCase` subclasses
+are collected, so write new tests as those, not as plain pytest functions.
+
+The tests run in whichever directory pytest started in, and CI starts it
+outside the checkout. So build data paths from `support.DATA` (see
+`Tests/support.py`), never relative to the current directory. The docstring
+examples are the exception: they run inside `Tests/`.
 
 Tests needing the network use the `@requires_internet` decorator; tests
 needing external binaries must detect their absence and skip gracefully

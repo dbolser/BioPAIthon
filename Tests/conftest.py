@@ -15,8 +15,11 @@ one.  This file keeps the behaviour of the bespoke runner that preceded it:
   subclass MissingPythonDependencyError) while being imported.  The same
   exceptions raised later, from code under test, are failures.  A run in
   which every selected module skips this way succeeds.
-- Tests run from the Tests/ directory.  LANG is restored before each module
-  is imported, and its tests run with any LANG it set on import.
+- Tests run in whichever directory pytest was started from, so they must
+  find their data through support.DATA, not the current directory.  Only
+  the docstring examples run inside Tests/, as many name files relative to
+  it.  LANG is restored before each module is imported, and its tests run
+  with any LANG it set on import.
 - A test module with no tests, or one that leaves the current directory
   changed, fails.
 - The docstring examples of every Bio and BioSQL module run as doctests,
@@ -196,13 +199,11 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.hookimpl(trylast=True)
 def pytest_configure(config):
     config.stash[_IMPORT_SKIPS] = {}
     if config.pluginmanager.has_plugin("dsession"):
-        # This is the pytest-xdist controller, which runs no tests. Its
-        # workers start in the invocation directory, resolve the command
-        # line arguments there, and then change directory themselves.
+        # This is the pytest-xdist controller, which runs no tests, so
+        # needs no network guard.
         return
     if config.getoption("--offline"):
         # This is a bit of a hack...
@@ -212,12 +213,6 @@ def pytest_configure(config):
         # Block non-local socket connections so any test that tries
         # to use the internet fails loudly rather than going online.
         block_network_connections()
-    # Always run tests from the Tests/ folder (as we assume this with
-    # relative paths etc).  This runs after the built-in plugins have
-    # resolved their own relative paths (--junitxml and so on) against the
-    # invocation directory, and pytest resolves the test arguments against
-    # that directory too, so pytest can be run from anywhere.
-    os.chdir(TESTS_DIR)
 
 
 def pytest_collectstart(collector):
@@ -312,6 +307,17 @@ class _DocTestRunner(doctest.DocTestRunner):
 
 class _DoctestItem(pytest.DoctestItem):
     """The examples in one docstring (PRIVATE)."""
+
+    def runtest(self):
+        # Many examples name files relative to Tests/, as in
+        # SeqIO.read("Fasta/sweetpea.nu", "fasta").  They are documentation
+        # for users, so they run there rather than being rewritten.
+        cwd = os.getcwd()
+        os.chdir(TESTS_DIR)
+        try:
+            super().runtest()
+        finally:
+            os.chdir(cwd)
 
     def reportinfo(self):
         # Point at the docstring in the Bio source, not Tests/test_docstrings.py.
