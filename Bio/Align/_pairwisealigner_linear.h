@@ -782,19 +782,20 @@ linear_set_traceback_limits(PyObject* module, PyObject* args)
     PyObject* threshold;
     Py_ssize_t checkpoint_bytes;
     Py_ssize_t block_bytes;
-    size_t value = 0;
+    Py_ssize_t value = 0;
     PyObject* previous;
 
     if (!PyArg_ParseTuple(args, "Onn:_set_traceback_limits",
                           &threshold, &checkpoint_bytes, &block_bytes))
         return NULL;
     if (threshold != Py_None) {
-        value = PyLong_AsSize_t(threshold);
-        if (value == (size_t)-1 && PyErr_Occurred()) return NULL;
+        value = PyLong_AsSsize_t(threshold);
+        if (value == -1 && PyErr_Occurred()) return NULL;
     }
-    if (checkpoint_bytes < 1 || block_bytes < 1) {
+    if (value < 0 || checkpoint_bytes < 1 || block_bytes < 1) {
         PyErr_SetString(PyExc_ValueError,
-                        "checkpoint and block budgets must be positive");
+                        "threshold must be None or at least 0, "
+                        "and the budgets at least 1");
         return NULL;
     }
     previous = Py_BuildValue("(Nnn)",
@@ -804,7 +805,7 @@ linear_set_traceback_limits(PyObject* module, PyObject* args)
                              (Py_ssize_t)linear_block_bytes);
     if (!previous) return NULL;
     linear_enabled = (threshold != Py_None);
-    linear_threshold = value;
+    linear_threshold = (size_t)value;
     linear_checkpoint_bytes = (size_t)checkpoint_bytes;
     linear_block_bytes = (size_t)block_bytes;
     return previous;

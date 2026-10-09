@@ -3,17 +3,14 @@
 # as part of this package.
 """Tests for the linear-space traceback of PairwiseAligner.align().
 
-The linear-space traceback is switched off by default. These tests switch it
-on with the private _pairwisealigner._set_traceback_limits, and check that it
-yields exactly what the full traceback matrix yields: the same score, and the
-same paths in the same order.
-
-Set BIOPAITHON_SLOW_TESTS=1 to also run a longer soak and an alignment of
-more than INT_MAX cells.
+It is off by default; the private _set_traceback_limits switches it on. It must
+give the full traceback matrix's score, and its paths in the same order.
+BIOPAITHON_SLOW_TESTS=1 adds a soak and an alignment of over INT_MAX cells.
 """
 
 import contextlib
 import os
+import platform
 import random
 import signal
 import struct
@@ -191,7 +188,7 @@ class TestDefaults(unittest.TestCase):
             self.assertEqual(set_limits(*DEFAULT), (None, 1, 2))
             self.assertRaises(ValueError, set_limits, None, 0, 1)
             self.assertRaises(ValueError, set_limits, None, 1, 0)
-            self.assertRaises(OverflowError, set_limits, -1, 1, 1)
+            self.assertRaises(ValueError, set_limits, -1, 1, 1)
             self.assertEqual(set_limits(*DEFAULT), DEFAULT)
 
     def test_laziness(self):
@@ -394,6 +391,10 @@ class TestThreads(unittest.TestCase):
 
 
 @unittest.skipUnless(hasattr(signal, "setitimer"), "requires POSIX interval timers")
+@unittest.skipUnless(
+    platform.python_implementation() == "CPython",
+    "PyPy runs Python signal handlers only once a C call has returned",
+)
 class TestInterrupt(unittest.TestCase):
     """KeyboardInterrupt during the traceback leaves the object usable."""
 
