@@ -8019,6 +8019,52 @@ B GGGGG
         ):
             Align.read(stream, "stockholm")
 
+    def test_markup_widths(self):
+        """Reject #=GR or #=GC pieces that do not match their block's width."""
+        # Pieces of widths 4 and 4 have the total width of blocks 5 and 3,
+        # but would shift the annotation across the block boundary.
+        cases = {
+            "#=GR": (
+                "A ACGTA\n#=GR A SS <<<<\nB ACGTA\n\nA CCC\n#=GR A SS >>>>\nB GGG\n",
+                "^#=GR SS line of A has length 4, expected 5$",
+            ),
+            "#=GC": (
+                "A ACGTA\nB ACGTA\n#=GC SS_cons <<<<\n\n"
+                "A CCC\nB GGG\n#=GC SS_cons >>>>\n",
+                r"^#=GC SS_cons lines have lengths \[4, 4\], expected the "
+                r"block widths \[5, 3\]$",
+            ),
+            "#=GC in one block only": (
+                "A ACGTA\nB ACGTA\n#=GC SS_cons <<<>>>>>\n\nA CCC\nB GGG\n",
+                r"^#=GC SS_cons lines have lengths \[8\], expected the "
+                r"block widths \[5, 3\]$",
+            ),
+        }
+        for case, (sequences, message) in cases.items():
+            with self.subTest(case=case):
+                stream = StringIO(f"# STOCKHOLM 1.0\n{sequences}//\n")
+                with self.assertRaisesRegex(ValueError, message):
+                    Align.read(stream, "stockholm")
+        # A #=GC line may come before the sequences of its block.
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+#=GC SS_cons <<<<<
+A ACGTA
+B ACGTA
+
+#=GC SS_cons >>>
+A CCC
+B GGG
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(
+            alignment.column_annotations,
+            {"consensus secondary structure": "<<<<<>>>"},
+        )
+
     def test_gr_after_other_sequence(self):
         """Reject a #=GR line that does not follow its own sequence."""
         stream = StringIO(
