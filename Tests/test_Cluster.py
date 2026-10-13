@@ -3259,38 +3259,6 @@ class TestClusterRNGSeed(unittest.TestCase):
         observed = [libc.rand() for _ in range(5)]
         self.assertEqual(expected, observed)
 
-    def test_threaded_clustering_matches_serial(self):
-        # Two threads clustering different matrices concurrently must give
-        # the same results as serial runs with the same seeds. Only a
-        # free-threaded build with the GIL disabled runs the C kernels
-        # concurrently today; elsewhere the GIL serializes them, so there
-        # this mostly guards the seeded RNG's per-call state against a
-        # future release of the GIL.
-        import threading
-
-        from Bio.Cluster import kcluster
-
-        matrices = [self._data(), self._data(40, 4) * -1.0]
-        seeds = [11, 22]
-        serial = [
-            kcluster(data, nclusters=3, npass=5, rng_seed=seed)
-            for data, seed in zip(matrices, seeds)
-        ]
-        results = [None, None]
-
-        def worker(i):
-            results[i] = kcluster(matrices[i], nclusters=3, npass=5, rng_seed=seeds[i])
-
-        threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-        for expected, observed in zip(serial, results):
-            np.testing.assert_array_equal(expected[0], observed[0])
-            self.assertEqual(expected[1], observed[1])
-            self.assertEqual(expected[2], observed[2])
-
 
 # Child process for TestClusterThreads.test_shared_tree. Three threads sort
 # and scale one tree while three others cut it, index it and print it.
@@ -3436,6 +3404,90 @@ class TestClusterThreads(unittest.TestCase):
             )
         for array, copy in zip(arrays, copies):
             np.testing.assert_array_equal(array, copy)
+
+    def test_threaded_clustering_matches_serial(self):
+        """Check threads clustering different matrices match serial runs.
+
+        The C kernels run without the GIL, so the two threads overlap. This
+        guards the per-call state of the kernels and of the seeded RNG.
+        """
+        import threading
+
+        from Bio.Cluster import distancematrix
+        from Bio.Cluster import kcluster
+        from Bio.Cluster import somcluster
+        from Bio.Cluster import treecluster
+
+        functions = {
+            "kcluster": lambda data, seed: kcluster(
+                data, nclusters=3, npass=5, rng_seed=seed
+            ),
+            "treecluster": lambda data, seed: [
+                (node.left, node.right, node.distance) for node in treecluster(data)[:]
+            ],
+            "somcluster": lambda data, seed: somcluster(data, niter=100, rng_seed=seed),
+            "distancematrix": lambda data, seed: distancematrix(data),
+        }
+        matrices = [
+            TestClusterRNGSeed._data(200, 5),
+            TestClusterRNGSeed._data(250, 4) * -1.0,
+        ]
+        seeds = [11, 22]
+
+        def run_in_threads(function):
+            results = [None, None]
+            barrier = threading.Barrier(2)
+
+            def worker(i):
+                barrier.wait()
+                results[i] = function(matrices[i], seeds[i])
+
+            threads = [threading.Thread(target=worker, args=(i,)) for i in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
+            return results
+
+        for name, function in functions.items():
+            with self.subTest(name):
+                serial = [function(data, seed) for data, seed in zip(matrices, seeds)]
+                np.testing.assert_equal(run_in_threads(function), serial)
+
+    def test_other_threads_run_while_clustering(self):
+        """Check treecluster lets other threads run while it clusters.
+
+        A thread counts while treecluster clusters 2000 rows, which takes
+        seconds. If treecluster held the GIL throughout, the count could
+        only go up at the start and end of the call.
+        """
+        import threading
+        import time
+
+        from Bio.Cluster import treecluster
+
+        if not getattr(sys, "_is_gil_enabled", lambda: True)():
+            self.skipTest("other threads always run when the GIL is disabled")
+        data = np.random.default_rng(0).normal(size=(2000, 2))
+        count = 0
+        done = threading.Event()
+
+        def counter():
+            nonlocal count
+            while not done.is_set():
+                count += 1
+                time.sleep(0.001)
+
+        thread = threading.Thread(target=counter)
+        thread.start()
+        try:
+            before = count
+            treecluster(data)
+            after = count
+        finally:
+            done.set()
+            thread.join()
+        self.assertGreater(after - before, 10)
 
     def run_child(self, code):
         # A crash or a hang in the child fails the test, rather than taking
