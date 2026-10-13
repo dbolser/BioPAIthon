@@ -562,6 +562,16 @@ def _get_alignment_sequence_writer_class(fmt):
     )
 
 
+def _plugin_format_name(name):
+    """Return an entry point's name, if SeqIO.parse accepts it (PRIVATE)."""
+    # Same checks and messages as parse, write and register_format:
+    if not name:
+        raise ValueError("Format required (lower case string)")
+    if not name.islower():
+        raise ValueError(f"Format string '{name}' should be lower case")
+    return name
+
+
 _FormatToIterator = _FormatRegistry(
     {
         "abi": "AbiIO.AbiIterator",
@@ -620,6 +630,8 @@ _FormatToIterator = _FormatRegistry(
     },
     _get_alignment_sequence_iterator_class,
     package="Bio.SeqIO",
+    group="biopaithon.seqio.iterators",
+    name_rule=_plugin_format_name,
 )
 
 # Right now used in the unit tests as proxy for all supported outputs...
@@ -658,6 +670,8 @@ _FormatToWriter = _FormatRegistry(
     },
     _get_alignment_sequence_writer_class,
     package="Bio.SeqIO",
+    group="biopaithon.seqio.writers",
+    name_rule=_plugin_format_name,
 )
 
 
@@ -1309,7 +1323,8 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
        method works with write and convert, but SeqRecord.format and
        format(record, name) need a SequenceWriter subclass.
      - replace  - must be True to replace an iterator or writer the format
-       already has, built in or registered.
+       already has, built in or registered.  An iterator or writer that an
+       entry-point plugin gave is replaced without it.
 
     Give an iterator, a writer, or both.  Registering the iterator or writer
     a format already has does nothing.  If either is refused, neither is
@@ -1366,6 +1381,13 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
         elif not callable(value):
             raise TypeError(f"Expected a callable or a string, not {value!r}")
 
+    def vacant(table, entry):
+        """Return whether a role is free to set without replace (PRIVATE).
+
+        It is if the format lacks that role, or has it from an entry point.
+        """
+        return entry is _ABSENT or name in table.plugins
+
     def check():
         """Return each role's current entry, if the role may be set (PRIVATE).
 
@@ -1375,7 +1397,7 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
         entries = []
         for table, role, value in roles:
             entry = dict.get(table, name, _ABSENT)
-            if not (replace or entry is _ABSENT or _same_handler(entry, value)):
+            if not (replace or vacant(table, entry) or _same_handler(entry, value)):
                 raise ValueError(
                     f"Format {name!r} already has {role};"
                     " use replace=True to replace it"
@@ -1397,7 +1419,7 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
             ):
                 continue
             for (table, role, value), entry in zip(roles, entries):
-                if replace or entry is _ABSENT:
+                if replace or vacant(table, entry):
                     table.register(name, value, replace=True)
             if replace:
                 # Drop the convert shortcuts which read (or write) this

@@ -40,8 +40,17 @@ CLUSTAL = support.DATA / "Clustalw" / "opuntia.aln"
 BLAST_TAB = support.DATA / "Blast" / "tab_2226_tblastn_001.txt"
 
 
+def stored(table):
+    """Return a copy of a table's stored entries, resolving none of them.
+
+    dict.copy(table) would resolve them all, as FormatRegistry overrides
+    iteration to look for entry points first.
+    """
+    return dict(dict.items(table))
+
+
 def restore(table, saved):
-    """Put back a table's stored entries, as dict.copy saved them."""
+    """Put back a table's stored entries, as stored() saved them."""
     dict.clear(table)
     dict.update(table, saved)
 
@@ -134,7 +143,7 @@ class SeqIOTestCase(unittest.TestCase):
             SeqIO._FormatToWriter,
             SeqIO._converter,
         ]:
-            self.addCleanup(restore, table, dict.copy(table))
+            self.addCleanup(restore, table, stored(table))
 
     def write(self, records, fmt):
         handle = StringIO()
@@ -520,7 +529,7 @@ class AlignRegisterFormat(unittest.TestCase):
     """Bio.Align.register_format adds a case-insensitive format name."""
 
     def setUp(self):
-        self.addCleanup(restore, Align._registry, dict.copy(Align._registry))
+        self.addCleanup(restore, Align._registry, stored(Align._registry))
         self.formats = Align.formats
         self.alignment = Align.read(CLUSTAL, "clustal")
         self.expected = self.alignment.format("clustal")

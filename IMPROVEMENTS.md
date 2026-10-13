@@ -699,25 +699,25 @@ points in the ecosystem. Existing `Tests/test_AlignIO_*.py` passing unchanged is
 the acceptance gate.
 **Effort L · Impact high**
 
-### 1.2 Five incompatible format-registration mechanisms, none extensible **[shared registry FIXED, public hook decided but not built]**
+### 1.2 Five incompatible format-registration mechanisms, none extensible **[FIXED]**
 
-> **Status: the shared registry has landed; the public hook is decided but
-> not built.** PR #149 added a private, lazy `FormatRegistry`
-> (`Bio/_io_registry.py`). SeqIO and `Bio.Align` now look format names up
-> through it, so a `Bio.Align` format name no longer has to be a module name.
-> `Bio.Phylo` has used it too since PR #174.
-> `register_format()` and entry-point plugins are not built yet. The
-> "Decided API" list below is the contract they follow. If the contract
-> changes, this list changes first. The NumPy consequence this section first
-> reported is gone. PR #73 made SeqIO's format tables lazy, so
-> `import Bio.SeqIO` loads no format module. Nor does it load NumPy,
-> `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`. FASTA parses with
-> NumPy uninstalled (re-checked on 2026-10-08).
+> **Status: done, as decided below.** PR #149 added a private, lazy
+> `FormatRegistry` (`Bio/_io_registry.py`). SeqIO and `Bio.Align` look format
+> names up through it, and `Bio.Phylo` has too since PR #174, so a
+> `Bio.Align` format name no longer has to be a module name. PR #185 added
+> `register_format()` to SeqIO and `Bio.Align`, and PR #198 the entry-point
+> plugins, both following the "Decided API" list below. AlignIO and SearchIO
+> are left as they are, by decision. The NumPy consequence this section
+> first reported went with PR #73: `import Bio.SeqIO` loads no format module,
+> nor NumPy, `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`, and
+> FASTA parses with NumPy uninstalled (re-checked on 2026-10-08).
 > `test_SeqIO.LazyFormatRegistries.test_import_seqio_is_lazy` and
-> `test_io_registry.BuiltinTables.test_import_seqio_stays_light` guard it.
+> `test_io_registry.BuiltinTables.test_import_seqio_stays_light` guard it,
+> and `test_register_format.StaysWithoutImportlibMetadata` guards that the
+> built-in formats never look for entry points.
 
-`Bio/SeqIO/__init__.py:561-657` holds lazy `"Module.Class"` strings,
-`Bio/Align/__init__.py:5319-5327` builds its table from the `formats` tuple, and
+`Bio/SeqIO/__init__.py:575-675` holds lazy `"Module.Class"` strings,
+`Bio/Align/__init__.py:5327-5334` builds its table from the `formats` tuple, and
 `Bio/Phylo/_io.py:21-38` holds `"package.module"` specs. All three are
 `FormatRegistry` tables, resolved on first use (PRs #149 and #174).
 `Bio/AlignIO/__init__.py:162-185` uses dicts of eagerly imported classes.
@@ -728,10 +728,10 @@ the acceptance gate.
 Consequences: until PR #149, `Bio.Align` format names had to be valid Python
 module names. That is *why* it could not offer `phylip-relaxed` (§1.1), and why
 it says `tabular` where SeqIO says `fasta-m10`. Case handling differs —
-`Align.read(f, "FASTA")` works, `SeqIO.parse(f, "FASTA")` raises. There is no
-registration hook at all, so a downstream package must mutate private dicts.
-hybran, LMAT, recentrifuge and psico assign into `SeqIO._FormatToIterator`, and
-tfbayes into AlignIO's table.
+`Align.read(f, "FASTA")` works, `SeqIO.parse(f, "FASTA")` raises. Until
+PR #185 there was no registration hook at all, so a downstream package had to
+mutate private dicts. hybran, LMAT, recentrifuge and psico assign into
+`SeqIO._FormatToIterator`, and tfbayes into AlignIO's table.
 Until PR #73 the eager imports also made NumPy a requirement for parsing FASTA
 (see the status note). `import Bio.AlignIO` still pulls in `Bio.Align` and
 NumPy.

@@ -1747,3 +1747,25 @@ knows about it. So register at the top level of a module, rather than
 inside ``if __name__ == "__main__":`` or in a notebook cell. Worker
 processes started by ``multiprocessing`` with the "spawn" or "forkserver"
 method then import that module again, and register the format too.
+
+A package can instead declare its formats as entry points in its
+``pyproject.toml``. Then nobody needs to call ``register_format``: once the
+package is installed, every Python process finds them.
+
+.. code:: toml
+
+   [project.entry-points."biopaithon.seqio.iterators"]
+   myformat = "mypackage.myformat:MyFormatIterator"
+
+   [project.entry-points."biopaithon.seqio.writers"]
+   myformat = "mypackage.myformat:MyFormatWriter"
+
+``Bio.SeqIO`` looks for these entry points once per Python process, the
+first time it is given a format name it does not know, so using the
+built-in formats costs nothing extra. A package installed after that is
+found by the next process. The module is imported when the format is
+first used, so an error importing it shows up then. An entry point is
+ignored, with a warning, if its name is not lower case, if it names a
+built-in format, or if two installed packages give that name different
+classes. ``register_format`` replaces a format from an entry point without
+``replace=True``.
