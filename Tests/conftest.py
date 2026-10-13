@@ -199,6 +199,9 @@ def pytest_addoption(parser):
     )
 
 
+# trylast: pytest-xdist registers "dsession" in its own try-last
+# pytest_configure, so this must run after it to see it.
+@pytest.hookimpl(trylast=True)
 def pytest_configure(config):
     config.stash[_IMPORT_SKIPS] = {}
     if config.pluginmanager.has_plugin("dsession"):
