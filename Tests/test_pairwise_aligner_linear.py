@@ -498,14 +498,27 @@ class TestInterrupt(unittest.TestCase):
     def test_reentry(self):
         # A signal handler using the alignments while they are being
         # computed gets an error, rather than waiting for itself forever.
+        #
+        # Python runs the handler only between bytecodes or where the C
+        # code checks for signals, so a single tick can land before next()
+        # enters C, where len() would count every path; under load a 2 ms
+        # tick landed in the re.compile of assertRaisesRegex.  So the
+        # timer ticks every millisecond and each tick first probes with
+        # reset(), which outside next() is cheap and harmless; the first
+        # tick inside next() fails, checks that len() fails the same way,
+        # and its error ends next().
+        def handler(signum, frame):
+            try:
+                paths.reset()
+            except RuntimeError:
+                with self.assertRaisesRegex(RuntimeError, "being computed"):
+                    len(paths)
+                raise
+
         alignments = forced_align(self.aligner, *self.seqs)
         paths = alignments._paths
-
-        def handler(signum, frame):
-            len(paths)
-
         previous = signal.signal(signal.SIGALRM, handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.002)
+        signal.setitimer(signal.ITIMER_REAL, 0.001, 0.001)
         try:
             with self.assertRaisesRegex(RuntimeError, "being computed"):
                 next(paths)

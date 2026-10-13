@@ -6,6 +6,7 @@
 """Tests for the PairwiseAligner in Bio.Align."""
 
 import array
+import mmap
 import os
 import platform
 import random
@@ -22899,13 +22900,17 @@ class TestMatrixAllocationGuards(unittest.TestCase):
     """
 
     def huge_zeros(self, length):
-        # An untouched np.zeros only reserves address space (the pages
+        # Anonymous mmap memory only reserves address space (the pages
         # are lazily zero-filled), so on 64-bit systems these gigabytes
         # are virtual; skip on platforms that refuse the reservation.
+        # Not np.zeros: under PYTHONMALLOC=debug, as in the ASan CI job,
+        # its 8 GB became resident, and two such tests running at once
+        # on parallel workers ran the runner out of memory.
         try:
-            return np.zeros(length, dtype=np.int32)
-        except MemoryError:
+            buffer = mmap.mmap(-1, length * np.dtype(np.int32).itemsize)
+        except (OSError, OverflowError, MemoryError):
             self.skipTest(f"cannot reserve address space for {length} letters")
+        return np.frombuffer(buffer, dtype=np.int32)
 
     @unittest.skipUnless(sys.maxsize > 2**32, "requires a 64-bit build")
     def test_sequence_length_rejected(self):
