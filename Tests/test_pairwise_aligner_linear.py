@@ -686,9 +686,8 @@ class Forced:
 
 
 # TestMatrixAllocationGuards never reaches the linear-space traceback: its
-# alignments fail before routing, or are Waterman-Smith-Beyer or FOGSAA.  Under
-# AddressSanitizer its 8 GB arrays become resident, and a second copy running
-# in another pytest-xdist worker at the same time exhausts a CI runner.
+# alignments fail before routing, or are Waterman-Smith-Beyer or FOGSAA.  So a
+# forced copy would only run it a second time.
 NOT_FORCED = {"TestMatrixAllocationGuards"}
 
 
