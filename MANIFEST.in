@@ -11,6 +11,9 @@ include CONTRIBUTING.rst
 
 include MANIFEST.in
 
+# cibuildwheel's test-command runs this, also when building from the sdist.
+include .github/check_wheel.py
+
 recursive-include Scripts *    # Include scripts.
 recursive-include Tests *      # Include regression tests.
 recursive-include Bio *.c      # Include all .c files.
