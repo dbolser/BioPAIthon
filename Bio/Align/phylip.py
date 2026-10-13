@@ -7,9 +7,14 @@
 """Bio.Align support for the alignment format for input files for PHYLIP tools.
 
 You are expected to use this module via the Bio.Align functions.
+
+The "phylip" format cuts names at 10 characters.  The "phylip-relaxed"
+format, which RAxML and PhyML read, allows names of any length that contain
+no whitespace, and separates each name from its sequence by whitespace.
 """
 
 from itertools import chain
+from types import SimpleNamespace
 
 from Bio.Align import Alignment
 from Bio.Align import interfaces
@@ -30,13 +35,23 @@ def _parse_header(line):
     raise ValueError("Expected two integers in the first line, received '%s'" % line)
 
 
+def _sanitize_name(name):
+    """Remove the characters PHYLIP does not allow in a name (PRIVATE)."""
+    name = name.strip()
+    for char in "[](),":
+        name = name.replace(char, "")
+    for char in ":;":
+        name = name.replace(char, "|")
+    return name
+
+
 class AlignmentWriter(interfaces.AlignmentWriter):
     """Clustalw alignment writer."""
 
     fmt = "PHYLIP"
 
-    def format_alignment(self, alignment):
-        """Return a string with a single alignment in the Phylip format."""
+    def _format_names(self, alignment):
+        """Return the name of each sequence, padded to start its line (PRIVATE)."""
         names = []
         for record in alignment.sequences:
             try:
@@ -44,13 +59,13 @@ class AlignmentWriter(interfaces.AlignmentWriter):
             except AttributeError:
                 name = ""
             else:
-                name = name.strip()
-                for char in "[](),":
-                    name = name.replace(char, "")
-                for char in ":;":
-                    name = name.replace(char, "|")
-                name = name[:_PHYLIP_ID_WIDTH]
-            names.append(name)
+                name = _sanitize_name(name)[:_PHYLIP_ID_WIDTH]
+            names.append(name.ljust(_PHYLIP_ID_WIDTH))
+        return names
+
+    def format_alignment(self, alignment):
+        """Return a string with a single alignment in the Phylip format."""
+        names = self._format_names(alignment)
 
         lines = []
         nseqs, length = alignment.shape
@@ -68,7 +83,7 @@ class AlignmentWriter(interfaces.AlignmentWriter):
         # happy.
         for name, sequence in zip(names, alignment):
             # Write the entire sequence to one line
-            line = name[:_PHYLIP_ID_WIDTH].ljust(_PHYLIP_ID_WIDTH) + sequence + "\n"
+            line = name + sequence + "\n"
             lines.append(line)
         return "".join(lines)
 
@@ -98,11 +113,18 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             raise ValueError("Empty file.") from None
         self._number_of_seqs, self._length_of_seqs = _parse_header(line)
 
+    def _split_id(self, line):
+        """Return the name at the start of a line and the residues after it (PRIVATE).
+
+        The first 10 characters are the name, and the rest is sequence.
+        """
+        name = line[:_PHYLIP_ID_WIDTH].strip()
+        seq = line[_PHYLIP_ID_WIDTH:].strip().replace(" ", "")
+        return name, seq
+
     def _parse_interleaved_first_block(self, lines, seqs, names):
         for line in lines:
-            line = line.rstrip()
-            name = line[:_PHYLIP_ID_WIDTH].strip()
-            seq = line[_PHYLIP_ID_WIDTH:].strip().replace(" ", "")
+            name, seq = self._split_id(line)
             names.append(name)
             seqs.append([seq])
 
@@ -135,14 +157,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         length = 0
         for line in lines:
             if length == 0:
-                line = line.rstrip()
-                name = line[:_PHYLIP_ID_WIDTH].strip()
-                seq = line[_PHYLIP_ID_WIDTH:].strip()
+                name, seq = self._split_id(line)
                 names.append(name)
                 seqs.append([])
             else:
-                seq = line.strip()
-            seq = seq.replace(" ", "")
+                seq = line.strip().replace(" ", "")
             seqs[-1].append(seq)
             length += len(seq)
             if length == self._length_of_seqs:
@@ -155,11 +174,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         names = []
         seqs = []
         lines = [stream.readline() for i in range(self._number_of_seqs)]
-        if all(
-            len(line[_PHYLIP_ID_WIDTH:].replace(" ", "").strip())
-            == self._length_of_seqs
-            for line in lines
-        ):
+        if all(len(self._split_id(line)[1]) == self._length_of_seqs for line in lines):
             # One line per sequence; anything after it is another alignment.
             self._parse_interleaved_first_block(lines, seqs, names)
             return names, seqs
@@ -213,3 +228,74 @@ class AlignmentIterator(interfaces.AlignmentIterator):
         del self._number_of_seqs
         del self._length_of_seqs
         return alignment
+
+
+class RelaxedAlignmentWriter(AlignmentWriter):
+    """Relaxed PHYLIP alignment writer.
+
+    Names are written in full, padded with spaces to one more than the length
+    of the longest name.  A name cannot contain whitespace, every sequence
+    needs a name, and no two sequences can have the same name.  As for the
+    "phylip" format, the characters ``[](),`` are removed from names, and
+    ``:`` and ``;`` become ``|``.  A sequence cannot contain a dot, which
+    PHYLIP readers no longer accept.
+    """
+
+    def _format_names(self, alignment):
+        """Return the name of each sequence, padded to start its line (PRIVATE)."""
+        names = []
+        seen = set()
+        for record in alignment.sequences:
+            original = getattr(record, "id", None) or ""
+            name = original.strip()
+            if any(char.isspace() for char in name):
+                raise ValueError(f"Whitespace not allowed in identifier: {name}")
+            name = _sanitize_name(name)
+            if not name:
+                raise ValueError("Relaxed PHYLIP needs a name for every sequence")
+            if name in seen:
+                raise ValueError(f"Repeated name {name!r} (originally {original!r})")
+            seen.add(name)
+            names.append(name)
+        width = max(map(len, names), default=0) + 1
+        return [name.ljust(width) for name in names]
+
+    def format_alignment(self, alignment):
+        """Return a string with a single alignment in the relaxed PHYLIP format."""
+        text = super().format_alignment(alignment)
+        # Each line after the header ends with its row, which has one character
+        # per column.  Checking the text saves a second pass over the rows.
+        length = alignment.shape[1]
+        for line in text.split("\n")[1:-1]:
+            if "." in line[-length:]:
+                raise ValueError("PHYLIP format no longer allows dots in sequence")
+        return text
+
+
+class RelaxedAlignmentIterator(AlignmentIterator):
+    """Reads a relaxed PHYLIP alignment file and returns an Alignment iterator.
+
+    Each name is the first word of its line, ending at the first whitespace,
+    so it may have any length but cannot contain whitespace.  Everything after
+    the name is sequence.  This is the relaxed PHYLIP that RAxML and PhyML read,
+    and what Bio.AlignIO reads as "phylip-relaxed".
+
+    The layout (sequential or interleaved), and where each alignment ends in
+    a file holding several, are found as for the "phylip" format.
+    """
+
+    def _split_id(self, line):
+        """Return the name at the start of a line and the residues after it (PRIVATE).
+
+        The name ends at the first whitespace, and the rest is sequence.
+        """
+        name, *rest = line.split(None, 1) or [""]
+        seq = rest[0].strip().replace(" ", "") if rest else ""
+        return name, seq
+
+
+# Bio.Align's registry maps the "phylip-relaxed" format to this object.
+_relaxed = SimpleNamespace(
+    AlignmentIterator=RelaxedAlignmentIterator,
+    AlignmentWriter=RelaxedAlignmentWriter,
+)
