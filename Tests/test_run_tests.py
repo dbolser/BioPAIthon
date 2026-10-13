@@ -219,8 +219,19 @@ class ProbeTests(unittest.TestCase):
                 if name.startswith("test_"):
                     paths.append(path)
             env = dict(os.environ)
+            # The child runs in the temporary directory, so a relative entry
+            # inherited from PYTHONPATH (such as the usual ``..`` from Tests/)
+            # must be made absolute here, or it would no longer find Bio.
             env["PYTHONPATH"] = os.pathsep.join(
-                [directory, TESTS_DIR, *filter(None, [env.get("PYTHONPATH")])]
+                [
+                    directory,
+                    TESTS_DIR,
+                    *(
+                        os.path.abspath(entry)
+                        for entry in env.get("PYTHONPATH", "").split(os.pathsep)
+                        if entry
+                    ),
+                ]
             )
             # --noconftest and -c keep any conftest.py or configuration file
             # in the temporary directory's parents out of the run; -p loads
