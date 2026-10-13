@@ -317,10 +317,17 @@ class _DoctestItem(pytest.DoctestItem):
         # for users, so they run there rather than being rewritten.
         cwd = os.getcwd()
         os.chdir(TESTS_DIR)
+        tests = os.getcwd()
         try:
             super().runtest()
         finally:
+            now = os.getcwd()
             os.chdir(cwd)
+        if now != tests:
+            pytest.fail(
+                f"Current directory changed\nWas: {tests}\nNow: {now}",
+                pytrace=False,
+            )
 
     def reportinfo(self):
         # Point at the docstring in the Bio source, not Tests/test_docstrings.py.

@@ -499,6 +499,37 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(returncode, 0, output)
         self.assertIn("2 passed", output)
 
+    def test_doctest_that_changes_directory_fails(self):
+        returncode, output = self.run_pytest(
+            {
+                "probe_docstrings.py": '''\
+                    """A module whose docstring example leaves Tests/."""
+
+
+                    def moves():
+                        """Move to the parent directory.
+
+                        >>> import os
+                        >>> os.chdir(os.pardir)
+                        """
+                ''',
+                "probe_plugin.py": DOCTEST_PROBE_PLUGIN,
+                "test_probe_anchor.py": "",
+                "test_probe_where.py": """\
+                    import os
+                    import unittest
+                    class Where(unittest.TestCase):
+                        def test_where(self):
+                            self.assertTrue(os.path.isfile("test_probe_where.py"))
+                """,
+            },
+            "-p",
+            "probe_plugin",
+        )
+        self.assertEqual(returncode, 1, output)
+        self.assertIn("1 failed, 1 passed", output)
+        self.assertIn("Current directory changed\n", output)
+
     def test_doctest_failure_is_reported_inline(self):
         returncode, output = self.run_pytest(
             {
