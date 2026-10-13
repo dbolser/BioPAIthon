@@ -505,12 +505,14 @@ class TestInterrupt(unittest.TestCase):
         # tick landed in the re.compile of assertRaisesRegex.  So the
         # timer ticks every millisecond and each tick first probes with
         # reset(), which outside next() is cheap and harmless; the first
-        # tick inside next() fails, checks that len() fails the same way,
-        # and its error ends next().
+        # tick inside next() fails, stops the timer so no tick nests in
+        # it, checks that len() fails the same way, and its error ends
+        # next().
         def handler(signum, frame):
             try:
                 paths.reset()
             except RuntimeError:
+                signal.setitimer(signal.ITIMER_REAL, 0)
                 with self.assertRaisesRegex(RuntimeError, "being computed"):
                     len(paths)
                 raise
