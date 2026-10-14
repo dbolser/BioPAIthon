@@ -59,6 +59,12 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+Deleting an attribute of a ``Bio.Align.CodonAligner`` now raises
+``AttributeError`` and leaves the setting as it was. ``del aligner.wildcard``
+used to crash Python, and deleting a score raised ``ValueError`` or
+``TypeError``. ``CodonAligner.align()`` no longer releases memory twice when
+it runs out of memory part-way through.
+
 ``Bio.PDB.PDBList.retrieve_pdb_file`` no longer leaves an empty structure
 file behind when the download is not a valid gzip file, such as a captive
 portal's login page. That empty file used to be returned as "Structure exists"
