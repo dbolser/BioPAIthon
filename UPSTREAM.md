@@ -147,7 +147,7 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - The UniProt XML and IntelliGenetics indexers compare line lengths with `tell()`, which fails an `assert` on multi-block BGZF.
 - `SffIO`: truncated header fields are not length-checked, a negative name padding reads the rest of the file, and `SffWriter.write_records` can be called twice.
 - `InsdcIO`: a short locus name with a sequence of 10^11 bp or more raises instead of using the long LOCUS line.
-- `GfaIO`: the tag-type check is a substring test, so an empty or two-letter type passes silently.
+- `GfaIO`: the tag-type check is a substring test, so an empty or two-letter type passes silently. Tracker checked 2026-10-14: nothing filed (the check came in [#4598](https://github.com/biopython/biopython/pull/4598)). **Fixed here in [#208](https://github.com/dbolser/BioPAIthon/pull/208).**
 - `CifSeqresIterator`'s docstring names `_entity_poly_seq`; the code reads `_pdbx_poly_seq_scheme`.
 - `Bio.SeqFeature`: `ExactPosition + float` truncates, one `LocationParserError` lacks its `f` prefix, `Reference() == None` raises, and `CompoundLocation(generator)` raises.
 - `Bio/Align/emboss.py`: `raise ValueError("...%s") % line` raises `TypeError` instead.
