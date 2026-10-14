@@ -10,11 +10,12 @@ Benchmark Bio.PDB.MMCIFParser and Bio.PDB.FastMMCIFParser using available cif fi
 """
 
 import os
-from statistics import mean, stdev
 import time
+from statistics import mean
+from statistics import stdev
 
-from Bio.PDB import MMCIFParser, FastMMCIFParser
-
+from Bio.PDB import FastMMCIFParser
+from Bio.PDB import MMCIFParser
 
 ITERATIONS = 10
 

@@ -8,7 +8,6 @@ from io import StringIO
 from tempfile import NamedTemporaryFile
 
 import numpy as np
-
 import support
 
 from Bio import Align

@@ -7,11 +7,11 @@
 import os
 import unittest
 
-# Really do want "import *" to get all the test classes:
-from common_BioSQL import *  # noqa: F403
-
 # Import these explicitly to avoid flake8 F405 below:
 import support
+
+# Really do want "import *" to get all the test classes:
+from common_BioSQL import *  # noqa: F403
 from common_BioSQL import check_config
 from common_BioSQL import temp_db_filename
 from seq_tests_common import SeqRecordTestBaseClass

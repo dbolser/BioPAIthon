@@ -28,15 +28,15 @@ except ImportError:
         "Install numpy if you want to use Bio.Align."
     ) from None
 
+import support
+import test_pairwise_aligner
+from memory_growth import requires_growth_measurement
+
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import _pairwisealigner
 from Bio.Align import substitution_matrices
 from Bio.Seq import reverse_complement
-
-import support
-import test_pairwise_aligner
-from memory_growth import requires_growth_measurement
 
 set_limits = _pairwisealigner._set_traceback_limits
 

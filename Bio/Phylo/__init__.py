@@ -44,10 +44,10 @@ if typing.TYPE_CHECKING:
     from Bio.Phylo import _cdao_owl
     from Bio.Phylo import CDAO
     from Bio.Phylo import CDAOIO
-    from Bio.Phylo import NeXML
-    from Bio.Phylo import NeXMLIO
     from Bio.Phylo import Newick
     from Bio.Phylo import NewickIO
+    from Bio.Phylo import NeXML
+    from Bio.Phylo import NeXMLIO
     from Bio.Phylo import NexusIO
     from Bio.Phylo import PhyloXML
     from Bio.Phylo import PhyloXMLIO

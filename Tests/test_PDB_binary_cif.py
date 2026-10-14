@@ -16,12 +16,12 @@ except ImportError:
 
 import support
 
-from Bio.PDB import MMCIFParser
 from Bio.PDB import _bcif_helper
-from Bio.PDB.binary_cif import BinaryCIFParser
+from Bio.PDB import MMCIFParser
 from Bio.PDB.binary_cif import _fixed_point_decoder
 from Bio.PDB.binary_cif import _integer_packing_decoder
 from Bio.PDB.binary_cif import _run_length_decoder
+from Bio.PDB.binary_cif import BinaryCIFParser
 
 
 class TestIntegerUnpack(unittest.TestCase):

@@ -82,8 +82,8 @@ class AlignmentExtensionTests(unittest.TestCase):
         the second from the full matrix.  The second aligner's substitution
         matrix is copied.
         """
-        from Bio.Align import PairwiseAligner
         from Bio.Align import _pairwisealigner
+        from Bio.Align import PairwiseAligner
         from Bio.Align import substitution_matrices
 
         matrix = substitution_matrices.load("NUC.4.4")

@@ -20,9 +20,9 @@ import support
 
 import Bio
 from Bio import SearchIO
+from Bio.SearchIO import Hit
 from Bio.SearchIO import HSP
 from Bio.SearchIO import HSPFragment
-from Bio.SearchIO import Hit
 from Bio.SearchIO import QueryResult
 
 
