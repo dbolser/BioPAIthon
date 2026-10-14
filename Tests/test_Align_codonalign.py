@@ -78,8 +78,12 @@ Codon aligner with parameters
     def test_too_short(self):
         # Fewer than 3 nucleotides used to free an uninitialised pointer.
         aligner = CodonAligner()
-        message = "at least 3 nucleotides are needed for a codon alignment"
         for seqB in ("", "A", "AC"):
+            # Report the length of the input, not that of the reading frames.
+            message = (
+                "^at least 3 nucleotides are needed for a codon alignment; "
+                f"{len(seqB)} received$"
+            )
             with self.subTest(seqB=seqB):
                 with self.assertRaisesRegex(ValueError, message):
                     aligner.score("M", seqB)
@@ -577,6 +581,68 @@ pro               0 F  K  K  K  F    5
 dna               3 AAAAAAAAAAAATTT 18
 """,
         )
+
+    def test_convenience_function_alignment(self):
+        # codon_align given a protein Alignment should align each pair with
+        # the same codon table and parameters as the pairwise form does.
+        def pairwise(protein_alignment, nucleotide_sequences, **kwargs):
+            aligner = CodonAligner(**kwargs)
+            alignments = [
+                aligner.align(pro_seq, nuc_seq)[0]
+                for pro_seq, nuc_seq in zip(
+                    protein_alignment.sequences, nucleotide_sequences
+                )
+            ]
+            return protein_alignment.mapall(alignments)
+
+        # In the vertebrate mitochondrial code TGA codes for W, not a stop.
+        table = CodonTable.generic_by_id[2]
+        protein_alignment = Alignment(["DWKMW", "DWKMW"])
+        nucleotide_sequences = ["GATTGGAAAATGTGG", "GATTGAAAAAATGTGG"]
+        standard = codon_align(protein_alignment, nucleotide_sequences)
+        alignment = codon_align(
+            protein_alignment, nucleotide_sequences, codon_table=table
+        )
+        self.assertNotEqual(str(alignment), str(standard))
+        self.assertEqual(
+            str(alignment),
+            str(pairwise(protein_alignment, nucleotide_sequences, codon_table=table)),
+        )
+        self.assertEqual(
+            str(standard), str(pairwise(protein_alignment, nucleotide_sequences))
+        )
+
+        protein_alignment = Alignment(["KPPGGG", "KPPGGG"])
+        nucleotide_sequences = ["AAACCCCCCGGGGGGGGG", "AAACCCCCCGGGGGGCCGGG"]
+        default = codon_align(protein_alignment, nucleotide_sequences)
+        alignment = codon_align(
+            protein_alignment, nucleotide_sequences, frameshift_score=-1.0
+        )
+        self.assertNotEqual(str(alignment), str(default))
+        self.assertEqual(
+            str(alignment),
+            str(
+                pairwise(protein_alignment, nucleotide_sequences, frameshift_score=-1.0)
+            ),
+        )
+
+    def test_convenience_function_alignment_count_mismatch(self):
+        protein_alignment = Alignment(["MSR", "MSR"])
+        message = (
+            "^the protein alignment has 2 sequences, "
+            "but %d nucleotide sequences were given$"
+        )
+        for nucleotide_sequences in (["ATGTCTCGT"], ["ATGTCTCGT"] * 3):
+            n = len(nucleotide_sequences)
+            with self.subTest(n=n):
+                with self.assertRaisesRegex(ValueError, message % n):
+                    codon_align(protein_alignment, nucleotide_sequences)
+
+    def test_convenience_function_alignment_returns_alignment(self):
+        protein_alignment = Alignment(["MSR", "MSR"])
+        alignment = codon_align(protein_alignment, ["ATGTCTCGT", "ATGTCCCGT"])
+        self.assertIsInstance(alignment, Alignment)
+        self.assertEqual(alignment.sequences, ["ATGTCTCGT", "ATGTCCCGT"])
 
 
 class TestBuildAndIO(unittest.TestCase):

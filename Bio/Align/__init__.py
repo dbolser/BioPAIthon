@@ -5121,6 +5121,13 @@ class CodonAligner(_codonaligner.CodonAligner):
             raise ValueError(
                 "seqA must be a string, Seq, MutableSeq, or SeqRecord object"
             )
+        if len(seqB) < 3:
+            # Check here, as the three reading frames passed to the C code
+            # are all empty for any sequence shorter than three nucleotides.
+            raise ValueError(
+                "at least 3 nucleotides are needed for a codon alignment; "
+                f"{len(seqB)} received"
+            )
         seqB0 = seqB[: 3 * (len(seqB) // 3)]
         seqB1 = seqB[1 : 1 + 3 * ((len(seqB) - 1) // 3)]
         seqB2 = seqB[2 : 2 + 3 * ((len(seqB) - 2) // 3)]
@@ -5198,6 +5205,13 @@ class CodonAligner(_codonaligner.CodonAligner):
             raise ValueError(
                 "seqA must be a string, Seq, MutableSeq, or SeqRecord object"
             )
+        if len(seqB) < 3:
+            # Check here, as the three reading frames passed to the C code
+            # are all empty for any sequence shorter than three nucleotides.
+            raise ValueError(
+                "at least 3 nucleotides are needed for a codon alignment; "
+                f"{len(seqB)} received"
+            )
         seqB0 = seqB[: 3 * (len(seqB) // 3)]
         seqB1 = seqB[1 : 1 + 3 * ((len(seqB) - 1) // 3)]
         seqB2 = seqB[2 : 2 + 3 * ((len(seqB) - 2) // 3)]
@@ -5251,7 +5265,10 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
     * o: frameshift_one_score
     * t: frameshift_two_score
 
-    Returns an iterator of Alignment objects.
+    If seqA is an amino acid sequence, returns an iterator of Alignment
+    objects.  If seqA is an Alignment of amino acid sequences, seqB must be a
+    list of the corresponding nucleotide sequences, one for each row of seqA,
+    and a single Alignment of the nucleotide sequences is returned.
 
     >>> from Bio.Seq import Seq
     >>> from Bio.SeqRecord import SeqRecord
@@ -5316,9 +5333,14 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
         protein_alignment = seqA
         protein_sequences = protein_alignment.sequences
         nucleotide_sequences = seqB
+        if len(protein_sequences) != len(nucleotide_sequences):
+            raise ValueError(
+                f"the protein alignment has {len(protein_sequences)} sequences, "
+                f"but {len(nucleotide_sequences)} nucleotide sequences were given"
+            )
         alignments = []
         for pro_seq, nuc_seq in zip(protein_sequences, nucleotide_sequences):
-            alignment = codon_align(pro_seq, nuc_seq)[0]
+            alignment = aligner.align(pro_seq, nuc_seq)[0]
             alignments.append(alignment)
         codon_alignment = protein_alignment.mapall(alignments)
         return codon_alignment
