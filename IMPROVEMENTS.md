@@ -1202,8 +1202,9 @@ reduction.
 > space too, so `len()`, `repr()` and `bool()` no longer build the
 > matrix, and switched it on: Needleman-Wunsch alignments whose
 > traceback matrix would exceed 512 MiB, about 23 kb × 23 kb and up,
-> now take the linear path. At 20 kb, `align()[0]` takes about 1.5× the
-> time in 67 MB instead of 415 MB. Three planned steps were not written,
+> now take the linear path. Forced onto the linear path, 20 kb takes
+> about 1.5× the time for `align()[0]` in 67 MB instead of 415 MB; at the
+> default threshold 20 kb still builds the full matrix. Three planned steps were not written,
 > so Gotoh (affine gaps, which the `blastn`, `megablast` and `blastp`
 > presets use), Smith-Waterman and the other modes still build the full
 > matrix: `pairwise-linear-gotoh-global`, `pairwise-linear-sw` and
