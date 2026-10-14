@@ -168,7 +168,6 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - `qblast(format_type="HTML")` can never succeed: the polling loop's `<!DOCTYPE html` branch matches the result page.
 - `Bio.Blast`'s XML2 parser fails with unhelpful errors on a root with no namespace or no `schemaLocation`.
 - `SearchIO`'s BLAST XML `get_raw` loops forever if the file was truncated after its `index_db` was built.
-- `SearchIO`'s Infernal text parser's `assert gap_len > 0` probably rejects valid `*[ 0]*` output; needs a real file.
 - `SearchIO.index_db` does not wrap a lone `pathlib.Path` in a list, as it does a `str`.
 - `Bio/PDB/binary_cif.py`'s string decoder ignores the column mask: `IndexError`, or wrong values, on current RCSB files.
 - `Bio/PDB/binary_cif.py` and `FragmentMapper` do not accept `os.PathLike`.
@@ -192,6 +191,9 @@ the two `cluster.c` heap overflows, and `pca` on data read by
   [#4994](https://github.com/biopython/biopython/pull/4994) changes the
   module-level default and does not forward the argument, so this survives it.
   Any report must say so or it will be closed as a duplicate.
+- **Infernal `*[ 0]*` hit lines.** `SearchIO`'s Infernal text parser's
+  `assert gap_len > 0` probably rejects valid `*[ 0]*` output. Needs a real
+  Infernal file showing it first.
 - **`SeqIO.index()` masks a proxy's `TypeError`.** The only reproduction is a
   patched SFF header. Needs a natural malformed input first.
 - **Location truthiness.** The dead Python 2 `__nonzero__` methods and the

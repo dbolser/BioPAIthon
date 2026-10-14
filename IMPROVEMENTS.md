@@ -2394,8 +2394,10 @@ defects along the way. Each was checked on
 2026-10-13 against `main` at `4cdff0207`, by reading the code and, where
 the report gave a one-line reproduction, by running it (Python 3.12).
 
-- **Still real: 113.** Listed below, grouped by area, with related reports
+- **Still real: 112.** Listed below, grouped by area, with related reports
   merged into one entry.
+- **Unconfirmed: 1.** The Infernal `*[ 0]*` hypothesis from PR #180 needs
+  a real Infernal file to settle. It is listed below and marked so.
 - **Already fixed: 16**, in the PR that found them or a later one. For
   example the Infernal 12-column crash, the `FormatRegistry` race, and
   the README's `Bio.DocSQL` example.
@@ -2625,8 +2627,8 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   loops forever if the file was truncated after its `index_db` was built.
   Upstream too. (PR #156)
 - `Bio/SearchIO/InfernalIO/infernal_text.py:489`: `assert gap_len > 0`
-  probably rejects valid `*[ 0]*` output; it needs a real Infernal file
-  (see §0.8). Upstream too. (PR #180)
+  probably rejects valid `*[ 0]*` output. Unconfirmed: it needs a real
+  Infernal file (see §0.8). (PR #180)
 - `Bio/SearchIO/__init__.py` (`index_db`): a lone `pathlib.Path` is not
   wrapped in a list, as a `str` is. Upstream too. (PR #164)
 
