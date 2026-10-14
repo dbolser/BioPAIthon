@@ -288,6 +288,29 @@ class TestErrors(unittest.TestCase):
                         _sff_read_raw_record(handle, 400)
                 self.assertEqual(str(cm.exception), msg)
 
+    def test_short_reads(self):
+        # A raw or unbuffered handle may return fewer bytes than asked for
+        # before the end of the file; that is not a truncated file.
+        class ShortReads(BytesIO):
+            def read(self, size=-1):
+                if size is not None and size > 500:
+                    size = 500
+                return super().read(size)
+
+        # The first read's 1595 byte flowgram and quality block is bigger
+        # than any single read() on this handle returns.
+        expected = next(SeqIO.parse(BytesIO(self.good), "sff"))
+        record = next(SeqIO.parse(ShortReads(self.good), "sff"))
+        self.assertEqual(record.id, expected.id)
+        self.assertEqual(record.seq, expected.seq)
+        self.assertEqual(record.letter_annotations, expected.letter_annotations)
+        self.assertEqual(record.annotations, expected.annotations)
+        raws = []
+        for handle in (BytesIO(self.good), ShortReads(self.good)):
+            handle.seek(440)
+            raws.append(_sff_read_raw_record(handle, 400))
+        self.assertEqual(raws[0], raws[1])
+
     def test_truncated_read_slow_index(self):
         block = "flowgram and quality block"
         for size, offset, what in (

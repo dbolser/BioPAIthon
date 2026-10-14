@@ -258,8 +258,15 @@ def _read_exactly(handle, size, what, offset):
      - what - description of those bytes, used in the error message.
      - offset - start of the read whose bytes these are, for the error message.
 
+    A raw or unbuffered handle may return fewer bytes than asked for before
+    the end of the file, so keep reading until we have them all or hit EOF.
     """
     data = handle.read(size)
+    while len(data) < size:
+        more = handle.read(size - len(data))
+        if not more:
+            break
+        data += more
     if len(data) != size:
         raise ValueError(
             "Premature end of SFF file, expected %i byte %s for the read at "
