@@ -1024,6 +1024,23 @@ class StringMethodTests(unittest.TestCase):
         )
         self.assertRaises(TypeError, spacer.join([Seq("NNNNN"), MutableSeq("NNNNN")]))
 
+    def test_join_generator_and_iterator(self):
+        """Check join consumes a one-shot iterable only once."""
+        for cls in (Seq, MutableSeq):
+            with self.subTest(cls=cls):
+                spacer = cls("N")
+                result = spacer.join(x for x in ["A", "C"])
+                self.assertIsInstance(result, cls)
+                self.assertEqual(result, "ANC")
+                result = spacer.join(iter(["A", Seq("C"), MutableSeq("G")]))
+                self.assertIsInstance(result, cls)
+                self.assertEqual(result, "ANCNG")
+                self.assertEqual(spacer.join(x for x in []), "")
+                self.assertRaises(TypeError, spacer.join, (x for x in ["A", 5, "C"]))
+                self.assertRaises(
+                    TypeError, spacer.join, iter([Seq("A"), SeqRecord(Seq("C"))])
+                )
+
     def test_join_Seq_with_file(self):
         """Checks if Seq join correctly concatenates sequence from a file with the spacer."""
         filename = support.DATA / "Fasta" / "f003.fa"
