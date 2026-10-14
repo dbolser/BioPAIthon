@@ -120,11 +120,15 @@ cites by name, and in `stockholm.py` and `phylip.py`, which PR #155 edited.
 
 Found by reviewers during the sprint and listed in `IMPROVEMENTS.md` under
 "Follow-ups from the October 2026 sprint", where each entry has its file,
-reproduction and PR. The code is the same on upstream `master` (`fc0c15678`,
-checked with `git grep`, not run there), but none has been searched for in the
-tracker yet, so each needs that check before it joins the table above. The
-C crashes are all reached through a caller's arguments, not a downloaded
-file, so they would go to the public tracker, as with row 30.
+reproduction and PR. Each defect is still present on upstream `master`
+(`fc0c15678`, checked with `git grep`, not run there); a few, such as the
+`mktest` and `_get_pi` lines, are already fixed in this fork. None has been
+searched for in the tracker yet, so each needs that check before it joins
+the table above. The C crashes are reached through a caller's arguments, not
+a downloaded file, so this draft sends them to the public tracker, as with
+row 30. **Dan to decide:** PR #196's reviewer recommended the held route for
+the two `cluster.c` heap overflows, and `pca` on data read by
+`Bio.Cluster.read` from a downloaded file is arguably file-driven.
 
 - `Bio.Cluster`: `clusterdistance(..., method="m")` with an index list longer than the matrix overflows the heap.
 - `Bio.Cluster`: `pca` on data holding `inf`, or with a column mean that overflows, makes `svd` read `w[-1]`.
@@ -138,7 +142,7 @@ file, so they would go to the public tracker, as with row 30.
 - `FastaBlastIterator`'s `self_line = line` typo gives every record the first record's title.
 - `Seq.join()` given a generator returns an empty sequence, because the type check uses it up.
 - The FASTA, QUAL, PIR, PHD and ACE index key comes from splitting raw bytes, so an id containing a control or Unicode space gives a key that is not `record.id`.
-- The IntelliGenetics and UniProt XML indexers compare line lengths with `tell()`, which fails an `assert` on multi-block BGZF.
+- The UniProt XML and IntelliGenetics indexers compare line lengths with `tell()`, which fails an `assert` on multi-block BGZF.
 - `SffIO`: truncated header fields are not length-checked, a negative name padding reads the rest of the file, and `SffWriter.write_records` can be called twice.
 - `InsdcIO`: a short locus name with a sequence of 10^11 bp or more raises instead of using the long LOCUS line.
 - `GfaIO`: the tag-type check is a substring test, so an empty or two-letter type passes silently.
@@ -154,6 +158,7 @@ file, so they would go to the public tracker, as with row 30.
 - `_get_pi`'s F1x4 counting raises `KeyError` for a base absent from both sequences (masked by row 4).
 - `Bio.Align`'s Stockholm writer raises `AttributeError` for an `Alignment` with no `column_annotations`.
 - `Bio.Align`'s Stockholm reader raises `IndexError` on a `#=GR` line with no value.
+- `Bio/Align/bigbed.py`: the writer's zoom record count disagrees for a zero-length item at the end of a chromosome (an `assert` upstream).
 - `Bio.Align`'s strict PHYLIP writer does not reject names that truncation to 10 characters makes equal.
 - `AlignIO`'s `RelaxedPhylipWriter` rejects ASCII whitespace only, so it can write a file it cannot read back.
 - `Bio/Align/tabular.py`: BLASTN or BLASTP output with a `query seq` column raises "Unknown program".
@@ -177,6 +182,7 @@ file, so they would go to the public tracker, as with row 30.
 - `Medline.parse`: records separated only by a line of six or more spaces merge (the trade-off of #4557/#4558).
 - `Bio.SCOP`: a CLA sunid missing from the DES file gives a bare `KeyError`.
 - `GenePop.FileParser`: `FileRecord.start_read()` again leaks the handle and doubles the loci; `remove_loci_by_position()` mutates the caller's list.
+- `GenomeDiagram`: `Diagram.write` rejects a `pathlib.Path` for PDF output (ReportLab); SVG works.
 - `GenomeDiagram`: `new_graph` silently accepts `centre=`, though `DEPRECATED.rst` says it went in 1.62; `new_track` and `new_set` silently accept misspelt keywords.
 - `SVDSuperimposer.set` with 1-D arrays raises `IndexError` instead of its own error.
 

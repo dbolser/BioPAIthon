@@ -1157,7 +1157,7 @@ process-wide `rand()` stream); then add the `Py_mod_gil` slot and a `3.14t` CI j
 > qualities are an `array.array("b")`: about 5× smaller for the
 > qualities alone, and 514 MB down to 312 MB for 200,000 reads held in
 > a list, as the record objects themselves do not shrink. The default
-> output is unchanged.
+> output is unchanged. The note below is from before PR #167.
 >
 > **Status: part (a) is done.** PR #17 moved quality decoding into an
 > overridable `_decode_quality` method: the base class returns
@@ -1390,7 +1390,8 @@ migrate alignment-building onto `Bio.Align.CodonAligner` and keep only
 > **Status: the `colour` aliases now warn.** PR #168 made each of the 15
 > aliases (the 101 text matches below come down to 15) raise
 > `BiopythonDeprecationWarning`, pointing at the caller's line. They are
-> to be removed in the release after 1.88.
+> to be removed in the release after 1.88. The note below is from before
+> PR #168.
 >
 > **Status: the `__nonzero__` half is fixed** in PR #12, which took the
 > "real `__bool__`" branch of the decision below: both methods are now
@@ -1691,7 +1692,7 @@ is already used 184 times elsewhere in the suite. Failing that, add
 > started in, and only the docstring examples change into `Tests/`. CI
 > now starts the suite outside the checkout, so a new cwd-relative path
 > fails there instead of hiding. The parallel runs this unlocked are
-> §4.3.
+> §4.3. The note below is from before PR #162.
 >
 > **Status: the mechanism exists and five modules are migrated.** PR #93
 > added `Tests/support.py` with `DATA = pathlib.Path(__file__).parent` —
@@ -2332,7 +2333,10 @@ duplicate-check against the tracker.
 
 ### D. CI/CD and packaging canon (all S)
 
-> **Status: done, apart from the `Scripts/` bullet.**
+> **Status: done, apart from the `Scripts/` bullet and one checkout.**
+> The `style` job's checkout (`ci.yml:46`) still lacks
+> `persist-credentials: false`; it is listed under "Follow-ups from the
+> October 2026 sprint".
 
 - Replace `tj-actions/changed-files` + the 12-line heredoc in
   `ci.yml:47-90` with pre-commit's native `--from-ref/--to-ref` — removes
@@ -2345,8 +2349,9 @@ duplicate-check against the tracker.
   decide `fail_ci_if_error` for the three codecov uploads; delete the no-op
   `zip-safe` line; `packages.find` could replace the 68-entry list but
   needs a wheel-contents diff first (three data-only directories are
-  load-bearing). *Fixed: PR #153 dropped the persisted credentials and
-  `zip-safe`, and PR #148 moved to `packages.find`. Decided:
+  load-bearing). *Mostly fixed: PR #153 dropped `zip-safe` and the
+  persisted credentials on every checkout but the `style` job's, and
+  PR #148 moved to `packages.find`. Decided:
   `fail_ci_if_error` stays `false` on the codecov uploads, so a codecov
   problem never fails CI.*
 - `Scripts/` still uses `getopt`/`optparse` in four files — low value,
@@ -2383,20 +2388,18 @@ duplicate-check against the tracker.
 
 ## Follow-ups from the October 2026 sprint
 
-The sprint merged 90 pull requests, #112 to #202. Their reviewers
-logged 139 follow-up defects along the way. Each was checked on
+The sprint merged 91 pull requests, every number from #112 to #202
+(#124 is the upstream sync). Their reviewers logged 139 follow-up
+defects along the way. Each was checked on
 2026-10-13 against `main` at `4cdff0207`, by reading the code and, where
 the report gave a one-line reproduction, by running it (Python 3.12).
 
-- **Still real: 111.** Listed below, grouped by area, with related reports
+- **Still real: 113.** Listed below, grouped by area, with related reports
   merged into one entry.
-- **Already fixed: 17**, in the PR that found them or a later one. For
+- **Already fixed: 16**, in the PR that found them or a later one. For
   example the Infernal 12-column crash, the `FormatRegistry` race, and
   the README's `Bio.DocSQL` example.
 - **Duplicates: 6.** The same defect logged from two PRs.
-- **Not reproduced: 1.** PR #184's misleading PHYLIP header message: an
-  interleaved file whose header understates the length gives "Expected
-  all sequences to have length 4; found 2", which is accurate.
 - **Not defects in this tree: 4.** Two process notes, a CPython bug in
   `tempfile.SpooledTemporaryFile.rollover()` (for CPython's tracker, not
   this one), and a note for this bookkeeping, done here (addendum E).
@@ -2494,10 +2497,10 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   replacing a marker-proxied built-in iterator with a plain function makes
   `SeqIO.index` raise `AttributeError` (no `record_start_marker`) instead
   of a readable `ValueError`. (PR #185)
-- `Bio/SeqIO/_index.py:544,557`: the IntelliGenetics and UniProt XML
-  indexers compare summed line lengths with `handle.tell()`, which is a
-  virtual offset in multi-block BGZF, so valid input fails an `assert`
-  (see §0.8). Upstream too. (PR #180)
+- `Bio/SeqIO/_index.py:464,544,557`: the UniProt XML (`:464`) and
+  IntelliGenetics (`:544`, `:557`) indexers compare summed line lengths
+  with `handle.tell()`, which is a virtual offset in multi-block BGZF, so
+  valid input fails an `assert` (see §0.8). Upstream too. (PR #180)
 - `Bio/SeqIO/SffIO.py`: the header reads of the flow characters, key
   sequence and padding are not length-checked, so a truncated header gives
   a misleading warning and then `struct.error`. A negative name padding is
@@ -2561,7 +2564,7 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   `UPSTREAM.md` row 4). Queued in `UPSTREAM.md` only. (PR #154)
 - `Bio/Align/bigbed.py:493`: the writer's zoom record count disagrees for
   a zero-length item at the end of a chromosome (now a `RuntimeError`);
-  needs a real writer fix. (PR #155)
+  needs a real writer fix. Upstream too (an `assert` there). (PR #155)
 - `Bio/Align/stockholm.py`: the writer raises `AttributeError` for an
   `Alignment` without `column_annotations`. Upstream too. (PRs #155 and
   #197)
@@ -2574,6 +2577,16 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
 - `Bio/Align/phylip.py`: the strict writer does not reject names that
   truncation to 10 characters makes equal, so it can write an ambiguous
   file. `AlignIO` raises. Upstream too. (PR #195)
+- `Bio/Align/phylip.py`: a later header that understates the length
+  reuses the first header's message, so an interleaved file reports a
+  sequence line as a bad header: `"2 4\ns1        AAAA\ns2        CCCC\n\nAAAA\nCCCC\n"`
+  raises "Expected two integers in the first line, received 'AAAA'".
+  (PR #184)
+- `Bio/Align/phylip.py`: in the sequential layout, a blank line after the
+  header counts as one of the N records, so `"2 4\n\ns1        AAAA\ns2        CCCC\n"`
+  raises "Expected all sequences to have length 4; found 0" instead of
+  saying the record count is wrong. Only the message is wrong; nothing
+  is misread. (PR #184)
 - `Bio/AlignIO/PhylipIO.py`: `RelaxedPhylipWriter` rejects ASCII
   whitespace only, but the reader splits on any whitespace, so it can
   write a file it cannot read back. `Bio.Align`'s new writer checks
@@ -2693,6 +2706,10 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   `setattr` any keyword, so a misspelt one does nothing. And
   `FeatureSet.add_feature(colour=..., color=...)` takes whichever comes
   last; that goes with the alias. Upstream too. (PR #168)
+- `Bio/Graphics/GenomeDiagram/_Diagram.py` (`write`): a `pathlib.Path`
+  filename fails for PDF output (ReportLab): `write(Path("x.pdf"), "PDF")`
+  raises `TypeError: Cannot use PosixPath(...) as a filename or file`.
+  SVG works. Upstream too. (PR #164)
 - `Bio/SVDSuperimposer/__init__.py` (`set`): 1-D arrays raise
   `IndexError` instead of its own mismatch error. Upstream too. (PR #135)
 - The module-level deprecation warnings (`Bio.PDB.mmtf`,
