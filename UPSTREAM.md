@@ -148,6 +148,7 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - The FASTA, QUAL, PIR, PHD and ACE index key comes from splitting raw bytes, so an id containing a control or Unicode space gives a key that is not `record.id`.
 - The UniProt XML and IntelliGenetics indexers compare line lengths with `tell()`, which fails an `assert` on multi-block BGZF.
 - `SffIO`: truncated header fields are not length-checked, a negative name padding reads the rest of the file, and `SffWriter.write_records` can be called twice.
+- `SffIO`: a file cut short inside a read raises `struct.error` ("unpack requires a buffer of 16 bytes") rather than `ValueError`, and `get_raw` returns the short read ([`_sff_read_seq_record`](https://github.com/biopython/biopython/blob/fc0c156786e86862112a05a720b6f4f47023f36a/Bio/SeqIO/SffIO.py#L898)).
 - `InsdcIO`: a short locus name with a sequence of 10^11 bp or more raises instead of using the long LOCUS line.
 - `CifSeqresIterator`'s docstring names `_entity_poly_seq`; the code reads `_pdbx_poly_seq_scheme`.
 - `Bio.SeqFeature`: `ExactPosition + float` truncates, one `LocationParserError` lacks its `f` prefix, `Reference() == None` raises, and `CompoundLocation(generator)` raises.
