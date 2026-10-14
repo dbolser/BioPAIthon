@@ -1041,6 +1041,20 @@ class StringMethodTests(unittest.TestCase):
                     TypeError, spacer.join, iter([Seq("A"), SeqRecord(Seq("C"))])
                 )
 
+    def test_join_generator_fails_fast(self):
+        """Check join stops reading a generator at the first bad item."""
+
+        def items(read):
+            for item in [Seq("A"), 5, "C", "C", "C"]:
+                read.append(item)
+                yield item
+
+        for cls in (Seq, MutableSeq):
+            with self.subTest(cls=cls):
+                read = []
+                self.assertRaises(TypeError, cls("N").join, items(read))
+                self.assertEqual(len(read), 2)
+
     def test_join_Seq_with_file(self):
         """Checks if Seq join correctly concatenates sequence from a file with the spacer."""
         filename = support.DATA / "Fasta" / "f003.fa"
