@@ -59,6 +59,12 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Seq.join()`` and ``MutableSeq.join()`` now work when given a generator or
+other one-shot iterator. Previously the type check used it up, so
+``Seq("N").join(x for x in ["A", "C"])`` returned ``Seq('')`` rather than
+``Seq('ANC')``. The same ``TypeError`` is still raised for a ``SeqRecord`` or
+an item that is not a string, ``Seq`` or ``MutableSeq``.
+
 ``Bio.SeqIO.parse()`` with ``"fasta-blast"`` now gives each record its own
 title. A typo meant every record took the id, name and description of the
 first record in the file, though the sequences were right: ``>a``, ``>b`` and

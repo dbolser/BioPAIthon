@@ -2096,6 +2096,9 @@ class _SeqAbstractBaseClass(ABC):
         if isinstance(other, SeqRecord):
             raise TypeError("Iterable cannot be a SeqRecord")
 
+        # Check and keep each item in one pass, so a generator or other
+        # one-shot iterator is read only once and a bad item fails fast.
+        items = []
         for c in other:
             if isinstance(c, SeqRecord):
                 raise TypeError("Iterable cannot contain SeqRecords")
@@ -2103,7 +2106,8 @@ class _SeqAbstractBaseClass(ABC):
                 raise TypeError(
                     "Input must be an iterable of Seq objects, MutableSeq objects, or strings"
                 )
-        return self.__class__(str(self).join([str(_) for _ in other]))
+            items.append(c)
+        return self.__class__(str(self).join([str(_) for _ in items]))
 
     def replace(
         self: _SeqT,
