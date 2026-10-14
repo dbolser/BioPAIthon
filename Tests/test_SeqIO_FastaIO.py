@@ -211,6 +211,18 @@ class TestFastaWithComments(unittest.TestCase):
         self.assertEqual(expected.description, record.description)
         self.assertEqual(expected.seq, record.seq)
 
+    def test_fasta_blast_multiple_records(self):
+        """Test FastaBlastIterator gives each record its own title."""
+        handle = StringIO(
+            "# comment\n>a one\nAC\n; comment\n>b two\nGT\n! comment\n>c three\nTT\n"
+        )
+        records = list(SeqIO.parse(handle, "fasta-blast"))
+        self.assertEqual([r.id for r in records], ["a", "b", "c"])
+        self.assertEqual(
+            [r.description for r in records], ["a one", "b two", "c three"]
+        )
+        self.assertEqual([r.seq for r in records], ["AC", "GT", "TT"])
+
     def test_fasta_pearson(self):
         """Test FastaPearsonIterator."""
 
