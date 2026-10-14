@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.Align.codon_align`` given a protein ``Alignment``, a form merged from
+upstream (see the next paragraph), now uses the ``codon_table`` and other
+keyword arguments it is given. As merged, it ignored them, so a non-standard
+genetic code or non-default scores silently gave the result for the standard
+code and default scores. It now raises ``ValueError`` when the number of
+nucleotide sequences differs from the number of rows in the protein
+alignment, where it ignored the extra ones. The ``ValueError`` for a
+nucleotide sequence shorter than one codon now reports that sequence's real
+length; for ``"A"`` it said "2 received".
+
 BioPAIthon now includes upstream Biopython's work towards 1.89 as of
 12 October 2026. Besides the ``CLUSTALW`` header noted in the upstream
 section below, users may notice two changes. ``Bio.Align.codon_align`` also
