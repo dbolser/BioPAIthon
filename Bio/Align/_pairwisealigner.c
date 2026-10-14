@@ -1914,7 +1914,7 @@ Aligner_str(Aligner* self)
     PyObject* substitution_matrix;
     PyObject* insertion_score_function;
     PyObject* deletion_score_function;
-    PyObject* s;
+    PyObject* s = NULL;
 
     /* Copy the settings under the aligner's lock, and format the copy.
      * Formatting with %R runs the gap functions' __repr__, which may
@@ -2014,7 +2014,7 @@ Aligner_str(Aligner* self)
                                      self->extend_right_deletion_score) < 0)
             goto exit;
     }
-    Aligner_str_append(&s, "  mode: %s\n", mode);
+    if (Aligner_str_append(&s, "  mode: %s\n", mode) < 0) goto exit;
 
 exit:
     Py_XDECREF(substitution_matrix);

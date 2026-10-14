@@ -922,6 +922,13 @@ class TestAlignerStr(unittest.TestCase):
             r"\n  substitution_matrix: <M%s%d%n%U%% object at 0x[0-9a-f]+>\n",
         )
 
+    def test_non_ascii_class_name(self):
+        # The name used to be part of the format, which must be ASCII.
+        name = "\u00e9t\u00e9"
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = self.matrix_of_class(name)
+        self.assertIn(f"  substitution_matrix: <{name} object at 0x", str(aligner))
+
     def test_huge_scores(self):
         # Each of these prints as over 300 characters with %f.
         aligner = Align.PairwiseAligner()
