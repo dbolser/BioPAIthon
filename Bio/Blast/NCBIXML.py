@@ -43,7 +43,6 @@ from xml.sax.handler import ContentHandler
 
 from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonParserWarning
-
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord

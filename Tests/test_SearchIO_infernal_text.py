@@ -7,8 +7,8 @@
 
 """Tests for SearchIO InfernalIO infernal-text parser."""
 
-import unittest
 import itertools
+import unittest
 
 import support
 

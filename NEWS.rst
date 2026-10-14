@@ -59,6 +59,15 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+BioPAIthon now includes upstream Biopython's work towards 1.89 as of
+12 October 2026. Besides the ``CLUSTALW`` header noted in the upstream
+section below, users may notice two changes. ``Bio.Align.codon_align`` also
+takes a protein ``Alignment`` and a list of the matching nucleotide sequences,
+and returns the codon alignment those imply. ``CodonAligner.align()`` and
+``score()``, and so ``codon_align``, now raise ``ValueError`` when the
+nucleotide sequence is shorter than one codon; ``align()`` used to return
+no alignments, and ``score()`` a score of 0.
+
 Two crashes in ``Bio.Align.PairwiseAligner`` are fixed. Deleting one of its
 attributes, as in ``del aligner.mode`` or ``del aligner.wildcard``, could
 crash Python; it now raises ``AttributeError`` and leaves the setting as it
@@ -1524,6 +1533,14 @@ This release of Biopython supports Python 3.10, 3.11, 3.12, 3.13, 3.14 and the
 Python 3.15 release candidate. It has also been tested on PyPy3.10 v7.3.19, as
 well as Python 3.11+ on Windows for ARM64. Python 3.10 is approaching end of
 life, our support for it is now deprecated.
+
+The Clustal parsers in ``Bio.AlignIO`` and ``Bio.Align`` now accept files whose
+header line starts with ``CLUSTALW`` as a single word, as written by some tools.
+
+Many thanks to the Biopython developers and community for making this release
+possible, especially the following contributors:
+
+- Mohit Arvind Khakharia (first contribution)
 
 6 August 2026: Biopython 1.88
 =============================

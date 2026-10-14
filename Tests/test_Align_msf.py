@@ -11,8 +11,8 @@ from io import StringIO
 
 import support
 
-from Bio import BiopythonParserWarning
 from Bio import Align
+from Bio import BiopythonParserWarning
 from Bio.Align import substitution_matrices
 
 substitution_matrix = substitution_matrices.load("BLOSUM62")

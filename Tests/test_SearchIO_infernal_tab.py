@@ -8,8 +8,8 @@
 
 """Tests for SearchIO InfernalIO infernal-tab parser."""
 
-import unittest
 import itertools
+import unittest
 
 import support
 

@@ -11,12 +11,12 @@ import subprocess
 import sys
 import unittest
 import warnings
+from contextlib import ExitStack
 from io import BytesIO
 from io import StringIO
 from shutil import rmtree
 from tempfile import mkdtemp
 from tempfile import NamedTemporaryFile
-from contextlib import ExitStack
 
 import support
 

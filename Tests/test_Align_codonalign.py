@@ -22,8 +22,8 @@ import support
 from Bio import Align
 from Bio import SeqIO
 from Bio.Align import Alignment
-from Bio.Align import CodonAligner
 from Bio.Align import codon_align
+from Bio.Align import CodonAligner
 from Bio.Align.analysis import calculate_dn_ds
 from Bio.Align.analysis import calculate_dn_ds_matrix
 from Bio.Align.analysis import mktest
@@ -74,6 +74,17 @@ Codon aligner with parameters
         self.assertAlmostEqual(aligner.frameshift_minus_one_score, -4.0)
         self.assertAlmostEqual(aligner.frameshift_plus_one_score, -5.0)
         self.assertAlmostEqual(aligner.frameshift_plus_two_score, -2.0)
+
+    def test_too_short(self):
+        # Fewer than 3 nucleotides used to free an uninitialised pointer.
+        aligner = CodonAligner()
+        message = "at least 3 nucleotides are needed for a codon alignment"
+        for seqB in ("", "A", "AC"):
+            with self.subTest(seqB=seqB):
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.score("M", seqB)
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.align("M", seqB)
 
     def test_alignments(self):
         aligner = CodonAligner()
