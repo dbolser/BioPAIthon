@@ -2455,7 +2455,11 @@ Every other planned step merged, including the seven last checked:
 ### Crashes in C extensions
 
 All are reached through a caller's arguments or data, not by parsing a
-file. The first two and the two in `_pairwisealigner.c` were reproduced
+file, though `pca`'s data could come from a downloaded file through
+`Bio.Cluster.read`. PR #196's reviewer recommended the held route for the
+two `cluster.c` overflows; which route they take is Dan's call (see
+`UPSTREAM.md`). Their reproductions are already public in that review.
+The first two and the two in `_pairwisealigner.c` were reproduced
 on 2026-10-13 as a segfault or an abort; the other two were read.
 
 - `Bio/Cluster/cluster.c` (`clusterdistance`, method `"m"`): an index list
