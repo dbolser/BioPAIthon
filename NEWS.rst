@@ -63,8 +63,8 @@ Two crashes in ``Bio.Align.PairwiseAligner`` are fixed. Deleting one of its
 attributes, as in ``del aligner.mode`` or ``del aligner.wildcard``, could
 crash Python; it now raises ``AttributeError`` and leaves the setting as it
 was. ``str(aligner)`` aborted with "buffer overflow detected" when the
-substitution matrix's class name was very long, or when a score was so large
-that it printed as hundreds of digits; a ``%`` in the class name was
+substitution matrix's class name was very long, or when scores were so large
+that they printed as hundreds of digits; a ``%`` in the class name was
 misread as a format code, and a non-ASCII class name raised ``ValueError``.
 The text is now built without a fixed-size buffer, and the class name is
 printed as it is.
