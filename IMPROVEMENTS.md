@@ -2775,8 +2775,8 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
 - Codecov rejects every upload ("Token required because branch is
   protected"); there is no `CODECOV_TOKEN`. CI does not fail on it, by
   decision. Adding the secret, allowing tokenless uploads, or removing
-  the upload steps is Dan's call. As reported, not re-checked.
-  (PRs #153 and #194)
+  the upload steps is Dan's call. Seen in every upload log of `main`'s
+  CI run for `4cdff0207`. (PRs #153 and #194)
 - `.github/workflows/ci.yml`: the style job's checkout keeps its
   persisted credentials; the other ten set
   `persist-credentials: false`. (PRs #153 and #150)
