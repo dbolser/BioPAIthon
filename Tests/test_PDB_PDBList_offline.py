@@ -13,6 +13,7 @@ that actually download from the PDB live in ``test_PDB_PDBList.py``.
 
 import contextlib
 import gzip
+import http.client
 import importlib
 import io
 import os
@@ -93,6 +94,74 @@ class URLConstructionTests(unittest.TestCase):
         )
         final_file = os.path.join(self.tmp.name, "zz", "pdbzzzz.ent")
         self.assertFalse(os.path.exists(final_file))
+
+    def retrieve_failing(self, fake_urlretrieve, **kwargs):
+        """Call retrieve_pdb_file for 127d in PDB format; return (result, output)."""
+        with mock.patch.object(pdb_list_module, "urlretrieve", fake_urlretrieve):
+            with mock.patch.object(pdb_list_module, "urlcleanup"):
+                with contextlib.redirect_stdout(io.StringIO()) as output:
+                    result = self.pdblist.retrieve_pdb_file(
+                        "127d", file_format="pdb", **kwargs
+                    )
+        return result, output.getvalue()
+
+    def test_non_gzip_response_leaves_no_file(self):
+        """A non-gzip response returns None and leaves no file to reuse."""
+
+        def fake_urlretrieve(url, filename):
+            with open(filename, "wb") as handle:
+                handle.write(b"<html>Please log in to the hotel wifi</html>")
+
+        result, output = self.retrieve_failing(fake_urlretrieve)
+        self.assertIsNone(result)
+        self.assertIn(
+            "Desired structure not found or download failed. '127d': ", output
+        )
+        self.assertEqual(os.listdir(os.path.join(self.tmp.name, "27")), [])
+        # The next call must try again rather than report "Structure exists".
+        url, final_file = self.retrieve("127d", file_format="pdb")
+        with open(final_file, "rb") as handle:
+            self.assertEqual(handle.read(), b"payload")
+
+    def test_truncated_gzip_response_leaves_no_file(self):
+        """A truncated gzip response returns None and leaves no file."""
+
+        def fake_urlretrieve(url, filename):
+            with open(filename, "wb") as handle:
+                handle.write(gzip.compress(b"payload" * 100)[:-10])
+
+        result, output = self.retrieve_failing(fake_urlretrieve)
+        self.assertIsNone(result)
+        self.assertIn("download failed. '127d'", output)
+        self.assertEqual(os.listdir(os.path.join(self.tmp.name, "27")), [])
+
+    def test_failed_overwrite_keeps_existing_file(self):
+        """A failed download with overwrite=True leaves the old file intact."""
+        url, final_file = self.retrieve("127d", file_format="pdb")
+
+        def fake_urlretrieve(url, filename):
+            with open(filename, "wb") as handle:
+                handle.write(b"not gzip")
+
+        result, output = self.retrieve_failing(fake_urlretrieve, overwrite=True)
+        self.assertIsNone(result)
+        self.assertEqual(os.listdir(os.path.join(self.tmp.name, "27")), ["pdb127d.ent"])
+        with open(final_file, "rb") as handle:
+            self.assertEqual(handle.read(), b"payload")
+
+    def test_http_exception_returns_none(self):
+        """A malformed server response (an HTTPException) returns None."""
+        error = http.client.InvalidURL("nonnumeric port: 'x'")
+        result, output = self.retrieve_failing(mock.Mock(side_effect=error))
+        self.assertIsNone(result)
+        self.assertIn(
+            "Desired structure not found or download failed. '127d': "
+            "nonnumeric port: 'x'",
+            output,
+        )
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmp.name, "27", "pdb127d.ent"))
+        )
 
     def test_mmtf_raises(self):
         """The retired mmtf format is rejected before any download."""
