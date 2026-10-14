@@ -96,25 +96,95 @@ Verified unreported in the GitHub tracker and still present on upstream
 | 21 | [#3911](https://github.com/biopython/biopython/pull/3911)'s newline check never matches list-valued qualifiers | `"\n" in feature.qualifiers[k]` is element membership on a list, so the list-of-strings shape the motivating SnapGene case produces is untouched by the fix. Comment on #3911 rather than a new issue. Fork adopted the PR and corrected this in [#80](https://github.com/dbolser/BioPAIthon/pull/80). |
 | 22 | `System.stochiometry()` has never worked | Three defects in one method, all verbatim from the 2001 import: `[] * n` is `[]`, rows created as the integer `0`, and coefficients written with no row index. Any non-empty system raises `IndexError`; nothing in either tree calls it, which is how it survived 24 years. **Fixed here in [#97](https://github.com/dbolser/BioPAIthon/pull/97)**; found by mypy's `check_untyped_defs` during [#96](https://github.com/dbolser/BioPAIthon/pull/96). |
 | 23 | `complement`, `complement_rna` and `reverse_complement_rna` promise `SeqRecord` support and raise `AttributeError` | Since [#3648](https://github.com/biopython/biopython/pull/3648) (1.80) all four module functions in `Bio/Seq.py` have a `SeqRecord` branch and a docstring saying "returns a new SeqRecord object", but `SeqRecord` only has `reverse_complement`, so the other three call methods that never existed. Still on `master` `372c71069`. Whether to implement `SeqRecord` output or reject it is upstream's call, so report both; a clear `TypeError` now does not block making it work later. **Fixed here in [#147](https://github.com/dbolser/BioPAIthon/pull/147)** with the `TypeError`. |
-| 24 | `Bio.Align.parse` cannot read stdin or a pipe | Iterating calls `rewind()`, which seeks to 0 (`AlignmentsAbstractBaseClass.__iter__` in `Bio/Align/__init__.py`, and `Bio/Align/interfaces.py:197-198`). `list()` calls `__len__`, which reads the stream and then seeks back (`interfaces.py:89-106`). The fasta, a2m and msf readers also call `tell()` (`fasta.py:75`, `a2m.py:91`, `msf.py:33`). So `list(Align.parse(f, fmt))` on a pipe raises `io.UnsupportedOperation`, where `AlignIO.parse` reads it. On Windows a pipe reports `seekable()` and `seek()` does nothing ([python/cpython#86768](https://github.com/python/cpython/issues/86768), fixed only on CPython `main` in August 2026), so there `list()` can silently return nothing. That last part was seen with a wrapper that mimics the Windows pipe, not on Windows itself. **Fix planned here** (`align-parse-nonseekable`, `IMPROVEMENTS.md` §1.1). |
-| 25 | `Bio.Align`'s Stockholm reader silently misreads interleaved files | It makes one row per sequence line (`Bio/Align/stockholm.py:357-384`). A file with two blocks of equal width reads as 4×5 instead of 2×10, with no error. Other block layouts raise (`Tests/Stockholm/simple.sth`), and duplicate names are accepted as extra rows. `AlignIO` reads these files. The docstring says wrap-around is not supported, so the defect to report is the silent misread, not the missing feature. Background on strictness: [#3747](https://github.com/biopython/biopython/issues/3747). **Fix planned here** (`align-stockholm-blocks`). |
-| 26 | `Bio.Align`'s PHYLIP reader reads one alignment per file | It reads the rest of the stream as one alignment (`Bio/Align/phylip.py:134-148`). So a file holding several alignments, such as seqboot output or what `Align.write` makes from several alignments, raises `ValueError` ("Found 5 records in this alignment, told to expect 2"). `AlignIO` reads both. **Fix planned here** (`align-phylip-multi`). |
+| 24 | `Bio.Align.parse` cannot read stdin or a pipe | Iterating calls `rewind()`, which seeks to 0 (`AlignmentsAbstractBaseClass.__iter__` in `Bio/Align/__init__.py`, and `Bio/Align/interfaces.py:197-198`). `list()` calls `__len__`, which reads the stream and then seeks back (`interfaces.py:89-106`). The fasta, a2m and msf readers also call `tell()` (`fasta.py:75`, `a2m.py:91`, `msf.py:33`). So `list(Align.parse(f, fmt))` on a pipe raises `io.UnsupportedOperation`, where `AlignIO.parse` reads it. On Windows a pipe reports `seekable()` and `seek()` does nothing ([python/cpython#86768](https://github.com/python/cpython/issues/86768), fixed only on CPython `main` in August 2026), so there `list()` can silently return nothing. That last part was seen with a wrapper that mimics the Windows pipe, not on Windows itself. **Fixed here in [#182](https://github.com/dbolser/BioPAIthon/pull/182)** (`IMPROVEMENTS.md` §1.1). |
+| 25 | `Bio.Align`'s Stockholm reader silently misreads interleaved files | It makes one row per sequence line (`Bio/Align/stockholm.py:357-384`). A file with two blocks of equal width reads as 4×5 instead of 2×10, with no error. Other block layouts raise (`Tests/Stockholm/simple.sth`), and duplicate names are accepted as extra rows. `AlignIO` reads these files. The docstring says wrap-around is not supported, so the defect to report is the silent misread, not the missing feature. Background on strictness: [#3747](https://github.com/biopython/biopython/issues/3747). **Fixed here in [#197](https://github.com/dbolser/BioPAIthon/pull/197).** |
+| 26 | `Bio.Align`'s PHYLIP reader reads one alignment per file | It reads the rest of the stream as one alignment (`Bio/Align/phylip.py:134-148`). So a file holding several alignments, such as seqboot output or what `Align.write` makes from several alignments, raises `ValueError` ("Found 5 records in this alignment, told to expect 2"). `AlignIO` reads both. **Fixed here in [#184](https://github.com/dbolser/BioPAIthon/pull/184).** |
 | 27 | `AlignIO`'s MAF reader turns `.` into the reference letter, which contradicts the `s` line's size | `Bio/AlignIO/MafIO.py:181-194` replaces each `.` with the first sequence's letter. This is deliberate (`9470216c4`, 2011) and pinned by `test_reading_alignments_maf1`. In `Tests/MAF/humor.maf`, mm3's `s` line says size 3,424, but `AlignIO`'s row has 5,166 residues. `Bio.Align` reads the `.` as gaps and gets 3,424. A behaviour choice: describe both readings and leave the choice upstream. Not changed here. |
-| 28 | `Bio.Align`'s Stockholm reader shifts per-residue `#=GR` annotations | It deletes every `.` from a `#=GR` line (`Bio/Align/stockholm.py:295`) instead of the row's gap columns. So an annotation with a `.` at a residue moves by one place up to the next gap: in `Tests/Stockholm/example_nonstandardannotations.sth`, CRN_DROME's `nonstandardgr` gets `X` at the residue the file marks `.`. When the letters no longer fit the residues it raises `TypeError`. That includes `Bio.Align`'s own output, because its writer (`_format_record`, `stockholm.py:598`) puts the annotation's letters at the residues and `.` at the gaps. **Fix planned here** (`align-stockholm-gr`). |
+| 28 | `Bio.Align`'s Stockholm reader shifts per-residue `#=GR` annotations | It deletes every `.` from a `#=GR` line (`Bio/Align/stockholm.py:295`) instead of the row's gap columns. So an annotation with a `.` at a residue moves by one place up to the next gap: in `Tests/Stockholm/example_nonstandardannotations.sth`, CRN_DROME's `nonstandardgr` gets `X` at the residue the file marks `.`. When the letters no longer fit the residues it raises `TypeError`. That includes `Bio.Align`'s own output, because its writer (`_format_record`, `stockholm.py:598`) puts the annotation's letters at the residues and `.` at the gaps. **Fixed here in [#183](https://github.com/dbolser/BioPAIthon/pull/183).** |
 | 29 | `AlignIO`'s PHYLIP readers ignore the header's length | `PhylipIterator` parses it (`Bio/AlignIO/PhylipIO.py:206`) and never uses it, so `phylip` and `phylip-relaxed` can misread silently. `AlignIO.read(StringIO("2 10\ns1 AAAAAAAAAA\ns2 CCCCCCCCCC\n"), "phylip")` gives 2 rows of 3 residues, with ids `s1 AAAAAAA` and `s2 CCCCCCC`. Names repeated in a later block end up inside the sequence (`AAAAs1AAAA`). `Bio.Align` raises on both. **Not fixed here**: it is an `AlignIO` change, outside §1.1's new scope. |
 | 30 | `PairwiseAligner.score()` and `align()` overwrite the caller's sequence array | With a substitution matrix that has an alphabet, such as `scoring="blastp"`, `_map_indices` writes the matrix indices back into the caller's buffer (`indices[i] = index`, `_pairwisealigner.c:7280` on `master` `590285be7`), and the Python layer passes a NumPy array straight through. Given an `int32` array of the letter codes of `HEAGAWGHE`, the first `score()` succeeds and leaves the array as `[7 4 0 6 0 22 6 7 4]`; a second call raises "sequence contains letters not in the alphabet", and so does passing one array as both sequences, on the first call, because it is mapped twice. Reproduced in this tree before the fix; on `master` the code is unchanged, read but not run. The corruption is not memory safety, so the public tracker. The same change closes a contrived out-of-bounds read: a gap function that writes an out-of-range letter into the array after the check makes the Waterman-Smith-Beyer kernel index outside the matrix (an ASan SEGV in this tree before the fix). That is caller-driven too, so it can go in the same report (as with 20). **Fixed here in [#181](https://github.com/dbolser/BioPAIthon/pull/181)**, which checks and maps private copies of the sequences; describe the defect, not the patch. |
 
 Rows 24–29 come from the §1.1 re-scope in `IMPROVEMENTS.md`. They were checked
 on 2026-10-06 against upstream `master` `372c71069`, and again on 2026-10-08
 against `bb295f15a`. The code each row describes has not changed upstream, and
-it behaves as in this fork. The GitHub tracker has nothing filed for any of
+it behaved the same in this fork before rows 24, 25, 26 and 28 were fixed here
+(rows 27 and 29 still behave the same). The GitHub tracker has nothing filed for any of
 them. The nearest are
 [#4147](https://github.com/biopython/biopython/issues/4147) (seeking a SeqIO
 iterator) and [#358](https://github.com/biopython/biopython/issues/358) (`.`
 against `-` in Stockholm), and neither is the same defect. Line numbers are
-upstream's, at `bb295f15a`, because the planned fixes will move or remove
-these lines here. This fork's differ in `Bio/Align/__init__.py`, which row 24
+upstream's, at `bb295f15a`, because the fixes here moved or removed these
+lines. This fork's differ in `Bio/Align/__init__.py`, which row 24
 cites by name, and in `stockholm.py` and `phylip.py`, which PR #155 edited.
+
+### From the October 2026 sprint, not yet duplicate-checked
+
+Found by reviewers during the sprint and listed in `IMPROVEMENTS.md` under
+"Follow-ups from the October 2026 sprint", where each entry has its file,
+reproduction and PR. Each defect is still present on upstream `master`
+(`fc0c15678`, checked with `git grep`, not run there); a few, such as the
+`mktest` and `_get_pi` lines, are already fixed in this fork. None has been
+searched for in the tracker yet, so each needs that check before it joins
+the table above. The C crashes are reached through a caller's arguments, not
+a downloaded file, so this draft sends them to the public tracker, as with
+row 30. **Dan to decide:** PR #196's reviewer recommended the held route for
+the two `cluster.c` heap overflows, and `pca` on data read by
+`Bio.Cluster.read` from a downloaded file is arguably file-driven.
+
+- `Bio.Cluster`: `clusterdistance(..., method="m")` with an index list longer than the matrix overflows the heap.
+- `Bio.Cluster`: `pca` on data holding `inf`, or with a column mean that overflows, makes `svd` read `w[-1]`.
+- `Bio.Cluster`: the C `pca` never checks the eigenvalues array's length, and its shape errors print the wrong array.
+- `Bio.Cluster`: `PyTree_length` returns `int` but is installed as a `lenfunc`.
+- `Bio.Cluster`: `somcluster` given a plain list raises `AttributeError`; `_cluster.Tree` and `_cluster.pca` ignore keyword arguments.
+- `PairwiseAligner`: `del aligner.mode` or `del aligner.wildcard` segfaults; no setter checks for `NULL`.
+- `PairwiseAligner`: `str(aligner)` overflows a 1,024-byte stack buffer when the substitution matrix's class name is long, and uses the name as a format string.
+- `PairwiseAligner(scoring="blastp").score()` on two lists of letters raises "letters not in the alphabet", because list input is mapped twice.
+- `Bio/PDB/kdtrees.c`: `repr()` of `Point` and `Neighbor` raises `SystemError`, and `KDTree(coords, bucket_size=10)` ignores the keyword.
+- `FastaBlastIterator`'s `self_line = line` typo gives every record the first record's title.
+- `Seq.join()` given a generator returns an empty sequence, because the type check uses it up.
+- The FASTA, QUAL, PIR, PHD and ACE index key comes from splitting raw bytes, so an id containing a control or Unicode space gives a key that is not `record.id`.
+- The UniProt XML and IntelliGenetics indexers compare line lengths with `tell()`, which fails an `assert` on multi-block BGZF.
+- `SffIO`: truncated header fields are not length-checked, a negative name padding reads the rest of the file, and `SffWriter.write_records` can be called twice.
+- `InsdcIO`: a short locus name with a sequence of 10^11 bp or more raises instead of using the long LOCUS line.
+- `GfaIO`: the tag-type check is a substring test, so an empty or two-letter type passes silently.
+- `CifSeqresIterator`'s docstring names `_entity_poly_seq`; the code reads `_pdbx_poly_seq_scheme`.
+- `Bio.SeqFeature`: `ExactPosition + float` truncates, one `LocationParserError` lacks its `f` prefix, `Reference() == None` raises, and `CompoundLocation(generator)` raises.
+- `Bio/Align/emboss.py`: `raise ValueError("...%s") % line` raises `TypeError` instead.
+- `Bio/Align/exonerate.py`: an error message never gets its `%` arguments.
+- `Bio/Align/sam.py`: the writer writes topology as `PP:` instead of `TP:`.
+- `calculate_dn_ds`: NG86, LWL85 and ML do not check that the rows have the same number of codons (read, not run).
+- `calculate_dn_ds(method="YN00")` on identical sequences raises "dictionary changed size during iteration".
+- `_count_diff_YN00` counts one step twice and passes `k[1]` where `k[2]` looks intended; check against PAML's `yn00.c` first.
+- `codonalign.mktest`: `"-" in all_codon` never matches, so a partly gapped codon raises `KeyError: '---'`.
+- `_get_pi`'s F1x4 counting raises `KeyError` for a base absent from both sequences (masked by row 4).
+- `Bio.Align`'s Stockholm writer raises `AttributeError` for an `Alignment` with no `column_annotations`.
+- `Bio.Align`'s Stockholm reader raises `IndexError` on a `#=GR` line with no value.
+- `Bio/Align/bigbed.py`: the writer's zoom record count disagrees for a zero-length item at the end of a chromosome (an `assert` upstream).
+- `Bio.Align`'s strict PHYLIP writer does not reject names that truncation to 10 characters makes equal.
+- `AlignIO`'s `RelaxedPhylipWriter` rejects ASCII whitespace only, so it can write a file it cannot read back.
+- `Bio/Align/tabular.py`: BLASTN or BLASTP output with a `query seq` column raises "Unknown program".
+- `AlignIO`'s Clustal reader hangs on a file holding only the header line.
+- `AlignIO`'s Mauve reader never formats one error message, and shares `_ids` between iterators.
+- `AlignIO`'s FASTA reader raises `IndexError` on a bare `>>` line.
+- `qblast(format_type="HTML")` can never succeed: the polling loop's `<!DOCTYPE html` branch matches the result page.
+- `Bio.Blast`'s XML2 parser fails with unhelpful errors on a root with no namespace or no `schemaLocation`.
+- `SearchIO`'s BLAST XML `get_raw` loops forever if the file was truncated after its `index_db` was built.
+- `SearchIO.index_db` does not wrap a lone `pathlib.Path` in a list, as it does a `str`.
+- `Bio/PDB/binary_cif.py`'s string decoder ignores the column mask: `IndexError`, or wrong values, on current RCSB files.
+- `Bio/PDB/binary_cif.py` and `FragmentMapper` do not accept `os.PathLike`.
+- `FastMMCIFParser`, `PDBMLParser` and the BinaryCIF parser do not upper-case `type_symbol`, so `Fe` raises.
+- `StructureAlignment(..., aligner=...)` raises `UnboundLocalError`; the Tutorial shows this call.
+- `PICIO._default_dihedron` has two unreachable branches that would crash (`list.add`).
+- The `AtomKey` docstring lists a tuple form as accepted that raises.
+- `MissingAtomError` is advertised and never raised.
+- `NewickIO` allows only one space after `:`, so `(a:  0.1,...)` loses the leaf names and lengths.
+- `Phylo.read(StringIO(...), "cdao")` raises on `handle.name`, and the RDFlib version error is swallowed.
+- `Medline.parse`: records separated only by a line of six or more spaces merge (the trade-off of #4557/#4558).
+- `Bio.SCOP`: a CLA sunid missing from the DES file gives a bare `KeyError`.
+- `GenePop.FileParser`: `FileRecord.start_read()` again leaks the handle and doubles the loci; `remove_loci_by_position()` mutates the caller's list.
+- `GenomeDiagram`: `Diagram.write` rejects a `pathlib.Path` for PDF output (ReportLab); SVG works.
+- `GenomeDiagram`: `new_graph` silently accepts `centre=`, though `DEPRECATED.rst` says it went in 1.62; `new_track` and `new_set` silently accept misspelt keywords.
+- `SVDSuperimposer.set` with 1-D arrays raises `IndexError` instead of its own error.
 
 ## Needs work before it can be filed
 
@@ -122,6 +192,9 @@ cites by name, and in `stockholm.py` and `phylip.py`, which PR #155 edited.
   [#4994](https://github.com/biopython/biopython/pull/4994) changes the
   module-level default and does not forward the argument, so this survives it.
   Any report must say so or it will be closed as a duplicate.
+- **Infernal `*[ 0]*` hit lines.** `SearchIO`'s Infernal text parser's
+  `assert gap_len > 0` probably rejects valid `*[ 0]*` output. Needs a real
+  Infernal file showing it first.
 - **`SeqIO.index()` masks a proxy's `TypeError`.** The only reproduction is a
   patched SFF header. Needs a natural malformed input first.
 - **Location truthiness.** The dead Python 2 `__nonzero__` methods and the
@@ -159,9 +232,10 @@ on `biopython/biopython` about it.**
   and `Bio.Align.register_format(name, module, *, replace=False)`, plus
   entry-point plugins in the groups `biopaithon.seqio.iterators`,
   `biopaithon.seqio.writers` and `biopaithon.align`. The contract is decided in
-  `IMPROVEMENTS.md` §1.2. The private registry it builds on has landed
-  ([#149](https://github.com/dbolser/BioPAIthon/pull/149)); the hook and the
-  plugins have not.
+  `IMPROVEMENTS.md` §1.2. The private registry it builds on
+  ([#149](https://github.com/dbolser/BioPAIthon/pull/149)), the hook
+  ([#185](https://github.com/dbolser/BioPAIthon/pull/185)) and the plugins
+  ([#198](https://github.com/dbolser/BioPAIthon/pull/198)) have all landed.
 - **Why upstream may care.** Upstream's format tables are private. It has no
   public registration hook and no entry points, and no open issue or pull
   request proposes one (searched 2026-10-06, `master` at `372c71069`,

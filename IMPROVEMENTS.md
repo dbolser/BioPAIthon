@@ -512,8 +512,17 @@ deleting that module resolves it too.
 Large, high-leverage changes. Each removes a whole category of future bug rather
 than one instance.
 
-### 1.1 `Bio.AlignIO` and `Bio.Align` are two complete parser stacks for the same formats **[re-scoped — shim declined]**
+### 1.1 `Bio.AlignIO` and `Bio.Align` are two complete parser stacks for the same formats **[re-scoped — shim declined, new scope FIXED]**
 
+> **Status: done, on the new scope.** All five `Bio.Align` reader PRs
+> listed below have merged: PR #182 (non-seekable streams), PR #183
+> (`#=GR` by column), PR #197 (interleaved Stockholm), PR #184 (several
+> PHYLIP alignments in one file) and PR #195 (`phylip-relaxed`, the first
+> `Bio.Align` format name that is not a module name). **Decided:** the
+> `AlignIO` shim was dropped in favour of closing `Bio.Align`'s gaps
+> (PR #142); the reasons are below. The notes below are kept as written
+> on 2026-10-06, apart from the outcome column of the table.
+>
 > **Status: re-scoped on 2026-10-06. The shim is declined. The new goal is
 > that `Bio.Align` reads the files `AlignIO` reads, closing the gaps
 > measured on real inputs.** `Bio.AlignIO` is not rewritten; it takes only
@@ -615,8 +624,8 @@ than one instance.
 > below have landed. Some files will still read only in `AlignIO`: the rare
 > inputs the table marks out of scope, FASTA `-m 10` output (`fasta-m10`,
 > a format only `AlignIO` has), and files that `Bio.Align`'s stricter
-> checks reject (`funny.sth`, `simple_short.xmfa`). None of the five has
-> merged yet:
+> checks reject (`funny.sth`, `simple_short.xmfa`). All five have merged
+> (see the status note above):
 >
 > 1. `align-parse-nonseekable` — `Bio.Align.parse` reads stdin, pipes and
 >    other non-seekable streams.
@@ -633,8 +642,8 @@ than one instance.
 >    registry core (PR #149) removed that: `Bio.Align._load` now looks names
 >    up in a registry (`Bio/Align/__init__.py:5319`), so a format name no
 >    longer has to be a module name, and naming the new format takes one
->    registry entry. It waits on §1.2's public `register_format` contract,
->    still open in PR #146, which decides what a `Bio.Align` entry may be.
+>    registry entry. It waited on §1.2's public `register_format`
+>    contract, which PR #146 decided.
 >
 > **Rules the code PRs follow:**
 >
@@ -652,7 +661,7 @@ than one instance.
 >   sequential PHYLIP.
 >
 > **Where the two stacks differ.** "Upstream row" means a row in the Queued
-> table of `UPSTREAM.md`. "Planned" means a PR from the list above.
+> table of `UPSTREAM.md`.
 >
 > | format | difference | outcome |
 > |---|---|---|
@@ -666,14 +675,14 @@ than one instance.
 > | EMBOSS | Reverse strand (`-sreverse`). `AlignIO` raises on `Tests/Emboss/water_reverse1-4.txt` ([#1376](https://github.com/biopython/biopython/issues/1376), open since 2017); `Bio.Align` reads them. | out of scope (an `AlignIO` fix) |
 > | MSF | Strictness and error messages differ. `Tests/msf/DOA_prot.msf`, whose header says length 62 where the sequences have 250, reads only in `Bio.Align` (with a warning). | kept |
 > | Clustal | Several alignments in one file. `AlignIO` reads them; `Bio.Align` raises at the second header. | out of scope (rare input) |
-> | PHYLIP | Several alignments in one file, such as seqboot output or `Align.write` given several alignments. `AlignIO` reads them; `Bio.Align` raises. | fixed by `align-phylip-multi` (planned); upstream row 26 |
-> | PHYLIP | Relaxed PHYLIP. `Bio.Align` has no `phylip-relaxed`. | fixed by `align-phylip-relaxed` (planned, after PR #146) |
+> | PHYLIP | Several alignments in one file, such as seqboot output or `Align.write` given several alignments. `AlignIO` reads them; `Bio.Align` raises. | fixed in PR #184; upstream row 26 |
+> | PHYLIP | Relaxed PHYLIP. `Bio.Align` has no `phylip-relaxed`. | fixed in PR #195 |
 > | PHYLIP | `AlignIO` ignores the header's length (`Bio/AlignIO/PhylipIO.py:206`), so `phylip` and `phylip-relaxed` can misread silently: relaxed short names read under `phylip` give rows of 3 residues with ids `s1 AAAAAAA`, and names repeated in a later block end up inside the sequence. `Bio.Align` raises on both. Every silent misread found was `AlignIO`'s, so `Bio.Align`'s auto-detection is not changed to match. | reported upstream, not fixed here (upstream row 29) |
 > | PHYLIP | Interleaved without blank lines between blocks. `AlignIO` reads it; `Bio.Align` raises (it does not misread). | out of scope |
-> | Stockholm | Interleaved blocks. `Bio.Align` makes one row per sequence line: `simple.sth` raises, an equal-width two-block file silently reads as 4×5 instead of 2×10, and duplicate names become extra rows. | fixed by `align-stockholm-blocks` (planned); upstream row 25 |
-> | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:299`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed by `align-stockholm-gr` (planned); upstream row 28 |
+> | Stockholm | Interleaved blocks. `Bio.Align` makes one row per sequence line: `simple.sth` raises, an equal-width two-block file silently reads as 4×5 instead of 2×10, and duplicate names become extra rows. | fixed in PR #197; upstream row 25 |
+> | Stockholm | `#=GR`. `Bio.Align` deletes every `.` from the annotation, not the row's gap columns (`Bio/Align/stockholm.py:299`). The annotation shifts (`example_nonstandardannotations.sth`), and `Bio.Align` cannot read back its own output when an annotation has a `.` at a residue (`TypeError`). | fixed in PR #183; upstream row 28 |
 > | Stockholm | `#=GF SQ` must match the number of sequences in `Bio.Align` (`Bio/Align/stockholm.py:233`), so `funny.sth` raises; `AlignIO` ignores it. Deliberate ([#3747](https://github.com/biopython/biopython/issues/3747)). | kept |
-> | all | Non-seekable streams. `Bio.Align.parse` seeks, so stdin and pipes raise `io.UnsupportedOperation`; `AlignIO` reads them. | fixed by `align-parse-nonseekable` (planned); upstream row 24 |
+> | all | Non-seekable streams. `Bio.Align.parse` seeks, so stdin and pipes raise `io.UnsupportedOperation`; `AlignIO` reads them. | fixed in PR #182; upstream row 24 |
 > | FASTA `-m 10` | Only `AlignIO` has `fasta-m10` (`Bio/AlignIO/__init__.py:165`): `Tests/Fasta/output001.m10` reads as 4 alignments there. `Bio.Align` has no such format. Its `tabular` reads FASTA's `-m 8CB` and `-m 8CC` output, not `-m 10`, and raises `ValueError` on that file. | out of scope (not one of the eight formats both stacks implement) |
 > | writers | Only nexus output is byte-identical. Clustal, PHYLIP, Stockholm, MAF and Mauve output differ, and `AlignIO` cannot write EMBOSS or MSF. | kept: both sets of writers stay |
 
@@ -706,7 +715,8 @@ the acceptance gate.
 > names up through it, and `Bio.Phylo` has too since PR #174, so a
 > `Bio.Align` format name no longer has to be a module name. PR #185 added
 > `register_format()` to SeqIO and `Bio.Align`, and PR #198 the entry-point
-> plugins, both following the "Decided API" list below. AlignIO and SearchIO
+> plugins, both following the "Decided API" list below, which PR #146
+> settled. The entry-point groups are `biopaithon.*`. AlignIO and SearchIO
 > are left as they are, by decision. The NumPy consequence this section
 > first reported went with PR #73: `import Bio.SeqIO` loads no format module,
 > nor NumPy, `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`, and
@@ -821,7 +831,27 @@ entry-point groups so plugins work.
 
 **Effort L · Impact high**
 
-### 1.3 The typing story is worse than having no types at all
+### 1.3 The typing story is worse than having no types at all **[harness and the sequence spine FIXED, I/O and alignment open]**
+
+> **Status: about half done.** PR #152 added the harness: the
+> `disallow_untyped_defs` allowlist in `.mypy.ini` proposed below, a test
+> of the config's shape, a full-tree mypy hook and a `mypy --strict`
+> check of downstream code (`Tests/downstream_typing/`). Then these
+> modules were fully annotated and joined the allowlist: `Bio.Seq`
+> (PR #176), `Bio.File` (PR #177, its index classes now generic in the
+> record type), `Bio.SeqRecord` (PR #187), `Bio.SeqFeature` (PR #188) and
+> `Bio.Cluster` (PR #192). `from Bio.Restriction import EcoRI` no longer
+> fails type checking (PR #179): the enzymes type as `Any` until they are
+> built lazily (§1.7). The C extension stubs are §1.8. Four planned steps
+> were not written, and are the rest of this item:
+> `annotate-seqio-alignio` (the `Bio.SeqIO` and `Bio.AlignIO` entry
+> points), `annotate-align-msa-io` (`MultipleSeqAlignment`,
+> `Bio.Align.read`/`parse`/`write` and `Bio/Align/interfaces.py`),
+> `annotate-alignment` (`Alignment` and its containers) and
+> `annotate-aligners` (`PairwiseAligner`, `CodonAligner` and the
+> convenience functions, after which `Bio.Align` joins the allowlist).
+> Docstring styles are converted only in modules being annotated anyway
+> (see addendum B and `AGENTS.md`).
 
 `Bio/py.typed` and `BioSQL/py.typed` ship (`MANIFEST.in:66-68`), which is a PEP
 561 promise to type checkers. An AST census of all 298 modules found **296 of
@@ -869,7 +899,7 @@ automatic for any sequential format. Add a corpus-wide test asserting
 `list(index(f, fmt)) == [r.id for r in parse(f, fmt)]`.
 **Effort M · Impact high**
 
-### 1.5 Three parallel BLAST stacks, and the tutorial teaches the superseded one **[a and b FIXED, c is a decision]**
+### 1.5 Three parallel BLAST stacks, and the tutorial teaches the superseded one **[a and b FIXED, c not done]**
 
 > **Status: (a) and (b) are done.** PR #90 rewrote the Tutorial's BLAST
 > chapter against `Bio.Blast`, including a "Migrating from the older BLAST
@@ -878,7 +908,8 @@ automatic for any sequential format. Add a corpus-wide test asserting
 > with the `DEPRECATED.rst` entry — deprecation only, the modules still
 > work, and removal waits at least a release as the plan requires.
 > (c) — whether SearchIO's `blast-xml` becomes an adapter over `Bio.Blast`
-> — remains an open decision, tracked in `TODO.md`.
+> — was not done in the October 2026 sprint. It stays recorded here as an
+> option, with no plan to do it.
 
 New: `Bio/Blast/__init__.py` + `_parser.py` + `_writers.py` (~4,100 lines).
 Old and carrying **no deprecation warning**: `Bio/Blast/NCBIXML.py` (1,331) and
@@ -931,7 +962,10 @@ touched code is checked from day one and the list only shrinks. Triage
 > works on a machine without NumPy. The `Restriction` PEP 562 `__getattr__`
 > is deliberately deferred on the usage evidence (the survey later in this
 > document found `Bio.Restriction` far less imported than assumed);
-> revisit only if import-cost complaints actually name it.
+> revisit only if import-cost complaints actually name it. That deferral
+> was confirmed in October 2026. Its typing half no longer waits on it:
+> PR #179 stopped `from Bio.Restriction import EcoRI` failing under mypy,
+> with the enzymes typed as `Any` until they are built lazily.
 
 Measured cumulative `-X importtime`: `Bio.Seq` 45.3 ms, `Bio.Align` 155.9 ms,
 `Bio.Restriction` 239.6 ms, `Bio.SeqIO` 547.8 ms cold / 188.7 ms warm.
@@ -956,8 +990,14 @@ generated `.pyi` declaring the names); lazy per-format imports in `SeqIO`. Add a
 CI budget check on `python -X importtime -c "import Bio.SeqIO"`.
 **Effort M · Impact high**
 
-### 1.8 No `__all__` on re-exporting packages, and no stubs for 13 C extensions
+### 1.8 No `__all__` on re-exporting packages, and no stubs for 13 C extensions **[FIXED]**
 
+> **Status: both halves are done.** PR #178 added `.pyi` stubs for the
+> `Bio.Align` C extensions, with `stubtest` in CI, so `PairwiseAligner`
+> is no longer `Any` to a type checker. PR #192 stubbed `Bio.Cluster._cluster`
+> and PR #191 the rest, and made a stub compulsory for every extension.
+> The `__all__` note below is from when only that half was done.
+>
 > **Status: the `__all__` half is done; the stubs half is not.** Measured
 > rather than estimated: a file importing every public re-exported name of
 > every package, checked with `mypy --strict --follow-imports=silent`, gave
@@ -998,8 +1038,17 @@ matches the documented API. Hand-write `.pyi` stubs starting with
 `Bio/Align/_pairwisealigner.pyi` and `Bio/Cluster/_cluster.pyi`.
 **Effort S (`__all__`) / M (stubs) · Impact high**
 
-### 1.9 No C extension ever releases the GIL, so threads give zero speed-up **[aligner, kdtrees and free-threaded builds FIXED]**
+### 1.9 No C extension ever releases the GIL, so threads give zero speed-up **[FIXED, except Ctrl-C in `Bio.Cluster` and `ccealign`]**
 
+> **Status: the `cluster.c` slice is done too.** PR #196 releases the GIL
+> around all nine `Bio.Cluster` kernel calls; `cluster.c` now allocates
+> with `PyMem_Raw*` so it can run without the GIL. What is left is the
+> plan's Ctrl-C half for those kernels: the planned step
+> `cluster-interrupt` (a periodic signal check in the clustering loops)
+> was not written, so Ctrl-C still waits for a long clustering call to
+> finish. `ccealign`'s kernels still hold the GIL. The note below is from
+> before PR #196.
+>
 > **Status: the two hottest extensions now release the GIL.** PR #75 wrapped
 > the NW/SW/Gotoh pairwise alignment kernels and PR #74 the `kdtrees` build
 > and search kernels (measured there: two threads on separate
@@ -1072,6 +1121,11 @@ periodic `PyErr_CheckSignals()` in each outer loop so Ctrl-C works.
 > also mean heap types for the aligner, rewriting upstream's most-edited C
 > file and changing behaviour users can see. Module state is for isolating
 > subinterpreters; if that is ever wanted, it is an item of its own.
+>
+> One step planned under this item was not written: `cluster-interrupt`,
+> which would let Ctrl-C stop a long `Bio.Cluster` kernel (see §1.9).
+> PR #196 (`cluster-release-gil`) and PR #201 (`ft-release`) were the
+> last steps that merged.
 
 No `Py_mod_gil`, `Py_MOD_GIL_NOT_USED` or `Py_GIL_DISABLED` anywhere; all 13
 modules use single-phase init with `m_size = -1`. A single-phase module without a
@@ -1096,8 +1150,15 @@ local; thread the sort dimension through a `qsort_r` context; replace the
 process-wide `rand()` stream); then add the `Py_mod_gil` slot and a `3.14t` CI job.
 **Effort L · Impact high**
 
-### 1.11 FASTQ parsing costs 4.9× the time and 3.9× the memory of the raw iterator
+### 1.11 FASTQ parsing costs 4.9× the time and 3.9× the memory of the raw iterator **[FIXED]**
 
+> **Status: part (b) is done too.** PR #167 gave the three FASTQ parsers
+> a keyword-only `compact=False`. With `compact=True` each read's
+> qualities are an `array.array("b")`: about 5× smaller for the
+> qualities alone, and 514 MB down to 312 MB for 200,000 reads held in
+> a list, as the record objects themselves do not shrink. The default
+> output is unchanged. The note below is from before PR #167.
+>
 > **Status: part (a) is done.** PR #17 moved quality decoding into an
 > overridable `_decode_quality` method: the base class returns
 > `list(byte_scores)` and only `FastqSolexaIterator` keeps the signed
@@ -1132,8 +1193,23 @@ an opt-in `array('b')`/`bytes` backing for `letter_annotations`, which
 reduction.
 **Effort S (a) / M (b) · Impact medium**
 
-### 1.12 `PairwiseAligner.align()` allocates the full O(n·m) traceback matrix **[guards FIXED, linear-space open]**
+### 1.12 `PairwiseAligner.align()` allocates the full O(n·m) traceback matrix **[guards and Needleman-Wunsch FIXED, Gotoh and Smith-Waterman open]**
 
+> **Status: linear space is in for Needleman-Wunsch.** PR #186 added a
+> checkpointed linear-space traceback that yields the same paths in the
+> same order as the full matrix (not Hirschberg's, which would pick a
+> different co-optimal path). PR #199 counts the alignments in linear
+> space too, so `len()`, `repr()` and `bool()` no longer build the
+> matrix, and switched it on: Needleman-Wunsch alignments whose
+> traceback matrix would exceed 512 MiB, about 23 kb × 23 kb and up,
+> now take the linear path. Forced onto the linear path, 20 kb takes
+> about 1.5× the time for `align()[0]` in 67 MB instead of 415 MB; at the
+> default threshold 20 kb still builds the full matrix. Three planned steps were not written,
+> so Gotoh (affine gaps, which the `blastn`, `megablast` and `blastp`
+> presets use), Smith-Waterman and the other modes still build the full
+> matrix: `pairwise-linear-gotoh-global`, `pairwise-linear-sw` and
+> `pairwise-linear-gotoh-local`.
+>
 > **Status: the short-term guards are in.** PR #67 computes the matrix size
 > in checked `size_t` arithmetic before allocating: a size that cannot fit
 > raises `MemoryError` naming the predicted size and both sequence lengths,
@@ -1144,7 +1220,7 @@ reduction.
 > the multiplication and corrupted the heap from pure Python. There is
 > deliberately no cap below what the platform can address. The
 > Hirschberg/Myers-Miller linear-space traceback remains the long-term
-> item, tracked in `TODO.md`.
+> item (see the status note above for what landed).
 
 `Bio/Align/_pairwisealigner.c:69-80`. Fresh-process measurements with
 `scoring="blastn"`:
@@ -1231,8 +1307,9 @@ silent deletion.
 > `PDBList` no longer offers MMTF downloads and gained BinaryCIF (adopted
 > upstream #4938), and the new `[structure]` extra deliberately omits
 > `mmtf-python`. The removal itself — subpackage, test files, packaging
-> entry, CI dependency — waits the customary release and is tracked in
-> `TODO.md`.
+> entry, CI dependency — waits the customary release. **Decided:** that
+> second step does not happen before the BioPAIthon 1.88 release, so
+> 1.88 ships the deprecation and removal comes after it.
 
 RCSB decommissioned MMTF in July 2024; `mmtf.rcsb.org` does not resolve. The
 dependency `mmtf-python` last released 2022-07-06. `Tests/test_mmtf_online.py:28`
@@ -1290,7 +1367,14 @@ the hot path of the most-used alignment class.
 release; the rename was only in 1.86 and those callers are more common.
 **Effort S · Impact medium**
 
-### 2.5 `Bio.codonalign` has warned "experimental" for twelve years
+### 2.5 `Bio.codonalign` has warned "experimental" for twelve years **[FIXED]**
+
+> **Status: decided and done.** The warning is dropped and the API is
+> committed (PR #141): `Bio.codonalign` is now under the normal
+> backwards-compatibility policy, so future changes go through
+> `DEPRECATED.rst`. PR #154 then made `cal_dn_ds` and `mktest` delegate
+> to `Bio.Align.analysis` (addendum C), removing about 1,230 lines. The
+> alignment-building half was kept.
 
 `Bio/codonalign/__init__.py:21-25` warns on every import; introduced 2014.
 2,644 lines whose last substantive commit was a formatting pass. An import-time
@@ -1302,8 +1386,14 @@ migrate alignment-building onto `Bio.Align.CodonAligner` and keep only
 `cal_dn_ds` and `mktest`, which are what people actually use.
 **Effort M · Impact medium**
 
-### 2.6 Python-2-era shims, one of which silently breaks a documented promise
+### 2.6 Python-2-era shims, one of which silently breaks a documented promise **[FIXED, `colour` removal scheduled]**
 
+> **Status: the `colour` aliases now warn.** PR #168 made each of the 15
+> aliases (the 101 text matches below come down to 15) raise
+> `BiopythonDeprecationWarning`, pointing at the caller's line. They are
+> to be removed in the release after 1.88. The note below is from before
+> PR #168.
+>
 > **Status: the `__nonzero__` half is fixed** in PR #12, which took the
 > "real `__bool__`" branch of the decision below: both methods are now
 > `__bool__` returning `True` per the documented promise, the docstrings are
@@ -1593,8 +1683,18 @@ is already used 184 times elsewhere in the suite. Failing that, add
 `simplefilter("always")` as the first statement in every block.
 **Effort S · Impact high**
 
-### 4.2 The suite only runs from inside `Tests/` **[pattern established, migration ongoing]**
+### 4.2 The suite only runs from inside `Tests/` **[FIXED]**
 
+> **Status: done.** Four sweep PRs moved every remaining module onto
+> `support.DATA`: PR #162 (Ace, Affy and `Align*`), PR #164 (B to O),
+> PR #163 (`[Pp]*`) and PR #166 (Q to Z), including the
+> `os.chdir("Tests")` in `test_PDB_StructureAlignment.py`. Then PR #200
+> dropped the session `chdir`: tests run in whatever directory pytest
+> started in, and only the docstring examples change into `Tests/`. CI
+> now starts the suite outside the checkout, so a new cwd-relative path
+> fails there instead of hiding. The parallel runs this unlocked are
+> §4.3. The note below is from before PR #162.
+>
 > **Status: the mechanism exists and five modules are migrated.** PR #93
 > added `Tests/support.py` with `DATA = pathlib.Path(__file__).parent` —
 > including guidance for tests that deliberately exercise relative paths —
@@ -1621,7 +1721,7 @@ module, removing the cwd dependency entirely and unlocking parallelism. Delete
 the `os.chdir("Tests")` in `test_PDB_StructureAlignment.py:225`.
 **Effort M · Impact high**
 
-### 4.3 The runner reports 501 "tests" that are really 3,050 test cases, and discards their output **[runner FIXED, parallel runs open]**
+### 4.3 The runner reports 501 "tests" that are really 3,050 test cases, and discards their output **[FIXED]**
 
 > **Status: pytest is the runner.** PR #175 replaced the bespoke runner
 > with pytest 9, keeping the `unittest.TestCase` tests. Results are per
@@ -1638,6 +1738,14 @@ the `os.chdir("Tests")` in `test_PDB_StructureAlignment.py:225`.
 > `CONTRIBUTING.rst`. Still open: parallel runs with pytest-xdist, CI
 > calling pytest directly, and dropping the session `chdir` into
 > `Tests/`.
+>
+> **Status, later: all three are done.** PR #194 runs the suite in
+> parallel with pytest-xdist (`-n auto --dist loadfile`), and CI calls
+> pytest directly, with coverage from pytest-cov and `--check-skips` on
+> Linux. PR #200 dropped the session `chdir` (§4.2). One CI gap is left:
+> the Windows test step is not a gate yet (`continue-on-error`), because
+> 22 to 33 tests fail there on `main`; see "Follow-ups from the October
+> 2026 sprint" below.
 
 `Ran 501 tests` counts *modules* (209 unit-test + 292 doctest). Loading them
 individually gives 3,050 actual test cases. Worse,
@@ -1843,7 +1951,7 @@ remain the usage evidence the decisions rested on.
 | `Bio.PDB.mmtf` | 154 | **deprecated here** (PR #72); shipped upstream | §2.2 remove | Low, and the format's server no longer resolves. Removal is defensible; a stub still costs nothing. |
 | `Bio.Restriction` | 141 | shipped in both | §1.7 lazy imports | **Much lower than assumed.** Its 77 ms import cost is paid by few people, and no module in `Bio/` imports it, which is why the lazy-loading half of §1.7 was not done with the `CodonTable` half. |
 | `Bio.HMM` | 35 | **`ImportError` stub here** (PR #92); empty package upstream | §2.1 | Imports of a package whose contents were removed in 1.86 — already broken for all 35. |
-| `Bio.codonalign` | 27 | experimental warning in both | §2.5 decide | Twelve years of an import-time warning, and this is the audience. Whatever is decided, it is not urgent. |
+| `Bio.codonalign` | 27 | **warning dropped here** (PR #141); experimental warning upstream | §2.5 decide | Twelve years of an import-time warning, and this is the audience. Whatever is decided, it is not urgent. |
 | `Scripts/xbbtools` | — | **removed here** (PR #86); shipped and broken upstream | §2.1 | Not measurable this way; see the trap above. Decide on the code, not a count. |
 
 ### The command line wrappers removed upstream in 1.86
@@ -2023,31 +2131,32 @@ Two defects were found while surveying and belong to no pull request:
    parts that motivated this step; each entry lists its remainder.)*
 5. **§1.6 then §1.3** — turn on `check_untyped_defs` with a ratchet baseline
    before annotating, so the annotation work is checked as it lands.
-   *(§1.6 is done; §1.3, the annotation work itself, is the open half.)*
+   *(§1.6 is done. §1.3 is about half done: the harness and the sequence
+   spine are in, and the I/O and alignment modules are open.)*
 6. **§1.7 (import cost)** and **§1.11 (FASTQ hot path)** are the highest
    user-visible-value M-effort items, and §1.11(a) is nearly free.
-   *(Both are done except their deliberately deferred remainders:
-   `Restriction` laziness and §1.11(b).)*
+   *(Both are done, §1.11(b) included. `Restriction` laziness stays
+   deferred, by decision.)*
 7. **Tier 2 cruft** can proceed in parallel with anything; start with §2.1,
    which breaks nothing because it is already broken. *(Done — §2.1, §2.3
-   and §2.4 are removed, §2.2 is deprecated pending removal; what remains
-   are §2.5's decision and §2.6's `colour` aliases.)*
+   and §2.4 are removed; §2.2 is deprecated, and its removal waits until
+   after the 1.88 release; §2.5 is decided and done; §2.6's `colour`
+   aliases now warn, and go in the release after 1.88.)*
 8. **§4.2 and §4.3** — removing the cwd dependency and moving to a real runner
    unlock parallelism and per-test reporting, which makes every later item
-   cheaper to verify.
+   cheaper to verify. *(Done — both are fixed.)*
 9. **§1.1, §1.2 and §1.4** are the L-effort structural items. Do §1.4 first —
-   it is the smallest, and it fixes §0.7 properly. *(§1.4 is done. §1.1 is
-   re-scoped: the shim is declined, and what is left is five planned
-   `Bio.Align` reader PRs. §1.2 is partly done: its registry core is in
-   (PR #149), and its public `register_format` contract is still open in
-   PR #146. The last §1.1 PR, `align-phylip-relaxed`, waits on that
-   contract.)*
+   it is the smallest, and it fixes §0.7 properly. *(All three are done.
+   §1.1 was re-scoped: the shim was declined, and the five `Bio.Align`
+   reader PRs it was replaced by have merged. §1.2 has its registry,
+   `register_format` and entry-point plugins.)*
 10. **§1.9 then §1.10** — releasing the GIL is what makes the free-threading
     work worthwhile, but §1.10's static-state cleanup is a prerequisite for
     doing §1.9 safely under a free-threaded build. *(The aligner and kdtrees
     kernels release the GIL, and free threading is supported; the
-    multi-phase-init migration was rejected, see §1.10. Releasing the GIL
-    in the `cluster.c` kernels is the open remainder.)*
+    multi-phase-init migration was rejected, see §1.10. PR #196 releases
+    the GIL in the `cluster.c` kernels too; letting Ctrl-C interrupt them
+    is the open remainder.)*
 
 ---
 
@@ -2074,11 +2183,13 @@ A.10 below.
 
 ### A. New correctness defects, all reproduced
 
+> **Status: all twelve are fixed**, in PRs #115 to #127.
+
 Ranked by user impact. A.1 and A.4 also reproduce on stock Biopython 1.85,
 so they are upstream's too — queued in `UPSTREAM.md` pending a
 duplicate-check against the tracker.
 
-1. **TwoBit-backed sequences mis-slice three ways.**
+1. **TwoBit-backed sequences mis-slice three ways.** *(Fixed in PR #120.)*
    `Bio/SeqIO/_twoBitIO.c:401` computes `size = (end - start) / step` —
    truncating, not ceiling — so any extended slice with
    `(end - start) % step != 0` silently drops the final base:
@@ -2089,148 +2200,624 @@ duplicate-check against the tracker.
    `record.seq[len(record)]` returns a base decoded from the *next* record's
    packed data instead of `IndexError`. **Effort S–M · Impact high.**
 2. **`SeqRecord.upper()`/`lower()` share `letter_annotations` lists with the
-   parent.** `Bio/SeqRecord.py:1181,1232` shallow-copy the dict, so
+   parent.** *(Fixed in PR #121.)* `Bio/SeqRecord.py:1181,1232` shallow-copy the dict, so
    mutating the derived record's `phred_quality` corrupts the original —
    the same disease §0.3 fixed for `annotations` at these sites; this
    dimension was missed. Only these two methods; the other derivations
    rebuild or drop the lists. **Effort S · Impact medium-high.**
-3. **`SeqFeature._shift`/`_flip` share qualifier value lists**
+3. **`SeqFeature._shift`/`_flip` share qualifier value lists** *(fixed in
+   PR #125)*
    (`Bio/SeqFeature.py:280,297`) — so features on `record[2:8]` or
    `record.reverse_complement()` alias their qualifier lists with the
    parent's. §0.3's status note above claims these methods "do not share";
    that is true at the dict level and false at the value level. Fold into
    the planned features-copy work. **Effort S · Impact medium.**
-4. **`BgzfWriter` crashes on poorly-compressible data.**
+4. **`BgzfWriter` crashes on poorly-compressible data.** *(Fixed in PR #126,
+   which caps block data at `0xff00` bytes.)*
    `Bio/bgzf.py:834-837`: ~64 KB of high-entropy input deflates to more
    than 65,536 bytes and raises `RuntimeError: TODO - Didn't compress
    enough`; htslib caps per-block input instead. The guard also admits
    compressed sizes 65,511–65,536, which then fail in `struct.pack("<H",
    ...)` with a misleading error. **Effort S–M · Impact medium.**
-5. **`Medline.read()` returns the first record of many** and raises bare
+5. **`Medline.read()` returns the first record of many** *(fixed in PR #115;
+   PR #170 also made `parse()` treat whitespace-only lines as blank)* and raises bare
    `StopIteration` on an empty file (`Bio/Medline/__init__.py:218-219`),
    breaking the exactly-one contract every sibling `read()` enforces and
    `AGENTS.md` documents. **Effort S · Impact medium.**
 6. **`Bio/motifs/__init__.py:208` is `raise Exception(ValueError, "...")`**
+   *(fixed in PR #118)*
    — a typo; the intended `ValueError` is never raised and `except
    ValueError` misses it. **Effort S · Impact low-medium.**
-7. **The GFA2 parser discards the mandatory length field** for `*`
+7. **The GFA2 parser discards the mandatory length field** *(fixed in
+   PR #119)* for `*`
    sequences (`Bio/SeqIO/GfaIO.py:199-207`): `S\ts1\t100\t*` parses to
    `len(record) == 0`, while the GFA1 branch preserves its optional
    `LN:i:` equivalent. **Effort S · Impact low-medium.**
-8. **`GC123("")` raises `ZeroDivisionError`**
+8. **`GC123("")` raises `ZeroDivisionError`** *(fixed in PR #127)*
    (`Bio/SeqUtils/__init__.py:207`) — the per-position divisions are
    guarded, the total is not. **Effort S · Impact low.**
 9. **`MafIndex.close()` closes the SQLite connection but not the MAF
-   handle** (`Bio/AlignIO/MafIO.py:308-317`) — the Windows file-deletion
+   handle** *(fixed in PR #116; §1.1 later dropped the port)* (`Bio/AlignIO/MafIO.py:308-317`) — the Windows file-deletion
    case its own docstring exists for still fails. Should travel with the
    §1.1 MafIndex port. **Effort S · Impact low.**
 10. **`Bio/Nexus/cnexus.c:34-35` sets `PyErr_NoMemory()` on allocation
-    failure and falls through** to write through the NULL pointer — the
+    failure and falls through** *(fixed in PR #123)* to write through the NULL pointer — the
     §0.12/§0.13 error-path class, in the one extension that sweep missed.
     Reachable only under memory exhaustion. **Effort S · Impact low.**
 11. **Two independent exception classes are both named `NexusError`**
+    *(fixed in PR #122)*
     (`Bio/Nexus/Nexus.py:61`, `Bio/Nexus/StandardData.py:13`), and
     `Nexus.py:1057` calls into StandardData, so `except NexusError` around
     a parse can miss the parse error. **Effort S · Impact low-medium.**
 12. **`Bio/SCOP/__init__.py:266-270` prints a missing sunid to stdout and
-    then crashes on the same lookup** with a bare `KeyError`. **Effort S ·
+    then crashes on the same lookup** *(fixed for the HIE file in PR #117;
+    the same lookup for the CLA file is a follow-up below)* with a bare `KeyError`. **Effort S ·
     Impact low.**
 
 ### B. Consistency debts (decide once, then mechanical)
+
+> **Status: all decided, and done where the decision called for a change.**
 
 - `Bio.Align.read`'s docstring documents its first parameter as `source`;
   the signature says `handle` (`Bio/Align/__init__.py:4937-4941`), so the
   documented keyword is a `TypeError`. Its sibling `parse` says `source`.
   One-word fix, whichever way §1.2's registry work settles the convention.
+  *Fixed in PR #136: the docstring now says `handle`.*
 - `Bio/PDB/StructureAlignment.py:64-71` deprecates with stdlib
   `DeprecationWarning` — invisible by default — instead of
   `BiopythonDeprecationWarning`, and has no `DEPRECATED.rst` entry.
+  *Fixed in PR #134, with the entry.*
 - `Bio/SeqIO/GfaIO.py:35-95` issues 13 parse-time malformed-input warnings
   as plain `BiopythonWarning` where ~55 sites elsewhere use
-  `BiopythonParserWarning`.
+  `BiopythonParserWarning`. *Fixed in PR #129.*
 - Parser exception bases are split 11 `ValueError`-based / 13 plain
   `Exception`-based, and ~30 sites `raise Exception(...)` inside files
   whose own convention is `ValueError` (worst: `Bio/Align/bigbed.py:795`,
   `a2m.py:101-109`). Widening bases to `ValueError` only increases
-  catchability.
+  catchability. *Fixed: PR #145 made the malformed-input exceptions
+  subclass `ValueError`, and PR #135 replaced the bare
+  `raise Exception(...)` sites.*
 - First-parameter naming is `handle` (majority) vs `source` vs `file`, and
   the format argument is `format` (five packages) vs `fmt` (three);
   `Bio.motifs.write()` alone among the `write()`s takes no file and returns
   a string. Docs-first migration; keyword renames need deprecation shims.
+  *Decided: keyword parameters are never renamed, neither `handle`/`source`
+  nor `format`/`fmt`. The fork keeps upstream's names, so code moves
+  between the two unchanged. Only `Bio.Align.read`'s docstring was wrong,
+  and PR #136 fixed it.*
 - The fork's own #88 indexing protocol (`parse_id_from_header`,
   `Bio/SeqIO/Interfaces.py:59` and five format modules) is public-named but
   docstring-marked "(PRIVATE)" — decide its status once, before downstream
-  format authors copy it.
+  format authors copy it. *Decided: it is public. PR #133 documented it
+  as a hook for format authors, and §1.2's `SeqIO.index` support for
+  registered formats relies on it.*
 - Docstring parameter style is three-way (reST `:param` / `Arguments:`
   lists / numpydoc), with `Bio/PDB/Atom.py` using two styles in one file.
   Fold into the §1.3 annotation pass rather than sweeping separately.
+  *Decided that way: `AGENTS.md` now says to convert only in a module
+  being annotated anyway.*
 
 ### C. Structural quality (M-effort, high leverage)
+
+> **Status: all done.**
 
 - **The dN/dS and McDonald–Kreitman suite exists twice** —
   `Bio/Align/analysis.py` and `Bio/codonalign/codonseq.py` — and the copy
   has already cost double maintenance: PR #25 fixed three bugs in one, PR
   #35 re-fixed the identical three in the other. Whatever §2.5 decides,
   make `cal_dn_ds`/`mktest` delegate to `Bio.Align.analysis` and delete
-  ~1,000 duplicated lines. **Effort M.**
+  ~1,000 duplicated lines. **Effort M.** *Fixed in PR #154 (about 1,230
+  lines), which also fixed two bugs the copies did not share.*
 - **Newick trees have two full parser stacks** (`Bio/Nexus/Trees.py` +
   `Nodes.py` vs `Bio/Phylo/NewickIO.py`), and `Phylo.read(f, "nexus")`
   parses tree text with the *old* one, then converts node-by-node through a
   recursive helper that dies on deep trees. Scoped fix: feed the tree
   strings Nexus extracts directly to `NewickIO.Parser`; the full merge is
-  §1.1-scale and separate. **Effort M (scoped).**
+  §1.1-scale and separate. **Effort M (scoped).** *Fixed, scoped, in
+  PR #143: `Phylo.read(f, "nexus")` now parses trees with `NewickIO`, so
+  deep trees no longer raise `RecursionError`.*
 - `Bio.PopGen.GenePop.LargeFileParser` has zero importers and zero tests,
   and parses missing alleles differently from the live parser in the same
   package (literal `0` vs `None`); `FileParser.FileRecord` never closes its
   handle. Deprecate the dead parser per house style; give `FileRecord` a
-  `close()`/context manager. **Effort S.**
+  `close()`/context manager. **Effort S.** *Fixed: PR #139 deprecated
+  `LargeFileParser`, and PR #140 gave `FileRecord` `close()` and context
+  manager support.*
 - `read_PIC` (`Bio/PDB/PICIO.py:41-815`) is a 774-line function of eleven
   nested closures — decompose into a private parser class; and
   `_get_atom_radius` (`Bio/PDB/ResidueDepth.py:108-491`) is a 383-line
   elif transcription of MSMS's radius table that should be a data table.
   `Bio/PDB/internal_coords.py:4940`'s `MissingAtomError` is advertised and
-  never raised. **Effort M each.**
+  never raised. **Effort M each.** *Fixed: PR #158 split `read_PIC` into a
+  private parser class, PR #151 made the radius chain a rule table, and
+  PR #144 deprecated `MissingAtomError`.*
 
 ### D. CI/CD and packaging canon (all S)
+
+> **Status: done, apart from the `Scripts/` bullet and one checkout.**
+> The `style` job's checkout (`ci.yml:46`) still lacks
+> `persist-credentials: false`; it is listed under "Follow-ups from the
+> October 2026 sprint".
 
 - Replace `tj-actions/changed-files` + the 12-line heredoc in
   `ci.yml:47-90` with pre-commit's native `--from-ref/--to-ref` — removes
   the third-party dependency (the CVE-2025-30066 one, currently SHA-pinned)
-  outright.
+  outright. *Fixed in PR #150.*
 - No `timeout-minutes` outside the test jobs and no `concurrency:` group on
   `release.yml`; a hung cibuildwheel burns six hours, and two tags pushed
-  close together interleave publishes.
+  close together interleave publishes. *Fixed in PR #161.*
 - `persist-credentials: false` on the ten checkouts (nothing pushes);
   decide `fail_ci_if_error` for the three codecov uploads; delete the no-op
   `zip-safe` line; `packages.find` could replace the 68-entry list but
   needs a wheel-contents diff first (three data-only directories are
-  load-bearing).
+  load-bearing). *Mostly fixed: PR #153 dropped `zip-safe` and the
+  persisted credentials on every checkout but the `style` job's, and
+  PR #148 moved to `packages.find`. Decided:
+  `fail_ci_if_error` stays `false` on the codecov uploads, so a codecov
+  problem never fails CI.*
 - `Scripts/` still uses `getopt`/`optparse` in four files — low value,
-  legacy demos.
+  legacy demos. *Not done.*
 
 ### E. Documentation corrections
+
+> **Status: all done.** Some of the PRs found more stale text; that is
+> listed under "Follow-ups from the October 2026 sprint" below.
 
 - `README.rst:36-38` claims upstream's documentation "still describes this
   fork accurately" — no longer true post-sweep (pairwise2, GenBank length
   errors, mmtf, extras). `:120` claims Python 3.15-rc testing no CI job
   performs. The extras exist only in NEWS; the documented dev install
   (`--group dev`) under-installs relative to `.[test]` and silently skips
-  the optional-stack tests.
+  the optional-stack tests. *Fixed in PR #137.*
 - `Doc/Tutorial/chapter_pdb.rst:87-117,317-334` still teaches
   `Bio.PDB.mmtf` — including URL fetches against a host that has been
   DNS-dead since 2024 — with no deprecation note, directly above its own
   BinaryCIF section. `chapter_testing.rst:323-359` quotes a `run_tests.py`
-  excerpt that no longer exists.
+  excerpt that no longer exists. *Fixed in PRs #131 and #138.*
 - `Doc/Tutorial/chapter_contributing.rst:17-18` sends this fork's bug
   reports to upstream's issue tracker, contradicting `README.rst:30`;
   `CONTRIBUTING.rst:62-64,150-151` and `chapter_introduction.rst` similarly
-  present upstream links as this project's.
+  present upstream links as this project's. *Fixed in PR #130.*
 - `Bio/SeqIO/__init__.py`'s format table is missing five readable formats
   (`embl-cds`, `genbank-cds`, `twobit`, `fasta-blast`, `fasta-pearson`) and
-  names "clustalw" where the format is "clustal".
+  names "clustalw" where the format is "clustal". *Fixed in PR #132.*
 - `NEWS.rst`'s in-progress section announces pairwise2's removal and then
   describes pairwise2 crash fixes as current behaviour further down — fold
-  the fixes into the removal entry.
+  the fixes into the removal entry. *Fixed in PR #128, by dropping the
+  crash-fix entries rather than folding them in: they fixed a module that
+  is no longer shipped.*
+
+## Follow-ups from the October 2026 sprint
+
+The sprint merged 91 pull requests, every number from #112 to #202
+(#124 is the upstream sync). Their reviewers logged 139 follow-up
+reports along the way. Each was checked on 2026-10-13 against `main` at
+`4cdff0207`, by reading the code and, where the report gave a one-line
+reproduction that runs on CPython 3.12, by running it. Entries that say
+"not run" or "not re-run" (for example the PyPy-only one) were only read.
+
+- **Still real: 112.** Listed below, grouped by area, with related reports
+  merged into one entry.
+- **Unconfirmed: 1.** The Infernal `*[ 0]*` hypothesis from PR #180 needs
+  a real Infernal file to settle. It is listed below and marked so.
+- **Already fixed: 16**, in the PR that found them or a later one. For
+  example the Infernal 12-column crash, the `FormatRegistry` race, and
+  the README's `Bio.DocSQL` example.
+- **Duplicates: 6.** The same defect logged from two PRs.
+- **Not defects in this tree: 4.** Two process notes, a CPython bug in
+  `tempfile.SpooledTemporaryFile.rollover()` (for CPython's tracker, not
+  this one), and a note for this bookkeeping, done here (addendum E).
+
+"Upstream too" means the same code is on upstream `master` (`fc0c15678`,
+checked with `git grep`, not run there). Those entries are also queued in
+`UPSTREAM.md`.
+
+### Decisions recorded at the close
+
+- **Keyword parameters are never renamed.** Not `handle`/`source`, not
+  `format`/`fmt`. The fork keeps upstream's names. Only `Bio.Align.read`'s
+  docstring was wrong, and PR #136 fixed it (addendum B).
+- **`parse_id_from_header` is public**, a hook for format authors (PR #133,
+  addendum B).
+- **`Bio.codonalign`'s experimental warning is dropped** and its API
+  committed (PR #141, §2.5).
+- **Codecov uploads keep `fail_ci_if_error: false`** (addendum D).
+- **§1.5(c), a `blast-xml` adapter over `Bio.Blast`, was not done.** It is
+  recorded only.
+- **§2.2's second step, removing `Bio.PDB.mmtf`, waits until after the
+  BioPAIthon 1.88 release.**
+- **§1.7's lazy `Bio.Restriction` stays deferred.**
+- **`cif-seqres` chain ids**, as decided in PR #169: an `auth_chains`
+  argument names chains by author id (`True`) or label id (`False`). The
+  default stays label ids, and warns for files where the two differ,
+  because a later release will switch it to author ids. Cross-references
+  are matched by author id in every mode.
+- **Format plugin entry-point groups are `biopaithon.*`** (§1.2).
+- **§1.1's `AlignIO` shim was dropped** in favour of closing `Bio.Align`'s
+  gaps (PR #142).
+
+### Planned steps not written
+
+These steps were planned for the sprint and never started:
+
+- §1.12: `pairwise-linear-gotoh-global`, `pairwise-linear-sw` and
+  `pairwise-linear-gotoh-local`.
+- §1.10 (and §1.9's Ctrl-C half): `cluster-interrupt`.
+- §1.3: `annotate-seqio-alignio`, `annotate-align-msa-io`,
+  `annotate-alignment` and `annotate-aligners`.
+
+Every other planned step merged, including the seven last checked:
+`ft-release` (PR #201), `drop-session-chdir` (PR #200),
+`pairwise-linear-nw-on` (PR #199), `cluster-release-gil` (PR #196),
+`annotate-seqrecord` (PR #187), `align-phylip-relaxed` (PR #195) and
+`register-format-plugins` (PR #198).
+
+### Crashes in C extensions
+
+All are reached through a caller's arguments or data, not by parsing a
+file, though `pca`'s data could come from a downloaded file through
+`Bio.Cluster.read`. PR #196's reviewer recommended the held route for the
+two `cluster.c` overflows; which route they take is Dan's call (see
+`UPSTREAM.md`). Their reproductions are already public in that review.
+The first two and the two in `_pairwisealigner.c` were reproduced
+on 2026-10-13 as a segfault or an abort; the other two were read.
+
+- `Bio/Cluster/cluster.c` (`clusterdistance`, method `"m"`): an index list
+  longer than the matrix has rows overflows the heap.
+  `clusterdistance(data, index1=[0] * 5000, index2=[1, 2], method="m")` on a
+  3-row matrix segfaults. Upstream too. (PR #196)
+- `Bio/Cluster/cluster.c` (`svd`, through `pca`): data holding `inf`, or
+  with a column mean that overflows (`1e308`), makes it read `w[-1]`; both
+  segfault. Upstream too. (PR #196)
+- `Bio/Cluster/clustermodule.c` (`py_pca`): the private `_cluster.pca`
+  never checks the eigenvalues array's length, so a short one is written
+  past its end. Its `pc` and `coordinates` errors print `mean`'s shape,
+  and read past the end of a 1-D shape. Upstream too. (PR #196)
+- `Bio/Align/_pairwisealigner.c`: `del aligner.mode` and
+  `del aligner.wildcard` segfault, because no setter checks for `NULL`.
+  One check in `Aligner_set_locked` covers them all. Upstream too.
+  (PR #190)
+- `Bio/Align/_pairwisealigner.c` (`Aligner_str`): a substitution matrix
+  whose class name is over 1 KB overflows a 1,024-byte stack buffer, so
+  `str(aligner)` aborts with "buffer overflow detected". The name is then
+  also used as a format string. Upstream too. (PR #173)
+- `Bio/Cluster/clustermodule.c`: `PyTree_length` returns `int` but is
+  installed as a `lenfunc`. Undefined behaviour in principle, harmless on
+  x86-64 and arm64. Upstream too. (PR #189)
+
+### Sequences and SeqIO
+
+- `Bio/SeqIO/FastaIO.py:390`: `FastaBlastIterator` has the typo
+  `self_line = line`, so every record gets the first record's title:
+  `>a`, `>b`, `>c` read as `a`, `a`, `a`. Upstream too. (PR #132)
+- `Bio/Seq.py` (`join`): the type check uses up a generator, so
+  `Seq("N").join(x for x in ["A", "C"])` is `Seq('')`. Upstream too.
+  (PR #176)
+- The `parse_id_from_header` hooks (`FastaIO`, `QualityIO`, `PirIO`,
+  `PhdIO`, `AceIO`) split raw bytes where parsing splits the decoded text.
+  An id with a control or Unicode space in it (`>a\x1cb desc`) gets an
+  index key that differs from `record.id`, so the lookup raises "Key did
+  not match". Upstream too. (PR #133)
+- The same hooks decode as UTF-8 while `SeqIO.parse` opens files in the
+  locale's encoding, so non-ASCII ids could differ between the two on a
+  non-UTF-8 locale. Inferred from the code, not run. (PR #133)
+- `Bio/SeqIO/_index.py` (`SequentialSeqFileRandomAccess.__init__`):
+  replacing a marker-proxied built-in iterator with a plain function makes
+  `SeqIO.index` raise `AttributeError` (no `record_start_marker`) instead
+  of a readable `ValueError`. (PR #185)
+- `Bio/SeqIO/_index.py:464,544,557`: the UniProt XML (`:464`) and
+  IntelliGenetics (`:544`, `:557`) indexers compare summed line lengths
+  with `handle.tell()`, which is a virtual offset in multi-block BGZF, so
+  valid input fails an `assert` (see §0.8). Upstream too. (PR #180)
+- `Bio/SeqIO/SffIO.py`: the header reads of the flow characters, key
+  sequence and padding are not length-checked, so a truncated header gives
+  a misleading warning and then `struct.error`. A negative name padding is
+  not checked either, so `read(-n)` takes the rest of the file. Upstream
+  too. (PR #159)
+- `Bio/SeqIO/SffIO.py` (`SffWriter.write_records`): nothing stops a second
+  call, which writes a second header mid-file. Upstream too. (PR #159)
+- `Bio/SeqIO/InsdcIO.py`: a locus name of 16 characters or fewer with a
+  sequence of 10^11 bp or more raises `ValueError` instead of using the
+  long LOCUS line. Upstream too. (PR #159)
+- `Bio/SeqIO/GfaIO.py:70`: `parts[1] not in "AifZJHB"` is a substring
+  test, so an empty or multi-letter tag type (`AB::x`, `AB:if:x`) passes
+  without a warning. Upstream too. (PR #129)
+- `Bio/SeqIO/QualityIO.py` (`_get_phred_quality`): annotated
+  `list[float] | list[int]`, but returns whatever is stored, which can now
+  be an `array.array`. (PR #167)
+- `Bio/SeqIO/PdbIO.py` (`CifSeqresIterator`): the docstring says the
+  sequences come from `_entity_poly_seq`; the code reads
+  `_pdbx_poly_seq_scheme`. Upstream too. (PR #169)
+- `Bio/SeqIO/PdbIO.py`: `cif-seqres` labels DNA and RNA chains `protein`
+  and turns nucleotides into `X` (1LCD). Known upstream as #3125, and a
+  `TODO` in the code. (PR #169)
+- `Bio/SeqIO/PdbIO.py`: `cif-atom` cannot name chains by label id
+  (upstream's draft #4928 adds `cif-atom-label`). Decide whether SeqIO
+  needs a format name for that before the `cif-seqres` default switches.
+  (PR #169)
+- `Bio/SeqFeature.py`, four small ones: `ExactPosition(5) + 1.5` is
+  `ExactPosition(6)` where the annotation says `float`; the
+  double-complement `LocationParserError` lacks its `f` prefix and prints
+  `{text}`; `Reference() == None` raises `AttributeError`; and
+  `CompoundLocation(generator)` raises `TypeError`. Upstream too.
+  (PR #188)
+- `Bio/SwissProt/__init__.py:783`: features get `id=None` where every
+  other parser uses `"<unknown id>"`. Decide when `Bio.SwissProt` leaves
+  the mypy baseline. (PR #188)
+
+### Alignments
+
+- `Bio/Align/emboss.py:33,44,89,108`:
+  `raise ValueError("Unexpected line: %s") % line` raises `TypeError`.
+  Upstream too. (PRs #155 and #182)
+- `Bio/Align/exonerate.py:209`: an error message never gets its `%`
+  arguments. Upstream too. (PR #155)
+- `Bio/Align/sam.py:97`: the writer writes topology as `PP:` instead of
+  `TP:`, so it does not round-trip. Upstream too. (PR #155)
+- `Bio/Align/analysis.py` (`calculate_dn_ds`): NG86, LWL85 and ML do not
+  check that the two rows have the same number of codons; only YN00 does.
+  Read, not run. Upstream too. (PR #155)
+- `Bio/Align/analysis.py` (`_yn00`): identical sequences raise
+  `RuntimeError: dictionary changed size during iteration`
+  (`cal_dn_ds(s, s, method="YN00")`). Upstream too. (PR #154)
+- `Bio/Align/analysis.py` (`_count_diff_YN00`): the two-difference branch
+  counts the step from `codon1` to `codon` twice and never the step to
+  `codon2`; the three-difference branch passes `k[1]` where `k[2]` looks
+  intended. Check against PAML's `yn00.c` before changing. Upstream too.
+  (PR #154)
+- Two upstream defects that PR #154 fixed here: `codonalign.mktest`'s
+  `"-" in all_codon` never matches, so a partly gapped codon raises
+  `KeyError: '---'`; and `_get_pi`'s F1x4 counts with a `Counter`, so a
+  base absent from both sequences raises `KeyError` (upstream, masked by
+  `UPSTREAM.md` row 4). Queued in `UPSTREAM.md` only. (PR #154)
+- `Bio/Align/bigbed.py:493`: the writer's zoom record count disagrees for
+  a zero-length item at the end of a chromosome (now a `RuntimeError`);
+  needs a real writer fix. Upstream too (an `assert` there). (PR #155)
+- `Bio/Align/stockholm.py`: the writer raises `AttributeError` for an
+  `Alignment` without `column_annotations`. Upstream too. (PRs #155 and
+  #197)
+- `Bio/Align/stockholm.py`: in the reader, a `#=GR` line with no value
+  raises `IndexError`, and the width error ends with a stray `)`.
+  Upstream too. (PR #197)
+- `Bio/Align/stockholm.py`: the reader silently drops a record that lacks
+  its `//` when the next record's header follows; `AlignIO` reads both.
+  (PR #197)
+- `Bio/Align/phylip.py`: the strict writer does not reject names that
+  truncation to 10 characters makes equal, so it can write an ambiguous
+  file. `AlignIO` raises. Upstream too. (PR #195)
+- `Bio/Align/phylip.py`: a later header that understates the length
+  reuses the first header's message, so an interleaved file reports a
+  sequence line as a bad header: `"2 4\ns1        AAAA\ns2        CCCC\n\nAAAA\nCCCC\n"`
+  raises "Expected two integers in the first line, received 'AAAA'".
+  (PR #184)
+- `Bio/Align/phylip.py`: in the sequential layout, a blank line after the
+  header counts as one of the N records, so `"2 4\n\ns1        AAAA\ns2        CCCC\n"`
+  raises "Expected all sequences to have length 4; found 0" instead of
+  saying the record count is wrong. Only the message is wrong; nothing
+  is misread. (PR #184)
+- `Bio/AlignIO/PhylipIO.py`: `RelaxedPhylipWriter` rejects ASCII
+  whitespace only, but the reader splits on any whitespace, so it can
+  write a file it cannot read back. `Bio.Align`'s new writer checks
+  `str.isspace()`. Upstream too. (PR #195)
+- `Bio/Align/__init__.py`: `PairwiseAligner(scoring="blastp").score(list(
+  "HEAGAWGHE"), list("PAWHEAE"))` raises "sequence contains letters not
+  in the alphabet", because list input is mapped twice. Upstream too.
+  (PR #181)
+- `Bio/Align/_pairwisealigner_linear.h`: on x87 builds
+  (`FLT_EVAL_METHOD != 0`), excess precision could make the linear and
+  full paths differ. Consider not taking the linear path there. (PR #186)
+- `Bio/Align/tabular.py:328`: BLASTN or BLASTP output with a `query seq`
+  column, common in `-outfmt 7`, raises "Unknown program". Upstream too.
+  (PR #135)
+- `Bio/AlignIO/ClustalIO.py`: a file holding only the header line hangs
+  forever. Upstream too. (PR #160)
+- `Bio/AlignIO/MauveIO.py`: line 259 passes `line` as a second argument to
+  `ValueError`, so the message is never formatted; and `_ids` is a class
+  attribute, so ids leak between iterators. Upstream too. (PR #160)
+- `Bio/AlignIO/FastaIO.py`: a bare `>>` line raises `IndexError`.
+  Upstream too. (PR #160)
+
+### BLAST and SearchIO
+
+- `Bio/Blast/__init__.py:1277`: `qblast(format_type="HTML")` can never
+  succeed, because the polling loop's `<!DOCTYPE html` branch also
+  matches the result page. Upstream too. (PR #157)
+- `Bio/Blast/_parser.py` (`_start_blastxml2`): a root element with no
+  namespace fails with "not enough values to unpack", and a missing
+  `schemaLocation` with `KeyError`. Upstream too. (PR #157)
+- `Bio/Blast/_parser.py` (`XMLHandler._externalEntityRefHandler`): it
+  clears itself only on the call that first loads the DTD, so how an
+  external general entity is handled depends on whether a v1 file was
+  parsed earlier in the process. (PR #157)
+- `Bio/SearchIO/BlastIO/blast_xml.py:678` (`BlastXmlIndexer.get_raw`):
+  loops forever if the file was truncated after its `index_db` was built.
+  Upstream too. (PR #156)
+- `Bio/SearchIO/InfernalIO/infernal_text.py:489`: `assert gap_len > 0`
+  probably rejects valid `*[ 0]*` output. Unconfirmed: it needs a real
+  Infernal file (see §0.8). (PR #180)
+- `Bio/SearchIO/__init__.py` (`index_db`): a lone `pathlib.Path` is not
+  wrapped in a list, as a `str` is. Upstream too. (PR #164)
+
+### Structures
+
+- `Bio/PDB/binary_cif.py` (`_string_array_decoder`): ignores the column
+  mask. On current RCSB BinaryCIF it raises `IndexError`, or returns wrong
+  values without error (`pdbx_PDB_ins_code` on 1GBT). The MMTF
+  deprecation sends users to this parser. Upstream too. (PR #131)
+- `Bio/PDB/binary_cif.py` (`source.endswith`) and `FragmentMapper`
+  (`fdir + "/"`) do not accept `os.PathLike`, unlike the other parsers.
+  Upstream too. (PR #163)
+- `FastMMCIFParser`, `PDBMLParser` and the BinaryCIF parser do not
+  upper-case `type_symbol`, so an element such as `Fe` raises in `Atom`.
+  `MMCIFParser` does. Upstream too. (PR #165)
+- `Bio/PDB/StructureAlignment.py:150`: a custom `aligner=` raises
+  `UnboundLocalError`, because `aligner` is set only in the `else`
+  branch. The Tutorial shows this call. Upstream too. (PRs #134 and #165)
+- `Bio/PDB/StructureAlignment.py`: there is no warning-free way to pass
+  your own alignment, though the Tutorial offers `fasta_align=` as the
+  alternative. Decide what is deprecated, then name the replacement in
+  the message. (PR #134)
+- `Bio/PDB/PICIO.py` (`_default_dihedron`): two unreachable branches
+  would crash if reached (`list.add`). Upstream too. (PR #158)
+- `Bio/PDB/PICIO.py`: `_process_dihedron` is annotated `-> set` but
+  returns a tuple or `None`, and `read_PIC` is annotated `-> Structure`
+  but can return `None`. `_ake_recurse` also repeats its recursion once
+  per element. (PR #158)
+- `Bio/PDB/internal_coords.py:4617`: the `AtomKey` docstring lists
+  `(52, None, 'G', 'CA', ...)` as accepted; it raises. Upstream too.
+  (PR #135)
+- Upstream still has `MissingAtomError`, which nothing raises and its
+  docstring advertises; deprecated here in PR #144. Queued in
+  `UPSTREAM.md` only. (PR #144)
+- `Bio/PDB/kdtrees.c`: `repr()` of `Point` and `Neighbor` raises
+  `SystemError` (`PyUnicode_FromFormat` has no `%g`), and
+  `KDTree(coords, bucket_size=10)` ignores the keyword. Upstream too.
+  (PR #191)
+
+### Phylogenetics
+
+- `Bio/Phylo/NewickIO.py`: only one space is allowed after `:`, so
+  `((a:  0.1,b:\t0.2),c);` gives leaves named `0.1` and `0.2` with no
+  branch lengths, losing `a` and `b`. NEXUS input is unaffected. Upstream
+  too. (PR #143)
+- `Bio/Phylo/CDAOIO.py`: `Phylo.read(StringIO(...), "cdao")` raises
+  `AttributeError` on `handle.name`, and the "RDFlib v3.2.1 or later"
+  error is swallowed by the module's own `except ImportError`. Upstream
+  too. (PR #174)
+
+### Clustering
+
+- `Bio/Cluster/__init__.py` (`somcluster`): a plain list raises
+  `AttributeError`, because it reads `data.shape` before checking the
+  data. And `_cluster.Tree` and `_cluster.pca` ignore keyword arguments:
+  `Tree(nodes=[...])` gives an empty tree. Upstream too. (PR #192)
+
+### Other modules
+
+- `Bio/Medline/__init__.py` (`parse`): records separated only by a line
+  of six or more spaces still merge, and their PMIDs join as `"1 2"`.
+  This is the trade-off of upstream #4557/#4558; a fix needs lookahead.
+  Upstream too. (PR #170)
+- `Bio/SCOP/__init__.py:287`: a CLA sunid missing from the DES file gives
+  a bare `KeyError` (A.12 fixed the HIE case). Upstream too. (PR #165)
+- `Bio/PopGen/GenePop/FileParser.py`: calling `FileRecord.start_read()`
+  again leaks the old handle and appends the loci twice, and
+  `remove_loci_by_position()` sorts and reverses the caller's list in
+  place. Upstream too. (PR #140)
+- `Bio/PopGen/GenePop/LargeFileParser.py`: the module docstring names a
+  class `LargeRecord`; it is `Record`. Moot once the module goes.
+  (PR #139)
+- `Bio/Graphics/GenomeDiagram/_GraphSet.py`: `new_graph` silently accepts
+  `centre=`, though `DEPRECATED.rst` says it went in 1.62. Upstream too.
+  (PR #168)
+- `Bio/Graphics/GenomeDiagram`: `Diagram.new_track` and `Track.new_set`
+  `setattr` any keyword, so a misspelt one does nothing. And
+  `FeatureSet.add_feature(colour=..., color=...)` takes whichever comes
+  last; that goes with the alias. Upstream too. (PR #168)
+- `Bio/Graphics/GenomeDiagram/_Diagram.py` (`write`): a `pathlib.Path`
+  filename fails for PDF output (ReportLab): `write(Path("x.pdf"), "PDF")`
+  raises `TypeError: Cannot use PosixPath(...) as a filename or file`.
+  SVG works. Upstream too. (PR #164)
+- `Bio/SVDSuperimposer/__init__.py` (`set`): 1-D arrays raise
+  `IndexError` instead of its own mismatch error. Upstream too. (PR #135)
+- The module-level deprecation warnings (`Bio.PDB.mmtf`,
+  `Bio.Blast.NCBIXML` and `NCBIWWW`, `LargeFileParser`) have no
+  `stacklevel=2`, so they point at `Bio`, not the importer. Change them
+  together. (PR #139)
+
+### Typing
+
+- `Bio/SeqRecord.py`: `reverse_complement` and `translate` annotate `id`,
+  `name`, `description`, `features`, `annotations`, `letter_annotations`
+  and `dbxrefs` as `bool`, so the documented
+  `record.reverse_complement(id="rc")` is an error downstream. (PR #187)
+- `Bio/SeqRecord.py`: the `seq` setter is typed `Seq | MutableSeq`, but
+  the runtime accepts `None`. (PR #187)
+- `Bio/SeqRecord.py` (`_RestrictedDict.update`): takes only a mapping, so
+  `letter_annotations.update(key=...)` type-checks but raises `TypeError`.
+  (PR #187)
+- `AGENTS.md`'s Typing section does not describe the C extension stubs,
+  `stubtest` and its allowlist, or the rule that every extension needs a
+  stub, and should say the bound-`TypeVar` rule is for runtime code, not
+  `.pyi` files. (PR #191)
+
+### Tests
+
+- The Windows test step is not a gate (`continue-on-error`): 22 to 33
+  tests fail there on `main`, mostly SQLite index files still open when
+  their directory is removed and BLAST XML checked out with CRLF line
+  endings. (PRs #171 and #194)
+- `test_PDB_binary_cif.test_byte_swapped_buffers_rejected` fails on
+  PyPy 3.10 with msgpack installed; CI's PyPy job has no msgpack. Not
+  re-run. (PR #171)
+- `Tests/test_PDB_PSEA.py`: with `psea` installed, two tests fail, because
+  `run_psea` returns an absolute path; fix it with the `outdir=` and
+  `endswith` bugs listed in PR #163. (PR #163)
+- `Tests/test_Tutorial.py`: `python test_Tutorial.py --offline` fails,
+  because `--offline` is never removed before `unittest.main()`. (PR #166)
+- `test_SeqIO_index` and `test_SearchIO_write` write scratch files into
+  `Tests/<dir>/`, so two runs at once collide; `test_Affy` does the same
+  in `Tests/Affy`, and fails on a read-only checkout. (PRs #166 and #162)
+- `test_Align_bigbed.TestAlign_big` reads its generated `.bb` files from
+  the current directory. (PR #162)
+- `Tests/test_UniProt.py` and `Tests/test_ExPASy_offline.py` have no
+  `__main__` block, so running them directly runs nothing. (PRs #166 and
+  #164)
+- `Tests/support.py`: `DATA` is not `resolve()`d, so a test comparing it
+  with a resolved path breaks in a symlinked checkout. (PR #164)
+- `Tests/test_NCBI_qblast.py` mocks `NCBIWWW.urlopen` for the whole
+  process at import, and its responses are used up in test order.
+  (PR #194)
+- `Tests/test_align_substitution_matrices.py`: tests 4 to 6 depend on
+  state left by earlier tests; `test6_scores` alone fails. (PR #194)
+- The `BiopythonExperimentalWarning` filters in `test_phenotype`,
+  `test_phenotype_fit` and `test_Tutorial` filter nothing now. (PR #141)
+- `Tests/expected_skips.txt`'s header mentions only
+  `run_tests.py --check-skips`, not `python -m pytest --check-skips`.
+  (PR #193)
+
+### CI, build and tooling
+
+- Codecov rejects every upload ("Token required because branch is
+  protected"); there is no `CODECOV_TOKEN`. CI does not fail on it, by
+  decision. Adding the secret, allowing tokenless uploads, or removing
+  the upload steps is Dan's call. Seen in every upload log of `main`'s
+  CI run for `4cdff0207`. (PRs #153 and #194)
+- `.github/workflows/ci.yml`: the style job's checkout keeps its
+  persisted credentials; the other ten set
+  `persist-credentials: false`. (PRs #153 and #150)
+- `.github/workflows/release.yml`: the publish step has no
+  `skip-existing: true`, so a partial upload cannot be finished by
+  re-running the job. (PR #161)
+- `pyproject.toml`: only `_pairwisealigner` declares `depends`, so
+  editing `Bio/Cluster/cluster.h`, `_arraycore.h` or
+  `Bio/_freethreading.h` does not rebuild the extensions that include
+  them. (PR #173)
+- The ruff S101 hook's file pattern leaves out `Bio/GenBank/`, which needs
+  `noqa` on its 15 kept asserts first. And if RUF100 is ever turned on in
+  the main ruff hook, which runs with `--fix`, it would strip all 132
+  `noqa: S101` comments; merge the two hooks' rules then. (PR #180)
+- `Bio/__init__.py:128-140`: every editable install warns "importing from
+  inside the source tree", because it looks for a `biopython.egg-link`
+  that PEP 660 installs do not create. (PR #193)
+
+### Documentation
+
+- `Doc/Tutorial/chapter_contributing.rst:14,24,103,119` presents
+  upstream's mailing list as this project's. (PR #130)
+- `Doc/Tutorial/chapter_introduction.rst:106` says
+  `pip install biopython`, and links to the README, which says
+  `pip install --pre biopaithon`. (PR #130)
+- `Bio/SeqIO/__init__.py`: the format table has typos in the gfa1,
+  fastq-solexa and tab descriptions. (PR #132)
+- `Doc/Tutorial/chapter_pdb.rst:2140-2155`: says `retrieve_pdb_file`
+  saves `pdb1fat.ent` in `.Z` format by default; the default is now
+  mmCIF. (PR #131)
+- `CONTRIBUTING.rst:131`: the dev install is still
+  `pip install -e . --group dev`, where the README now says
+  `pip install -e ".[test]"`, with a PyPy caveat. (PR #137)
+- `DEPRECATED.rst:176`: the `Bio.SeqIO.TabIO` heading's underline is
+  longer than the title. Cosmetic. (PR #134)
 
 ## How this document was produced
 
