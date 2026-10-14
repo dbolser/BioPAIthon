@@ -146,13 +146,13 @@ outcomes = []
 for start in range(40):
     _testcapi.set_nomemory(start, start + 1)
     try:
-        result = aligner.align(*args)
+        outcome = "ok" if aligner.align(*args)[0] == score else "wrong"
     except MemoryError:
-        outcomes.append("MemoryError")
-    else:
-        outcomes.append("ok" if result[0] == score else "wrong")
+        outcome = "MemoryError"
     finally:
+        # Disarm before anything else allocates, such as outcomes growing.
         _testcapi.remove_mem_hooks()
+    outcomes.append(outcome)
 print(" ".join(outcomes))
 """
         env = dict(os.environ)

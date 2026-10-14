@@ -1087,9 +1087,7 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         if (temp < score - epsilon) M[nA][j].trace = 0;
         else M[nA][j].path = 0;
     }
-    result = Py_BuildValue("fN", score, paths);
-    /* "N" took our reference to paths, even if Py_BuildValue failed. */
-    paths = NULL;
+    result = Py_BuildValue("fO", score, paths);
 
 exit:
     PyBuffer_Release(&bA);
