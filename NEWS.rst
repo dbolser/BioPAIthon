@@ -62,8 +62,9 @@ not part of any upstream Biopython release.
 ``Bio.SeqIO.parse()`` with ``"fasta-blast"`` now gives each record its own
 title. A typo meant every record took the id, name and description of the
 first record in the file, though the sequences were right: ``>a``, ``>b`` and
-``>c`` came back as ids ``a``, ``a`` and ``a``. Files with a single record, and
-the other FASTA formats, were not affected.
+``>c`` came back as ids ``a``, ``a`` and ``a``. The bug was in every release
+since Biopython 1.85. Files with a single record, and the other FASTA formats,
+were not affected.
 
 ``Bio.Align`` now reads and writes ``"phylip-relaxed"``, the relaxed PHYLIP
 that RAxML and PhyML use and that ``Bio.AlignIO`` already offered. A name
