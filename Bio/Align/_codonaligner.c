@@ -820,11 +820,13 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
         PyErr_Format(PyExc_RuntimeError,
                      "unexpected length of buffers (%zd, %zd, %zd)",
                      nB0, nB1, nB2);
-        PyBuffer_Release(&bA);
-        PyBuffer_Release(&bB0);
-        PyBuffer_Release(&bB1);
-        PyBuffer_Release(&bB2);
-        return NULL;
+        goto exit;
+    }
+    if (nB < 3) {
+        PyErr_Format(PyExc_ValueError,
+                     "at least 3 nucleotides are needed for a codon alignment; "
+                     "%zd received", nB);
+        goto exit;
     }
 
     sA = bA.buf;
@@ -833,24 +835,25 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     sB[2] = bB2.buf;
 
     row = PyMem_Malloc((nB+1)*sizeof(double));
-    if (!row) goto exit;
+    if (!row) {
+        PyErr_NoMemory();
+        goto exit;
+    }
     memset(row, '\0', (nB+1)*sizeof(double));
 
     for (i = 1; i <= nA; i++) {
         cA = sA[i-1];
-        for (j = (int)nB; j > 0; j--) {
+        for (j = (int)nB; j >= 3; j--) {
             score = -DBL_MAX;
-            if (j >= 3) {
-                div = (j - 3) / 3;
-                mod = (j - 3) % 3;
-                cB = sB[mod][div];
-                temp = row[j-1] + (COMPARE_SCORE) + frameshift_minus_two_score;
-                if (temp > score) score = temp;
-                temp = row[j-2] + (COMPARE_SCORE) + frameshift_minus_one_score;
-                if (temp > score) score = temp;
-                temp = row[j-3] + (COMPARE_SCORE);
-                if (temp > score) score = temp;
-            }
+            div = (j - 3) / 3;
+            mod = (j - 3) % 3;
+            cB = sB[mod][div];
+            temp = row[j-1] + (COMPARE_SCORE) + frameshift_minus_two_score;
+            if (temp > score) score = temp;
+            temp = row[j-2] + (COMPARE_SCORE) + frameshift_minus_one_score;
+            if (temp > score) score = temp;
+            temp = row[j-3] + (COMPARE_SCORE);
+            if (temp > score) score = temp;
             if (j >= 4) {
                 temp = row[j-4] + (COMPARE_SCORE) + frameshift_plus_one_score;
                 if (temp > score) score = temp;
@@ -861,6 +864,9 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
             }
             row[j] = score;
         }
+        row[2] = -DBL_MAX;
+        row[1] = -DBL_MAX;
+        row[0] = -DBL_MAX;
     }
     score = -DBL_MAX;
     for (j = 0; j <= nB; j++) {
@@ -876,9 +882,6 @@ exit:
     PyBuffer_Release(&bB1);
     PyBuffer_Release(&bB2);
     PyMem_Free(row);
-    if (result == NULL) {
-        return PyErr_NoMemory();
-    }
     return result;
 }
 
@@ -938,11 +941,13 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         PyErr_Format(PyExc_RuntimeError,
                      "unexpected length of buffers (%zd, %zd, %zd)",
                      nB0, nB1, nB2);
-        PyBuffer_Release(&bA);
-        PyBuffer_Release(&bB0);
-        PyBuffer_Release(&bB1);
-        PyBuffer_Release(&bB2);
-        return NULL;
+        goto exit;
+    }
+    if (nB < 3) {
+        PyErr_Format(PyExc_ValueError,
+                     "at least 3 nucleotides are needed for a codon alignment; "
+                     "%zd received", nB);
+        goto exit;
     }
 
     sA = bA.buf;
@@ -959,7 +964,10 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     paths->length = 0;
 
     M = PyMem_Malloc((nA+1)*sizeof(Trace*));
-    if (!M) goto exit;
+    if (!M) {
+        PyErr_NoMemory();
+        goto exit;
+    }
     paths->M = M;
     for (i = 0; i <= nA; i++) {
         M[i] = PyMem_Malloc((nB+1)*sizeof(Trace));
@@ -973,43 +981,44 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     memset(M[0], '\0', (nB+1)*sizeof(Trace));
 
     row = PyMem_Malloc((nB+1)*sizeof(double));
-    if (!row) goto exit;
+    if (!row) {
+        PyErr_NoMemory();
+        goto exit;
+    }
     memset(row, '\0', (nB+1)*sizeof(double));
 
     M = paths->M;
     for (i = 1; i <= nA; i++) {
         cA = sA[i-1];
-        for (j = (int)nB; j > 0; j--) {
+        for (j = (int)nB; j >= 3; j--) {
             score = -DBL_MAX;
             trace = 0;
-            if (j >= 3) {
-                div = (j - 3) / 3;
-                mod = (j - 3) % 3;
-                cB = sB[mod][div];
-                temp = row[j-1] + (COMPARE_SCORE) + frameshift_minus_two_score;
-                if (temp > score + epsilon) {
-                    score = temp;
-                    trace = FRAMESHIFT_MINUS_TWO;
-                }
-                else if (temp > score - epsilon) {
-                    trace |= FRAMESHIFT_MINUS_TWO;
-                }
-                temp = row[j-2] + (COMPARE_SCORE) + frameshift_minus_one_score;
-                if (temp > score + epsilon) {
-                    score = temp;
-                    trace = FRAMESHIFT_MINUS_ONE;
-                }
-                else if (temp > score - epsilon) {
-                    trace |= FRAMESHIFT_MINUS_ONE;
-                }
-                temp = row[j-3] + (COMPARE_SCORE);
-                if (temp > score + epsilon) {
-                    score = temp;
-                    trace = FRAMESHIFT_NONE;
-                }
-                else if (temp > score - epsilon) {
-                    trace |= FRAMESHIFT_NONE;
-                }
+            div = (j - 3) / 3;
+            mod = (j - 3) % 3;
+            cB = sB[mod][div];
+            temp = row[j-1] + (COMPARE_SCORE) + frameshift_minus_two_score;
+            if (temp > score + epsilon) {
+                score = temp;
+                trace = FRAMESHIFT_MINUS_TWO;
+            }
+            else if (temp > score - epsilon) {
+                trace |= FRAMESHIFT_MINUS_TWO;
+            }
+            temp = row[j-2] + (COMPARE_SCORE) + frameshift_minus_one_score;
+            if (temp > score + epsilon) {
+                score = temp;
+                trace = FRAMESHIFT_MINUS_ONE;
+            }
+            else if (temp > score - epsilon) {
+                trace |= FRAMESHIFT_MINUS_ONE;
+            }
+            temp = row[j-3] + (COMPARE_SCORE);
+            if (temp > score + epsilon) {
+                score = temp;
+                trace = FRAMESHIFT_NONE;
+            }
+            else if (temp > score - epsilon) {
+                trace |= FRAMESHIFT_NONE;
             }
             if (j >= 4) {
                 temp = row[j-4] + (COMPARE_SCORE) + frameshift_plus_one_score;
@@ -1034,6 +1043,12 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
             M[i][j].trace = trace;
             row[j] = score;
         }
+        M[i][2].trace = 0;
+        row[2] = -DBL_MAX;
+        M[i][1].trace = 0;
+        row[1] = -DBL_MAX;
+        M[i][0].trace = 0;
+        row[0] = -DBL_MAX;
     }
     score = -DBL_MAX;
     for (j = 0; j <= nB; j++) {
@@ -1053,10 +1068,7 @@ exit:
     PyBuffer_Release(&bB1);
     PyBuffer_Release(&bB2);
     PyMem_Free(row);
-    if (result == NULL) {
-        Py_XDECREF(paths);
-        return PyErr_NoMemory();
-    }
+    if (result == NULL) Py_XDECREF(paths);
     return result;
 }
 

@@ -227,11 +227,10 @@ __all__ = [
     "InfernalTextParser",
 ]
 
-from .infernal_tab import InfernalTabParser
 from .infernal_tab import InfernalTabIndexer
-from .infernal_text import InfernalTextParser
+from .infernal_tab import InfernalTabParser
 from .infernal_text import InfernalTextIndexer
-
+from .infernal_text import InfernalTextParser
 
 # if not used as a module, run the doctest
 if __name__ == "__main__":

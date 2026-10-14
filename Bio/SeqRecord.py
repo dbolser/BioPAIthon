@@ -14,14 +14,14 @@
 # need to be in sync (this is the BioSQL "Database SeqRecord").
 import copy
 import numbers
-from typing import Any
-from typing import cast
 from collections.abc import Iterator
 from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+from typing import cast
 from typing import NoReturn
 from typing import Optional
 from typing import overload
-from collections.abc import Sequence
 from typing import SupportsIndex
 from typing import TYPE_CHECKING
 from typing import Union

@@ -403,7 +403,8 @@ __all__ = [
 
 import importlib
 import threading
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from os import fspath
@@ -414,7 +415,10 @@ from Bio._io_registry import _same_handler
 from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.SeqRecord import SeqRecord
 
-from .Interfaces import _IOSource, _TextIOSource, SequenceIterator, SequenceWriter
+from .Interfaces import _IOSource
+from .Interfaces import _TextIOSource
+from .Interfaces import SequenceIterator
+from .Interfaces import SequenceWriter
 
 # The per-format modules (Bio.SeqIO.FastaIO and friends) are imported on
 # demand, so that "import Bio.SeqIO" does not pay for every parser and its

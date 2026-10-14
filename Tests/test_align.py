@@ -19,6 +19,8 @@ Right now we've got tests for:
 import unittest
 from io import StringIO
 
+import numpy as np
+
 import support
 
 from Bio import Align
@@ -31,7 +33,6 @@ from Bio.Align import MultipleSeqAlignment
 from Bio.Align import PairwiseAligner
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-import numpy as np
 
 
 class TestBasics(unittest.TestCase):
