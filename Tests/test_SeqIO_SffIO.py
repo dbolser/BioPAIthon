@@ -17,6 +17,7 @@ from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.SeqIO.SffIO import _sff_do_slow_index
 from Bio.SeqIO.SffIO import _sff_find_roche_index
+from Bio.SeqIO.SffIO import _sff_read_raw_record
 from Bio.SeqIO.SffIO import _sff_read_roche_index
 from Bio.SeqIO.SffIO import ReadRocheXmlManifest
 from Bio.SeqIO.SffIO import SffIterator
@@ -186,15 +187,63 @@ class TestErrors(unittest.TestCase):
             )
 
     def test_truncated_header(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", BiopythonParserWarning)
-            with self.assertRaises(ValueError) as cm:
-                _sff_find_roche_index(BytesIO(self.good[:100]))
+        with self.assertRaises(ValueError) as cm:
+            _sff_find_roche_index(BytesIO(self.good[:100]))
         self.assertEqual(
             str(cm.exception),
             "Premature end of file? Expected an SFF header of 440 bytes, "
-            "but the file ends at offset 100",
+            "but got only 100",
         )
+
+    def test_truncated_header_parse(self):
+        # 31 fixed bytes, 400 flow characters, 4 key bytes, 5 padding bytes;
+        # cut inside the flow characters, the key, and the padding
+        for size in (31, 100, 433, 437):
+            with self.subTest(size=size):
+                with warnings.catch_warnings():
+                    # Before the fix, a misleading padding warning came first
+                    warnings.simplefilter("error", BiopythonParserWarning)
+                    self.check_bad_header(
+                        self.good[:size],
+                        "Premature end of file? Expected an SFF header of 440 "
+                        f"bytes, but got only {size}",
+                    )
+
+    def test_negative_name_padding(self):
+        # The first read's header says it is 16 bytes long, too short for
+        # its 16 fixed bytes plus its 14 byte name
+        self.assertEqual(self.good[440:444], b"\x00\x20\x00\x0e")
+        bad = self.good[:440] + b"\x00\x10" + self.good[442:]
+        msg = (
+            "Malformed read header, says length is 16 but its fixed fields "
+            "and 14 byte name need 30"
+        )
+        with self.assertRaises(ValueError) as cm:
+            list(SeqIO.parse(BytesIO(bad), "sff"))
+        self.assertEqual(str(cm.exception), msg)
+        with self.assertRaises(ValueError) as cm:
+            list(_sff_do_slow_index(BytesIO(bad)))
+        self.assertEqual(str(cm.exception), msg)
+        handle = BytesIO(bad)
+        handle.seek(440)
+        with self.assertRaises(ValueError) as cm:
+            _sff_read_raw_record(handle, 400)
+        self.assertEqual(str(cm.exception), msg)
+
+    def test_write_records_twice(self):
+        records = list(SeqIO.parse(BytesIO(self.good), "sff"))
+        handle = BytesIO()
+        writer = SffWriter(handle, index=False)
+        writer.write_records(records[:2])
+        written = handle.getvalue()
+        with self.assertRaises(ValueError) as cm:
+            writer.write_records(records[2:4])
+        self.assertEqual(
+            str(cm.exception),
+            "SffWriter.write_records() can only be called once, "
+            "as an SFF file has a single header",
+        )
+        self.assertEqual(handle.getvalue(), written)
 
     def test_slow_index_truncated_read_header(self):
         # File ends part way through the first read's name

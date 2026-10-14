@@ -325,8 +325,6 @@ def _sff_file_header(handle):
         raise ValueError(
             "Index offset %i but index length %i" % (index_offset, index_length)
         )
-    flow_chars = handle.read(number_of_flows_per_read).decode("ASCII")
-    key_sequence = handle.read(key_length).decode("ASCII")
     # According to the spec, the header_length field should be the total number
     # of bytes required by this set of header fields, and should be equal to
     # "31 + number_of_flows_per_read + key_length" rounded up to the next value
@@ -338,7 +336,16 @@ def _sff_file_header(handle):
             "bytes padded to a multiple of 8"
             % (header_length, number_of_flows_per_read, key_length)
         )
-    if handle.read(padding).count(_null) != padding:
+    data = handle.read(header_length - 31)
+    if len(data) != header_length - 31:
+        raise ValueError(
+            "Premature end of file? Expected an SFF header of %i bytes, "
+            "but got only %i" % (header_length, 31 + len(data))
+        )
+    key_end = number_of_flows_per_read + key_length
+    flow_chars = data[:number_of_flows_per_read].decode("ASCII")
+    key_sequence = data[number_of_flows_per_read:key_end].decode("ASCII")
+    if data[key_end:].count(_null) != padding:
         import warnings
 
         from Bio import BiopythonParserWarning
@@ -418,6 +425,12 @@ def _sff_do_slow_index(handle):
         # now the name and any padding (remainder of header)
         name = handle.read(name_length).decode()
         padding = read_header_length - read_header_size - name_length
+        if padding < 0:
+            raise ValueError(
+                "Malformed read header, says length is %i but its fixed "
+                "fields and %i byte name need %i"
+                % (read_header_length, name_length, read_header_size + name_length)
+            )
         if handle.read(padding).count(_null) != padding:
             import warnings
 
@@ -726,6 +739,12 @@ def _sff_read_raw_record(handle, number_of_flows_per_read):
     raw += handle.read(8 + name_length)
     # and any padding (remainder of header)
     padding = read_header_length - read_header_size - 8 - name_length
+    if padding < 0:
+        raise ValueError(
+            "Malformed read header, says length is %i but its fixed "
+            "fields and %i byte name need %i"
+            % (read_header_length, name_length, read_header_size + 8 + name_length)
+        )
     pad = handle.read(padding)
     if pad.count(_null) != padding:
         import warnings
@@ -922,6 +941,12 @@ class SffIterator(SequenceIterator):
         # now the name and any padding (remainder of header)
         name = stream.read(name_length).decode()
         padding = read_header_length - read_header_size - name_length
+        if padding < 0:
+            raise ValueError(
+                "Malformed read header, says length is %i but its fixed "
+                "fields and %i byte name need %i"
+                % (read_header_length, name_length, read_header_size + name_length)
+            )
         if stream.read(padding).count(_null) != padding:
             import warnings
 
@@ -1156,12 +1181,20 @@ class SffWriter(SequenceWriter):
             self._index = []
         else:
             self._index = None
+        self._header_written = False
 
     def write_records(self, records):
         """Write records to the output file, and return the number of records.
 
         records - A list or iterator returning SeqRecord objects
+
+        An SFF file has a single header, so this can only be called once.
         """
+        if self._header_written:
+            raise ValueError(
+                "SffWriter.write_records() can only be called once, "
+                "as an SFF file has a single header"
+            )
         try:
             self._number_of_reads = len(records)
         except TypeError:
@@ -1203,6 +1236,7 @@ class SffWriter(SequenceWriter):
             self._number_of_flows_per_read = len(self._flow_chars)
         except KeyError:
             raise ValueError("Missing SFF flow information") from None
+        self._header_written = True
         self.write_header()
         self.write_record(record)
         count = 1

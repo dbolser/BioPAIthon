@@ -59,6 +59,13 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The SFF parser in ``Bio.SeqIO`` now raises ``ValueError`` for a file header
+cut short, where it used to warn about the padding and then fail with
+``struct.error``. It also raises ``ValueError`` for a read header too short to
+hold its own name, where it used to read the rest of the file as padding. A
+second call to ``SffWriter.write_records()`` now raises ``ValueError`` instead
+of writing a second header part way through the file.
+
 The ``gfa1`` and ``gfa2`` parsers in ``Bio.SeqIO`` now warn about a tag
 whose type is empty (``AB::x``) or is several letters that appear together
 in ``AifZJHB`` (``AB:if:x``), with the same ``BiopythonParserWarning`` as any
