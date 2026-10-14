@@ -2391,9 +2391,10 @@ duplicate-check against the tracker.
 
 The sprint merged 91 pull requests, every number from #112 to #202
 (#124 is the upstream sync). Their reviewers logged 139 follow-up
-defects along the way. Each was checked on
-2026-10-13 against `main` at `4cdff0207`, by reading the code and, where
-the report gave a one-line reproduction, by running it (Python 3.12).
+defects along the way. Each was checked on 2026-10-13 against `main` at
+`4cdff0207`, by reading the code and, where the report gave a one-line
+reproduction that runs on CPython 3.12, by running it. Entries that say
+"not run" or "not re-run" (for example the PyPy-only one) were only read.
 
 - **Still real: 112.** Listed below, grouped by area, with related reports
   merged into one entry.
