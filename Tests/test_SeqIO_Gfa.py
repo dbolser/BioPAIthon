@@ -129,6 +129,8 @@ class TestCorrupt(unittest.TestCase):
             ("gfa1", f"S\ts1\tAAA\tSH:H:{'0' * 64}\n", "incorrect checksum"),
             ("gfa1", "S\ts1\tAAA\t~~:i:0\n", "invalid name"),
             ("gfa1", "S\ts1\tAAA\tAB:X:0\n", "invalid type"),
+            ("gfa1", "S\ts1\tAAA\tAB::0\n", "invalid type"),
+            ("gfa1", "S\ts1\tAAA\tAB:if:0\n", "invalid type"),
             ("gfa1", "S\ts1\tAAA\tAB:A:ab\n", "printable character"),
             ("gfa1", "S\ts1\tAAA\tAB:i:C\n", "signed integer"),
             ("gfa1", "S\ts1\tAAA\tAB:f:C\n", "Expected float"),

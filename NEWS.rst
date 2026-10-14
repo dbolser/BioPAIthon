@@ -59,6 +59,12 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The ``gfa1`` and ``gfa2`` parsers in ``Bio.SeqIO`` now warn about a tag
+whose type is empty (``AB::x``) or is several letters that appear together
+in ``AifZJHB`` (``AB:if:x``), with the same ``BiopythonParserWarning`` as any
+other invalid tag type. The check was a substring test, so these passed
+silently.
+
 ``Seq.join()`` and ``MutableSeq.join()`` now work when given a generator or
 other one-shot iterator. Previously the type check used it up, so
 ``Seq("N").join(x for x in ["A", "C"])`` returned ``Seq('')`` rather than
