@@ -324,6 +324,20 @@ class QCPSuperimposerTest(unittest.TestCase):
         self.assertAlmostEqual(rms_fitted, svd_sup.get_rms(), places=6)
         self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=6)
 
+    def test_rmsd_identical_two_points_rotated(self):
+        """RMSD of a two-point set against a rotated copy is zero."""
+        ref = np.array([[0.0, 0.0, 0.0], [3.0, 4.0, 0.0]])
+        theta = 0.7
+        ax = np.array([1.0, 2.0, 3.0]) / np.sqrt(14)
+        k = np.array([[0, -ax[2], ax[1]], [ax[2], 0, -ax[0]], [-ax[1], ax[0], 0]])
+        rot = np.eye(3) + np.sin(theta) * k + (1 - np.cos(theta)) * (k @ k)
+        mob = ref @ rot.T + 5.0
+
+        sup = QCPSuperimposer()
+        sup.set(ref, mob)
+        sup.run()
+        self.assertAlmostEqual(sup.get_rms(), 0.0, places=6)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
