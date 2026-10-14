@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+``Bio.PDB.PDBList.retrieve_pdb_file`` no longer leaves an empty structure
+file behind when the download is not a valid gzip file, such as a captive
+portal's login page. That empty file used to be returned as "Structure exists"
+by every later call. A response that is not gzip, or is truncated or corrupt,
+and a malformed server response that raises ``http.client.HTTPException``, are
+now reported as a failed download and return ``None``, like other download
+failures. So is an empty response. The file is written under a temporary
+name and renamed when complete, so a failed download with ``overwrite=True``
+also leaves the earlier copy intact.
+
 The SFF parser and indexer in ``Bio.SeqIO`` now raise ``ValueError`` for a
 file cut short inside a read, saying what was expected and the offset of the
 read. A cut inside a read's header used to fail with ``struct.error``; a cut

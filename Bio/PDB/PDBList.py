@@ -43,7 +43,9 @@ import os
 import re
 import shutil
 import sys
+import zlib
 from concurrent.futures import ThreadPoolExecutor
+from http.client import HTTPException
 from typing import Optional
 from urllib.request import Request
 from urllib.request import urlcleanup
@@ -344,20 +346,36 @@ class PDBList:
         # Retrieve the file(s)
         if self._verbose:
             print(f"Downloading PDB structure '{pdb_code}'...")
+        # Decompress into a temporary file and rename it only on success, so
+        # a failed download or a response that is not gzip (such as a
+        # captive portal's HTML page) never leaves a final file behind for
+        # the "Structure exists" check above to return next time.
+        partial_file = f"{final_file}.part"
         try:
             urlcleanup()
             urlretrieve(url, filename)
-        except OSError as e:
+            with gzip.open(filename, "rb") as gz:
+                with open(partial_file, "wb") as out:
+                    shutil.copyfileobj(gz, out)
+                    # gzip reads an empty file as a valid empty stream, and
+                    # no structure file is empty, so treat it as a failure.
+                    if out.tell() == 0:
+                        raise EOFError("empty download")
+            os.replace(partial_file, final_file)
+        except (OSError, EOFError, zlib.error, HTTPException) as e:
+            # gzip raises BadGzipFile (an OSError) for a non-gzip response,
+            # EOFError for a truncated one and zlib.error for a corrupt one.
+            # A malformed server response can raise an HTTPException, such
+            # as InvalidURL, which is not an OSError.
             print(
                 "Desired structure not found or download failed."
                 f" '{pdb_code}': {str(e)}"
             )
             return None
-        else:
-            with gzip.open(filename, "rb") as gz:
-                with open(final_file, "wb") as out:
-                    out.writelines(gz)
-            os.remove(filename)
+        finally:
+            for leftover in (filename, partial_file):
+                with contextlib.suppress(OSError):
+                    os.remove(leftover)
         return final_file
 
     def update_pdb(self, file_format=None, with_assemblies=False):
