@@ -417,6 +417,17 @@ exit:
     return text;
 }
 
+/* del aligner.wildcard, or delattr; the setters all expect a value.  The
+ * getset table passes each attribute's name as the closure. */
+static int
+Aligner_cannot_delete(Aligner* self, void* closure)
+{
+    PyErr_Format(PyExc_AttributeError,
+                 "cannot delete attribute '%s' of '%s' object",
+                 (const char*)closure, Py_TYPE(self)->tp_name);
+    return -1;
+}
+
 static char Aligner_match_score__doc__[] = "match score";
 
 static PyObject*
@@ -428,6 +439,7 @@ Aligner_get_match_score(Aligner* self, void* closure)
 static int
 Aligner_set_match_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double match = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) {
         PyErr_SetString(PyExc_ValueError, "invalid match score");
@@ -448,6 +460,7 @@ Aligner_get_mismatch_score(Aligner* self, void* closure)
 static int
 Aligner_set_mismatch_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double mismatch = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) {
         PyErr_SetString(PyExc_ValueError, "invalid mismatch score");
@@ -467,7 +480,9 @@ Aligner_get_epsilon(Aligner* self, void* closure)
 
 static int
 Aligner_set_epsilon(Aligner* self, PyObject* value, void* closure)
-{   const double epsilon = PyFloat_AsDouble(value);
+{
+    if (!value) return Aligner_cannot_delete(self, closure);
+    const double epsilon = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->epsilon = epsilon;
     return 0;
@@ -482,6 +497,7 @@ Aligner_get_wildcard(Aligner* self, void* closure)
 static int
 Aligner_set_wildcard(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     Py_UCS4 wildcard;
     if (!PyUnicode_Check(value)) {
         PyErr_SetString(PyExc_TypeError,
@@ -515,6 +531,7 @@ Aligner_get_frameshift_minus_two_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_minus_two_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_two_score = score;
@@ -532,6 +549,7 @@ Aligner_get_frameshift_minus_one_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_minus_one_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_one_score = score;
@@ -549,6 +567,7 @@ Aligner_get_frameshift_plus_one_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_plus_one_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_plus_one_score = score;
@@ -566,6 +585,7 @@ Aligner_get_frameshift_plus_two_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_plus_two_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_plus_two_score = score;
@@ -589,6 +609,7 @@ Aligner_get_frameshift_minus_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_minus_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_one_score = score;
@@ -613,6 +634,7 @@ Aligner_get_frameshift_plus_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_plus_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_plus_one_score = score;
@@ -637,6 +659,7 @@ Aligner_get_frameshift_two_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_two_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_two_score = score;
@@ -661,6 +684,7 @@ Aligner_get_frameshift_one_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_one_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_one_score = score;
@@ -687,6 +711,7 @@ Aligner_get_frameshift_score(Aligner* self, void* closure)
 static int
 Aligner_set_frameshift_score(Aligner* self, PyObject* value, void* closure)
 {
+    if (!value) return Aligner_cannot_delete(self, closure);
     const double score = PyFloat_AsDouble(value);
     if (PyErr_Occurred()) return -1;
     self->frameshift_minus_two_score = score;
@@ -703,63 +728,63 @@ static PyGetSetDef Aligner_getset[] = {
     {"match_score",
         (getter)Aligner_get_match_score,
         (setter)Aligner_set_match_score,
-        Aligner_match_score__doc__, NULL},
+        Aligner_match_score__doc__, "match_score"},
     {"mismatch_score",
         (getter)Aligner_get_mismatch_score,
         (setter)Aligner_set_mismatch_score,
-        Aligner_mismatch_score__doc__, NULL},
+        Aligner_mismatch_score__doc__, "mismatch_score"},
     {"match", /* synonym for match_score */
         (getter)Aligner_get_match_score,
         (setter)Aligner_set_match_score,
-        Aligner_match_score__doc__, NULL},
+        Aligner_match_score__doc__, "match"},
     {"mismatch", /* synonym for mismatch_score */
         (getter)Aligner_get_mismatch_score,
         (setter)Aligner_set_mismatch_score,
-        Aligner_mismatch_score__doc__, NULL},
+        Aligner_mismatch_score__doc__, "mismatch"},
     {"epsilon",
         (getter)Aligner_get_epsilon,
         (setter)Aligner_set_epsilon,
-        Aligner_epsilon__doc__, NULL},
+        Aligner_epsilon__doc__, "epsilon"},
     {"wildcard",
         (getter)Aligner_get_wildcard,
         (setter)Aligner_set_wildcard,
-        Aligner_wildcard__doc__, NULL},
+        Aligner_wildcard__doc__, "wildcard"},
     {"frameshift_minus_two_score",
         (getter)Aligner_get_frameshift_minus_two_score,
         (setter)Aligner_set_frameshift_minus_two_score,
-        Aligner_frameshift_minus_two_score__doc__, NULL},
+        Aligner_frameshift_minus_two_score__doc__, "frameshift_minus_two_score"},
     {"frameshift_minus_one_score",
         (getter)Aligner_get_frameshift_minus_one_score,
         (setter)Aligner_set_frameshift_minus_one_score,
-        Aligner_frameshift_minus_one_score__doc__, NULL},
+        Aligner_frameshift_minus_one_score__doc__, "frameshift_minus_one_score"},
     {"frameshift_plus_one_score",
         (getter)Aligner_get_frameshift_plus_one_score,
         (setter)Aligner_set_frameshift_plus_one_score,
-        Aligner_frameshift_plus_one_score__doc__, NULL},
+        Aligner_frameshift_plus_one_score__doc__, "frameshift_plus_one_score"},
     {"frameshift_plus_two_score",
         (getter)Aligner_get_frameshift_plus_two_score,
         (setter)Aligner_set_frameshift_plus_two_score,
-        Aligner_frameshift_plus_two_score__doc__, NULL},
+        Aligner_frameshift_plus_two_score__doc__, "frameshift_plus_two_score"},
     {"frameshift_minus_score",
         (getter)Aligner_get_frameshift_minus_score,
         (setter)Aligner_set_frameshift_minus_score,
-        Aligner_frameshift_minus_score__doc__, NULL},
+        Aligner_frameshift_minus_score__doc__, "frameshift_minus_score"},
     {"frameshift_plus_score",
         (getter)Aligner_get_frameshift_plus_score,
         (setter)Aligner_set_frameshift_plus_score,
-        Aligner_frameshift_plus_score__doc__, NULL},
+        Aligner_frameshift_plus_score__doc__, "frameshift_plus_score"},
     {"frameshift_one_score",
         (getter)Aligner_get_frameshift_one_score,
         (setter)Aligner_set_frameshift_one_score,
-        Aligner_frameshift_one_score__doc__, NULL},
+        Aligner_frameshift_one_score__doc__, "frameshift_one_score"},
     {"frameshift_two_score",
         (getter)Aligner_get_frameshift_two_score,
         (setter)Aligner_set_frameshift_two_score,
-        Aligner_frameshift_two_score__doc__, NULL},
+        Aligner_frameshift_two_score__doc__, "frameshift_two_score"},
     {"frameshift_score",
         (getter)Aligner_get_frameshift_score,
         (setter)Aligner_set_frameshift_score,
-        Aligner_frameshift_score__doc__, NULL},
+        Aligner_frameshift_score__doc__, "frameshift_score"},
     {NULL, NULL, 0, NULL}  /* Sentinel */
 };
 
@@ -963,7 +988,10 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     paths->M = NULL;
     paths->length = 0;
 
-    M = PyMem_Malloc((nA+1)*sizeof(Trace*));
+    /* Zeroed, so that if a row allocation fails PathGenerator_dealloc frees
+     * the rows allocated so far and nothing else.  The exit block releases
+     * paths. */
+    M = PyMem_Calloc(nA+1, sizeof(Trace*));
     if (!M) {
         PyErr_NoMemory();
         goto exit;
@@ -972,7 +1000,6 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     for (i = 0; i <= nA; i++) {
         M[i] = PyMem_Malloc((nB+1)*sizeof(Trace));
         if (!M[i]) {
-            Py_DECREF(paths);
             PyErr_NoMemory();
             goto exit;
         }
@@ -1061,6 +1088,8 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
         else M[nA][j].path = 0;
     }
     result = Py_BuildValue("fN", score, paths);
+    /* "N" took our reference to paths, even if Py_BuildValue failed. */
+    paths = NULL;
 
 exit:
     PyBuffer_Release(&bA);
@@ -1068,7 +1097,7 @@ exit:
     PyBuffer_Release(&bB1);
     PyBuffer_Release(&bB2);
     PyMem_Free(row);
-    if (result == NULL) Py_XDECREF(paths);
+    Py_XDECREF(paths);
     return result;
 }
 

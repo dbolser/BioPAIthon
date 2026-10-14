@@ -5,6 +5,9 @@
 
 """Unit tests for CodonAligner and Bio.Align.analysis."""
 
+import os
+import subprocess
+import sys
 import unittest
 
 try:
@@ -89,6 +92,79 @@ Codon aligner with parameters
                     aligner.score("M", seqB)
                 with self.assertRaisesRegex(ValueError, message):
                     aligner.align("M", seqB)
+
+    def test_delete_every_property(self):
+        # Deleting used to reach the setter with a NULL value: wildcard
+        # crashed, and the scores raised ValueError or TypeError.
+        from Bio.Align import _codonaligner
+
+        names = [
+            name
+            for name, value in vars(_codonaligner.CodonAligner).items()
+            # PyPy lists __dict__ and __weakref__ here as well
+            if type(value).__name__ == "getset_descriptor" and not name.startswith("__")
+        ]
+        self.assertIn("wildcard", names)
+        self.assertIn("frameshift_score", names)
+        aligner = CodonAligner()
+        aligner.match_score = 2.0
+        aligner.mismatch_score = -3.0
+        aligner.epsilon = 1e-4
+        aligner.wildcard = "N"
+        aligner.frameshift_score = -4.0  # so every frameshift getter works
+        for name in names:
+            with self.subTest(name=name):
+                before = getattr(aligner, name)
+                with self.assertRaises(AttributeError) as cm:
+                    delattr(aligner, name)
+                self.assertEqual(
+                    str(cm.exception),
+                    f"cannot delete attribute '{name}' of 'CodonAligner' object",
+                )
+                self.assertEqual(getattr(aligner, name), before)
+
+    def test_align_out_of_memory(self):
+        # When allocating a row of the trace matrix failed, align() released
+        # its path generator twice.  Fail each allocation in turn, in a child
+        # process using the C allocator, so that AddressSanitizer (which the
+        # CI sanitizer job preloads) sees the second release; Python's own
+        # allocator would hide it.
+        try:
+            import _testcapi
+        except ImportError:
+            self.skipTest("needs _testcapi")
+        if not hasattr(_testcapi, "set_nomemory"):
+            self.skipTest("needs _testcapi.set_nomemory")
+        code = """\
+import _testcapi
+from Bio.Align import _codonaligner
+aligner = _codonaligner.CodonAligner()
+args = (b"MK", b"ABC", b"ABC", b"ABC")
+score = aligner.align(*args)[0]
+outcomes = []
+for start in range(40):
+    _testcapi.set_nomemory(start, start + 1)
+    try:
+        result = aligner.align(*args)
+    except MemoryError:
+        outcomes.append("MemoryError")
+    else:
+        outcomes.append("ok" if result[0] == score else "wrong")
+    finally:
+        _testcapi.remove_mem_hooks()
+print(" ".join(outcomes))
+"""
+        env = dict(os.environ, PYTHONMALLOC="malloc")
+        child = subprocess.run(
+            [sys.executable, "-c", code], env=env, capture_output=True, text=True
+        )
+        self.assertEqual(child.returncode, 0, child.stderr)
+        outcomes = child.stdout.split()
+        # The path generator, the row pointers, one row per residue plus one
+        # (three here), and the score row can each fail.
+        failures = outcomes.count("MemoryError")
+        self.assertGreaterEqual(failures, 6, outcomes)
+        self.assertEqual(outcomes[failures:], ["ok"] * (40 - failures), outcomes)
 
     def test_alignments(self):
         aligner = CodonAligner()
