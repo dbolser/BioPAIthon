@@ -75,6 +75,17 @@ Codon aligner with parameters
         self.assertAlmostEqual(aligner.frameshift_plus_one_score, -5.0)
         self.assertAlmostEqual(aligner.frameshift_plus_two_score, -2.0)
 
+    def test_too_short(self):
+        # Fewer than 3 nucleotides used to free an uninitialised pointer.
+        aligner = CodonAligner()
+        message = "at least 3 nucleotides are needed for a codon alignment"
+        for seqB in ("", "A", "AC"):
+            with self.subTest(seqB=seqB):
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.score("M", seqB)
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.align("M", seqB)
+
     def test_alignments(self):
         aligner = CodonAligner()
         aligner.frameshift_score = -1.0
