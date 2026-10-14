@@ -5266,9 +5266,10 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
     * t: frameshift_two_score
 
     If seqA is an amino acid sequence, returns an iterator of Alignment
-    objects.  If seqA is an Alignment of amino acid sequences, seqB must be a
-    list of the corresponding nucleotide sequences, one for each row of seqA,
-    and a single Alignment of the nucleotide sequences is returned.
+    objects.  If seqA is an Alignment of amino acid sequences, seqB must be an
+    iterable (such as a list) of the corresponding nucleotide sequences, one
+    for each row of seqA, and a single Alignment of the nucleotide sequences
+    is returned.
 
     >>> from Bio.Seq import Seq
     >>> from Bio.SeqRecord import SeqRecord
@@ -5332,7 +5333,7 @@ def codon_align(seqA, seqB, codon_table=None, **kwargs):
     if isinstance(seqA, Alignment):
         protein_alignment = seqA
         protein_sequences = protein_alignment.sequences
-        nucleotide_sequences = seqB
+        nucleotide_sequences = list(seqB)
         if len(protein_sequences) != len(nucleotide_sequences):
             raise ValueError(
                 f"the protein alignment has {len(protein_sequences)} sequences, "

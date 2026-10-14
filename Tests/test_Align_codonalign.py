@@ -644,6 +644,23 @@ dna               3 AAAAAAAAAAAATTT 18
         self.assertIsInstance(alignment, Alignment)
         self.assertEqual(alignment.sequences, ["ATGTCTCGT", "ATGTCCCGT"])
 
+    def test_convenience_function_alignment_iterator(self):
+        # seqB may be any iterable, such as the generator SeqIO.parse returns.
+        protein_alignment = Alignment(["MSR", "MSR"])
+        nucleotide_sequences = ["ATGTCTCGT", "ATGTCCCGT"]
+        records = (SeqRecord(Seq(s), id=s) for s in nucleotide_sequences)
+        alignment = codon_align(protein_alignment, records)
+        self.assertEqual(
+            [str(record.seq) for record in alignment.sequences], nucleotide_sequences
+        )
+        records = (SeqRecord(Seq(s), id=s) for s in nucleotide_sequences[:1])
+        message = (
+            "^the protein alignment has 2 sequences, "
+            "but 1 nucleotide sequences were given$"
+        )
+        with self.assertRaisesRegex(ValueError, message):
+            codon_align(protein_alignment, records)
+
 
 class TestBuildAndIO(unittest.TestCase):
     def test1(self):
