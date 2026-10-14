@@ -357,6 +357,10 @@ class PDBList:
             with gzip.open(filename, "rb") as gz:
                 with open(partial_file, "wb") as out:
                     shutil.copyfileobj(gz, out)
+                    # gzip reads an empty file as a valid empty stream, and
+                    # no structure file is empty, so treat it as a failure.
+                    if out.tell() == 0:
+                        raise EOFError("empty download")
             os.replace(partial_file, final_file)
         except (OSError, EOFError, zlib.error, HTTPException) as e:
             # gzip raises BadGzipFile (an OSError) for a non-gzip response,
@@ -370,7 +374,7 @@ class PDBList:
             return None
         finally:
             for leftover in (filename, partial_file):
-                with contextlib.suppress(FileNotFoundError):
+                with contextlib.suppress(OSError):
                     os.remove(leftover)
         return final_file
 

@@ -135,6 +135,20 @@ class URLConstructionTests(unittest.TestCase):
         self.assertIn("download failed. '127d'", output)
         self.assertEqual(os.listdir(os.path.join(self.tmp.name, "27")), [])
 
+    def test_empty_response_leaves_no_file(self):
+        """An empty response, or a gzip of nothing, returns None and no file."""
+        for body in (b"", gzip.compress(b"")):
+            with self.subTest(body=body):
+
+                def fake_urlretrieve(url, filename, body=body):
+                    with open(filename, "wb") as handle:
+                        handle.write(body)
+
+                result, output = self.retrieve_failing(fake_urlretrieve)
+                self.assertIsNone(result)
+                self.assertIn("download failed. '127d': empty download", output)
+                self.assertEqual(os.listdir(os.path.join(self.tmp.name, "27")), [])
+
     def test_failed_overwrite_keeps_existing_file(self):
         """A failed download with overwrite=True leaves the old file intact."""
         url, final_file = self.retrieve("127d", file_format="pdb")
