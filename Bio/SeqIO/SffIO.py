@@ -490,11 +490,6 @@ def _sff_find_roche_index(handle):
         flow_chars,
         key_sequence,
     ) = _sff_file_header(handle)
-    if handle.tell() != header_length:
-        raise ValueError(
-            "Premature end of file? Expected an SFF header of %i bytes, "
-            "but the file ends at offset %i" % (header_length, handle.tell())
-        )
     if not index_offset or not index_length:
         raise ValueError("No index present in this SFF file")
     # Now jump to the header...
