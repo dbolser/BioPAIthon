@@ -1022,7 +1022,11 @@ class StringMethodTests(unittest.TestCase):
         self.assertEqual(
             "N" * 15, spacer.join([MutableSeq("NNNNN"), MutableSeq("NNNNN")])
         )
-        self.assertRaises(TypeError, spacer.join([Seq("NNNNN"), MutableSeq("NNNNN")]))
+        # Mixing Seq and MutableSeq items is allowed; the result takes the
+        # spacer's class.
+        result = spacer.join([Seq("AAAAA"), MutableSeq("CCCCC")])
+        self.assertIsInstance(result, MutableSeq)
+        self.assertEqual(result, "AAAAANNNNNCCCCC")
 
     def test_join_generator_and_iterator(self):
         """Check join consumes a one-shot iterable only once."""
