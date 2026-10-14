@@ -38,7 +38,6 @@ from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-
 _stable_cpython_refcounts = (
     platform.python_implementation() == "CPython"
     and not sysconfig.get_config_var("Py_GIL_DISABLED")

@@ -21,8 +21,8 @@ from Bio.Seq import Seq
 from Bio.Seq import translate
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import CodonAdaptationIndex
-from Bio.SeqUtils import gc_fraction
 from Bio.SeqUtils import GC123
+from Bio.SeqUtils import gc_fraction
 from Bio.SeqUtils import GC_skew
 from Bio.SeqUtils import MeltingTemp as mt
 from Bio.SeqUtils import molecular_weight

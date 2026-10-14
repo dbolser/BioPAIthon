@@ -14,7 +14,6 @@ import unittest
 import warnings
 
 import numpy as np
-
 import support
 
 from Bio.PDB import PDBIO

@@ -8,7 +8,6 @@ import unittest
 from io import StringIO
 
 import numpy as np
-
 import support
 
 from Bio import Align

@@ -11,12 +11,12 @@ import unittest
 
 from Bio.Data import IUPACData
 from Bio.Data.CodonTable import ambiguous_dna_by_id
-from Bio.Data.CodonTable import AmbiguousCodonTable
 from Bio.Data.CodonTable import ambiguous_dna_by_name
 from Bio.Data.CodonTable import ambiguous_generic_by_id
 from Bio.Data.CodonTable import ambiguous_generic_by_name
 from Bio.Data.CodonTable import ambiguous_rna_by_id
 from Bio.Data.CodonTable import ambiguous_rna_by_name
+from Bio.Data.CodonTable import AmbiguousCodonTable
 from Bio.Data.CodonTable import generic_by_id
 from Bio.Data.CodonTable import generic_by_name
 from Bio.Data.CodonTable import list_ambiguous_codons

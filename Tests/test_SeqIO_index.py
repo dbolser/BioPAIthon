@@ -35,7 +35,6 @@ from Bio.SeqIO._index import _FormatToRandomAccess
 from Bio.SeqIO.Interfaces import SequenceIterator
 from Bio.SeqRecord import SeqRecord
 
-
 if sqlite3:
 
     def raw_filenames(index_filename):

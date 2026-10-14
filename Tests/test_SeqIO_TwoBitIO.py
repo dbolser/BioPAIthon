@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import numpy as np
-
 import support
 
 from Bio import SeqIO

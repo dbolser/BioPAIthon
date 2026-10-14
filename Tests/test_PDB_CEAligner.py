@@ -32,11 +32,10 @@ except ImportError:
 
 import support
 
+from Bio.PDB import ccealign
 from Bio.PDB import CEAligner
 from Bio.PDB import MMCIFParser
-from Bio.PDB import ccealign
 from Bio.PDB.ccealign import run_cealign
-
 
 _stable_cpython_refcounts = (
     platform.python_implementation() == "CPython"
