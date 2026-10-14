@@ -873,7 +873,8 @@ Pairwise sequence aligner with parameters
         names = [
             name
             for name, value in vars(_pairwisealigner.PairwiseAligner).items()
-            if type(value).__name__ == "getset_descriptor"
+            # PyPy lists __dict__ and __weakref__ here as well
+            if type(value).__name__ == "getset_descriptor" and not name.startswith("__")
         ]
         self.assertIn("mode", names)
         self.assertIn("wildcard", names)
