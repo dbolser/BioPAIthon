@@ -864,6 +864,89 @@ Pairwise sequence aligner with parameters
             "'PairwiseAligner' object has no attribute 'no_such_property'",
         )
 
+    def test_delete_every_property(self):
+        # Deleting used to reach the setter with a NULL value, which crashed
+        # for mode and wildcard and read uninitialized memory for
+        # substitution_matrix.
+        from Bio.Align import _pairwisealigner
+
+        names = [
+            name
+            for name, value in vars(_pairwisealigner.PairwiseAligner).items()
+            # PyPy lists __dict__ and __weakref__ here as well
+            if type(value).__name__ == "getset_descriptor" and not name.startswith("__")
+        ]
+        self.assertIn("mode", names)
+        self.assertIn("wildcard", names)
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = substitution_matrices.load("BLOSUM62")
+        aligner.wildcard = "X"
+        for name in names:
+            with self.subTest(name=name):
+                before = getattr(aligner, name)
+                with self.assertRaises(AttributeError):
+                    delattr(aligner, name)
+                self.assertIs(type(getattr(aligner, name)), type(before))
+                if name != "algorithm":  # read-only, so CPython's own message
+                    with self.assertRaises(AttributeError) as cm:
+                        delattr(aligner, name)
+                    self.assertEqual(
+                        str(cm.exception),
+                        f"cannot delete attribute '{name}' of "
+                        "'PairwiseAligner' object",
+                    )
+        self.assertEqual(aligner.mode, "global")
+        self.assertEqual(aligner.wildcard, "X")
+        self.assertEqual(aligner.substitution_matrix.shape, (24, 24))
+
+
+class TestAlignerStr(unittest.TestCase):
+    """str(aligner) has no fixed-size buffer and no user-controlled format."""
+
+    def matrix_of_class(self, name):
+        cls = type(name, (np.ndarray,), {})
+        return np.zeros((4, 4)).view(cls)
+
+    def test_long_class_name(self):
+        name = "M" * 5000
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = self.matrix_of_class(name)
+        self.assertIn(f"  substitution_matrix: <{name} object at 0x", str(aligner))
+
+    def test_percent_in_class_name(self):
+        name = "M%s%d%n%U%%"
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = self.matrix_of_class(name)
+        self.assertRegex(
+            str(aligner),
+            r"\n  substitution_matrix: <M%s%d%n%U%% object at 0x[0-9a-f]+>\n",
+        )
+
+    def test_non_ascii_class_name(self):
+        # The name used to be part of the format, which must be ASCII.
+        name = "\u00e9t\u00e9"
+        aligner = Align.PairwiseAligner()
+        aligner.substitution_matrix = self.matrix_of_class(name)
+        self.assertIn(f"  substitution_matrix: <{name} object at 0x", str(aligner))
+
+    def test_huge_scores(self):
+        # Each of these prints as over 300 characters with %f.
+        aligner = Align.PairwiseAligner()
+        aligner.match_score = 1e308
+        aligner.mismatch_score = -1e308
+        aligner.gap_score = -1e308
+        text = str(aligner)
+        self.assertIn(f"  match_score: {1e308:f}\n", text)
+        self.assertIn(f"  extend_right_deletion_score: {-1e308:f}\n", text)
+        self.assertTrue(text.endswith("  mode: global\n"))
+
+    def test_wildcard(self):
+        aligner = Align.PairwiseAligner()
+        aligner.wildcard = "X"
+        self.assertIn("\n  wildcard: 'X'\n", str(aligner))
+        aligner.wildcard = "\U0001f9ec"
+        self.assertIn("\n  wildcard: '\U0001f9ec'\n", str(aligner))
+
 
 class TestPairwiseGlobal(unittest.TestCase):
     def test_needlemanwunsch_simple1(self):

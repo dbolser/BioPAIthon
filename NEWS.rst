@@ -59,6 +59,16 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+Two crashes in ``Bio.Align.PairwiseAligner`` are fixed. Deleting one of its
+attributes, as in ``del aligner.mode`` or ``del aligner.wildcard``, could
+crash Python; it now raises ``AttributeError`` and leaves the setting as it
+was. ``str(aligner)`` aborted with "buffer overflow detected" when the
+substitution matrix's class name was very long, or when scores were so large
+that they printed as hundreds of digits; a ``%`` in the class name was
+misread as a format code, and a non-ASCII class name raised ``ValueError``.
+The text is now built without a fixed-size buffer, and the class name is
+printed as it is.
+
 The SFF parser in ``Bio.SeqIO`` now raises ``ValueError`` for a file header
 cut short, where it used to warn about the padding and then fail with
 ``struct.error``. It also raises ``ValueError`` for a read header too short to

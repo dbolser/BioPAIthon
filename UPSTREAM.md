@@ -139,7 +139,7 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - `Bio.Cluster`: `PyTree_length` returns `int` but is installed as a `lenfunc`.
 - `Bio.Cluster`: `somcluster` given a plain list raises `AttributeError`; `_cluster.Tree` and `_cluster.pca` ignore keyword arguments.
 - `PairwiseAligner`: `del aligner.mode` or `del aligner.wildcard` segfaults; no setter checks for `NULL`.
-- `PairwiseAligner`: `str(aligner)` overflows a 1,024-byte stack buffer when the substitution matrix's class name is long, and uses the name as a format string.
+- `PairwiseAligner`: `str(aligner)` overflows a 1,024-byte stack buffer when the substitution matrix's class name is long or the scores are huge (each 1e308 prints 300+ digits; two such scores, or `gap_score = -1e308`, which sets 12, are enough), and uses the name as a format string.
 - `PairwiseAligner(scoring="blastp").score()` on two lists of letters raises "letters not in the alphabet", because list input is mapped twice.
 - `Bio/PDB/kdtrees.c`: `repr()` of `Point` and `Neighbor` raises `SystemError`, and `KDTree(coords, bucket_size=10)` ignores the keyword.
 - `FastaBlastIterator`'s `self_line = line` typo gives every record the first record's title.
