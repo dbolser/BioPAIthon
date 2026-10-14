@@ -6,11 +6,12 @@
 """Offline tests for Bio.PDB.PDBList URL construction.
 
 The download itself is faked, so these tests check which URL
-``retrieve_pdb_file`` asks for and where it puts the result, without
-touching the network. The tests that actually download from the PDB
-live in ``test_PDB_PDBList.py``.
+``retrieve_pdb_file`` asks for, where it puts the result and what it
+does when the download fails, without touching the network. The tests
+that actually download from the PDB live in ``test_PDB_PDBList.py``.
 """
 
+import contextlib
 import gzip
 import importlib
 import io
@@ -25,7 +26,7 @@ pdb_list_module = importlib.import_module("Bio.PDB.PDBList")
 
 
 class URLConstructionTests(unittest.TestCase):
-    """Check the URLs retrieve_pdb_file builds, with the download mocked."""
+    """Check the URLs retrieve_pdb_file builds and its failure path, mocked."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -76,6 +77,22 @@ class URLConstructionTests(unittest.TestCase):
             "https://files.wwpdb.org/pub/pdb/data/structures/divided/pdb/27/pdb127d.ent.gz",
         )
         self.assertEqual(final_file, os.path.join(self.tmp.name, "27", "pdb127d.ent"))
+
+    def test_failed_download_returns_none(self):
+        """A failed download returns None and prints why, leaving no file."""
+        error = OSError("HTTP Error 404: Not Found")
+        with mock.patch.object(pdb_list_module, "urlretrieve", side_effect=error):
+            with mock.patch.object(pdb_list_module, "urlcleanup"):
+                with contextlib.redirect_stdout(io.StringIO()) as output:
+                    result = self.pdblist.retrieve_pdb_file("zzzz", file_format="pdb")
+        self.assertIsNone(result)
+        self.assertIn(
+            "Desired structure not found or download failed. 'zzzz': "
+            "HTTP Error 404: Not Found",
+            output.getvalue(),
+        )
+        final_file = os.path.join(self.tmp.name, "zz", "pdbzzzz.ent")
+        self.assertFalse(os.path.exists(final_file))
 
     def test_mmtf_raises(self):
         """The retired mmtf format is rejected before any download."""
