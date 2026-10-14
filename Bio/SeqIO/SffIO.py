@@ -249,6 +249,32 @@ _mft = b".mft"
 _flag = b"\xff"
 
 
+def _read_exactly(handle, size, what, offset):
+    """Read and return exactly size bytes, or raise ValueError (PRIVATE).
+
+    Arguments:
+     - handle - binary handle to read from.
+     - size - number of bytes wanted.
+     - what - description of those bytes, used in the error message.
+     - offset - start of the read whose bytes these are, for the error message.
+
+    A raw or unbuffered handle may return fewer bytes than asked for before
+    the end of the file, so keep reading until we have them all or hit EOF.
+    """
+    data = handle.read(size)
+    while len(data) < size:
+        more = handle.read(size - len(data))
+        if not more:
+            break
+        data += more
+    if len(data) != size:
+        raise ValueError(
+            "Premature end of SFF file, expected %i byte %s for the read at "
+            "offset %i but got only %i" % (size, what, offset, len(data))
+        )
+    return data
+
+
 def _sff_file_header(handle):
     """Read in an SFF file header (PRIVATE).
 
@@ -407,7 +433,7 @@ def _sff_do_slow_index(handle):
             record_offset = offset
         # assert record_offset%8 == 0 # Worth checking, but slow
         # First the fixed header
-        data = handle.read(read_header_size)
+        data = _read_exactly(handle, read_header_size, "read header", record_offset)
         (
             read_header_length,
             name_length,
@@ -423,7 +449,7 @@ def _sff_do_slow_index(handle):
                 % (read_header_length, data)
             )
         # now the name and any padding (remainder of header)
-        name = handle.read(name_length).decode()
+        name = _read_exactly(handle, name_length, "read name", record_offset).decode()
         padding = read_header_length - read_header_size - name_length
         if padding < 0:
             raise ValueError(
@@ -449,7 +475,15 @@ def _sff_do_slow_index(handle):
             )
         # now the flowgram values, flowgram index, bases and qualities
         size = read_flow_size + 3 * seq_len
-        handle.seek(size, 1)
+        if size:
+            # Seek to the block's last byte and read it, so a truncated
+            # file is caught without reading the whole block
+            handle.seek(size - 1, 1)
+            if not handle.read(1):
+                raise ValueError(
+                    "Premature end of SFF file, expected %i byte flowgram and "
+                    "quality block for the read at offset %i" % (size, record_offset)
+                )
         # now any padding...
         padding = size % 8
         if padding:
@@ -724,14 +758,18 @@ def _sff_read_raw_record(handle, number_of_flows_per_read):
     read_flow_fmt = ">%iH" % number_of_flows_per_read
     read_flow_size = struct.calcsize(read_flow_fmt)
 
-    raw = handle.read(read_header_size)
-    read_header_length, name_length, seq_len = struct.unpack(read_header_fmt, raw)
+    offset = handle.tell()
+    # the four clip values (4H = 8 bytes) complete the fixed read header
+    raw = _read_exactly(handle, read_header_size + 8, "read header", offset)
+    read_header_length, name_length, seq_len = struct.unpack(
+        read_header_fmt, raw[:read_header_size]
+    )
     if read_header_length < 10 or read_header_length % 8 != 0:
         raise ValueError(
             "Malformed read header, says length is %i" % read_header_length
         )
-    # now the four clip values (4H = 8 bytes), and read name
-    raw += handle.read(8 + name_length)
+    # now the read name
+    raw += _read_exactly(handle, name_length, "read name", offset)
     # and any padding (remainder of header)
     padding = read_header_length - read_header_size - 8 - name_length
     if padding < 0:
@@ -753,7 +791,9 @@ def _sff_read_raw_record(handle, number_of_flows_per_read):
         )
     raw += pad
     # now the flowgram values, flowgram index, bases and qualities
-    raw += handle.read(read_flow_size + seq_len * 3)
+    raw += _read_exactly(
+        handle, read_flow_size + seq_len * 3, "flowgram and quality block", offset
+    )
     padding = (read_flow_size + seq_len * 3) % 8
     # now any padding...
     if padding:
@@ -916,6 +956,7 @@ class SffIterator(SequenceIterator):
         # [rest of read header depends on the name length etc]
         read_header_fmt = SffIterator.read_header_fmt
         read_header_size = SffIterator.read_header_size
+        record_offset = self._offset
         (
             read_header_length,
             name_length,
@@ -924,7 +965,10 @@ class SffIterator(SequenceIterator):
             clip_qual_right,
             clip_adapter_left,
             clip_adapter_right,
-        ) = struct.unpack(read_header_fmt, stream.read(read_header_size))
+        ) = struct.unpack(
+            read_header_fmt,
+            _read_exactly(stream, read_header_size, "read header", record_offset),
+        )
         if clip_qual_left:
             clip_qual_left -= 1  # python counting
         if clip_adapter_left:
@@ -934,7 +978,7 @@ class SffIterator(SequenceIterator):
                 "Malformed read header, says length is %i" % read_header_length
             )
         # now the name and any padding (remainder of header)
-        name = stream.read(name_length).decode()
+        name = _read_exactly(stream, name_length, "read name", record_offset).decode()
         padding = read_header_length - read_header_size - name_length
         if padding < 0:
             raise ValueError(
@@ -955,11 +999,18 @@ class SffIterator(SequenceIterator):
         self._offset += read_header_length
         # now the flowgram values, flowgram index, bases and qualities
         # NOTE - assuming flowgram_format==1, which means struct type H
-        flow_values = stream.read(self.read_flow_size)  # unpack later if needed
+        read_flow_size = self.read_flow_size
+        data = _read_exactly(
+            stream,
+            read_flow_size + seq_len * 3,
+            "flowgram and quality block",
+            record_offset,
+        )
+        flow_values = data[:read_flow_size]  # unpack later if needed
         temp_fmt = ">%iB" % seq_len  # used for flow index and quals
-        flow_index = stream.read(seq_len)  # unpack later if needed
-        seq = stream.read(seq_len)  # Leave as bytes for Seq object
-        quals = list(struct.unpack(temp_fmt, stream.read(seq_len)))
+        flow_index = data[read_flow_size : read_flow_size + seq_len]
+        seq = data[read_flow_size + seq_len : read_flow_size + seq_len * 2]
+        quals = list(data[read_flow_size + seq_len * 2 :])
         self._offset += self.read_flow_size + seq_len * 3
         # now any padding...
         padding = (self.read_flow_size + seq_len * 3) % 8

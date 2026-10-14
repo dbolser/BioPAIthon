@@ -59,6 +59,12 @@ These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
 and the upstream development towards Biopython 1.89 recorded below. They are
 not part of any upstream Biopython release.
 
+The SFF parser and indexer in ``Bio.SeqIO`` now raise ``ValueError`` for a
+file cut short inside a read, saying what was expected and the offset of the
+read. A cut inside a read's header used to fail with ``struct.error``; a cut
+inside its flowgram, bases or qualities could also fail with ``struct.error``,
+and ``get_raw()`` returned the short read without complaint.
+
 ``Bio.Align.codon_align`` given a protein ``Alignment``, a form merged from
 upstream (see the next paragraph), now uses the ``codon_table`` and other
 keyword arguments it is given. As merged, it ignored them, so a non-standard

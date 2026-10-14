@@ -254,9 +254,80 @@ class TestErrors(unittest.TestCase):
                 list(_sff_do_slow_index(handle))
         self.assertEqual(
             str(cm.exception),
-            "Malformed read header at offset 440, should end at offset 472 "
-            "but its name and padding end at 461",
+            "Premature end of SFF file, expected 14 byte read name for the "
+            "read at offset 440 but got only 5",
         )
+
+    def test_truncated_read(self):
+        # The first read starts at 440: a 16 byte fixed header, a 14 byte
+        # name, 2 bytes of padding, then a 1595 byte block of 400 flowgram
+        # values (800 bytes) and 265 flow indexes, bases and qualities.
+        # The last read starts at 15328 and its block is 1457 bytes.
+        block = "flowgram and quality block"
+        for size, offset, what, got in (
+            (440, 440, "16 byte read header", 0),
+            (445, 440, "16 byte read header", 5),
+            (460, 440, "14 byte read name", 4),
+            (480, 440, f"1595 byte {block}", 8),  # in the flowgram values
+            (1900, 440, f"1595 byte {block}", 1428),  # in the qualities
+            (16000, 15328, f"1457 byte {block}", 640),
+        ):
+            msg = (
+                f"Premature end of SFF file, expected {what} for the read at "
+                f"offset {offset} but got only {got}"
+            )
+            with self.subTest(size=size):
+                with self.assertRaises(ValueError) as cm:
+                    list(SeqIO.parse(BytesIO(self.good[:size]), "sff"))
+                self.assertEqual(str(cm.exception), msg)
+                handle = BytesIO(self.good[:size])
+                handle.seek(offset)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", BiopythonParserWarning)
+                    with self.assertRaises(ValueError) as cm:
+                        _sff_read_raw_record(handle, 400)
+                self.assertEqual(str(cm.exception), msg)
+
+    def test_short_reads(self):
+        # A raw or unbuffered handle may return fewer bytes than asked for
+        # before the end of the file; that is not a truncated file.
+        class ShortReads(BytesIO):
+            def read(self, size=-1):
+                if size is not None and size > 500:
+                    size = 500
+                return super().read(size)
+
+        # The first read's 1595 byte flowgram and quality block is bigger
+        # than any single read() on this handle returns.
+        expected = next(SeqIO.parse(BytesIO(self.good), "sff"))
+        record = next(SeqIO.parse(ShortReads(self.good), "sff"))
+        self.assertEqual(record.id, expected.id)
+        self.assertEqual(record.seq, expected.seq)
+        self.assertEqual(record.letter_annotations, expected.letter_annotations)
+        self.assertEqual(record.annotations, expected.annotations)
+        raws = []
+        for handle in (BytesIO(self.good), ShortReads(self.good)):
+            handle.seek(440)
+            raws.append(_sff_read_raw_record(handle, 400))
+        self.assertEqual(raws[0], raws[1])
+
+    def test_truncated_read_slow_index(self):
+        block = "flowgram and quality block"
+        for size, offset, what in (
+            (440, 440, "16 byte read header"),
+            (1900, 440, f"1595 byte {block}"),
+            (16000, 15328, f"1457 byte {block}"),
+        ):
+            msg = (
+                f"Premature end of SFF file, expected {what} for the read at "
+                f"offset {offset}"
+            )
+            if size == 440:
+                msg += " but got only 0"
+            with self.subTest(size=size):
+                with self.assertRaises(ValueError) as cm:
+                    list(_sff_do_slow_index(BytesIO(self.good[:size])))
+                self.assertEqual(str(cm.exception), msg)
 
     def test_write_len_mismatch(self):
         records = list(SeqIO.parse(BytesIO(self.good), "sff"))[:3]
