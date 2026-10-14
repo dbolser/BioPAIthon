@@ -8,6 +8,7 @@
 import os
 import subprocess
 import sys
+import sysconfig
 import unittest
 
 try:
@@ -154,7 +155,10 @@ for start in range(40):
         _testcapi.remove_mem_hooks()
 print(" ".join(outcomes))
 """
-        env = dict(os.environ, PYTHONMALLOC="malloc")
+        env = dict(os.environ)
+        if not sysconfig.get_config_var("Py_GIL_DISABLED"):
+            # The free-threaded build rejects PYTHONMALLOC=malloc.
+            env["PYTHONMALLOC"] = "malloc"
         child = subprocess.run(
             [sys.executable, "-c", code], env=env, capture_output=True, text=True
         )
