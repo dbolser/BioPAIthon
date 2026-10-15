@@ -49,15 +49,27 @@ What has **not** changed:
 - Attribution. Essentially all of this code was written by the Biopython
   contributors, and the package metadata continues to credit them as authors.
 
-The distribution name on PyPI would be ``biopaithon`` rather than
-``biopython``, and the default branch is now ``main`` rather than ``master``.
+The distribution name on PyPI is ``biopaithon`` rather than ``biopython``,
+and the default branch is now ``main`` rather than ``master``.
 
-(In progress, not yet released): BioPAIthon 1.88
-================================================
+15 October 2026: BioPAIthon 1.88
+================================
 
-These are BioPAIthon's own changes, made on top of the Biopython 1.88 release
-and the upstream development towards Biopython 1.89 recorded below. They are
-not part of any upstream Biopython release.
+BioPAIthon 1.88 is the fork's first release that is not a pre-release. It is
+Biopython 1.88 plus upstream Biopython's development up to 12 October 2026,
+plus the fork's own changes. It supports Python 3.10 to 3.14, including the
+free-threaded build of Python 3.14, for which there are ``cp314t`` wheels.
+Other headline changes: the first Needleman-Wunsch alignment of two long
+sequences with linear gap scores no longer needs the whole traceback matrix;
+``register_format`` and entry points let other packages add file formats to
+``Bio.SeqIO`` and ``Bio.Align``; ``Bio.Align`` reads formats and layouts it
+could not before, such as relaxed PHYLIP and interleaved Stockholm; every C
+extension ships type stubs; the parsers raise ``ValueError`` rather than
+``AssertionError`` for malformed input; and the test suite is run by pytest.
+
+The entries below are BioPAIthon's own changes, made on top of the Biopython
+1.88 release and the upstream development towards Biopython 1.89 recorded
+further down. They are not part of any upstream Biopython release.
 
 Deleting an attribute of a ``Bio.Align.CodonAligner`` now raises
 ``AttributeError`` and leaves the setting as it was. ``del aligner.wildcard``

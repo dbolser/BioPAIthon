@@ -88,10 +88,9 @@ scientific work.
 For the impatient
 =================
 
-BioPAIthon is published on PyPI as ``biopaithon``. The current release is a
-*developmental* release, so pip needs ``--pre`` to select it::
+BioPAIthon is published on PyPI as ``biopaithon``::
 
-    pip install --pre biopaithon
+    pip install biopaithon
 
 Note that BioPAIthon installs the same ``Bio`` package that Biopython does, so
 the two conflict and cannot be used side by side in one environment. Use a
@@ -135,7 +134,7 @@ Depending on which parts of Biopython you plan to use, there are a number of
 other optional Python dependencies, which can be installed later if needed.
 Most are grouped into extras, so pip can install a whole stack by name::
 
-    pip install --pre "biopaithon[graphics]"
+    pip install "biopaithon[graphics]"
 
 - ``graphics`` -- ReportLab and Pillow, for ``Bio.Graphics``.
 - ``phylo`` -- matplotlib, networkx, igraph and rdflib, for ``Bio.Phylo``.
