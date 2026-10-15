@@ -64,7 +64,7 @@ sequences with linear gap scores no longer needs the whole traceback matrix;
 ``register_format`` and entry points let other packages add file formats to
 ``Bio.SeqIO`` and ``Bio.Align``; ``Bio.Align`` reads formats and layouts it
 could not before, such as relaxed PHYLIP and interleaved Stockholm; every C
-extension ships type stubs; the parsers raise ``ValueError`` rather than
+extension ships type stubs; most parsers raise ``ValueError`` rather than
 ``AssertionError`` for malformed input; and the test suite is run by pytest.
 
 The entries below are BioPAIthon's own changes, made on top of the Biopython
