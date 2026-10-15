@@ -52,6 +52,9 @@ What has **not** changed:
 The distribution name on PyPI is ``biopaithon`` rather than ``biopython``,
 and the default branch is now ``main`` rather than ``master``.
 
+(In progress, not yet released): BioPAIthon 1.89
+================================================
+
 15 October 2026: BioPAIthon 1.88
 ================================
 
