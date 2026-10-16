@@ -55,6 +55,14 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
+version once ``Bio`` has been imported, instead of raising
+``PackageNotFoundError``. The distribution is still called ``biopaithon``;
+a small finder on ``sys.meta_path`` answers for the old name only, after any
+real ``biopython`` distribution that is installed. Nextstrain's augur checks
+the Biopython version this way before every sequence read, and all 50 of its
+sequence tests failed on BioPAIthon for no other reason.
+
 15 October 2026: BioPAIthon 1.88
 ================================
 
