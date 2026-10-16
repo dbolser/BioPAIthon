@@ -279,10 +279,14 @@ Both of the memory-safety findings have now been passed on. Neither is closed.
   to the `Bio/PDB` owners on 2026-08-03 under their `.github/SECURITY.md`,
   rather than to the public tracker, because it is driven by file content. The
   patch is AI-written, so upstream is reimplementing it clean-room from the
-  report; Will Tyler has been asked to take it. A MITRE CVE request is agreed
-  in principle and not yet submitted — it should wait until the fix has a
-  public reference. Peter Cock confirmed their only precedent is
-  CVE-2025-68463, assigned by MITRE at the reporter's request.
+  report; Will Tyler has been asked to take it but can't promise time. The CVE
+  is going through a GitHub Security Advisory raised by upstream, not MITRE:
+  on 2026-08-06 Peter Cock offered the same route he used for the NEXUS
+  `eval()` bug (GHSA-cxcq-r753-xf25, still without a CVE weeks later), with
+  this fork's maintainer credited as finder. On 2026-09-06 he asked Will and
+  Michiel de Hoon to confirm the severity and log it. As of 2026-10-16 there
+  has been no reply, no published advisory and no fix on upstream `master`. The precedent
+  before that, CVE-2025-68463, was assigned by MITRE at the reporter's request.
 - **`Bio/Align/_aligncore.c` returns heap contents.** Filed publicly as #5272,
   since it needs a caller to pass malformed input rather than arriving in a
   downloaded file. Different module and different owner (@mdehoon) from the
