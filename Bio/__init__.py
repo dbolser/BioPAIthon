@@ -186,5 +186,20 @@ class _BiopythonDistributionFinder:
             return iter(())
 
 
-if not any(isinstance(_f, _BiopythonDistributionFinder) for _f in sys.meta_path):
+def _register_distribution_finder():
+    """Append the finder to sys.meta_path once.
+
+    Matched by module and class name rather than identity, so that
+    ``importlib.reload(Bio)``, which makes a new class, does not add a second.
+    """
+    for finder in sys.meta_path:
+        cls = type(finder)
+        if (
+            cls.__module__ == __name__
+            and cls.__name__ == "_BiopythonDistributionFinder"
+        ):
+            return
     sys.meta_path.append(_BiopythonDistributionFinder())
+
+
+_register_distribution_finder()

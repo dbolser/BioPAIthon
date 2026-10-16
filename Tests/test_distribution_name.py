@@ -27,6 +27,13 @@ class TestDistributionName(unittest.TestCase):
         self.assertEqual(len(finders), 1, "exactly one finder is registered")
         self.finder = finders[0]
 
+    def test_registration_is_idempotent(self):
+        Bio._register_distribution_finder()
+        finders = [
+            f for f in sys.meta_path if isinstance(f, Bio._BiopythonDistributionFinder)
+        ]
+        self.assertEqual(len(finders), 1)
+
     def test_other_names_are_not_answered(self):
         Context = importlib.metadata.DistributionFinder.Context
         for name in (None, "numpy", "biopaithon", "bio"):
