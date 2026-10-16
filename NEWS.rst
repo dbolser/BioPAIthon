@@ -62,8 +62,6 @@ a small finder on ``sys.meta_path`` answers for the old name only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
 sequence tests failed on BioPAIthon for no other reason.
-||||||| parent of 8b4b540cf (Decode BinaryCIF null strings instead of indexing the string table with -1)
-
 ``Bio.PDB.binary_cif.BinaryCIFParser`` now reads the BinaryCIF files that the
 RCSB serves. A string column stores a null value (mmCIF ``.`` or ``?``) as the
 index -1, and the decoder indexed its string table with it. A column with no
