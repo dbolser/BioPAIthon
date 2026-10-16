@@ -175,7 +175,13 @@ def _string_array_decoder(column):
         unique_strings[index] = unique_string
 
     lookups = _decode(lookup_column)
-    column["data"]["data"] = unique_strings[lookups]
+    # A lookup of -1 is a null value (mmCIF "." or "?"), not an index.
+    # Indexing with it would wrap round to the last string, or fail on a
+    # column with no strings at all.
+    strings = np.full(len(lookups), None, dtype=object)
+    present = lookups >= 0
+    strings[present] = unique_strings[lookups[present]]
+    column["data"]["data"] = strings
     column["data"]["encoding"].pop()
 
 

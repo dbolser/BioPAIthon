@@ -62,6 +62,16 @@ a small finder on ``sys.meta_path`` answers for the old name only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
 sequence tests failed on BioPAIthon for no other reason.
+||||||| parent of 8b4b540cf (Decode BinaryCIF null strings instead of indexing the string table with -1)
+
+``Bio.PDB.binary_cif.BinaryCIFParser`` now reads the BinaryCIF files that the
+RCSB serves. A string column stores a null value (mmCIF ``.`` or ``?``) as the
+index -1, and the decoder indexed its string table with it. A column with no
+strings at all, such as the all-null ``label_alt_id`` most entries have,
+raised ``IndexError``, and a column with some strings quietly took its last
+string in place of each null. 196 of 200 randomly chosen current entries
+failed to parse; all 200 now give the same structure as ``MMCIFParser`` does
+from the matching mmCIF file. A null string decodes to ``None``.
 
 15 October 2026: BioPAIthon 1.88
 ================================

@@ -18,6 +18,7 @@ import support
 
 from Bio.PDB import _bcif_helper
 from Bio.PDB import MMCIFParser
+from Bio.PDB.binary_cif import _decode
 from Bio.PDB.binary_cif import _fixed_point_decoder
 from Bio.PDB.binary_cif import _integer_packing_decoder
 from Bio.PDB.binary_cif import _run_length_decoder
@@ -204,12 +205,46 @@ class TestMalformedEncodings(unittest.TestCase):
             _fixed_point_decoder(column)
 
 
+class TestStringArrayDecoder(unittest.TestCase):
+    """A lookup of -1 in a StringArray column is a null value, not an index."""
+
+    @staticmethod
+    def column(lookups, strings):
+        offsets = np.cumsum([0] + [len(s) for s in strings]).astype(np.int32)
+        return {
+            "data": {
+                "data": np.array(lookups, dtype=np.int32),
+                "encoding": [
+                    {
+                        "kind": "StringArray",
+                        "dataEncoding": [],
+                        "stringData": "".join(strings),
+                        "offsetEncoding": [],
+                        "offsets": offsets,
+                    }
+                ],
+            }
+        }
+
+    def test_null_among_strings(self):
+        """Test that a null is None, not the last string in the table."""
+        column = self.column([0, -1, 1, -1], ["A", "B"])
+        self.assertEqual(list(_decode(column)), ["A", None, "B", None])
+
+    def test_all_null(self):
+        """Test a column with no strings at all, which used to raise IndexError."""
+        column = self.column([-1, -1, -1], [])
+        self.assertEqual(list(_decode(column)), [None, None, None])
+
+
 class TestBinaryCIFParser(unittest.TestCase):
     def test_get_structure(self):
         mmcif_parser = MMCIFParser(auth_chains=False)
         bcif_parser = BinaryCIFParser()
 
-        for entry in ["1GBT", "6WG6", "3JQH"]:
+        # 1E6G is a current RCSB file whose label_alt_id and pdbx_PDB_ins_code
+        # columns are entirely null, which the decoder used to reject.
+        for entry in ["1GBT", "6WG6", "3JQH", "1E6G"]:
             mmcif_structure = mmcif_parser.get_structure(
                 entry, support.DATA / "PDB" / f"{entry}.cif"
             )
