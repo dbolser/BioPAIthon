@@ -19,6 +19,7 @@ https://biopython.org
 """
 
 import os
+import sys
 import warnings
 
 __version__ = "1.89.dev0"
@@ -151,3 +152,39 @@ if os.path.exists(os.path.join(_parent_dir, "pyproject.toml")):
             " pyproject.toml file in an unexpected directory: " + _parent_dir,
             BiopythonWarning,
         )
+
+
+class _BiopythonDistributionFinder:
+    """Answer ``importlib.metadata`` queries for "biopython" with this package.
+
+    The fork renamed the distribution to "biopaithon" and kept the ``Bio``
+    package. Code that asks ``importlib.metadata.version("biopython")``, for
+    example to choose a code path by version, would otherwise get
+    ``PackageNotFoundError`` from a package it can import. This finder sits
+    last on ``sys.meta_path``, so a real biopython distribution still answers
+    first, and it answers only for that one name, never for a listing of all
+    distributions. It imports nothing until asked.
+    """
+
+    def find_spec(self, name, path=None, target=None):
+        """Find no modules; this finder exists for distribution metadata only."""
+        return None
+
+    def find_distributions(self, context=None):
+        """Yield the biopaithon distribution when asked for "biopython"."""
+        name = getattr(context, "name", None)
+        if (
+            name is None
+            or name.lower().replace("_", "-").replace(".", "-") != "biopython"
+        ):
+            return iter(())
+        import importlib.metadata
+
+        try:
+            return iter((importlib.metadata.distribution("biopaithon"),))
+        except importlib.metadata.PackageNotFoundError:
+            return iter(())
+
+
+if not any(isinstance(_f, _BiopythonDistributionFinder) for _f in sys.meta_path):
+    sys.meta_path.append(_BiopythonDistributionFinder())
