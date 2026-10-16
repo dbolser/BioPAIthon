@@ -284,9 +284,8 @@ Both of the memory-safety findings have now been passed on. Neither is closed.
   on 2026-08-06 Peter Cock offered the same route he used for the NEXUS
   `eval()` bug (GHSA-cxcq-r753-xf25, still without a CVE weeks later), with
   this fork's maintainer credited as finder. On 2026-09-06 he asked Will and
-  Michiel de Hoon to confirm the severity (suggested CVSS 3.1: 7.8, or 5.5
-  counting only the observed crash) and log it. As of 2026-10-16 there has
-  been no reply, no advisory and no fix on upstream `master`. The precedent
+  Michiel de Hoon to confirm the severity and log it. As of 2026-10-16 there
+  has been no reply, no published advisory and no fix on upstream `master`. The precedent
   before that, CVE-2025-68463, was assigned by MITRE at the reporter's request.
 - **`Bio/Align/_aligncore.c` returns heap contents.** Filed publicly as #5272,
   since it needs a caller to pass malformed input rather than arriving in a
