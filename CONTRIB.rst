@@ -358,6 +358,7 @@ https://biopython.org
 - Seth Sims <https://github.com/xzy3>
 - She Zhang <https://github.com/shz66>
 - Shoichiro Kawauchi <https://github.com/lacrosse91>
+- Shubhodeep Chatterjee <https://github.com/shubhodeepcx>
 - Shuichiro MAKIGAKI <https://github.com/shuichiro-makigaki>
 - Shyam Saladi <https://github.com/smsaladi>
 - Siddharta Morion <https://github.com/siddhartasr10>
