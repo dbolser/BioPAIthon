@@ -354,7 +354,14 @@ class PDBIO(StructureIO):
             raise ValueError("One of 'truncate_to' or 'delete_file' must be provided")
 
     # Public methods
-    def save(self, file, select=_select, write_end=True, preserve_atom_numbering=False):
+    def save(
+        self,
+        file,
+        select=_select,
+        write_end=True,
+        preserve_atom_numbering=False,
+        write_ter=True,
+    ):
         """Save structure to a file.
 
         :param file: output file
@@ -376,6 +383,9 @@ class PDBIO(StructureIO):
 
         Typically select is a subclass of L{Select}.
 
+        :param write_end: write an END record at the end of the file.
+        :type write_end: bool
+
         :param preserve_atom_numbering: write each atom with its stored
             serial number (``atom.serial_number``) instead of numbering the
             atoms from 1 in each model. Each TER record takes the serial
@@ -385,6 +395,12 @@ class PDBIO(StructureIO):
             records after its TER, such as waters, are written before the
             TER, which can then share its serial with a later atom.
         :type preserve_atom_numbering: bool
+
+        :param write_ter: write a TER record after each chain. Set this
+            to False to omit the TER records, e.g. for tools that do not
+            expect them. The resulting file is not strictly compliant with
+            the PDB format.
+        :type write_ter: bool
         """
         if isinstance(file, str):
             fhandle = open(file, "w")
@@ -491,7 +507,7 @@ class PDBIO(StructureIO):
                             # inconsequential if preserve_atom_numbering is True
                             atom_number += 1
 
-                if chain_residues_written:
+                if write_ter and chain_residues_written:
                     if atom_number > 99999:
                         if isinstance(file, str):
                             self._revert_write(fhandle, delete_file=True)
