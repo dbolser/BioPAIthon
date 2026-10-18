@@ -72,8 +72,8 @@ typedef struct {
      * Releases the GIL.  Returns 0, or -1 if interrupted by a signal. */
     int (*sweep)(const LinearPaths* self, double* row, int r0, int r1, int c,
                  unsigned char* T, size_t tstride, Py_ssize_t* counts);
-    /* The score of the alignment, from the last row.  A kernel with more
-     * than one matrix also stores in *end the matrices the paths end in. */
+    /* The score of the alignment, from the last row.  Also stores in *end
+     * the matrices the paths end in, 0 if the full matrix has no paths. */
     double (*score)(const LinearPaths* self, const double* row, int* end);
     /* The number of paths, from the path counts of the last row, or
      * OVERFLOW_ERROR. */
@@ -110,7 +110,7 @@ struct LinearPaths {
     int nB;
     unsigned char strand;
     double score;
-    int end;             /* the matrices the paths end in, for Gotoh */
+    int end;             /* the matrices the paths end in; 0 if none */
     LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
@@ -405,9 +405,10 @@ linear_nw_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
 }
 
 static double
-linear_nw_score(const LinearPaths* self, const double* row,
-                int* Py_UNUSED(end))
+linear_nw_score(const LinearPaths* self, const double* row, int* end)
 {
+    *end = M_MATRIX;  /* its one matrix; NEEDLEMANWUNSCH_ALIGN keeps the
+                       * last trace */
     return row[self->nB];
 }
 
@@ -1135,6 +1136,8 @@ LinearPaths_next(LinearPaths* self)
     if (linear_lock(self) < 0) return NULL;
     if (self->position == 0) {
         if (!self->first) {
+            /* no paths, as the full matrix's generator finds at once */
+            if (!self->end) goto exit;
             self->first = LinearPaths_first_path(self);
             if (self->first) {
                 PyMem_Free(self->checkpoints);

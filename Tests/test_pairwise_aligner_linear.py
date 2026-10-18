@@ -496,6 +496,34 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(repr(next(forced._paths)), first, message)
             self.assertTrue(forced._paths._materialized, message)
 
+    def test_no_paths(self):
+        # A negative epsilon clears every trace of Gotoh's last cell, so the
+        # full matrix has no paths, and nor has the linear-space traceback.
+        # Needleman-Wunsch keeps its last trace, and so its paths.
+        for aligner, seqA, seqB in [
+            (gotoh_aligner(epsilon=-1), "ACGT", "AGT"),
+            (gotoh_aligner(epsilon=-1e-6), "GAACT", "GAT"),
+            (Align.PairwiseAligner(scoring="blastn", epsilon=-1e-9), "GAACT", "GAT"),
+        ]:
+            message = f"{aligner.algorithm} {seqA} {seqB} {aligner.epsilon}"
+            expected = aligner.align(seqA, seqB)
+            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            self.assertIs(type(forced._paths), LinearPaths, message)
+            self.assertEqual(forced.score, expected.score, message)
+            self.assertEqual(len(expected), 0, message)
+            self.assertEqual(list(expected), [], message)
+            with self.assertRaises(IndexError):
+                forced[0]
+            self.assertEqual(list(forced), [], message)
+            with self.assertRaises(StopIteration):
+                next(forced._paths)
+            self.assertEqual(len(forced), 0, message)
+            self.assertFalse(forced, message)
+            forced.rewind()
+            self.assertEqual(list(forced), [], message)
+            self.assertFalse(forced._paths._materialized, message)
+        self.check(nw_aligner(epsilon=-1), ("ACGT", "AGT", "+"), (1, 1))
+
     def test_overflow(self):
         # TestOverflowError of test_pairwise_aligner, in linear space; the
         # same with affine gap scores; and a count just short of it.
