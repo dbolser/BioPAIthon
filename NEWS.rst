@@ -59,7 +59,9 @@ and the default branch is now ``main`` rather than ``master``.
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's
 name, with no error, so ``((a:  0.1,b:  0.2),c);`` gave leaves named ``0.1``
-and ``0.2`` and no branch lengths. NEXUS files were not affected.
+and ``0.2`` and no branch lengths. On an inner clade the length replaced the
+support value instead, so ``(a,b)0.95:  0.3`` gave a confidence of 0.3 and
+lost the 0.95. NEXUS files were not affected.
 
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising

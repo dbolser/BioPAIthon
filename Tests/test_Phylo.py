@@ -216,7 +216,7 @@ class IOTests(unittest.TestCase):
             [0.1, 0.2, 0.3, 0.4],
         )
         self.assertEqual(inner.confidence, 0.95)
-        # Whitespace that float() does not strip itself
+        # Unicode whitespace: float() strips "\xa0" itself but not "\x1f"
         tree = Phylo.read(StringIO("(a:\x1f0.1,b:\xa00.2);"), "newick")
         self.assertEqual(
             [clade.branch_length for clade in tree.root.clades], [0.1, 0.2]
