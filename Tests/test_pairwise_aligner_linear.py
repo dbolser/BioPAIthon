@@ -809,16 +809,17 @@ class TestDifferential(unittest.TestCase):
         # does here, after the mismatch of A with B.  Both counts seed such a
         # start point with one path, so both count the two optimal local
         # alignments, as enumerating every local alignment gives.
-        aligner = sw_aligner()
         paths = [[[0, 1], [1, 2]], [[1, 2], [1, 2]]]
-        expected = aligner.align("AA", "BA")
-        forced = forced_align(aligner, "AA", "BA", budgets=(1, 1))
-        for alignments in (expected, forced):
-            self.assertEqual(alignments.score, 1)
-            self.assertEqual(len(alignments), 2)
-        self.assertFalse(forced._paths._materialized)
-        for alignments in (expected, forced):
-            self.assertEqual(coordinates(alignments, 3), paths)
+        for aligner in (sw_aligner(), gotoh_local_aligner()):
+            message = aligner.algorithm
+            expected = aligner.align("AA", "BA")
+            forced = forced_align(aligner, "AA", "BA", budgets=(1, 1))
+            for alignments in (expected, forced):
+                self.assertEqual(alignments.score, 1, message)
+                self.assertEqual(len(alignments), 2, message)
+            self.assertFalse(forced._paths._materialized, message)
+            for alignments in (expected, forced):
+                self.assertEqual(coordinates(alignments, 3), paths, message)
 
     def test_overflow(self):
         # TestOverflowError of test_pairwise_aligner, in linear space; the
