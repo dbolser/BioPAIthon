@@ -139,8 +139,8 @@ recommended the held route for the two `cluster.c` heap overflows, and `pca`
 on data read by `Bio.Cluster.read` from a downloaded file is arguably
 file-driven.
 
-- `Bio.Cluster`: `clusterdistance(..., method="m")` with an index list longer than the matrix overflows the heap.
-- `Bio.Cluster`: `pca` on data holding `inf`, or with a column mean that overflows, makes `svd` read `w[-1]`.
+- `Bio.Cluster`: `clusterdistance(..., method="m")` with an index list longer than the matrix has rows (columns, with `transpose`) overflows the heap.
+- `Bio.Cluster`: `pca` on data holding `inf`, or with a column mean that overflows, makes `svd` read `w[-1]`. So does finite data whose column means are finite but which overflow inside `svd`, such as `[[1e308, 1], [-1e308, 2], [0, 3]]`, so checking the input alone does not fix it.
 - `Bio.Cluster`: the C `pca` never checks the eigenvalues array's length, and its shape errors print the wrong array.
 - `Bio.Cluster`: `PyTree_length` returns `int` but is installed as a `lenfunc`.
 - `Bio.Cluster`: `somcluster` given a plain list raises `AttributeError`; `_cluster.Tree` and `_cluster.pca` ignore keyword arguments.

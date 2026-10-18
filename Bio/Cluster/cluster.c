@@ -574,6 +574,8 @@ svd(int m, int n, double** u, double w[], double** vt)
  * the routine returns an integer ierr equal to
  *  0:  to indicate a normal return,
  *  k:  if the k-th singular value has not been determined after 30 iterations,
+ *  min(m, n): if no singular value can be determined, because u contains an
+ *      infinity or a NaN, or values so large that the calculation overflows,
  * -1:  if memory allocation fails.
  *
  * w  contains the n (non-negative) singular values of a (the
@@ -672,6 +674,17 @@ svd(int m, int n, double** u, double w[], double** vt)
                 }
             }
             anorm = max(anorm, fabs(w[i])+fabs(rv1[i]));
+        }
+        /* The test for splitting below stops at l == 0 only because
+         * rv1[0] + anorm == anorm. If u holds an infinity or a NaN, or the
+         * reduction overflowed, anorm can be a NaN and the test then reads
+         * w[-1]. max() drops a NaN unless it comes last, so check every
+         * value rather than anorm. */
+        for (i = 0; i < n; i++) {
+            if (!isfinite(w[i]) || !isfinite(rv1[i])) {
+                FREE(rv1);
+                return n;
+            }
         }
         /* accumulation of right-hand transformations */
         for (i = n-1; i >= 0; i--) {
@@ -874,6 +887,13 @@ svd(int m, int n, double** u, double w[], double** vt)
                 }
             }
             anorm = max(anorm, fabs(w[i])+fabs(rv1[i]));
+        }
+        /* As above, the test for splitting needs a finite bidiagonal form. */
+        for (i = 0; i < m; i++) {
+            if (!isfinite(w[i]) || !isfinite(rv1[i])) {
+                FREE(rv1);
+                return m;
+            }
         }
         /* accumulation of right-hand transformations */
         for (i = m-1; i >= 0; i--) {
@@ -1087,7 +1107,9 @@ The arrays u, v, and w are sorted according to eigenvalue, with the largest
 eigenvalues appearing first.
 
 The function returns 0 if successful, -1 if memory allocation fails, and a
-positive integer if the singular value decomposition fails to converge.
+positive integer if the singular value decomposition fails to converge,
+including when u contains an infinity or a NaN, or values so large that the
+calculation overflows.
 */
 {
     int i;
@@ -4987,9 +5009,13 @@ when samples are being clustered.
         }
         case 'm': {
             int i, j, k;
+            /* temp holds one value per cluster member; an index may occur
+             * more than once, so a cluster can have more members than the
+             * matrix has rows or columns. */
+            const int n = max(n1, n2);
             if (transpose == 0) {
                 double distance;
-                double* temp = MALLOC(nrows*sizeof(double));
+                double* temp = MALLOC(n*sizeof(double));
                 double* cdata[2];
                 int* cmask[2];
                 for (i = 0; i < 2; i++) {
@@ -5043,7 +5069,7 @@ when samples are being clustered.
             }
             else {
                 double distance;
-                double* temp = MALLOC(ncolumns*sizeof(double));
+                double* temp = MALLOC(n*sizeof(double));
                 double** cdata = MALLOC(nrows*sizeof(double*));
                 int** cmask = MALLOC(nrows*sizeof(int*));
                 for (i = 0; i < nrows; i++) {

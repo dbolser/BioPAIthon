@@ -4,6 +4,7 @@
 
 """Tests for Cluster module."""
 
+import os
 import subprocess
 import sys
 import sysconfig
@@ -3012,6 +3013,15 @@ class TestCluster(unittest.TestCase):
         message = "^array has incorrect data type$"
         with self.assertRaisesRegex(RuntimeError, message):
             pca(data, columnmean, coordinates, pc, np.ones(3, dtype=np.int16))
+        message = "^pc has inconsistent size 3 x 2 \\(expected 2 x 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, coordinates, np.zeros((3, 2)), eigenvalues)
+        message = "^coordinates has inconsistent size 4 x 3 \\(expected 4 x 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, np.zeros((4, 3)), pc, eigenvalues)
+        message = "^eigenvalues has inconsistent size 3 \\(expected 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, coordinates, pc, np.zeros(3))
 
     def test_pca(self):
         if TestCluster.module == "Bio.Cluster":
@@ -3521,6 +3531,137 @@ class TestClusterThreads(unittest.TestCase):
         used from a private copy, so they cannot go out of bounds.
         """
         self.run_child(CHANGING_INDEX_ARRAYS)
+
+
+class TestClusterCrashes(unittest.TestCase):
+    """Tests of input that used to crash Python inside Bio.Cluster.
+
+    Each runs in a child process with PYTHONMALLOC=debug, which pads every
+    allocation, so a write past the end of a buffer stops the child rather
+    than passing unnoticed or taking down the whole test run.
+    """
+
+    def setUp(self):
+        if TestCluster.module != "Bio.Cluster":
+            self.skipTest("these tests call Bio.Cluster")
+
+    def run_child(self, code):
+        env = os.environ.copy()
+        env["PYTHONMALLOC"] = "debug"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), "OK", result.stderr)
+
+    def test_clusterdistance_median_repeated_indices(self):
+        """Check method "m" takes clusters larger than the matrix.
+
+        An index may be repeated, so a cluster can have more members than
+        the matrix has rows; the median used to be collected in a buffer
+        with room for one value per row.
+        """
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import clusterdistance
+
+data = np.arange(12.0).reshape(3, 4)
+for matrix, transpose in ((data, False), (data.T.copy(), True)):
+    expected = clusterdistance(
+        matrix, index1=[0], index2=[1, 2], method="m", transpose=transpose
+    )
+    for index1, index2 in (([0] * 5000, [1, 2]), ([0], [1, 2] * 2500)):
+        distance = clusterdistance(
+            matrix, index1=index1, index2=index2, method="m", transpose=transpose
+        )
+        assert distance == expected, (distance, expected)
+print("OK")
+"""
+        )
+
+    def test_pca_infinite_data(self):
+        """Check pca rejects data whose column means are not finite."""
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import _cluster, pca
+
+message = (
+    "data contains infinite or NaN values, "
+    "or values so large that the mean of a column overflows"
+)
+for data in (
+    [[1.0, 2.0], [3.0, np.inf], [5.0, 6.0]],
+    [[1.0, 2.0, 3.0], [-np.inf, 5.0, 6.0]],
+    [[1.0], [np.inf]],
+    np.full((3, 2), 1e308),
+    np.full((2, 3), 1e308),
+):
+    try:
+        pca(data)
+    except ValueError as error:
+        assert str(error) == message, error
+    else:
+        raise AssertionError(f"no ValueError for {data}")
+# pca rejects NaN itself, but the private function did not
+data = np.array([[1.0, np.nan], [2.0, 3.0], [4.0, 5.0]])
+arrays = (np.empty(2), np.empty((3, 2)), np.empty((2, 2)), np.empty(2))
+try:
+    _cluster.pca(data, *arrays)
+except ValueError as error:
+    assert str(error) == message, error
+else:
+    raise AssertionError("no ValueError for NaN")
+print("OK")
+"""
+        )
+
+    def test_pca_overflow(self):
+        """Check pca fails cleanly if finite data overflow in the SVD."""
+        self.run_child(
+            """
+from Bio.Cluster import pca
+
+for data in (
+    [[1e308, 1.0], [-1e308, 2.0], [0.0, 3.0]],
+    [[1e308, 1.0, 3.0], [-1e308, 2.0, 5.0]],
+    [[1e308], [-1e308], [0.0]],
+):
+    try:
+        pca(data)
+    except RuntimeError as error:
+        assert str(error) == "Singular value decomposition failed to converge"
+    else:
+        raise AssertionError(f"no RuntimeError for {data}")
+print("OK")
+"""
+        )
+
+    def test_pca_short_eigenvalues(self):
+        """Check the private pca checks the size of its eigenvalues array."""
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import _cluster
+
+data = np.random.default_rng(0).random((200, 100))
+arrays = (np.empty(100), np.empty((200, 100)), np.empty((100, 100)))
+for size in (1, 99):
+    try:
+        _cluster.pca(data, *arrays, np.empty(size))
+    except RuntimeError as error:
+        expected = f"eigenvalues has inconsistent size {size} (expected 100)"
+        assert str(error) == expected, error
+    else:
+        raise AssertionError(f"no RuntimeError for size {size}")
+print("OK")
+"""
+        )
 
 
 if __name__ == "__main__":
