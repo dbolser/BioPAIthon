@@ -492,8 +492,8 @@ static const LinearKernel linear_nw_matrix = {
  * so that its first columns are a prefix.  A cell's trace bits take two
  * bytes, as in the full matrix: the trace of M, then those of Ix and Iy as
  * TraceGapsGotoh holds them, Ix in the low four bits. */
-#define LINEAR_GOTOH_IX(tr, j) ((tr)[2*(j)+1] & 0xf)
-#define LINEAR_GOTOH_IY(tr, j) ((tr)[2*(j)+1] >> 4)
+#define LINEAR_GOTOH_IX(tr, j) ((tr)[2*(size_t)(j)+1] & 0xf)
+#define LINEAR_GOTOH_IY(tr, j) ((tr)[2*(size_t)(j)+1] >> 4)
 
 /* SELECT_TRACE_GOTOH_GLOBAL_ALIGN and SELECT_TRACE_GOTOH_GLOBAL_GAP,
  * without the store of the trace.  The arithmetic must stay identical to
@@ -533,24 +533,25 @@ static const LinearKernel linear_nw_matrix = {
 
 /* A cell of GOTOH_GLOBAL_ALIGN, with the gap scores of its row and column,
  * in the order of its statements.  M, Ix and Iy of column j are row[3*j],
- * row[3*j+1] and row[3*j+2]. */
+ * row[3*j+1] and row[3*j+2].  Indices are in size_t, as 3*j can be over
+ * INT_MAX. */
 #define LINEAR_GOTOH_CELL(open_B, extend_B, open_A, extend_A, align_score) \
     LINEAR_GOTOH_ALIGN; \
-    tr[2*j] = (unsigned char)trace; \
-    M_temp = row[3*j]; \
-    row[3*j] = score + (align_score); \
+    tr[2*(size_t)j] = (unsigned char)trace; \
+    M_temp = row[3*(size_t)j]; \
+    row[3*(size_t)j] = score + (align_score); \
     LINEAR_GOTOH_GAP(M_temp + open_B, \
-                     row[3*j+1] + extend_B, \
-                     row[3*j+2] + open_B); \
-    tr[2*j+1] = (unsigned char)trace; \
-    Ix_temp = row[3*j+1]; \
-    row[3*j+1] = score; \
-    LINEAR_GOTOH_GAP(row[3*j-3] + open_A, \
-                     row[3*j-2] + open_A, \
-                     row[3*j-1] + extend_A); \
-    tr[2*j+1] |= (unsigned char)(trace << 4); \
-    Iy_temp = row[3*j+2]; \
-    row[3*j+2] = score;
+                     row[3*(size_t)j+1] + extend_B, \
+                     row[3*(size_t)j+2] + open_B); \
+    tr[2*(size_t)j+1] = (unsigned char)trace; \
+    Ix_temp = row[3*(size_t)j+1]; \
+    row[3*(size_t)j+1] = score; \
+    LINEAR_GOTOH_GAP(row[3*(size_t)j-3] + open_A, \
+                     row[3*(size_t)j-2] + open_A, \
+                     row[3*(size_t)j-1] + extend_A); \
+    tr[2*(size_t)j+1] |= (unsigned char)(trace << 4); \
+    Iy_temp = row[3*(size_t)j+2]; \
+    row[3*(size_t)j+2] = score;
 
 /* One row of PathGenerator_gotoh_global_length, over the row's trace bits
  * in tr, with the counts of M, Ix and Iy one after the other in counts:
@@ -577,7 +578,7 @@ linear_gotoh_count(const unsigned char* tr, int nB, Py_ssize_t* counts)
     Iy_counts[0] = 0;
     for (j = 1; j <= nB; j++) {
         count = 0;
-        trace = tr[2*j];
+        trace = tr[2*(size_t)j];
         if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
         if (trace & Ix_MATRIX) SAFE_ADD(Ix_temp, count);
         if (trace & Iy_MATRIX) SAFE_ADD(Iy_temp, count);
@@ -717,9 +718,9 @@ linear_gotoh_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
     row[1] = -DBL_MAX;
     row[2] = -DBL_MAX;
     for (j = 1; j <= nB; j++) {
-        row[3*j] = -DBL_MAX;
-        row[3*j+1] = -DBL_MAX;
-        row[3*j+2] = left_gap_open_A + left_gap_extend_A * (j-1);
+        row[3*(size_t)j] = -DBL_MAX;
+        row[3*(size_t)j+1] = -DBL_MAX;
+        row[3*(size_t)j+2] = left_gap_open_A + left_gap_extend_A * (j-1);
     }
     if (counts) {
         Py_ssize_t* const M_counts = counts;
@@ -783,7 +784,7 @@ linear_gotoh_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
 {
     while (w->i > r0) {
         const unsigned char* tr = T + (size_t)(w->i - r0 - 1) * width * 2;
-        const int j = w->j;
+        const size_t j = (size_t)w->j;
         if (w->trace & M_MATRIX) {
             if (linear_walker_step(w, DIAGONAL) < 0) return -1;
             w->trace = tr[2*j];
