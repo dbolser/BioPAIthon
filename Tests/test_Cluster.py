@@ -3156,13 +3156,32 @@ class TestCluster(unittest.TestCase):
             # anorm overflows; the eigenvalues were 9.8e307 and 2.0e307,
             # instead of 1.4e308 and 2.4e307
             [[0.0, -2e307, -1e308], [0.0, 2e307, 0.0], [0.0, 0.0, 1e308]],
-            # A rotation norm overflows; the eigenvalues were 0 and 0,
-            # instead of 2.6e140 and nearly 0
-            [[1e140, 2e140, 3e140], [0.0, 0.0, 0.0]],
         ):
             with self.subTest(data=data):
                 with self.assertRaisesRegex(RuntimeError, message):
                     pca(data)
+        # A rotation norm overflows; the eigenvalues were 0 and 0, instead
+        # of 2.6e140 and nearly 0. Whether it overflows depends on which
+        # multiply-adds the compiler fuses. With clang's, as on arm64 macOS,
+        # the first QR sweep leaves w[0] small enough to count as zero, the
+        # iterations stop a sweep early, and nothing overflows. GCC fuses
+        # too, but still overflows. So accept either the error or the right
+        # answer.
+        data = [[1e140, 2e140, 3e140], [0.0, 0.0, 0.0]]
+        with self.subTest(data=data):
+            try:
+                columnmean, coordinates, pc, eigenvalues = pca(data)
+            except RuntimeError as error:
+                self.assertRegex(str(error), message)
+            else:
+                data = np.array(data)
+                expected = np.linalg.svd(data - data.mean(axis=0), compute_uv=False)
+                atol = 1e-12 * expected[0]
+                np.testing.assert_allclose(eigenvalues, expected, rtol=0, atol=atol)
+                np.testing.assert_allclose(
+                    columnmean + coordinates @ pc, data, rtol=0, atol=atol
+                )
+                np.testing.assert_allclose(pc @ pc.T, np.eye(2), rtol=0, atol=1e-12)
 
 
 class TestClusterRNGSeed(unittest.TestCase):
