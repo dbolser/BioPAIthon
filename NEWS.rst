@@ -87,11 +87,12 @@ lengths. Aligning two 20 kb sequences with ``scoring="blastn"`` took 797 MB
 and now takes 76 MB; two 30 kb sequences took 1.75 GB and now take 76 MB. The
 score, the number of alignments, and the alignments in their order are
 exactly those of the full matrix. The price is time: ``alignments[0]`` takes
-about 1.5 times as long as before, and ``len()`` about twice as long. Going
-past the first alignment still builds the full matrix, so for a huge
-alignment a ``MemoryError`` now comes from ``alignments[1]`` rather than from
-``align()``. Local alignments, gap score functions and FOGSAA still build the
-full matrix.
+about 1.5 times as long as before for sequences of similar length, and up to
+about 4 times as long for a short target against a long query; ``len()``
+takes about twice as long. Going past the first alignment still builds the
+full matrix, so for a huge alignment a ``MemoryError`` now comes from
+``alignments[1]`` rather than from ``align()``. Local alignments, gap score
+functions and FOGSAA still build the full matrix.
 
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising
