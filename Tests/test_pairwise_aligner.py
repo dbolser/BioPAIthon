@@ -34,6 +34,7 @@ from Bio import BiopythonWarning
 from Bio import SeqIO
 from Bio.Align import substitution_matrices
 from Bio.Align.substitution_matrices import Array
+from Bio.Seq import MutableSeq
 from Bio.Seq import reverse_complement
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -16804,6 +16805,133 @@ AlignmentCounts object with
         self.assertEqual(counts.deletions, 0)
         self.assertEqual(counts.insertions, 0)
         self.assertAlmostEqual(counts.score, -7.0)
+
+    def representations(self, text):
+        """Return text in each form that score() and align() accept."""
+        codes = [ord(letter) for letter in text]
+        return {
+            "str": text,
+            "Seq": Seq(text),
+            "MutableSeq": MutableSeq(text),
+            "SeqRecord": SeqRecord(Seq(text), id="seq"),
+            "bytes": text.encode(),
+            "list": list(text),
+            "tuple": tuple(text),
+            "int32 array": np.array(codes, np.int32),
+            "array.array": array.array("i", codes),
+        }
+
+    def check_score_and_align(self, aligner, seqA, seqB, expected, strand="+"):
+        """Check score() and align() against the expected alignments."""
+        self.assertEqual(aligner.score(seqA, seqB, strand), expected.score)
+        alignments = aligner.align(seqA, seqB, strand)
+        self.assertEqual(alignments.score, expected.score)
+        self.assertEqual(len(alignments), len(expected))
+        alignment = alignments[0]
+        np.testing.assert_array_equal(alignment.coordinates, expected[0].coordinates)
+        # The alignment holds the caller's objects, not the converted ones.
+        self.assertIs(alignment.sequences[0], seqA)
+        self.assertIs(alignment.sequences[1], seqB)
+
+    def test_list_of_letters_with_string_alphabet(self):
+        # With a substitution matrix whose alphabet is a string, a list of
+        # letters was mapped twice, to its indices in the alphabet and then,
+        # in the C code, through the alphabet again, which raised "sequence
+        # contains letters not in the alphabet" from score() and align().
+        aligner = Align.PairwiseAligner(scoring="blastp")
+        expected = aligner.align("HEAGAWGHE", "PAWHEAE")
+        self.assertEqual(expected.score, -8.0)
+        for seqA, seqB in [
+            (list("HEAGAWGHE"), list("PAWHEAE")),
+            (tuple("HEAGAWGHE"), tuple("PAWHEAE")),
+            (list("HEAGAWGHE"), "PAWHEAE"),
+            ("HEAGAWGHE", list("PAWHEAE")),
+        ]:
+            with self.subTest(seqA=type(seqA).__name__, seqB=type(seqB).__name__):
+                self.check_score_and_align(aligner, seqA, seqB, expected)
+        message = "^sequence contains letters not in the alphabet$"
+        for method in (aligner.score, aligner.align):
+            with self.assertRaisesRegex(ValueError, message):
+                method(list("HEAGAWGHE"), list("PAWHE#E"))
+
+    def test_list_of_letters_with_large_string_alphabet(self):
+        # With a large enough alphabet, mapping a list of letters twice gave
+        # a wrong score instead of an error: "A" is at index 33, the code
+        # point of "!", so the C code scored it as "!".
+        alphabet = "".join(chr(i) for i in range(32, 127))
+        matrix = Array(alphabet=alphabet, dims=2, data=5 * np.eye(len(alphabet)))
+        matrix["!", "!"] = 100
+        aligner = Align.PairwiseAligner(substitution_matrix=matrix, gap_score=-10)
+        expected = aligner.align("AAB", "AAB")
+        self.assertEqual(expected.score, 15.0)
+        self.check_score_and_align(aligner, list("AAB"), list("AAB"), expected)
+
+    def test_score_and_align_accept_the_same_inputs(self):
+        target = "GAACTTG"
+        query = "GACTG"
+        for scoring in (None, "blastn"):
+            aligner = Align.PairwiseAligner(scoring)
+            expected = aligner.align(target, query)
+            targets = self.representations(target)
+            queries = self.representations(query)
+            for kind in targets:
+                with self.subTest(scoring=scoring, kind=kind):
+                    self.check_score_and_align(
+                        aligner, targets[kind], queries[kind], expected
+                    )
+
+    def test_score_and_align_reverse_strand(self):
+        aligner = Align.PairwiseAligner(scoring="blastn")
+        target = "GAACTTG"
+        query = reverse_complement("GACTG")
+        expected = aligner.align(target, query, "-")
+        self.assertEqual(expected.score, -4.0)
+        targets = self.representations(target)
+        queries = self.representations(query)
+        for kind in ("str", "Seq", "MutableSeq", "SeqRecord"):
+            with self.subTest(kind=kind):
+                self.check_score_and_align(
+                    aligner, targets[kind], queries[kind], expected, "-"
+                )
+        for kind in targets:
+            with self.subTest(target=kind):
+                self.check_score_and_align(aligner, targets[kind], query, expected, "-")
+
+    def test_score_and_align_invalid_strand(self):
+        # align() used to reverse-complement seqB before the strand was
+        # checked, so for a list it raised AttributeError instead.
+        message = "^strand must be '\\+' or '-'$"
+        for scoring in (None, "blastn"):
+            aligner = Align.PairwiseAligner(scoring)
+            targets = self.representations("GAACTTG")
+            queries = self.representations("GACTG")
+            for kind in targets:
+                for method in (aligner.score, aligner.align):
+                    with self.subTest(
+                        scoring=scoring, kind=kind, method=method.__name__
+                    ):
+                        with self.assertRaisesRegex(ValueError, message):
+                            method(targets[kind], queries[kind], "x")
+
+    def test_score_and_align_tuple_alphabet(self):
+        # With an alphabet that is not a string, the items of a list become
+        # their indices in it, and arrays hold such indices.
+        alphabet = ("A", "C", "G", "T")
+        data = 3 * np.eye(4) - 1
+        matrix = Array(alphabet=alphabet, dims=2, data=data)
+        aligner = Align.PairwiseAligner(substitution_matrix=matrix, gap_score=-2)
+        target = "GAACTTG"
+        query = "GACTG"
+        expected = aligner.align(list(target), list(query))
+        self.assertEqual(expected.score, 6.0)
+        for convert in (list, tuple):
+            with self.subTest(convert=convert.__name__):
+                seqA = convert(target)
+                seqB = convert(query)
+                self.check_score_and_align(aligner, seqA, seqB, expected)
+        seqA = np.array([alphabet.index(letter) for letter in target], np.int32)
+        seqB = np.array([alphabet.index(letter) for letter in query], np.int32)
+        self.check_score_and_align(aligner, seqA, seqB, expected)
 
 
 class TestArgumentErrors(unittest.TestCase):
