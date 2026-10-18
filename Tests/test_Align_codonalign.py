@@ -32,6 +32,7 @@ from Bio.Align.analysis import calculate_dn_ds
 from Bio.Align.analysis import calculate_dn_ds_matrix
 from Bio.Align.analysis import mktest
 from Bio.Data import CodonTable
+from Bio.Seq import MutableSeq
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -93,6 +94,33 @@ Codon aligner with parameters
                     aligner.score("M", seqB)
                 with self.assertRaisesRegex(ValueError, message):
                     aligner.align("M", seqB)
+
+    def test_score_and_align_accept_the_same_inputs(self):
+        aligner = CodonAligner(frameshift_score=-3.0)
+        protein = "MLGSNESRVCPKLSPS"
+        dna = "ATGCTGGGCTCGAACGAGTCCGTGTATGCCCTAAGCTGAGCCCGTCG"
+        expected = aligner.align(protein, dna)
+        self.assertEqual(expected.score, 13.0)
+        for convert in (str, Seq, MutableSeq, lambda s: SeqRecord(Seq(s), id="x")):
+            seqA = convert(protein)
+            seqB = convert(dna)
+            with self.subTest(seqA=type(seqA).__name__):
+                self.assertEqual(aligner.score(seqA, seqB), expected.score)
+                alignments = aligner.align(seqA, seqB)
+                self.assertEqual(alignments.score, expected.score)
+                alignment = alignments[0]
+                np.testing.assert_array_equal(
+                    alignment.coordinates, expected[0].coordinates
+                )
+                self.assertIs(alignment.sequences[0], seqA)
+                self.assertIs(alignment.sequences[1], seqB)
+        message = "^seqA must be a string, Seq, MutableSeq, or SeqRecord object$"
+        for seqA in (protein.encode(), list(protein)):
+            with self.subTest(seqA=type(seqA).__name__):
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.score(seqA, dna)
+                with self.assertRaisesRegex(ValueError, message):
+                    aligner.align(seqA, dna)
 
     def test_delete_every_property(self):
         # Deleting used to reach the setter with a NULL value: wildcard
