@@ -9,7 +9,7 @@ BioPAIthon is a fork of Biopython. The importable package is still `Bio`
 is reading biological file formats. Most of those files are downloaded from
 public databases (NCBI, UniProt, the PDB and others) or written by other
 programs. Treat every file, and every server response, as untrusted. The
-calling program, and the arguments it passes, are trusted.
+calling program is trusted; the values it passes on from files are not.
 
 Untrusted input enters through:
 
@@ -60,7 +60,11 @@ Untrusted input enters through:
   `CC` adds `-g -fno-omit-frame-pointer`.
 - `python-asan` is `python` with a second copy of `Bio` from `/opt/asan`,
   whose extensions are built with ASan and UBSan. Use it for anything that
-  touches C. After changing `/src`, refresh that copy with
+  touches C. It runs `python -P`, so `/src/Bio` cannot shadow `/opt/asan`.
+  That also leaves a script's own directory off `sys.path`, so run tests
+  under it with pytest or `run_tests.py`, not as `python-asan test_X.py`.
+  It passes `--capture=sys` to pytest, so a sanitizer report is printed
+  even when it aborts the run. After changing `/src`, refresh that copy with
   `rm -rf /src/build && CC="$CC -fsanitize=address -fsanitize=undefined" pip install --no-deps --no-build-isolation --upgrade --target /opt/asan /src`.
 - Tests: `cd /src/Tests && python -m pytest --offline test_SeqIO.py`, one
   module at a time. The whole offline suite is
@@ -77,14 +81,16 @@ Untrusted input enters through:
 
 ## How you rate severity
 
-- Critical: code execution from parsing a file or a server response. There
-  are public precedents: `eval()` in the `Bio.Nexus` NEXUS parser (fixed in
-  Biopython 1.88) and CVE-2025-68463 in `Bio.Entrez.Parser` (fixed in
-  1.87). Also memory corruption from parsing a file where code execution is
-  plausible, such as a write whose place or content the file controls.
+- Critical: code execution from parsing a file or a server response. The
+  public precedent is `eval()` in the `Bio.Nexus` NEXUS parser (fixed in
+  Biopython 1.88). Also memory corruption from parsing a file where code
+  execution is plausible, such as a write whose place or content the file
+  controls.
 - High: other memory corruption from parsing a downloaded file (out-of-bounds
   write or read, use after free, double free). Also a file that makes `Bio`
-  read, write or fetch something it was not designed to.
+  read, write or fetch something it was not designed to. The public
+  precedent is CVE-2025-68463 in `Bio.Entrez.Parser` (fixed in 1.87): an XML
+  document could name a DTD or schema at any URL, and the parser fetched it.
 - Medium: memory corruption reachable only through unusual API arguments.
   Resource exhaustion from a small file: a hang, or an allocation far larger
   than the file.
@@ -107,8 +113,8 @@ Untrusted input enters through:
 
 ## Anything to leave alone
 
-- Network tests (`@requires_internet`), and live behaviour of the network
-  clients. The scan has no network.
+- Network tests (those that call `requires_internet.check()`), and live
+  behaviour of the network clients. The scan has no network.
 - Small bugs in the deprecated modules listed above.
 - Unpickling: loading a pickle runs code by design.
 - The `BiopythonWarning` about importing from inside the source tree. This

@@ -39,16 +39,18 @@ RUN CC="$CC -fsanitize=address -fsanitize=undefined" \
 RUN pip install --no-build-isolation -e ".[test]"
 
 # python-asan: python, with the ASan+UBSan copy of Bio first on the path. The
-# settings are ci.yml's, except two. PYTHONMALLOC=malloc sends small
+# settings are ci.yml's, except these. PYTHONMALLOC=malloc sends small
 # allocations to malloc too, so ASan sees their bounds. UBSan stops at its
-# first report, as ASan does, so a report cannot hide in pytest's captured
-# output. -P stops /src/Bio in the current directory from shadowing /opt/asan.
+# first report, as ASan does. pytest gets --capture=sys: its default captures
+# fd 2 and throws the report away when the interpreter aborts. -P stops
+# /src/Bio in the current directory from shadowing /opt/asan.
 # Written with printf, not a heredoc, which Docker 20.10 (Debian 12) cannot parse.
 RUN printf '%s\n' '#!/bin/sh' \
       'export PYTHONPATH="/opt/asan${PYTHONPATH:+:$PYTHONPATH}"' \
       'export PYTHONMALLOC="${PYTHONMALLOC:-malloc}"' \
       'export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"' \
       'export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1:halt_on_error=1}"' \
+      'export PYTEST_ADDOPTS="--capture=sys${PYTEST_ADDOPTS:+ $PYTEST_ADDOPTS}"' \
       'export LD_PRELOAD="$(gcc -print-file-name=libasan.so) $(gcc -print-file-name=libstdc++.so.6)"' \
       'exec python -P "$@"' \
       > /usr/local/bin/python-asan \
