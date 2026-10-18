@@ -5003,6 +5003,50 @@ class CodonAligner(_codonaligner.CodonAligner):
                 name = "frameshift_two_score"
             setattr(self, name, value)
 
+    def _prepare_sequences(self, seqA, seqB):
+        """Return seqA and the three reading frames of seqB, translated (PRIVATE).
+
+        Both score and align use this, so that they accept the same inputs.
+        """
+        codon_table = self.codon_table
+        if isinstance(seqA, (Seq, MutableSeq, SeqRecord)):
+            sA = bytes(seqA)
+        elif isinstance(seqA, str):
+            sA = seqA.encode()
+        else:
+            raise ValueError(
+                "seqA must be a string, Seq, MutableSeq, or SeqRecord object"
+            )
+        if len(seqB) < 3:
+            # Check here, as the three reading frames passed to the C code
+            # are all empty for any sequence shorter than three nucleotides.
+            raise ValueError(
+                "at least 3 nucleotides are needed for a codon alignment; "
+                f"{len(seqB)} received"
+            )
+        seqB0 = seqB[: 3 * (len(seqB) // 3)]
+        seqB1 = seqB[1 : 1 + 3 * ((len(seqB) - 1) // 3)]
+        seqB2 = seqB[2 : 2 + 3 * ((len(seqB) - 2) // 3)]
+        if isinstance(seqB, (Seq, MutableSeq, SeqRecord)):
+            sB0 = seqB0.translate(codon_table)
+            sB1 = seqB1.translate(codon_table)
+            sB2 = seqB2.translate(codon_table)
+            sB0 = bytes(sB0)
+            sB1 = bytes(sB1)
+            sB2 = bytes(sB2)
+        elif isinstance(seqA, str):
+            sB0 = translate(seqB0, codon_table)
+            sB1 = translate(seqB1, codon_table)
+            sB2 = translate(seqB2, codon_table)
+            sB0 = sB0.encode()
+            sB1 = sB1.encode()
+            sB2 = sB2.encode()
+        else:
+            raise ValueError(
+                "seqB must be a string, Seq, MutableSeq, or SeqRecord object"
+            )
+        return sA, sB0, sB1, sB2
+
     def score(self, seqA, seqB):
         """Return the alignment score of a protein sequence and nucleotide sequence.
 
@@ -5075,44 +5119,7 @@ class CodonAligner(_codonaligner.CodonAligner):
         StopIteration
 
         """
-        codon_table = self.codon_table
-        if isinstance(seqA, (Seq, MutableSeq, SeqRecord)):
-            sA = bytes(seqA)
-        elif isinstance(seqA, str):
-            sA = seqA.encode()
-        else:
-            raise ValueError(
-                "seqA must be a string, Seq, MutableSeq, or SeqRecord object"
-            )
-        if len(seqB) < 3:
-            # Check here, as the three reading frames passed to the C code
-            # are all empty for any sequence shorter than three nucleotides.
-            raise ValueError(
-                "at least 3 nucleotides are needed for a codon alignment; "
-                f"{len(seqB)} received"
-            )
-        seqB0 = seqB[: 3 * (len(seqB) // 3)]
-        seqB1 = seqB[1 : 1 + 3 * ((len(seqB) - 1) // 3)]
-        seqB2 = seqB[2 : 2 + 3 * ((len(seqB) - 2) // 3)]
-        if isinstance(seqB, (Seq, MutableSeq, SeqRecord)):
-            sB0 = seqB0.translate(codon_table)
-            sB1 = seqB1.translate(codon_table)
-            sB2 = seqB2.translate(codon_table)
-            sB0 = bytes(sB0)
-            sB1 = bytes(sB1)
-            sB2 = bytes(sB2)
-        elif isinstance(seqA, str):
-            sB0 = translate(seqB0, codon_table)
-            sB1 = translate(seqB1, codon_table)
-            sB2 = translate(seqB2, codon_table)
-            sB0 = sB0.encode()
-            sB1 = sB1.encode()
-            sB2 = sB2.encode()
-        else:
-            raise ValueError(
-                "seqB must be a string, Seq, MutableSeq, or SeqRecord object"
-            )
-        return super().score(sA, sB0, sB1, sB2)
+        return super().score(*self._prepare_sequences(seqA, seqB))
 
     def align(self, seqA, seqB):
         """Align a nucleotide sequence to its corresponding protein sequence.
@@ -5159,44 +5166,7 @@ class CodonAligner(_codonaligner.CodonAligner):
         <BLANKLINE>
 
         """
-        codon_table = self.codon_table
-        if isinstance(seqA, (Seq, MutableSeq, SeqRecord)):
-            sA = bytes(seqA)
-        elif isinstance(seqA, str):
-            sA = seqA.encode()
-        else:
-            raise ValueError(
-                "seqA must be a string, Seq, MutableSeq, or SeqRecord object"
-            )
-        if len(seqB) < 3:
-            # Check here, as the three reading frames passed to the C code
-            # are all empty for any sequence shorter than three nucleotides.
-            raise ValueError(
-                "at least 3 nucleotides are needed for a codon alignment; "
-                f"{len(seqB)} received"
-            )
-        seqB0 = seqB[: 3 * (len(seqB) // 3)]
-        seqB1 = seqB[1 : 1 + 3 * ((len(seqB) - 1) // 3)]
-        seqB2 = seqB[2 : 2 + 3 * ((len(seqB) - 2) // 3)]
-        if isinstance(seqB, (Seq, MutableSeq, SeqRecord)):
-            sB0 = seqB0.translate(codon_table)
-            sB1 = seqB1.translate(codon_table)
-            sB2 = seqB2.translate(codon_table)
-            sB0 = bytes(sB0)
-            sB1 = bytes(sB1)
-            sB2 = bytes(sB2)
-        elif isinstance(seqA, str):
-            sB0 = translate(seqB0, codon_table)
-            sB1 = translate(seqB1, codon_table)
-            sB2 = translate(seqB2, codon_table)
-            sB0 = sB0.encode()
-            sB1 = sB1.encode()
-            sB2 = sB2.encode()
-        else:
-            raise ValueError(
-                "seqB must be a string, Seq, MutableSeq, or SeqRecord object"
-            )
-        score, paths = super().align(sA, sB0, sB1, sB2)
+        score, paths = super().align(*self._prepare_sequences(seqA, seqB))
         alignments = PairwiseAlignments(seqA, seqB, score, paths)
         return alignments
         # alignment.column_annotations = {"consensus": consensus}
