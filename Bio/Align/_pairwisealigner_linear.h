@@ -26,7 +26,9 @@
  * - len() counts the paths in one more forward pass, recomputing each row's
  *   trace bits and keeping a row of counts.
  * - Later paths build the full matrix with the existing kernel and delegate
- *   to its PathGenerator, after checking it agrees.
+ *   to its PathGenerator, after checking it agrees.  So does the first
+ *   path where the full matrix's own stops short of the origin, as Gotoh's
+ *   can with infinite or NaN scores.
  *
  * It is used only where it holds less memory than the matrix.  A row of
  * trace bits costs less than a row of doubles, so a short target against
@@ -34,9 +36,9 @@
  *
  * Settings, substitution matrix and sequences are copied at align(), so
  * later changes to them cannot change the results.  Each algorithm
- * supplies a LinearKernel to the generic strip driver; only
- * Needleman-Wunsch has one so far.  The threshold is 512 MiB by default;
- * the private _set_traceback_limits changes it, for testing.
+ * supplies a LinearKernel to the generic strip driver; Needleman-Wunsch
+ * and Gotoh global alignments have one.  The threshold is 512 MiB by
+ * default; the private _set_traceback_limits changes it, for testing.
  */
 
 
@@ -46,6 +48,8 @@ typedef struct LinearWalker LinearWalker;
 /* Return values of LinearKernel.walk and of linear_solve. */
 #define LINEAR_EXITED 0   /* the walk reached the top row of the block */
 #define LINEAR_ENDED 1    /* the path is complete */
+#define LINEAR_STOPPED 2  /* the path stops before the origin, as the full
+                           * matrix's does where a trace is empty */
 
 typedef struct {
     /* A saved row holds ncarried scalars, then ndoubles per column. */
@@ -53,6 +57,10 @@ typedef struct {
     size_t ndoubles;
     size_t trace_bytes;  /* bytes of trace bits per cell */
     size_t ncounts;      /* path counts per column, for len() */
+    /* The full traceback matrix, as _matrix_size counts it: bytes per cell,
+     * and row pointers per row. */
+    size_t matrix_cell_bytes;
+    size_t matrix_row_pointers;
     /* Fill row 0 for all columns, and its path counts if counts is not
      * NULL. */
     void (*start)(const LinearPaths* self, double* row, Py_ssize_t* counts);
@@ -64,15 +72,16 @@ typedef struct {
      * Releases the GIL.  Returns 0, or -1 if interrupted by a signal. */
     int (*sweep)(const LinearPaths* self, double* row, int r0, int r1, int c,
                  unsigned char* T, size_t tstride, Py_ssize_t* counts);
-    /* The score of the alignment, from the last row. */
-    double (*score)(const LinearPaths* self, const double* row);
+    /* The score of the alignment, from the last row.  A kernel with more
+     * than one matrix also stores in *end the matrices the paths end in. */
+    double (*score)(const LinearPaths* self, const double* row, int* end);
     /* The number of paths, from the path counts of the last row, or
      * OVERFLOW_ERROR. */
     Py_ssize_t (*total)(const LinearPaths* self, const Py_ssize_t* counts);
     /* Follow the traceback up through the block holding the trace bits of
      * rows r0+1 to the walker's row, width cells per row.  Returns
-     * LINEAR_EXITED with the walker in row r0, LINEAR_ENDED, or -1 with an
-     * exception set. */
+     * LINEAR_EXITED with the walker in row r0, LINEAR_ENDED,
+     * LINEAR_STOPPED, or -1 with an exception set. */
     int (*walk)(const LinearPaths* self, LinearWalker* walker,
                 const unsigned char* T, int r0, size_t width);
     /* The kernel building the full traceback matrix. */
@@ -101,6 +110,7 @@ struct LinearPaths {
     int nB;
     unsigned char strand;
     double score;
+    int end;             /* the matrices the paths end in, for Gotoh */
     LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
@@ -120,6 +130,9 @@ struct LinearWalker {
     int i;               /* current cell */
     int j;
     int last;            /* direction of the move out of (i, j); 0 at the end */
+    int trace;           /* for Gotoh, the matrices the path can be in at
+                          * (i, j): the trace bits of the next cell on the
+                          * path, or LinearPaths.end at the end */
     int* points;         /* (i, j) where the path turns, last one first */
     size_t npoints;
     size_t capacity;
@@ -392,7 +405,8 @@ linear_nw_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
 }
 
 static double
-linear_nw_score(const LinearPaths* self, const double* row)
+linear_nw_score(const LinearPaths* self, const double* row,
+                int* Py_UNUSED(end))
 {
     return row[self->nB];
 }
@@ -445,6 +459,8 @@ static const LinearKernel linear_nw_compare = {
     .ndoubles = 1,
     .trace_bytes = 1,
     .ncounts = 1,
+    .matrix_cell_bytes = sizeof(Trace),
+    .matrix_row_pointers = 1,
     .start = linear_nw_start,
     .sweep = linear_nw_sweep_compare,
     .score = linear_nw_score,
@@ -458,6 +474,8 @@ static const LinearKernel linear_nw_matrix = {
     .ndoubles = 1,
     .trace_bytes = 1,
     .ncounts = 1,
+    .matrix_cell_bytes = sizeof(Trace),
+    .matrix_row_pointers = 1,
     .start = linear_nw_start,
     .sweep = linear_nw_sweep_matrix,
     .score = linear_nw_score,
@@ -465,6 +483,385 @@ static const LinearKernel linear_nw_matrix = {
     .walk = linear_nw_walk,
     .align = Aligner_needlemanwunsch_align_matrix,
 };
+
+
+/* ----------------------- Gotoh global ----------------------- */
+
+/* A row holds the scores of M, Ix and Iy, in that order, for each column,
+ * so that its first columns are a prefix.  A cell's trace bits take two
+ * bytes, as in the full matrix: the trace of M, then those of Ix and Iy as
+ * TraceGapsGotoh holds them, Ix in the low four bits. */
+#define LINEAR_GOTOH_IX(tr, j) ((tr)[2*(j)+1] & 0xf)
+#define LINEAR_GOTOH_IY(tr, j) ((tr)[2*(j)+1] >> 4)
+
+/* SELECT_TRACE_GOTOH_GLOBAL_ALIGN and SELECT_TRACE_GOTOH_GLOBAL_GAP,
+ * without the store of the trace.  The arithmetic must stay identical to
+ * them, or the trace bits, and with them the paths, could differ from the
+ * full matrix. */
+#define LINEAR_GOTOH_ALIGN \
+    trace = M_MATRIX; \
+    score = M_temp; \
+    temp = Ix_temp; \
+    if (temp > score + epsilon) { \
+        score = Ix_temp; \
+        trace = Ix_MATRIX; \
+    } \
+    else if (temp > score - epsilon) trace |= Ix_MATRIX; \
+    temp = Iy_temp; \
+    if (temp > score + epsilon) { \
+        score = temp; \
+        trace = Iy_MATRIX; \
+    } \
+    else if (temp > score - epsilon) trace |= Iy_MATRIX;
+
+#define LINEAR_GOTOH_GAP(score1, score2, score3) \
+    trace = M_MATRIX; \
+    score = score1; \
+    temp = score2; \
+    if (temp > score + epsilon) { \
+        score = temp; \
+        trace = Ix_MATRIX; \
+    } \
+    else if (temp > score - epsilon) trace |= Ix_MATRIX; \
+    temp = score3; \
+    if (temp > score + epsilon) { \
+        score = temp; \
+        trace = Iy_MATRIX; \
+    } \
+    else if (temp > score - epsilon) trace |= Iy_MATRIX;
+
+/* A cell of GOTOH_GLOBAL_ALIGN, with the gap scores of its row and column,
+ * in the order of its statements.  M, Ix and Iy of column j are row[3*j],
+ * row[3*j+1] and row[3*j+2]. */
+#define LINEAR_GOTOH_CELL(open_B, extend_B, open_A, extend_A, align_score) \
+    LINEAR_GOTOH_ALIGN; \
+    tr[2*j] = (unsigned char)trace; \
+    M_temp = row[3*j]; \
+    row[3*j] = score + (align_score); \
+    LINEAR_GOTOH_GAP(M_temp + open_B, \
+                     row[3*j+1] + extend_B, \
+                     row[3*j+2] + open_B); \
+    tr[2*j+1] = (unsigned char)trace; \
+    Ix_temp = row[3*j+1]; \
+    row[3*j+1] = score; \
+    LINEAR_GOTOH_GAP(row[3*j-3] + open_A, \
+                     row[3*j-2] + open_A, \
+                     row[3*j-1] + extend_A); \
+    tr[2*j+1] |= (unsigned char)(trace << 4); \
+    Iy_temp = row[3*j+2]; \
+    row[3*j+2] = score;
+
+/* One row of PathGenerator_gotoh_global_length, over the row's trace bits
+ * in tr, with the counts of M, Ix and Iy one after the other in counts:
+ * the overflows, and the order of the additions, must stay as there for
+ * len() to agree with it. */
+static void
+linear_gotoh_count(const unsigned char* tr, int nB, Py_ssize_t* counts)
+{
+    Py_ssize_t* const M_counts = counts;
+    Py_ssize_t* const Ix_counts = M_counts + nB + 1;
+    Py_ssize_t* const Iy_counts = Ix_counts + nB + 1;
+    int j;
+    int trace;
+    Py_ssize_t count;
+    Py_ssize_t term;
+    Py_ssize_t M_temp;
+    Py_ssize_t Ix_temp;
+    Py_ssize_t Iy_temp;
+    M_temp = M_counts[0];
+    M_counts[0] = 0;
+    Ix_temp = Ix_counts[0];
+    Ix_counts[0] = 1;
+    Iy_temp = Iy_counts[0];
+    Iy_counts[0] = 0;
+    for (j = 1; j <= nB; j++) {
+        count = 0;
+        trace = tr[2*j];
+        if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_temp, count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_temp, count);
+        M_temp = M_counts[j];
+        M_counts[j] = count;
+        count = 0;
+        trace = LINEAR_GOTOH_IX(tr, j);
+        if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_counts[j], count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_counts[j], count);
+        Ix_temp = Ix_counts[j];
+        Ix_counts[j] = count;
+        count = 0;
+        trace = LINEAR_GOTOH_IY(tr, j);
+        if (trace & M_MATRIX) SAFE_ADD(M_counts[j-1], count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_counts[j-1], count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_counts[j-1], count);
+        Iy_temp = Iy_counts[j];
+        Iy_counts[j] = count;
+    }
+}
+
+/* The rows of GOTOH_GLOBAL_ALIGN: the end gap scores swapped for the
+ * reverse strand, the right insertion scores in the last row, the right
+ * deletion scores in the last column, and column 0 as there, with the
+ * trace bits PathGenerator_create_Gotoh gives it. */
+#define LINEAR_GOTOH_SWEEP(align_score) \
+    const Aligner* const self = &lp->aligner; \
+    const int nA = lp->nA; \
+    const int nB = lp->nB; \
+    const int* const sA = lp->sA; \
+    const int* const sB = lp->sB; \
+    const double gap_open_A = self->open_internal_insertion_score; \
+    const double gap_open_B = self->open_internal_deletion_score; \
+    const double gap_extend_A = self->extend_internal_insertion_score; \
+    const double gap_extend_B = self->extend_internal_deletion_score; \
+    const double epsilon = self->epsilon; \
+    const bool forward = (lp->strand == '+'); \
+    const double left_gap_open_B = forward ? \
+        self->open_left_deletion_score : self->open_right_deletion_score; \
+    const double left_gap_extend_B = forward ? \
+        self->extend_left_deletion_score : self->extend_right_deletion_score; \
+    const double right_gap_open_A = forward ? \
+        self->open_right_insertion_score : self->open_left_insertion_score; \
+    const double right_gap_extend_A = forward ? \
+        self->extend_right_insertion_score : self->extend_left_insertion_score; \
+    const double right_gap_open_B = forward ? \
+        self->open_right_deletion_score : self->open_left_deletion_score; \
+    const double right_gap_extend_B = forward ? \
+        self->extend_right_deletion_score : self->extend_left_deletion_score; \
+    const int jmax = (c < nB) ? c : nB - 1; \
+    int i; \
+    int j; \
+    int kA; \
+    int kB; \
+    int trace; \
+    int interrupted = 0; \
+    double open_A; \
+    double extend_A; \
+    double score; \
+    double temp; \
+    double M_temp; \
+    double Ix_temp; \
+    double Iy_temp; \
+    unsigned char* tr; \
+    PAIRWISE_NOGIL_BEGIN \
+    for (i = r0 + 1; i <= r1; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
+        tr = T + (size_t)(i - r0 - 1) * tstride; \
+        if (i == nA) { \
+            open_A = right_gap_open_A; \
+            extend_A = right_gap_extend_A; \
+        } \
+        else { \
+            open_A = gap_open_A; \
+            extend_A = gap_extend_A; \
+        } \
+        kA = sA[i-1]; \
+        M_temp = row[0]; \
+        Ix_temp = row[1]; \
+        Iy_temp = row[2]; \
+        row[0] = -DBL_MAX; \
+        row[1] = left_gap_open_B + left_gap_extend_B * (i-1); \
+        row[2] = -DBL_MAX; \
+        tr[0] = 0; \
+        tr[1] = (i == 1) ? M_MATRIX : Ix_MATRIX; \
+        for (j = 1; j <= jmax; j++) { \
+            kB = sB[j-1]; \
+            LINEAR_GOTOH_CELL(gap_open_B, gap_extend_B, open_A, extend_A, \
+                              align_score); \
+        } \
+        if (c == nB) { \
+            kB = sB[j-1]; \
+            LINEAR_GOTOH_CELL(right_gap_open_B, right_gap_extend_B, \
+                              open_A, extend_A, align_score); \
+        } \
+        if (counts) linear_gotoh_count(tr, nB, counts); \
+    } \
+    PAIRWISE_NOGIL_END \
+    return interrupted ? -1 : 0;
+
+static int
+linear_gotoh_sweep_compare(const LinearPaths* lp, double* row, int r0, int r1,
+                           int c, unsigned char* T, size_t tstride,
+                           Py_ssize_t* counts)
+{
+    const double match = lp->aligner.match;
+    const double mismatch = lp->aligner.mismatch;
+    const int wildcard = lp->aligner.wildcard;
+    LINEAR_GOTOH_SWEEP(COMPARE_SCORE);
+}
+
+static int
+linear_gotoh_sweep_matrix(const LinearPaths* lp, double* row, int r0, int r1,
+                          int c, unsigned char* T, size_t tstride,
+                          Py_ssize_t* counts)
+{
+    const Py_ssize_t n = lp->aligner.substitution_matrix.shape[0];
+    LINEAR_GOTOH_SWEEP(MATRIX_SCORE_NOGIL);
+}
+
+/* Row 0 of GOTOH_GLOBAL_ALIGN, and its path counts as
+ * PathGenerator_gotoh_global_length sets them. */
+static void
+linear_gotoh_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
+{
+    const bool forward = (lp->strand == '+');
+    const double left_gap_open_A = forward ?
+        lp->aligner.open_left_insertion_score :
+        lp->aligner.open_right_insertion_score;
+    const double left_gap_extend_A = forward ?
+        lp->aligner.extend_left_insertion_score :
+        lp->aligner.extend_right_insertion_score;
+    const int nB = lp->nB;
+    int j;
+    row[0] = 0;
+    row[1] = -DBL_MAX;
+    row[2] = -DBL_MAX;
+    for (j = 1; j <= nB; j++) {
+        row[3*j] = -DBL_MAX;
+        row[3*j+1] = -DBL_MAX;
+        row[3*j+2] = left_gap_open_A + left_gap_extend_A * (j-1);
+    }
+    if (counts) {
+        Py_ssize_t* const M_counts = counts;
+        Py_ssize_t* const Ix_counts = M_counts + nB + 1;
+        Py_ssize_t* const Iy_counts = Ix_counts + nB + 1;
+        M_counts[0] = 1;
+        Ix_counts[0] = 0;
+        Iy_counts[0] = 0;
+        for (j = 1; j <= nB; j++) {
+            M_counts[j] = 0;
+            Ix_counts[j] = 0;
+            Iy_counts[j] = 1;
+        }
+    }
+}
+
+/* The score as GOTOH_GLOBAL_ALIGN takes it from the last cell, and the
+ * matrices whose trace there it keeps: those not more than epsilon below
+ * the score.  Every trace of that cell has a bit set until then, so these
+ * are the matrices PathGenerator_next_gotoh_global and
+ * PathGenerator_gotoh_global_length find the paths ending in. */
+static double
+linear_gotoh_score(const LinearPaths* self, const double* row, int* end)
+{
+    const double epsilon = self->aligner.epsilon;
+    const double* const cell = row + 3 * (size_t)self->nB;
+    double score;
+    double temp;
+    SELECT_SCORE_GLOBAL(cell[0], cell[1], cell[2]);
+    *end = 0;
+    if (!(cell[0] < score - epsilon)) *end |= M_MATRIX;
+    if (!(cell[1] < score - epsilon)) *end |= Ix_MATRIX;
+    if (!(cell[2] < score - epsilon)) *end |= Iy_MATRIX;
+    return score;
+}
+
+static Py_ssize_t
+linear_gotoh_total(const LinearPaths* self, const Py_ssize_t* counts)
+{
+    const int nB = self->nB;
+    const Py_ssize_t* const M_counts = counts;
+    const Py_ssize_t* const Ix_counts = M_counts + nB + 1;
+    const Py_ssize_t* const Iy_counts = Ix_counts + nB + 1;
+    Py_ssize_t count = 0;
+    Py_ssize_t term;
+    if (self->end & M_MATRIX) SAFE_ADD(M_counts[nB], count);
+    if (self->end & Ix_MATRIX) SAFE_ADD(Ix_counts[nB], count);
+    if (self->end & Iy_MATRIX) SAFE_ADD(Iy_counts[nB], count);
+    return count;
+}
+
+/* Follow the traceback as PathGenerator_next_gotoh_global does: in each
+ * cell, take M if the walker's trace allows it, else Ix, else Iy, and read
+ * that matrix's trace of the cell.  An empty trace ends the path.  That is
+ * at the origin, or in column 0 or row 0 where the full matrix's path
+ * stops short of the origin.  Row 0 is not in any block: its Iy traces
+ * lead horizontally to the origin, its M and Ix traces are empty. */
+static int
+linear_gotoh_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
+                  const unsigned char* T, int r0, size_t width)
+{
+    while (w->i > r0) {
+        const unsigned char* tr = T + (size_t)(w->i - r0 - 1) * width * 2;
+        const int j = w->j;
+        if (w->trace & M_MATRIX) {
+            if (linear_walker_step(w, DIAGONAL) < 0) return -1;
+            w->trace = tr[2*j];
+            w->i--;
+            w->j--;
+        }
+        else if (w->trace & Ix_MATRIX) {
+            if (linear_walker_step(w, VERTICAL) < 0) return -1;
+            w->trace = LINEAR_GOTOH_IX(tr, j);
+            w->i--;
+        }
+        else if (w->trace & Iy_MATRIX) {
+            if (linear_walker_step(w, HORIZONTAL) < 0) return -1;
+            w->trace = LINEAR_GOTOH_IY(tr, j);
+            w->j--;
+        }
+        else {
+            LINEAR_INTERNAL_ERROR;
+            return -1;
+        }
+        /* only M and Iy in column 0 have an empty trace in a block */
+        if (!w->trace) return LINEAR_STOPPED;
+    }
+    if (w->i > 0) return LINEAR_EXITED;
+    if (w->j > 0) {
+        if (w->trace & (M_MATRIX | Ix_MATRIX)) return LINEAR_STOPPED;
+        if (linear_walker_step(w, HORIZONTAL) < 0) return -1;
+        w->j = 0;
+    }
+    /* the origin always starts the path */
+    if (linear_walker_add(w) < 0) return -1;
+    return LINEAR_ENDED;
+}
+
+static const LinearKernel linear_gotoh_compare = {
+    .ncarried = 0,
+    .ndoubles = 3,
+    .trace_bytes = 2,
+    .ncounts = 3,
+    .matrix_cell_bytes = sizeof(Trace) + sizeof(TraceGapsGotoh),
+    .matrix_row_pointers = 2,
+    .start = linear_gotoh_start,
+    .sweep = linear_gotoh_sweep_compare,
+    .score = linear_gotoh_score,
+    .total = linear_gotoh_total,
+    .walk = linear_gotoh_walk,
+    .align = Aligner_gotoh_global_align_compare,
+};
+
+static const LinearKernel linear_gotoh_matrix = {
+    .ncarried = 0,
+    .ndoubles = 3,
+    .trace_bytes = 2,
+    .ncounts = 3,
+    .matrix_cell_bytes = sizeof(Trace) + sizeof(TraceGapsGotoh),
+    .matrix_row_pointers = 2,
+    .start = linear_gotoh_start,
+    .sweep = linear_gotoh_sweep_matrix,
+    .score = linear_gotoh_score,
+    .total = linear_gotoh_total,
+    .walk = linear_gotoh_walk,
+    .align = Aligner_gotoh_global_align_matrix,
+};
+
+/* The kernel for an alignment, or NULL if it has none. */
+static const LinearKernel*
+linear_kernel(const Aligner* self, Algorithm algorithm)
+{
+    const bool matrix = (self->substitution_matrix.obj != NULL);
+    if (self->mode != Global) return NULL;
+    switch (algorithm) {
+        case NeedlemanWunschSmithWaterman:
+            return matrix ? &linear_nw_matrix : &linear_nw_compare;
+        case Gotoh:
+            return matrix ? &linear_gotoh_matrix : &linear_gotoh_compare;
+        default:
+            return NULL;
+    }
+}
 
 
 /* -------------------- the strip driver ------------------- */
@@ -553,7 +950,9 @@ linear_solve(LinearSolver* S, int r0, int r1, const double* inrow,
     }
 }
 
-/* Find the first path, with the full matrix's tie-breaking. */
+/* Find the first path, with the full matrix's tie-breaking.  Returns NULL
+ * with an exception set on error, and NULL without one if the path stops
+ * before the origin. */
 static PyObject*
 LinearPaths_first_path(LinearPaths* self)
 {
@@ -576,6 +975,7 @@ LinearPaths_first_path(LinearPaths* self)
     }
     S.walker.i = self->nA;
     S.walker.j = self->nB;
+    S.walker.trace = self->end;
     for (k = plan->count; k-- > 0; ) {
         const size_t r0 = k * plan->stride;
         const size_t r1 = Py_MIN(r0 + plan->stride, (size_t)self->nA);
@@ -586,8 +986,9 @@ LinearPaths_first_path(LinearPaths* self)
         status = linear_solve(&S, (int)r0, (int)r1,
                               self->checkpoints + k * plan->rowsize, 0);
         if (status < 0) goto exit;
-        if (status == LINEAR_ENDED) break;
+        if (status != LINEAR_EXITED) break;
     }
+    if (status == LINEAR_STOPPED) goto exit;
     if (status != LINEAR_ENDED) {
         LINEAR_INTERNAL_ERROR;
         goto exit;
@@ -629,7 +1030,7 @@ LinearPaths_forward(LinearPaths* self)
         if (kernel->sweep(self, row, (int)r0, (int)r1, self->nB,
                           scratch, 0, NULL) < 0) goto exit;
     }
-    self->score = kernel->score(self, row);
+    self->score = kernel->score(self, row, &self->end);
     status = 0;
 exit:
     PyMem_Free(row);
@@ -682,7 +1083,8 @@ LinearPaths_count(LinearPaths* self)
 }
 
 /* Build the full traceback matrix, check it against what is already
- * known, and step its PathGenerator past the first path. */
+ * known, and step its PathGenerator past the first path, which becomes
+ * the first path if that is not known yet. */
 static int
 LinearPaths_materialize(LinearPaths* self)
 {
@@ -734,9 +1136,14 @@ LinearPaths_next(LinearPaths* self)
     if (self->position == 0) {
         if (!self->first) {
             self->first = LinearPaths_first_path(self);
-            if (!self->first) goto exit;
-            PyMem_Free(self->checkpoints);
-            self->checkpoints = NULL;
+            if (self->first) {
+                PyMem_Free(self->checkpoints);
+                self->checkpoints = NULL;
+            }
+            /* a path stopping before the origin is whatever the full
+             * matrix makes of it */
+            else if (PyErr_Occurred() || LinearPaths_materialize(self) < 0)
+                goto exit;
         }
         Py_INCREF(self->first);
         path = self->first;
@@ -847,17 +1254,17 @@ static PyTypeObject LinearPaths_Type = {
 static bool
 LinearPaths_wanted(const Aligner* self, Algorithm algorithm, int nA, int nB)
 {
+    const LinearKernel* kernel = linear_kernel(self, algorithm);
     const size_t na = (size_t)nA + 1;
-    const size_t rowbytes = ((size_t)nB + 1) * sizeof(Trace) + sizeof(Trace*);
+    size_t rowbytes;
     size_t nbytes;  /* of the full traceback matrix */
     double peak;
     LinearPlan plan;
-    if (!linear_enabled) return false;
-    if (algorithm != NeedlemanWunschSmithWaterman || self->mode != Global)
-        return false;
-    /* both Needleman-Wunsch kernels have the same sizes */
-    if (!linear_plan(&plan, &linear_nw_compare, nA, nB)) return false;
+    if (!linear_enabled || !kernel) return false;
+    if (!linear_plan(&plan, kernel, nA, nB)) return false;
     if (linear_threshold < 0) return true;
+    rowbytes = ((size_t)nB + 1) * kernel->matrix_cell_bytes
+             + kernel->matrix_row_pointers * sizeof(void*);
     nbytes = (na <= SIZE_MAX / rowbytes) ? na * rowbytes : SIZE_MAX;
     /* LinearPaths_align keeps a copy of the substitution matrix, on top of
      * the one each kernel makes while it runs without the GIL */
@@ -874,12 +1281,20 @@ static PyObject*
 LinearPaths_align(const Aligner* self, const int* sA, int nA,
                   const int* sB, int nB, unsigned char strand)
 {
+    /* align() resolved self->algorithm, calling _get_algorithm on its
+     * snapshot, before LinearPaths_wanted */
+    const LinearKernel* kernel = linear_kernel(self, self->algorithm);
     Py_buffer* view;
     LinearPaths* paths;
 
+    if (!kernel) {
+        LINEAR_INTERNAL_ERROR;
+        return NULL;
+    }
     paths = (LinearPaths*)PyType_GenericAlloc(&LinearPaths_Type, 0);
     if (!paths) return NULL;
     /* PyType_GenericAlloc zeroed every field. */
+    paths->kernel = kernel;
     paths->aligner = *self;
     paths->aligner.insertion_score_function = NULL;
     paths->aligner.deletion_score_function = NULL;
@@ -897,9 +1312,7 @@ LinearPaths_align(const Aligner* self, const int* sA, int nA,
         paths->shape[0] = self->substitution_matrix.shape[0];
         paths->shape[1] = self->substitution_matrix.shape[1];
         view->shape = paths->shape;
-        paths->kernel = &linear_nw_matrix;
     }
-    else paths->kernel = &linear_nw_compare;
     paths->nA = nA;
     paths->nB = nB;
     paths->strand = strand;
