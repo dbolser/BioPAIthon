@@ -1820,7 +1820,9 @@ LinearPaths_count(LinearPaths* self)
 /* Build the full traceback matrix, check it against what is already
  * known, and step its PathGenerator past the first path, which becomes
  * the first path if that is not known yet.  If that is not known, the full
- * matrix may have no paths; then there is no end. */
+ * matrix of a Gotoh local alignment may have no paths, its clean-up having
+ * removed them (see linear_gotoh_local_score); then there is no end.  For
+ * any other kernel that is an internal error. */
 static int
 LinearPaths_materialize(LinearPaths* self)
 {
@@ -1846,7 +1848,9 @@ LinearPaths_materialize(LinearPaths* self)
      * until reset (see LinearPaths); otherwise this changes nothing. */
     Py_DECREF(PathGenerator_reset(self->paths));  /* returns None */
     first = PathGenerator_next(self->paths);
-    if (!first && !self->first && !PyErr_Occurred()) {
+    if (!first && !self->first && !PyErr_Occurred()
+        && (self->kernel == &linear_gotoh_local_compare
+            || self->kernel == &linear_gotoh_local_matrix)) {
         self->end = 0;
         PyMem_Free(self->checkpoints);
         self->checkpoints = NULL;
