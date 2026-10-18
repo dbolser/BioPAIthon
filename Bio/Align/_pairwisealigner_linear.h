@@ -1388,7 +1388,8 @@ exit:
 /* Count the paths as PathGenerator_length does over the full matrix, in
  * another forward pass over every row, with a row of path counts.  Returns
  * the count, or -1 with an exception set.  The count is kept, and so is an
- * overflow. */
+ * overflow.  A count of 0 is not kept, as 0 means not counted yet, but with
+ * no end (see LinearPaths) every kernel's total is 0 without a pass. */
 static Py_ssize_t
 LinearPaths_count(LinearPaths* self)
 {
@@ -1399,7 +1400,7 @@ LinearPaths_count(LinearPaths* self)
     Py_ssize_t* counts = NULL;
     int status = 0;
 
-    if (self->length == 0) {
+    if (self->length == 0 && self->end) {
         if (width <= PY_SSIZE_T_MAX / sizeof(Py_ssize_t) / kernel->ncounts) {
             row = PyMem_Malloc(self->plan.rowsize * sizeof(double));
             scratch = PyMem_Malloc(width * kernel->trace_bytes);
