@@ -214,8 +214,11 @@ def random_case(rng, lengths, algorithm=NW):
 def random_budgets(rng, nB, algorithm=NW):
     """Return a checkpoint and a block budget, from one cell or row to large."""
     # Gotoh keeps three scores and two bytes of trace bits a cell.
+    # Smith-Waterman carries five doubles at the start of a saved row (the
+    # LinearLocal struct).
     scores, trace_bytes = (3, 2) if algorithm == GOTOH else (1, 1)
-    row = 8 * scores * (nB + 1)
+    carried = 5 if algorithm == SW else 0
+    row = 8 * (carried + scores * (nB + 1))
     trace = trace_bytes * (nB + 1)
     checkpoint_bytes = rng.choice([1, row, rng.randint(1, 16 * row), 1 << 30])
     block_bytes = rng.choice([1, trace, rng.randint(1, 16 * trace), 1 << 30])
@@ -642,7 +645,9 @@ class TestDifferential(unittest.TestCase):
         # With a positive gap score the full matrix's PathGenerator can fail
         # after the first path, or yield more paths than len() counts.  The
         # linear-space traceback gives that first path and the count, and
-        # then what the full matrix gives.
+        # then what the full matrix gives.  Both are upstream defects, also
+        # in Biopython 1.86 and 1.88, pinned here, not endorsed: a fix to the
+        # full matrix fails this test, and must keep linear_sw_count in step.
         aligner = sw_aligner(gap_score=0.5)
         for seqA, seqB in (("AAA", "CAACC"), ("ACC", "CACAA")):
             expected = aligner.align(seqA, seqB)

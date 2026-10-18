@@ -85,7 +85,7 @@ sequence lengths, and the score, the number of alignments, and the
 alignments in their order are exactly those of the full matrix. Aligning a
 1 kb read locally against 2 Mb with ``scoring="megablast"`` took 1.98 GB and
 17 s, and now takes 85 MB and 13 s; two related 30 kb sequences took 773 MB
-and now take 65 MB. ``alignments[0]`` takes 0.8 to 1.3 times as long as
+and now take 65 MB. ``alignments[0]`` takes 0.7 to 1.3 times as long as
 before, but about twice as long for a short target against a long query,
 and ``len()`` takes 1.3 to 1.5 times as long. Going past the first alignment
 still builds the full matrix, so for a huge alignment a ``MemoryError`` now

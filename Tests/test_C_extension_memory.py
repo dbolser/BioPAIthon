@@ -81,8 +81,9 @@ class AlignmentExtensionTests(unittest.TestCase):
         counts in linear space, the first path comes from checkpointed rows,
         the second from the full matrix.  The substitution matrices of the
         second, fourth and sixth aligners are copied; the fifth and sixth
-        align locally.  The last aligner allows no gaps, so its first path stops
-        short of the origin and comes from the full matrix too.
+        align locally.  A seventh aligner, stopped, allows no gaps, so its
+        first path stops short of the origin and comes from the full matrix
+        too.
         """
         import math
 
