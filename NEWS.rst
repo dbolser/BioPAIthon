@@ -77,6 +77,23 @@ given a strand other than ``"+"`` or ``"-"`` now raises the same error as
 ``score()`` always has. ``Alignment.counts()`` still maps such lists twice.
 
 ``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
+local alignment with affine gap scores (the Gotoh algorithm, as the
+``blastn`` and ``blastp`` scoring schemes use in local mode) when that matrix
+would take more than 512 MiB, about 16 kb against 16 kb. As for the other
+modes, the score, ``len(alignments)`` (and so ``repr()`` and ``bool()``) and
+``alignments[0]`` then use memory in proportion to the sequence lengths, and
+the score, the number of alignments, and the alignments in their order are
+exactly those of the full matrix. Aligning two 20 kb sequences locally with
+``scoring="blastn"`` took 794 MB, and now takes 68 MB; a 1 kb read against
+2 Mb took 3.9 GB and 30 s, and now takes 85 MB and 19 s. ``alignments[0]``
+takes 0.6 to 1.3 times as long as before, but about twice as long for a short
+target against a long query, and ``len()`` takes 1.3 to 1.4 times as long.
+Going past the first alignment still builds the full matrix, so for a huge
+alignment a ``MemoryError`` now comes from ``alignments[1]`` rather than from
+``align()``. Alignments with gap score functions, and FOGSAA alignments,
+still build the full matrix in ``align()`` at any size.
+
+``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
 local alignment with linear gap scores (the Smith-Waterman algorithm) when
 that matrix would take more than 512 MiB, about 23 kb against 23 kb. As for
 global alignments, the score, ``len(alignments)`` (and so ``repr()`` and
@@ -106,8 +123,7 @@ about 1.5 times as long as before for sequences of similar length, and up to
 about 4 times as long for a short target against a long query; ``len()``
 takes about twice as long. Going past the first alignment still builds the
 full matrix, so for a huge alignment a ``MemoryError`` now comes from
-``alignments[1]`` rather than from ``align()``. Local alignments with affine
-gap scores, gap score functions and FOGSAA still build the full matrix.
+``alignments[1]`` rather than from ``align()``.
 
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising
