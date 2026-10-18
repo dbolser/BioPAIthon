@@ -130,10 +130,11 @@ full matrix, so for a huge alignment a ``MemoryError`` now comes from
 index list was longer than the matrix has rows (or columns, with
 ``transpose``), as repeated indices allow; it now takes the median over every
 listed item, repeats included, just as ``method="a"`` takes the mean. ``pca``
-crashed on data holding an infinity, or values so large that the mean of a
-column overflows; it now raises ``ValueError``. Finite data that overflow
-inside the singular value decomposition raise the ``RuntimeError`` that
-``pca`` already raised when the decomposition fails to converge. The private
+crashed on data holding an infinity, or values so large that the sum of a
+column overflows; it now raises ``ValueError``. Finite data that crashed it by
+overflowing inside the singular value decomposition now raise the
+``RuntimeError`` that ``pca`` already raised when the decomposition fails to
+converge. The private
 ``Bio.Cluster._cluster.pca`` now checks the size of its eigenvalues array
 instead of writing past its end, and its errors for a wrongly shaped ``pc`` or
 ``coordinates`` now give that array's shape. Results for valid input are

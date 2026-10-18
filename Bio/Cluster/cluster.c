@@ -575,7 +575,7 @@ svd(int m, int n, double** u, double w[], double** vt)
  *  0:  to indicate a normal return,
  *  k:  if the k-th singular value has not been determined after 30 iterations,
  *  min(m, n): if no singular value can be determined, because u contains an
- *      infinity or a NaN, or values so large that the calculation overflows,
+ *      infinity or a NaN, or the reduction to bidiagonal form overflows,
  * -1:  if memory allocation fails.
  *
  * w  contains the n (non-negative) singular values of a (the
@@ -1109,7 +1109,7 @@ eigenvalues appearing first.
 The function returns 0 if successful, -1 if memory allocation fails, and a
 positive integer if the singular value decomposition fails to converge,
 including when u contains an infinity or a NaN, or values so large that the
-calculation overflows.
+reduction to bidiagonal form overflows.
 */
 {
     int i;

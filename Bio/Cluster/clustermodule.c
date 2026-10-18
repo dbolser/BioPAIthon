@@ -2652,7 +2652,7 @@ py_pca(PyObject* self, PyObject* args)
         if (!isfinite(p[j])) {
             PyErr_SetString(PyExc_ValueError,
                 "data contains infinite or NaN values, or values so large "
-                "that the mean of a column overflows");
+                "that the sum of a column overflows");
             goto exit;
         }
     }

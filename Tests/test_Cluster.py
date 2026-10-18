@@ -3585,7 +3585,7 @@ print("OK")
         )
 
     def test_pca_infinite_data(self):
-        """Check pca rejects data whose column means are not finite."""
+        """Check pca rejects data whose column sums are not finite."""
         self.run_child(
             """
 import numpy as np
@@ -3593,7 +3593,7 @@ from Bio.Cluster import _cluster, pca
 
 message = (
     "data contains infinite or NaN values, "
-    "or values so large that the mean of a column overflows"
+    "or values so large that the sum of a column overflows"
 )
 for data in (
     [[1.0, 2.0], [3.0, np.inf], [5.0, 6.0]],
