@@ -216,11 +216,13 @@ class IOTests(unittest.TestCase):
             [0.1, 0.2, 0.3, 0.4],
         )
         self.assertEqual(inner.confidence, 0.95)
-        # Unicode whitespace: float() strips "\xa0" itself but not "\x1f"
-        tree = Phylo.read(StringIO("(a:\x1f0.1,b:\xa00.2);"), "newick")
-        self.assertEqual(
-            [clade.branch_length for clade in tree.root.clades], [0.1, 0.2]
-        )
+        # Any other whitespace \s matches, as it ends an unquoted label too.
+        # float() does not skip "\x1c" to "\x1f", nor does str.strip() on PyPy 3.10.
+        for space in "\x1c\x1f\x85\xa0\u3000":
+            with self.subTest(space=hex(ord(space))):
+                tree = Phylo.read(StringIO(f"(a:{space}0.1,b);"), "newick")
+                a, b = tree.root.clades
+                self.assertEqual([a.name, a.branch_length], ["a", 0.1])
 
     def test_newick_read_colon_inside_quotes_and_comments(self):
         """A colon and spaces inside a quoted label or comment are kept."""
