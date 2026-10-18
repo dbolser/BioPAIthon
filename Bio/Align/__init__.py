@@ -4524,111 +4524,74 @@ AlignmentCounts object returned by the .counts method of an Alignment object."""
             key = new_key
         return _pairwisealigner.PairwiseAligner.__getattribute__(self, key)
 
+    def _prepare_sequences(self, seqA, seqB, strand):
+        """Return both sequences in the form the C code takes (PRIVATE).
+
+        Both align and score use this, so that they accept the same inputs.
+        With strand "-", seqB is reverse-complemented first.  The callers
+        keep the original objects for the alignments they return.
+        """
+        letters = []  # without a substitution matrix, the alphabet of lists
+        sA = self._convert_sequence(seqA, letters)
+        if strand == "-":
+            seqB = reverse_complement(seqB)
+        sB = self._convert_sequence(seqB, letters)
+        return sA, sB
+
+    def _convert_sequence(self, sequence, letters):
+        """Return one sequence in the form the C code takes (PRIVATE).
+
+        The letters of a str, bytes, Seq, MutableSeq or SeqRecord become
+        their code points.  An object supporting the buffer protocol, such
+        as a NumPy array, is returned unchanged, and the C code checks it.
+        The items of any other sequence, such as a list, become their index
+        in the alphabet of the substitution matrix or, without a matrix, in
+        the list letters, which collects the items of both sequences.  But
+        if the matrix's alphabet is a string, the C code maps code points
+        through it itself, so the items become their code points instead,
+        as letters do; mapping them here as well would map them twice.
+        """
+        if isinstance(sequence, (bytes, Seq, MutableSeq, SeqRecord)):
+            sequence = bytes(sequence)
+            return np.frombuffer(sequence, dtype=np.uint8).astype(np.int32)
+        if isinstance(sequence, str):
+            return np.frombuffer(bytearray(sequence, self.codec), dtype=np.int32)
+        try:
+            memoryview(sequence)
+        except TypeError:
+            pass
+        else:
+            return sequence  # the C code checks the data type
+        substitution_matrix = self.substitution_matrix
+        if substitution_matrix is None:
+            for item in sequence:
+                if not any(item == letter for letter in letters):
+                    letters.append(item)
+            alphabet = letters
+        else:
+            alphabet = substitution_matrix.alphabet
+            # The same test as _prepare_indices in _pairwisealigner.c:
+            if isinstance(alphabet, str) and isinstance(
+                substitution_matrix, substitution_matrices._arraycore.Array
+            ):
+                return np.fromiter(
+                    map(ord, sequence), dtype=np.int32, count=len(sequence)
+                )
+        return np.fromiter(
+            map(alphabet.index, sequence), dtype=np.int32, count=len(sequence)
+        )
+
     def align(self, seqA, seqB, strand="+"):
         """Return the alignments of two sequences using PairwiseAligner."""
-        if isinstance(seqA, (bytes, Seq, MutableSeq, SeqRecord)):
-            sA = bytes(seqA)
-            sA = np.frombuffer(sA, dtype=np.uint8).astype(np.int32)
-        elif isinstance(seqA, str):
-            sA = np.frombuffer(bytearray(seqA, self.codec), dtype=np.int32)
-        else:
-            try:
-                memoryview(seqA)
-            except TypeError:
-                substitution_matrix = self.substitution_matrix
-                if substitution_matrix is None:
-                    alphabet = []
-                    for item in seqA:
-                        if not any(item == letter for letter in alphabet):
-                            alphabet.append(item)
-                else:
-                    alphabet = substitution_matrix.alphabet
-                sA = np.fromiter(
-                    map(alphabet.index, seqA), dtype=np.int32, count=len(seqA)
-                )
-            else:
-                sA = seqA  # C code will check the dtype
-        if strand == "+":
-            sB = seqB
-        else:  # strand == "-":
-            sB = reverse_complement(seqB)
-        if isinstance(seqB, (bytes, Seq, MutableSeq, SeqRecord)):
-            sB = bytes(sB)
-            sB = np.frombuffer(sB, dtype=np.uint8).astype(np.int32)
-        elif isinstance(seqB, str):
-            sB = np.frombuffer(bytearray(sB, self.codec), dtype=np.int32)
-        else:
-            try:
-                memoryview(seqB)
-            except TypeError:
-                substitution_matrix = self.substitution_matrix
-                if substitution_matrix is None:
-                    try:
-                        alphabet
-                    except NameError:
-                        alphabet = []
-                    for item in seqB:
-                        if not any(item == letter for letter in alphabet):
-                            alphabet.append(item)
-                else:
-                    alphabet = substitution_matrix.alphabet
-                sB = np.fromiter(
-                    map(alphabet.index, seqB), dtype=np.int32, count=len(seqB)
-                )
-            else:
-                sB = seqB  # C code will test the dtype
+        sA, sB = self._prepare_sequences(seqA, seqB, strand)
         score, paths = super().align(sA, sB, strand)
         alignments = PairwiseAlignments(seqA, seqB, score, paths)
         return alignments
 
     def score(self, seqA, seqB, strand="+"):
         """Return the alignment score of two sequences using PairwiseAligner."""
-        if isinstance(seqA, (bytes, Seq, MutableSeq, SeqRecord)):
-            seqA = bytes(seqA)
-            seqA = np.frombuffer(seqA, dtype=np.uint8).astype(np.int32)
-        elif isinstance(seqA, str):
-            seqA = np.frombuffer(bytearray(seqA, self.codec), dtype="i")
-        else:
-            try:
-                memoryview(seqA)
-            except TypeError:
-                substitution_matrix = self.substitution_matrix
-                if substitution_matrix is None:
-                    alphabet = []
-                    for item in seqA:
-                        if not any(item == letter for letter in alphabet):
-                            alphabet.append(item)
-                else:
-                    alphabet = substitution_matrix.alphabet
-                seqA = np.fromiter(
-                    map(alphabet.index, seqA), dtype=np.int32, count=len(seqA)
-                )
-        if strand == "-":
-            seqB = reverse_complement(seqB)
-        if isinstance(seqB, (bytes, Seq, MutableSeq, SeqRecord)):
-            seqB = bytes(seqB)
-            seqB = np.frombuffer(seqB, dtype=np.uint8).astype(np.int32)
-        elif isinstance(seqB, str):
-            seqB = np.frombuffer(bytearray(seqB, self.codec), dtype="i")
-        else:
-            try:
-                memoryview(seqB)
-            except TypeError:
-                substitution_matrix = self.substitution_matrix
-                if substitution_matrix is None:
-                    try:
-                        alphabet
-                    except NameError:
-                        alphabet = []
-                    for item in seqB:
-                        if not any(item == letter for letter in alphabet):
-                            alphabet.append(item)
-                else:
-                    alphabet = substitution_matrix.alphabet
-                seqB = np.fromiter(
-                    map(alphabet.index, seqB), dtype=np.int32, count=len(seqB)
-                )
-        return super().score(seqA, seqB, strand)
+        sA, sB = self._prepare_sequences(seqA, seqB, strand)
+        return super().score(sA, sB, strand)
 
     def __getstate__(self):
         state = {

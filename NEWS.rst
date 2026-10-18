@@ -63,6 +63,19 @@ and ``0.2`` and no branch lengths. On an inner clade the length replaced the
 support value instead, so ``(a,b)0.95:  0.3`` gave a confidence of 0.3 and
 lost the 0.95. NEXUS files were not affected.
 
+``Bio.Align.PairwiseAligner`` now scores and aligns lists or tuples of
+letters correctly with a substitution matrix whose alphabet is a string, such
+as BLOSUM62 or the matrices of the ``"blastn"``, ``"megablast"`` and
+``"blastp"`` scoring schemes. The letters were mapped through the alphabet
+twice, so ``score()`` and ``align()`` raised "sequence contains letters not in
+the alphabet" or, with some large custom alphabets such as all printable ASCII
+characters, returned a wrong score without an error. They now give the same
+result as a string of the same letters, so each item must be a single
+character; a longer one raises ``TypeError``. The two methods now prepare
+their sequences in one place, so they accept the same inputs, and ``align()``
+given a strand other than ``"+"`` or ``"-"`` now raises the same error as
+``score()`` always has. ``Alignment.counts()`` still maps such lists twice.
+
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising
 ``PackageNotFoundError``. The distribution is still called ``biopaithon``;

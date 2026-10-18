@@ -130,13 +130,14 @@ Found by reviewers during the sprint and listed in `IMPROVEMENTS.md` under
 "Follow-ups from the October 2026 sprint", where each entry has its file,
 reproduction and PR. Each defect is still present on upstream `master`
 (`fc0c15678`, checked with `git grep`, not run there); a few, such as the
-`mktest` and `_get_pi` lines, are already fixed in this fork. None has been
-searched for in the tracker yet, so each needs that check before it joins
-the table above. The C crashes are reached through a caller's arguments, not
-a downloaded file, so this draft sends them to the public tracker, as with
-row 30. **Dan to decide:** PR #196's reviewer recommended the held route for
-the two `cluster.c` heap overflows, and `pca` on data read by
-`Bio.Cluster.read` from a downloaded file is arguably file-driven.
+`mktest` and `_get_pi` lines, are already fixed in this fork. Unless a line
+says otherwise, none has been searched for in the tracker yet, so each needs
+that check before it joins the table above. The C crashes are reached through
+a caller's arguments, not a downloaded file, so this draft sends them to the
+public tracker, as with row 30. **Dan to decide:** PR #196's reviewer
+recommended the held route for the two `cluster.c` heap overflows, and `pca`
+on data read by `Bio.Cluster.read` from a downloaded file is arguably
+file-driven.
 
 - `Bio.Cluster`: `clusterdistance(..., method="m")` with an index list longer than the matrix overflows the heap.
 - `Bio.Cluster`: `pca` on data holding `inf`, or with a column mean that overflows, makes `svd` read `w[-1]`.
@@ -146,7 +147,7 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - `PairwiseAligner`: `del aligner.mode` or `del aligner.wildcard` segfaults; no setter checks for `NULL`.
 - `CodonAligner`: `del aligner.wildcard` segfaults (the score setters raise `ValueError`/`TypeError`), and `align()` decrefs its `PathGenerator` twice when a trace-row allocation fails ([`_codonaligner.c:950`](https://github.com/biopython/biopython/blob/fc0c156786e86862112a05a720b6f4f47023f36a/Bio/Align/_codonaligner.c#L950) then L1046; ASan reports use-after-free under `_testcapi.set_nomemory`).
 - `PairwiseAligner`: `str(aligner)` overflows a 1,024-byte stack buffer when the substitution matrix's class name is long or the scores are huge (each 1e308 prints 300+ digits; two such scores, or `gap_score = -1e308`, which sets 12, are enough), and uses the name as a format string.
-- `PairwiseAligner(scoring="blastp").score()` on two lists of letters raises "letters not in the alphabet", because list input is mapped twice.
+- `PairwiseAligner` maps a list of letters twice when the substitution matrix's alphabet is a string: the Python layer maps each item to its index in the alphabet, and the C code then maps that index as a code point through the same alphabet. So `PairwiseAligner(scoring="blastp").score()` and `.align()` on two lists or tuples of letters raise "sequence contains letters not in the alphabet", as do `blastn` and BLOSUM62; with a large custom alphabet, such as all 95 printable ASCII characters, they can instead return a wrong score without an error. `Alignment.counts()` repeats the Python mapping, so it raises or miscounts the same way. All of this run on upstream `master` (`c911b1210`). Tracker checked 2026-10-18: [#4431](https://github.com/biopython/biopython/issues/4431) (open, filed against 1.81, when the error was "sequence has unexpected format") reports this case. There mdehoon suggested letting `Array` keep a list alphabet when the user asks for one; this fork instead makes a list of single letters score like the string of those letters. That is a behaviour choice, so comment on #4431 rather than open a new issue, and leave the choice upstream.
 - `Bio/PDB/kdtrees.c`: `repr()` of `Point` and `Neighbor` raises `SystemError`, and `KDTree(coords, bucket_size=10)` ignores the keyword.
 - `FastaBlastIterator`'s `self_line = line` typo gives every record the first record's title.
 - `Seq.join()` given a generator returns an empty sequence, because the type check uses it up.
