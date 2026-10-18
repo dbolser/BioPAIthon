@@ -80,9 +80,9 @@ class AlignmentExtensionTests(unittest.TestCase):
         The private test hook routes these short sequences to it.  len()
         counts in linear space, the first path comes from checkpointed rows,
         the second from the full matrix.  The substitution matrices of the
-        second and fourth aligners are copied.  The last aligner allows no
-        gaps, so its first path stops short of the origin and comes from the
-        full matrix too.
+        second, fourth and sixth aligners are copied; the fifth and sixth
+        align locally.  The last aligner allows no gaps, so its first path stops
+        short of the origin and comes from the full matrix too.
         """
         import math
 
@@ -96,6 +96,8 @@ class AlignmentExtensionTests(unittest.TestCase):
             PairwiseAligner(substitution_matrix=matrix),
             PairwiseAligner(open_gap_score=-2, extend_gap_score=-1),
             PairwiseAligner(scoring="blastn"),
+            PairwiseAligner(mode="local"),
+            PairwiseAligner(mode="local", substitution_matrix=matrix),
         ]
         stopped = PairwiseAligner(open_gap_score=-math.inf, extend_gap_score=-1)
         target = "AGAACTTATCGCTTGACGTAAC"

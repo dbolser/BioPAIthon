@@ -77,6 +77,21 @@ given a strand other than ``"+"`` or ``"-"`` now raises the same error as
 ``score()`` always has. ``Alignment.counts()`` still maps such lists twice.
 
 ``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
+local alignment with linear gap scores (the Smith-Waterman algorithm) when
+that matrix would take more than 512 MiB, about 23 kb against 23 kb. As for
+global alignments, the score, ``len(alignments)`` (and so ``repr()`` and
+``bool()``) and ``alignments[0]`` then use memory in proportion to the
+sequence lengths, and the score, the number of alignments, and the
+alignments in their order are exactly those of the full matrix. Aligning a
+1 kb read locally against 2 Mb with ``scoring="megablast"`` took 1.98 GB and
+17 s, and now takes 85 MB and 13 s; two related 30 kb sequences took 773 MB
+and now take 65 MB. ``alignments[0]`` takes 0.8 to 1.3 times as long as
+before, but about twice as long for a short target against a long query,
+and ``len()`` takes 1.3 to 1.5 times as long. Going past the first alignment
+still builds the full matrix, so for a huge alignment a ``MemoryError`` now
+comes from ``alignments[1]`` rather than from ``align()``.
+
+``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
 global alignment with affine gap scores (the Gotoh algorithm, which the
 ``blastn`` and ``blastp`` scoring schemes use) when that matrix would take
 more than 512 MiB, about 16 kb against 16 kb. As BioPAIthon 1.88 already did
@@ -91,8 +106,8 @@ about 1.5 times as long as before for sequences of similar length, and up to
 about 4 times as long for a short target against a long query; ``len()``
 takes about twice as long. Going past the first alignment still builds the
 full matrix, so for a huge alignment a ``MemoryError`` now comes from
-``alignments[1]`` rather than from ``align()``. Local alignments, gap score
-functions and FOGSAA still build the full matrix.
+``alignments[1]`` rather than from ``align()``. Local alignments with affine
+gap scores, gap score functions and FOGSAA still build the full matrix.
 
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising

@@ -15,14 +15,14 @@
  *
  * - align() runs one forward pass with the kernel's per-cell arithmetic, so
  *   the score is bit-identical, saving every stride-th row as a checkpoint.
- * - The first path is recovered strip by strip from the bottom: recompute
- *   a strip's rows from its checkpoint, keeping their trace bits, and
- *   follow the traceback up through it.  Only the columns left of where the
- *   path leaves the strip are needed.  A strip over the block budget is
- *   bisected where that saves memory: sweep to its middle row, solve the
- *   bottom half, then the top half.  Same per-cell code, same trace bits,
- *   same path.  (Hirschberg's forward-and-reverse midpoints would pick
- *   another co-optimal path.)
+ * - The first path is recovered strip by strip, from the strip where it
+ *   ends: recompute a strip's rows from its checkpoint, keeping their trace
+ *   bits, and follow the traceback up through it.  Only the columns left
+ *   of where the path leaves the strip are needed.  A strip over the block
+ *   budget is bisected where that saves memory: sweep to its middle row,
+ *   solve the bottom half, then the top half.  Same per-cell code, same
+ *   trace bits, same path.  (Hirschberg's forward-and-reverse midpoints
+ *   would pick another co-optimal path.)
  * - len() counts the paths in one more forward pass, recomputing each row's
  *   trace bits and keeping a row of counts.
  * - Later paths build the full matrix with the existing kernel and delegate
@@ -36,9 +36,10 @@
  *
  * Settings, substitution matrix and sequences are copied at align(), so
  * later changes to them cannot change the results.  Each algorithm
- * supplies a LinearKernel to the generic strip driver; Needleman-Wunsch
- * and Gotoh global alignments have one.  The threshold is 512 MiB by
- * default; the private _set_traceback_limits changes it, for testing.
+ * supplies a LinearKernel to the generic strip driver; Needleman-Wunsch,
+ * Gotoh global and Smith-Waterman alignments have one.  The threshold is
+ * 512 MiB by default; the private _set_traceback_limits changes it, for
+ * testing.
  */
 
 
@@ -72,12 +73,13 @@ typedef struct {
      * Releases the GIL.  Returns 0, or -1 if interrupted by a signal. */
     int (*sweep)(const LinearPaths* self, double* row, int r0, int r1, int c,
                  unsigned char* T, size_t tstride, Py_ssize_t* counts);
-    /* The score of the alignment, from the last row.  Also stores in *end
-     * the matrices the paths end in, 0 if the full matrix has no paths. */
-    double (*score)(const LinearPaths* self, const double* row, int* end);
-    /* The number of paths, from the path counts of the last row, or
+    /* The score of the alignment, from the last row.  Also sets end, 0 if
+     * the full matrix has no paths, and the cell the first path ends in. */
+    double (*score)(LinearPaths* self, const double* row);
+    /* The number of paths, from the last row and its path counts, or
      * OVERFLOW_ERROR. */
-    Py_ssize_t (*total)(const LinearPaths* self, const Py_ssize_t* counts);
+    Py_ssize_t (*total)(const LinearPaths* self, const double* row,
+                        const Py_ssize_t* counts);
     /* Follow the traceback up through the block holding the trace bits of
      * rows r0+1 to the walker's row, width cells per row.  Returns
      * LINEAR_EXITED with the walker in row r0, LINEAR_ENDED,
@@ -88,6 +90,25 @@ typedef struct {
     PyObject* (*align)(Aligner* self, const int* sA, int nA,
                        const int* sB, int nB, unsigned char strand);
 } LinearKernel;
+
+/* What SMITHWATERMAN_ALIGN keeps while it fills the matrix, carried from
+ * row to row at the start of a saved row.  It marks a cell as an end point
+ * if its trace has a diagonal move, it is not a start point, and its score
+ * is less than epsilon below the highest score so far.  Where the score is
+ * more than epsilon above, a rise, it unmarks every cell from the previous
+ * rise on.  So the end points are the cells marked before the first rise
+ * or from the last one on.  Cells are (i, j), compared in row-major order;
+ * i = 0 is none. */
+typedef struct {
+    double maximum;      /* the highest score so far */
+    Py_ssize_t total;    /* for len(), the paths ending in the cells so far */
+    int first[2];        /* the first marked cell */
+    int rise[2];         /* the first rise */
+    int last[2];         /* the last rise */
+} LinearLocal;
+
+#define LINEAR_LOCAL_DOUBLES \
+    ((sizeof(LinearLocal) + sizeof(double) - 1) / sizeof(double))
 
 /* How a LinearPaths object runs, fixed at align() from the limits. */
 typedef struct {
@@ -110,7 +131,11 @@ struct LinearPaths {
     int nB;
     unsigned char strand;
     double score;
-    int end;             /* the matrices the paths end in; 0 if none */
+    int end;             /* the walker's trace at the end of the first path
+                          * (see LinearWalker); 0 if there are no paths */
+    int end_i;           /* the cell the first path ends in */
+    int end_j;
+    LinearLocal local;   /* Smith-Waterman: as the forward pass left it */
     LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
@@ -132,7 +157,9 @@ struct LinearWalker {
     int last;            /* direction of the move out of (i, j); 0 at the end */
     int trace;           /* for Gotoh, the matrices the path can be in at
                           * (i, j): the trace bits of the next cell on the
-                          * path, or LinearPaths.end at the end */
+                          * path, or LinearPaths.end at the end; for
+                          * Smith-Waterman, the moves it may make out of
+                          * (i, j): only DIAGONAL out of the end */
     int* points;         /* (i, j) where the path turns, last one first */
     size_t npoints;
     size_t capacity;
@@ -405,15 +432,18 @@ linear_nw_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
 }
 
 static double
-linear_nw_score(const LinearPaths* self, const double* row, int* end)
+linear_nw_score(LinearPaths* self, const double* row)
 {
-    *end = M_MATRIX;  /* its one matrix; NEEDLEMANWUNSCH_ALIGN keeps the
-                       * last trace */
+    self->end = M_MATRIX;  /* its one matrix; NEEDLEMANWUNSCH_ALIGN keeps
+                            * the last trace */
+    self->end_i = self->nA;
+    self->end_j = self->nB;
     return row[self->nB];
 }
 
 static Py_ssize_t
-linear_nw_total(const LinearPaths* self, const Py_ssize_t* counts)
+linear_nw_total(const LinearPaths* self, const double* Py_UNUSED(row),
+                const Py_ssize_t* counts)
 {
     return counts[self->nB];
 }
@@ -743,22 +773,25 @@ linear_gotoh_start(const LinearPaths* lp, double* row, Py_ssize_t* counts)
  * are the matrices PathGenerator_next_gotoh_global and
  * PathGenerator_gotoh_global_length find the paths ending in. */
 static double
-linear_gotoh_score(const LinearPaths* self, const double* row, int* end)
+linear_gotoh_score(LinearPaths* self, const double* row)
 {
     const double epsilon = self->aligner.epsilon;
     const double* const cell = row + 3 * (size_t)self->nB;
     double score;
     double temp;
     SELECT_SCORE_GLOBAL(cell[0], cell[1], cell[2]);
-    *end = 0;
-    if (!(cell[0] < score - epsilon)) *end |= M_MATRIX;
-    if (!(cell[1] < score - epsilon)) *end |= Ix_MATRIX;
-    if (!(cell[2] < score - epsilon)) *end |= Iy_MATRIX;
+    self->end = 0;
+    if (!(cell[0] < score - epsilon)) self->end |= M_MATRIX;
+    if (!(cell[1] < score - epsilon)) self->end |= Ix_MATRIX;
+    if (!(cell[2] < score - epsilon)) self->end |= Iy_MATRIX;
+    self->end_i = self->nA;
+    self->end_j = self->nB;
     return score;
 }
 
 static Py_ssize_t
-linear_gotoh_total(const LinearPaths* self, const Py_ssize_t* counts)
+linear_gotoh_total(const LinearPaths* self, const double* Py_UNUSED(row),
+                   const Py_ssize_t* counts)
 {
     const int nB = self->nB;
     const Py_ssize_t* const M_counts = counts;
@@ -849,16 +882,325 @@ static const LinearKernel linear_gotoh_matrix = {
     .align = Aligner_gotoh_global_align_matrix,
 };
 
+/* ----------------------- Smith-Waterman ----------------------- */
+
+/* Whether cell (i, j) comes before cell in row-major order. */
+static inline bool
+linear_before(int i, int j, const int* cell)
+{
+    return i < cell[0] || (i == cell[0] && j < cell[1]);
+}
+
+/* The end point test of SELECT_TRACE_SMITH_WATERMAN_HVD and
+ * SELECT_TRACE_SMITH_WATERMAN_D.  Where they unmark the cells since the
+ * previous rise, this records the rise instead (see LinearLocal). */
+#define LINEAR_SW_MARK \
+    else if (trace & DIAGONAL && score > maximum - epsilon) { \
+        if (score > maximum + epsilon) { \
+            if (!local.rise[0]) { \
+                local.rise[0] = i; \
+                local.rise[1] = j; \
+            } \
+            local.last[0] = i; \
+            local.last[1] = j; \
+        } \
+        if (!local.first[0]) { \
+            local.first[0] = i; \
+            local.first[1] = j; \
+        } \
+        trace |= ENDPOINT; \
+    }
+
+/* SELECT_TRACE_SMITH_WATERMAN_HVD, storing the trace bits in a row of
+ * bytes, tr, rather than in M[i][j].  The arithmetic must stay identical
+ * to it, and so must the order of the stores, or the trace bits, and with
+ * them the paths, could differ from the full matrix. */
+#define LINEAR_SW_HVD(align_score) \
+    trace = DIAGONAL; \
+    score = temp + (align_score); \
+    temp = row[j-1] + gap_extend_A; \
+    if (temp > score + epsilon) { \
+        score = temp; \
+        trace = HORIZONTAL; \
+    } \
+    else if (temp > score - epsilon) trace |= HORIZONTAL; \
+    temp = row[j] + gap_extend_B; \
+    if (temp > score + epsilon) { \
+        score = temp; \
+        trace = VERTICAL; \
+    } \
+    else if (temp > score - epsilon) trace |= VERTICAL; \
+    if (score < epsilon) { \
+        score = 0; \
+        trace = STARTPOINT; \
+    } \
+    LINEAR_SW_MARK \
+    tr[j] = (unsigned char)trace; \
+    if (score > maximum) maximum = score; \
+    temp = row[j]; \
+    row[j] = score;
+
+/* SELECT_TRACE_SMITH_WATERMAN_D, likewise. */
+#define LINEAR_SW_D(align_score) \
+    score = temp + (align_score); \
+    trace = DIAGONAL; \
+    if (score < epsilon) { \
+        score = 0; \
+    } \
+    LINEAR_SW_MARK \
+    tr[j] = (unsigned char)trace; \
+    if (score > maximum) maximum = score; \
+    temp = row[j]; \
+    row[j] = score;
+
+/* One row of PathGenerator_smithwaterman_length, over the row's trace bits
+ * in tr: the overflows, and the order of the additions, must stay as there
+ * for len() to agree with it.  That counts over the traces as
+ * SMITHWATERMAN_ALIGN leaves them, after two changes.  It unmarks the cells
+ * marked from the first rise to before the last (see LinearLocal).  And so
+ * that no path goes on past an end point, it removes each trace leading
+ * back to one, and clears the cells then left without a trace, whose count
+ * is 0.  Here an end point keeps a count of 0 instead, which adds the same
+ * to every sum. */
+static void
+linear_sw_count(const LinearPaths* self, const unsigned char* tr, int i,
+                Py_ssize_t* counts, Py_ssize_t* total)
+{
+    const int nB = self->nB;
+    const int* const rise = self->local.rise;
+    const int* const last = self->local.last;
+    int j;
+    int trace;
+    Py_ssize_t term;
+    Py_ssize_t count;
+    Py_ssize_t temp;
+    Py_ssize_t sum = *total;
+    temp = counts[0];
+    counts[0] = 1;
+    for (j = 1; j <= nB; j++) {
+        trace = tr[j];
+        if (trace & ENDPOINT && rise[0] && !linear_before(i, j, rise)
+                             && linear_before(i, j, last))
+            trace &= ~ENDPOINT;
+        count = 0;
+        if (trace & DIAGONAL) SAFE_ADD(temp, count);
+        if (trace & ENDPOINT) SAFE_ADD(count, sum);
+        if (trace & HORIZONTAL) SAFE_ADD(counts[j-1], count);
+        if (trace & VERTICAL) SAFE_ADD(counts[j], count);
+        temp = counts[j];
+        if (count == 0 && (trace & STARTPOINT)) count = 1;
+        counts[j] = (trace & ENDPOINT) ? 0 : count;
+    }
+    *total = sum;
+}
+
+/* The rows of SMITHWATERMAN_ALIGN: only diagonal moves into the last row
+ * and the last column, and column 0 start points, as
+ * PathGenerator_create_NWSW makes them.  A saved row holds a LinearLocal,
+ * then the scores. */
+#define LINEAR_SW_SWEEP(align_score) \
+    const Aligner* const self = &lp->aligner; \
+    const int nA = lp->nA; \
+    const int nB = lp->nB; \
+    const int* const sA = lp->sA; \
+    const int* const sB = lp->sB; \
+    const double gap_extend_A = self->extend_internal_insertion_score; \
+    const double gap_extend_B = self->extend_internal_deletion_score; \
+    const double epsilon = self->epsilon; \
+    double* const row = saved + LINEAR_LOCAL_DOUBLES; \
+    LinearLocal local; \
+    double maximum; \
+    int i; \
+    int j; \
+    int jmax; \
+    int kA; \
+    int kB; \
+    int trace; \
+    int interrupted = 0; \
+    double score; \
+    double temp; \
+    unsigned char* tr; \
+    memcpy(&local, saved, sizeof(LinearLocal)); \
+    maximum = local.maximum; \
+    PAIRWISE_NOGIL_BEGIN \
+    for (i = r0 + 1; i <= r1; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
+        tr = T + (size_t)(i - r0 - 1) * tstride; \
+        tr[0] = STARTPOINT; \
+        kA = sA[i-1]; \
+        temp = 0; \
+        jmax = (i == nA) ? 0 : (c < nB) ? c : nB - 1; \
+        for (j = 1; j <= jmax; j++) { \
+            kB = sB[j-1]; \
+            LINEAR_SW_HVD(align_score); \
+        } \
+        for ( ; j <= c; j++) { \
+            kB = sB[j-1]; \
+            LINEAR_SW_D(align_score); \
+        } \
+        if (counts) linear_sw_count(lp, tr, i, counts, &local.total); \
+    } \
+    PAIRWISE_NOGIL_END \
+    local.maximum = maximum; \
+    memcpy(saved, &local, sizeof(LinearLocal)); \
+    return interrupted ? -1 : 0;
+
+static int
+linear_sw_sweep_compare(const LinearPaths* lp, double* saved, int r0, int r1,
+                        int c, unsigned char* T, size_t tstride,
+                        Py_ssize_t* counts)
+{
+    const double match = lp->aligner.match;
+    const double mismatch = lp->aligner.mismatch;
+    const int wildcard = lp->aligner.wildcard;
+    LINEAR_SW_SWEEP(COMPARE_SCORE);
+}
+
+static int
+linear_sw_sweep_matrix(const LinearPaths* lp, double* saved, int r0, int r1,
+                       int c, unsigned char* T, size_t tstride,
+                       Py_ssize_t* counts)
+{
+    const Py_ssize_t n = lp->aligner.substitution_matrix.shape[0];
+    LINEAR_SW_SWEEP(MATRIX_SCORE_NOGIL);
+}
+
+/* Row 0 of SMITHWATERMAN_ALIGN, nothing kept yet, and the path counts of
+ * row 0 as PathGenerator_smithwaterman_length sets them. */
+static void
+linear_sw_start(const LinearPaths* lp, double* saved, Py_ssize_t* counts)
+{
+    const int nB = lp->nB;
+    double* const row = saved + LINEAR_LOCAL_DOUBLES;
+    const LinearLocal local = {0};
+    int j;
+    memcpy(saved, &local, sizeof(LinearLocal));
+    for (j = 0; j <= nB; j++) row[j] = 0;
+    if (counts) for (j = 0; j <= nB; j++) counts[j] = 1;
+}
+
+/* The score as SMITHWATERMAN_ALIGN returns it, the highest, and the end of
+ * the first path.  PathGenerator_next_smithwaterman ends it at the first
+ * end point in row-major order: the first marked cell if it comes before
+ * the first rise, else the last rise (see LinearLocal).  Every cell has a
+ * trace, to cells before it in row-major order, and no cell before the
+ * first end point is one.  So SMITHWATERMAN_ALIGN removes no trace from the
+ * cells before it (see linear_sw_count), and the walk can follow them as
+ * the sweep computes them.  With a highest score of 0 there are no paths,
+ * as there. */
+static double
+linear_sw_score(LinearPaths* self, const double* saved)
+{
+    LinearLocal* const local = &self->local;
+    memcpy(local, saved, sizeof(LinearLocal));
+    self->end = 0;
+    if (local->maximum != 0 && local->first[0]) {
+        const bool unmarked = local->first[0] == local->rise[0]
+                           && local->first[1] == local->rise[1];
+        const int* const cell = unmarked ? local->last : local->first;
+        self->end = DIAGONAL;
+        self->end_i = cell[0];
+        self->end_j = cell[1];
+    }
+    return local->maximum;
+}
+
+static Py_ssize_t
+linear_sw_total(const LinearPaths* Py_UNUSED(self), const double* saved,
+                const Py_ssize_t* Py_UNUSED(counts))
+{
+    LinearLocal local;
+    memcpy(&local, saved, sizeof(LinearLocal));
+    return local.total;
+}
+
+/* Follow the traceback as PathGenerator_next_smithwaterman does: out of the
+ * end diagonally, as it excludes paths ending in a gap, then preferring
+ * horizontal, then vertical, then diagonal moves, to a start point.  Row 0
+ * is not in any block: its cells are start points. */
+static int
+linear_sw_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
+               const unsigned char* T, int r0, size_t width)
+{
+    while (w->i > r0) {
+        const int trace = w->trace
+                        & T[(size_t)(w->i - r0 - 1) * width + (size_t)w->j];
+        w->trace = HORIZONTAL | VERTICAL | DIAGONAL | STARTPOINT;
+        if (trace & HORIZONTAL) {
+            if (linear_walker_step(w, HORIZONTAL) < 0) return -1;
+            w->j--;
+        }
+        else if (trace & VERTICAL) {
+            if (linear_walker_step(w, VERTICAL) < 0) return -1;
+            w->i--;
+        }
+        else if (trace & DIAGONAL) {
+            if (linear_walker_step(w, DIAGONAL) < 0) return -1;
+            w->i--;
+            w->j--;
+        }
+        else if (trace & STARTPOINT) {
+            if (linear_walker_add(w) < 0) return -1;
+            return LINEAR_ENDED;
+        }
+        else {
+            LINEAR_INTERNAL_ERROR;
+            return -1;
+        }
+    }
+    if (w->i > 0) return LINEAR_EXITED;
+    if (linear_walker_add(w) < 0) return -1;
+    return LINEAR_ENDED;
+}
+
+static const LinearKernel linear_sw_compare = {
+    .ncarried = LINEAR_LOCAL_DOUBLES,
+    .ndoubles = 1,
+    .trace_bytes = 1,
+    .ncounts = 1,
+    .matrix_cell_bytes = sizeof(Trace),
+    .matrix_row_pointers = 1,
+    .start = linear_sw_start,
+    .sweep = linear_sw_sweep_compare,
+    .score = linear_sw_score,
+    .total = linear_sw_total,
+    .walk = linear_sw_walk,
+    .align = Aligner_smithwaterman_align_compare,
+};
+
+static const LinearKernel linear_sw_matrix = {
+    .ncarried = LINEAR_LOCAL_DOUBLES,
+    .ndoubles = 1,
+    .trace_bytes = 1,
+    .ncounts = 1,
+    .matrix_cell_bytes = sizeof(Trace),
+    .matrix_row_pointers = 1,
+    .start = linear_sw_start,
+    .sweep = linear_sw_sweep_matrix,
+    .score = linear_sw_score,
+    .total = linear_sw_total,
+    .walk = linear_sw_walk,
+    .align = Aligner_smithwaterman_align_matrix,
+};
+
+
 /* The kernel for an alignment, or NULL if it has none. */
 static const LinearKernel*
 linear_kernel(const Aligner* self, Algorithm algorithm)
 {
     const bool matrix = (self->substitution_matrix.obj != NULL);
-    if (self->mode != Global) return NULL;
     switch (algorithm) {
         case NeedlemanWunschSmithWaterman:
-            return matrix ? &linear_nw_matrix : &linear_nw_compare;
+            switch (self->mode) {
+                case Global:
+                    return matrix ? &linear_nw_matrix : &linear_nw_compare;
+                case Local:
+                    return matrix ? &linear_sw_matrix : &linear_sw_compare;
+                default:
+                    return NULL;
+            }
         case Gotoh:
+            if (self->mode != Global) return NULL;
             return matrix ? &linear_gotoh_matrix : &linear_gotoh_compare;
         default:
             return NULL;
@@ -918,7 +1260,8 @@ typedef struct {
 } LinearSolver;
 
 /* Follow the path from the walker, in row r1 and a column c, up to row
- * r0, starting from the values of row r0 in inrow.  A strip of at most
+ * r0, starting from the values of row r0 in inrow (and what the kernel
+ * carries in it).  A strip of at most
  * the planned rows and columns fits in the block by the planned depth, so
  * any narrower or shorter one does too. */
 static int
@@ -975,17 +1318,19 @@ LinearPaths_first_path(LinearPaths* self)
         PyErr_NoMemory();
         goto exit;
     }
-    S.walker.i = self->nA;
-    S.walker.j = self->nB;
+    S.walker.i = self->end_i;
+    S.walker.j = self->end_j;
     S.walker.trace = self->end;
-    for (k = plan->count; k-- > 0; ) {
+    /* the strips from the one holding the end of the path up */
+    k = ((size_t)S.walker.i + plan->stride - 1) / plan->stride;
+    while (k-- > 0) {
         const size_t r0 = k * plan->stride;
-        const size_t r1 = Py_MIN(r0 + plan->stride, (size_t)self->nA);
-        if (S.walker.i != (int)r1) {
+        if ((size_t)S.walker.i <= r0
+         || (size_t)S.walker.i > r0 + plan->stride) {
             LINEAR_INTERNAL_ERROR;
             goto exit;
         }
-        status = linear_solve(&S, (int)r0, (int)r1,
+        status = linear_solve(&S, (int)r0, S.walker.i,
                               self->checkpoints + k * plan->rowsize, 0);
         if (status < 0) goto exit;
         if (status != LINEAR_EXITED) break;
@@ -1032,7 +1377,7 @@ LinearPaths_forward(LinearPaths* self)
         if (kernel->sweep(self, row, (int)r0, (int)r1, self->nB,
                           scratch, 0, NULL) < 0) goto exit;
     }
-    self->score = kernel->score(self, row, &self->end);
+    self->score = kernel->score(self, row);
     status = 0;
 exit:
     PyMem_Free(row);
@@ -1068,7 +1413,7 @@ LinearPaths_count(LinearPaths* self)
             kernel->start(self, row, counts);
             status = kernel->sweep(self, row, 0, self->nA, self->nB,
                                    scratch, 0, counts);
-            if (status == 0) self->length = kernel->total(self, counts);
+            if (status == 0) self->length = kernel->total(self, row, counts);
         }
         PyMem_Free(row);
         PyMem_Free(scratch);
