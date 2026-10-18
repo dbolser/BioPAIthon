@@ -574,8 +574,8 @@ svd(int m, int n, double** u, double w[], double** vt)
  * the routine returns an integer ierr equal to
  *  0:  to indicate a normal return,
  *  k:  if the k-th singular value has not been determined after 30 iterations,
- *  min(m, n): if no singular value can be determined, because u contains an
- *      infinity or a NaN, or the reduction to bidiagonal form overflows,
+ *  min(m, n): if u contains an infinity or a NaN, or the decomposition
+ *      overflows,
  * -1:  if memory allocation fails.
  *
  * w  contains the n (non-negative) singular values of a (the
@@ -617,6 +617,7 @@ svd(int m, int n, double** u, double w[], double** vt)
     double g = 0.0;
     double scale = 0.0;
     double anorm = 0.0;
+    int overflow = 0;
     double* rv1;
 
     rv1 = MALLOC(n*sizeof(double));
@@ -679,9 +680,11 @@ svd(int m, int n, double** u, double w[], double** vt)
          * rv1[0] + anorm == anorm. If u holds an infinity or a NaN, or the
          * reduction overflowed, anorm can be a NaN and the test then reads
          * w[-1]. max() drops a NaN unless it comes last, so check every
-         * value rather than anorm. */
+         * term of anorm rather than anorm. A term that overflows makes
+         * anorm infinite, so that every rv1 looks negligible and the result
+         * is finite but wrong. */
         for (i = 0; i < n; i++) {
-            if (!isfinite(w[i]) || !isfinite(rv1[i])) {
+            if (!isfinite(fabs(w[i]) + fabs(rv1[i]))) {
                 FREE(rv1);
                 return n;
             }
@@ -750,6 +753,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                             if (fabs(f) + anorm == anorm) break;
                             g = w[i];
                             h = sqrt(f*f+g*g);
+                            if (!isfinite(h)) overflow = 1;
                             w[i] = h;
                             c = g / h;
                             s = -f / h;
@@ -798,6 +802,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                         h = s * g;
                         g = c * g;
                         z = sqrt(f*f+h*h);
+                        if (!isfinite(z)) overflow = 1;
                         rv1[i1] = z;
                         c = f / z;
                         s = h / z;
@@ -812,6 +817,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                             vt[i][j] = -x * s + z * c;
                         }
                         z = sqrt(f*f+h*h);
+                        if (!isfinite(z)) overflow = 1;
                         w[i1] = z;
                         /* rotation can be arbitrary if z is zero */
                         if (z != 0.0) {
@@ -888,9 +894,9 @@ svd(int m, int n, double** u, double w[], double** vt)
             }
             anorm = max(anorm, fabs(w[i])+fabs(rv1[i]));
         }
-        /* As above, the test for splitting needs a finite bidiagonal form. */
+        /* As above, the test for splitting needs a finite anorm. */
         for (i = 0; i < m; i++) {
-            if (!isfinite(w[i]) || !isfinite(rv1[i])) {
+            if (!isfinite(fabs(w[i]) + fabs(rv1[i]))) {
                 FREE(rv1);
                 return m;
             }
@@ -959,6 +965,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                             if (fabs(f) + anorm == anorm) break;
                             g = w[i];
                             h = sqrt(f*f+g*g);
+                            if (!isfinite(h)) overflow = 1;
                             w[i] = h;
                             c = g / h;
                             s = -f / h;
@@ -1008,6 +1015,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                         h = s * g;
                         g = c * g;
                         z = sqrt(f*f+h*h);
+                        if (!isfinite(z)) overflow = 1;
                         rv1[i1] = z;
                         c = f / z;
                         s = h / z;
@@ -1022,6 +1030,7 @@ svd(int m, int n, double** u, double w[], double** vt)
                             vt[j][i] = -x * s + z * c;
                         }
                         z = sqrt(f*f+h*h);
+                        if (!isfinite(z)) overflow = 1;
                         w[i1] = z;
                         /* rotation can be arbitrary if z is zero */
                         if (z != 0.0) {
@@ -1042,6 +1051,23 @@ svd(int m, int n, double** u, double w[], double** vt)
                     w[k] = x;
                 }
             }
+        }
+    }
+    /* An overflow elsewhere, such as in u during the reduction or in the QR
+     * iterations, usually leaves an infinity or a NaN in the results, so
+     * check them once here rather than after every step. A rotation norm
+     * that overflows can leave none: c and s become zero, which wipes out two
+     * rows or columns of u or vt, and the result is finite but wrong. */
+    if (ierr == 0) {
+        const int nw = min(m, n);
+        if (overflow) ierr = nw;
+        for (i = 0; i < m; i++)
+            for (j = 0; j < n; j++)
+                if (!isfinite(u[i][j])) ierr = nw;
+        for (i = 0; i < nw; i++) {
+            if (!isfinite(w[i])) ierr = nw;
+            for (j = 0; j < nw; j++)
+                if (!isfinite(vt[i][j])) ierr = nw;
         }
     }
     FREE(rv1);
@@ -1109,7 +1135,7 @@ eigenvalues appearing first.
 The function returns 0 if successful, -1 if memory allocation fails, and a
 positive integer if the singular value decomposition fails to converge,
 including when u contains an infinity or a NaN, or values so large that the
-reduction to bidiagonal form overflows.
+decomposition overflows.
 */
 {
     int i;

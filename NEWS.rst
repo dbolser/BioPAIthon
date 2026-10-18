@@ -134,7 +134,8 @@ crashed on data holding an infinity, or values so large that the sum of a
 column overflows; it now raises ``ValueError``. Finite data that crashed it by
 overflowing inside the singular value decomposition now raise the
 ``RuntimeError`` that ``pca`` already raised when the decomposition fails to
-converge. The private
+converge, as do finite data for which it returned an infinity, a NaN or, in
+some cases, finite but wrong values. The private
 ``Bio.Cluster._cluster.pca`` now checks the size of its eigenvalues array
 instead of writing past its end, and its errors for a wrongly shaped ``pc`` or
 ``coordinates`` now give that array's shape. Results for valid input are

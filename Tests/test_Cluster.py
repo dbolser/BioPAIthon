@@ -3135,6 +3135,35 @@ class TestCluster(unittest.TestCase):
         self.assertAlmostEqual(eigenvalues[2], 1.8775592718563467)
         self.assertAlmostEqual(eigenvalues[3], 0.0)
 
+    def test_pca_overflow_in_result(self):
+        """Check pca raises if the SVD overflows without crashing.
+
+        These finite data used to give an infinity or a NaN, or finite but
+        wrong values, instead of an error.
+        """
+        if TestCluster.module == "Bio.Cluster":
+            from Bio.Cluster import pca
+        elif TestCluster.module == "Pycluster":
+            from Pycluster import pca
+
+        message = "^Singular value decomposition failed to converge$"
+        for data in (
+            # The reduction to bidiagonal form overflows in u only
+            [[8.5e307], [-8.5e307], [0.0]],
+            [[5e307, 0, 0, 0], [0, 0, -1.3e308, 0], [-5e307, 0, 1.3e308, 0]],
+            # The QR iterations overflow
+            [[1.0, 0.0], [0.0, 1e300]],
+            # anorm overflows; the eigenvalues were 9.8e307 and 2.0e307,
+            # instead of 1.4e308 and 2.4e307
+            [[0.0, -2e307, -1e308], [0.0, 2e307, 0.0], [0.0, 0.0, 1e308]],
+            # A rotation norm overflows; the eigenvalues were 0 and 0,
+            # instead of 2.6e140 and nearly 0
+            [[1e140, 2e140, 3e140], [0.0, 0.0, 0.0]],
+        ):
+            with self.subTest(data=data):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    pca(data)
+
 
 class TestClusterRNGSeed(unittest.TestCase):
     """Tests for the rng_seed argument of kcluster, kmedoids and somcluster.
