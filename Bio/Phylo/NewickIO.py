@@ -26,7 +26,7 @@ tokens = [
     (r"\(", "open parens"),
     (r"\)", "close parens"),
     (r"[^\s\(\)\[\]\'\:\;\,]+", "unquoted node label"),
-    (r"\:\ ?[+-]?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?", "edge length"),
+    (r"\:\s*[+-]?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?", "edge length"),
     (r"\,", "comma"),
     (r"\[(\\.|[^\]])*\]", "comment"),
     (r"\'(\\.|[^\'])*\'", "quoted node label"),
@@ -189,8 +189,9 @@ class Parser:
                 break
 
             elif token.startswith(":"):
-                # branch length or confidence
-                value = float(token[1:])
+                # branch length or confidence; lstrip() as float() does not
+                # strip all the whitespace \s matches, such as "\x1f"
+                value = float(token[1:].lstrip())
                 if self.values_are_confidence:
                     current_clade.confidence = value
                 else:

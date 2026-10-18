@@ -184,7 +184,7 @@ the two `cluster.c` heap overflows, and `pca` on data read by
 - `PICIO._default_dihedron` has two unreachable branches that would crash (`list.add`).
 - The `AtomKey` docstring lists a tuple form as accepted that raises.
 - `MissingAtomError` is advertised and never raised.
-- `NewickIO` allows only one space after `:`, so `(a:  0.1,...)` loses the leaf names and lengths.
+- `NewickIO` allows only one space after `:`, so two spaces or a tab, as in `(a:  0.1,...)`, lose the leaf names and lengths. The one space is the `\ ?` that [#1821](https://github.com/biopython/biopython/pull/1821) added for PAML's `: ` ([#1782](https://github.com/biopython/biopython/issues/1782)). Tracker checked 2026-10-18: nothing else filed.
 - `Phylo.read(StringIO(...), "cdao")` raises on `handle.name`, and the RDFlib version error is swallowed.
 - `Medline.parse`: records separated only by a line of six or more spaces merge (the trade-off of #4557/#4558).
 - `Bio.SCOP`: a CLA sunid missing from the DES file gives a bare `KeyError`.

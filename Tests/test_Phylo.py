@@ -200,6 +200,35 @@ class IOTests(unittest.TestCase):
         self.assertEqual(clade_a.name, "foo")
         self.assertAlmostEqual(clade_a.branch_length, 0.1)
 
+    def test_newick_read_whitespace_after_colon(self):
+        """Read a branch length with any whitespace after the colon."""
+        # Newick allows blanks, tabs and newlines anywhere except inside a
+        # label or a branch length. Only one space after the colon used to
+        # work: after two, or a tab, the length was read as the clade's name.
+        tree = Phylo.read(
+            StringIO("((a:  0.1,b:\t0.2)0.95 : \t0.3,c:\n    0.4);"), "newick"
+        )
+        inner, c = tree.root.clades
+        a, b = inner.clades
+        self.assertEqual([a.name, b.name, inner.name, c.name], ["a", "b", None, "c"])
+        self.assertEqual(
+            [a.branch_length, b.branch_length, inner.branch_length, c.branch_length],
+            [0.1, 0.2, 0.3, 0.4],
+        )
+        self.assertEqual(inner.confidence, 0.95)
+        # Whitespace that float() does not strip itself
+        tree = Phylo.read(StringIO("(a:\x1f0.1,b:\xa00.2);"), "newick")
+        self.assertEqual(
+            [clade.branch_length for clade in tree.root.clades], [0.1, 0.2]
+        )
+
+    def test_newick_read_colon_inside_quotes_and_comments(self):
+        """A colon and spaces inside a quoted label or comment are kept."""
+        tree = Phylo.read(StringIO("('a:  1':0.1,b[x:  2]:0.2);"), "newick")
+        a, b = tree.root.clades
+        self.assertEqual([a.name, a.branch_length], ["a:  1", 0.1])
+        self.assertEqual([b.name, b.comment, b.branch_length], ["b", "x:  2", 0.2])
+
     def test_phylo_read_extra(self):
         """Additional tests to check correct parsing."""
         tree = Phylo.read(StringIO("(A:1, B:-2, (C:3, D:4):-2)"), "newick")
