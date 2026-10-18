@@ -686,6 +686,22 @@ class TestDifferential(unittest.TestCase):
         self.assertFalse(forced._paths._materialized)
         self.assertEqual(list(itertools.islice(forced._paths, 99)), paths[1:])
 
+    def test_interior_start(self):
+        # A path can start at a start point inside the matrix, as the second
+        # does here, after the mismatch of A with B.  Both counts seed such a
+        # start point with one path, so both count the two optimal local
+        # alignments, as enumerating every local alignment gives.
+        aligner = sw_aligner()
+        paths = [[[0, 1], [1, 2]], [[1, 2], [1, 2]]]
+        expected = aligner.align("AA", "BA")
+        forced = forced_align(aligner, "AA", "BA", budgets=(1, 1))
+        for alignments in (expected, forced):
+            self.assertEqual(alignments.score, 1)
+            self.assertEqual(len(alignments), 2)
+        self.assertFalse(forced._paths._materialized)
+        for alignments in (expected, forced):
+            self.assertEqual(coordinates(alignments, 3), paths)
+
     def test_overflow(self):
         # TestOverflowError of test_pairwise_aligner, in linear space; the
         # same with affine gap scores; and a count just short of it.
