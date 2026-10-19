@@ -26,7 +26,7 @@ tokens = [
     (r"\(", "open parens"),
     (r"\)", "close parens"),
     (r"[^\s\(\)\[\]\'\:\;\,]+", "unquoted node label"),
-    (r"\:\ ?[+-]?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?", "edge length"),
+    (r"\:\s*(?P<edge_length>[+-]?[0-9]*\.?[0-9]+([eE][+-]?[0-9]+)?)", "edge length"),
     (r"\,", "comma"),
     (r"\[(\\.|[^\]])*\]", "comment"),
     (r"\'(\\.|[^\'])*\'", "quoted node label"),
@@ -189,8 +189,10 @@ class Parser:
                 break
 
             elif token.startswith(":"):
-                # branch length or confidence
-                value = float(token[1:])
+                # branch length or confidence. Take the number from the match:
+                # float() does not skip "\x1c" to "\x1f", which \s matches, and
+                # nor does str.strip() on PyPy 3.10.
+                value = float(match["edge_length"])
                 if self.values_are_confidence:
                     current_clade.confidence = value
                 else:
