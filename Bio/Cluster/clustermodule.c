@@ -2261,7 +2261,9 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
                                transpose);
     Py_END_ALLOW_THREADS
 
-    if (distance < -0.5) /* Actually -1.0; avoiding roundoff errors */
+    if (distance < -1.5) /* Actually -2.0; avoiding roundoff errors */
+        PyErr_NoMemory();
+    else if (distance < -0.5) /* Actually -1.0; avoiding roundoff errors */
         PyErr_SetString(PyExc_IndexError, "index out of range");
     else
         result = PyFloat_FromDouble(distance);

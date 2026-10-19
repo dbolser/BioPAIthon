@@ -3632,6 +3632,44 @@ print("OK")
 """
         )
 
+    @unittest.skipUnless(sys.platform == "linux", "needs RLIMIT_AS and /proc")
+    def test_clusterdistance_median_out_of_memory(self):
+        """Check method "m" raises MemoryError when its buffer cannot be had.
+
+        The median buffer grows with the index lists, which may repeat, so
+        its allocation can fail for a caller's input; the buffer used to be
+        written through regardless.  The address-space limit leaves room
+        for the copy of index1 (4 bytes an entry) but not the buffer (8).
+        """
+        self.run_child(
+            """
+import resource
+import numpy as np
+from Bio.Cluster import clusterdistance
+
+data = np.arange(12.0).reshape(3, 4)
+n = 25_000_000
+for matrix, transpose in ((data, False), (data.T.copy(), True)):
+    index1 = np.zeros(n, dtype=np.intc)
+    with open("/proc/self/statm") as f:
+        size = int(f.read().split()[0]) * resource.getpagesize()
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    resource.setrlimit(resource.RLIMIT_AS, (size + 6 * n, hard))
+    try:
+        clusterdistance(
+            matrix, index1=index1, index2=[1, 2], method="m", transpose=transpose
+        )
+    except MemoryError:
+        pass
+    else:
+        raise AssertionError("no MemoryError")
+    finally:
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+    del index1
+print("OK")
+"""
+        )
+
     def test_pca_infinite_data(self):
         """Check pca rejects data whose column sums are not finite."""
         self.run_child(

@@ -129,7 +129,9 @@ full matrix, so for a huge alignment a ``MemoryError`` now comes from
 ``clusterdistance`` with ``method="m"`` wrote past the end of a buffer when an
 index list was longer than the matrix has rows (or columns, with
 ``transpose``), as repeated indices allow; it now takes the median over every
-listed item, repeats included, just as ``method="a"`` takes the mean. ``pca``
+listed item, repeats included, just as ``method="a"`` takes the mean, and
+raises ``MemoryError`` if the buffer for that many items cannot be allocated.
+``pca``
 crashed on data holding an infinity, or values so large that the sum of a
 column overflows; it now raises ``ValueError``. Finite data that crashed it by
 overflowing inside the singular value decomposition now raise the

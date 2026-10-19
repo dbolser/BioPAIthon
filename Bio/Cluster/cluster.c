@@ -4832,7 +4832,9 @@ containing genes or samples using the measured gene expression vectors. The
 distance between clusters, given the genes/samples in each cluster, can be
 defined in several ways. Several distance measures can be used.
 
-The routine returns the distance in double precision.
+The routine returns the distance in double precision. It returns -1.0 if a
+cluster is empty or an index is out of range, and -2.0 if memory allocation
+for the median fails.
 If the parameter transpose is set to a nonzero value, the clusters are
 interpreted as clusters of samples, otherwise as clusters of gene.
 
@@ -5042,6 +5044,7 @@ when samples are being clustered.
             if (transpose == 0) {
                 double distance;
                 double* temp = MALLOC(n*sizeof(double));
+                if (!temp) return -2.0;
                 double* cdata[2];
                 int* cmask[2];
                 for (i = 0; i < 2; i++) {
@@ -5096,6 +5099,7 @@ when samples are being clustered.
             else {
                 double distance;
                 double* temp = MALLOC(n*sizeof(double));
+                if (!temp) return -2.0;
                 double** cdata = MALLOC(nrows*sizeof(double*));
                 int** cmask = MALLOC(nrows*sizeof(int*));
                 for (i = 0; i < nrows; i++) {
