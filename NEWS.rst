@@ -55,6 +55,14 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
+sequence whatever type the protein sequence is. ``score()`` and ``align()``
+raised "seqB must be a string, Seq, MutableSeq, or SeqRecord object" for a
+string nucleotide sequence unless the protein was a string too, because the
+check looked at the protein. A nucleotide sequence of another type, such as
+``bytes`` or a list, now raises that ``ValueError`` with a string protein as
+well, rather than ``TranslationError``, ``AttributeError`` or ``TypeError``.
+
 ``Bio.Phylo`` now accepts any whitespace after the colon of a Newick branch
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's

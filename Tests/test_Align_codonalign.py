@@ -122,6 +122,39 @@ Codon aligner with parameters
                 with self.assertRaisesRegex(ValueError, message):
                     aligner.align(seqA, dna)
 
+    def test_protein_and_dna_types_mix(self):
+        # The nucleotide branch used to test isinstance(seqA, str), so a str
+        # nucleotide sequence was rejected unless the protein was a str too.
+        aligner = CodonAligner(frameshift_score=-3.0)
+        protein = "MLGSNESRVCPKLSPS"
+        dna = "ATGCTGGGCTCGAACGAGTCCGTGTATGCCCTAAGCTGAGCCCGTCG"
+        expected = aligner.align(protein, dna)
+        self.assertEqual(expected.score, 13.0)
+        converters = (str, Seq, MutableSeq, lambda s: SeqRecord(Seq(s), id="x"))
+        for convertA in converters:
+            for convertB in converters:
+                seqA = convertA(protein)
+                seqB = convertB(dna)
+                with self.subTest(seqA=type(seqA).__name__, seqB=type(seqB).__name__):
+                    self.assertEqual(aligner.score(seqA, seqB), expected.score)
+                    alignments = aligner.align(seqA, seqB)
+                    self.assertEqual(alignments.score, expected.score)
+                    alignment = alignments[0]
+                    np.testing.assert_array_equal(
+                        alignment.coordinates, expected[0].coordinates
+                    )
+                    self.assertIs(alignment.sequences[0], seqA)
+                    self.assertIs(alignment.sequences[1], seqB)
+        message = "^seqB must be a string, Seq, MutableSeq, or SeqRecord object$"
+        for convertA in converters:
+            seqA = convertA(protein)
+            for seqB in (dna.encode(), list(dna)):
+                with self.subTest(seqA=type(seqA).__name__, seqB=type(seqB).__name__):
+                    with self.assertRaisesRegex(ValueError, message):
+                        aligner.score(seqA, seqB)
+                    with self.assertRaisesRegex(ValueError, message):
+                        aligner.align(seqA, seqB)
+
     def test_delete_every_property(self):
         # Deleting used to reach the setter with a NULL value: wildcard
         # crashed, and the scores raised ValueError or TypeError.
