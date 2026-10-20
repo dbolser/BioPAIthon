@@ -17074,6 +17074,8 @@ AlignmentCounts object with
             self.assertEqual(counts.identities, 100)
         # A word is not a letter, and so is not the wildcard either.
         self.assertEqual(aligner.score(["Asn", "N"], ["Asn", "Gly"]), 1.0)
+        # A one-character bytes item matches the same letter as a str.
+        self.assertEqual(aligner.score([b"A", "N"], ["A", "C"]), 1.0)
 
     def test_score_and_align_reverse_strand(self):
         aligner = Align.PairwiseAligner(scoring="blastn")

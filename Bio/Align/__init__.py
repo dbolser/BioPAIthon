@@ -1053,7 +1053,9 @@ def _map_letters(sequence, substitution_matrix, letters):
                 letters.append(item)
             return sys.maxunicode + 1 + index
 
-        return np.fromiter(map(number, sequence), dtype=np.int32, count=len(sequence))
+        return np.fromiter(
+            (number(item) for item in sequence), dtype=np.int32, count=len(sequence)
+        )
     alphabet = substitution_matrix.alphabet
     # The same test as _prepare_indices in _pairwisealigner.c:
     if isinstance(alphabet, str) and isinstance(
