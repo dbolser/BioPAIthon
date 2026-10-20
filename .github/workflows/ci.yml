@@ -32,7 +32,7 @@ env:
   # the cached environment is reused and dependencies are never upgraded.
   # Bump this number to discard every pip cache and force fresh installs.
   # (The previous hard-coded key segment was "v2", hence starting at 3.)
-  CACHE_EPOCH: "4"
+  CACHE_EPOCH: "5"
 
 jobs:
   # Style Checking: Linux and Python version only.
@@ -84,9 +84,7 @@ jobs:
   linux_prep:
     timeout-minutes: 10
     needs: [style]
-    # Pinned with test_linux, which restores the Python install this job
-    # caches; the cache key does not name the image, so both must match.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -266,10 +264,7 @@ jobs:
     # which silently skipped check_tests and docs downstream.
     timeout-minutes: 30
     needs: [style, build, linux_prep]
-    # Pinned because ubuntu-latest became ubuntu-26.04 in October 2026, and
-    # that image has no MySQL server for the BioSQL tests. Moving to a MySQL
-    # service container would lift the pin.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -277,12 +272,30 @@ jobs:
     steps:
 
     # BioSQL needs a running database server, so it is exercised on one
-    # matrix entry rather than all five. The runner image ships MySQL 8
-    # preinstalled (credentials root/root) but not running.
+    # matrix entry rather than all five. The runner images stopped shipping
+    # MySQL with ubuntu-26.04, so it runs in a container, pinned by digest
+    # (mysql:8.0, 8.0.46), with the credentials root/root the image-installed
+    # server had. The database is thrown away after the job, so it lives in
+    # memory and skips flushing to disk: that cut the BioSQL MySQL tests from
+    # 13 minutes to under 2 in a local trial. The entrypoint first runs a
+    # temporary server without networking, so wait until the real one
+    # answers over TCP.
     - name: Start MySQL server (for BioSQL tests)
       if: matrix.python-version == '3.12'
       run: |
-        sudo /etc/init.d/mysql start
+        docker run --detach --name mysql --publish 3306:3306 \
+          --env MYSQL_ROOT_PASSWORD=root --tmpfs /var/lib/mysql \
+          mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b \
+          --innodb-flush-log-at-trx-commit=0 --sync-binlog=0 --skip-log-bin
+        for attempt in $(seq 60); do
+          if docker exec --env MYSQL_PWD=root mysql \
+              mysqladmin ping --host=127.0.0.1 --user=root --silent; then
+            exit 0
+          fi
+          sleep 2
+        done
+        docker logs mysql
+        exit 1
 
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       with:
