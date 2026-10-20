@@ -80,10 +80,11 @@ class AlignmentExtensionTests(unittest.TestCase):
         The private test hook routes these short sequences to it.  len()
         counts in linear space, the first path comes from checkpointed rows,
         the second from the full matrix.  The substitution matrices of the
-        second, fourth and sixth aligners are copied; the fifth and sixth
-        align locally.  A seventh aligner, stopped, allows no gaps, so its
+        second, fourth, sixth and eighth aligners are copied; the fifth to
+        eighth align locally.  The aligner stopped allows no gaps, so its
         first path stops short of the origin and comes from the full matrix
-        too.
+        too.  The aligner unreached reaches its only end point only from row
+        0, so it has no first path, which the full matrix finds.
         """
         import math
 
@@ -99,8 +100,13 @@ class AlignmentExtensionTests(unittest.TestCase):
             PairwiseAligner(scoring="blastn"),
             PairwiseAligner(mode="local"),
             PairwiseAligner(mode="local", substitution_matrix=matrix),
+            PairwiseAligner(mode="local", open_gap_score=-2, extend_gap_score=-1),
+            PairwiseAligner(mode="local", scoring="blastn"),
         ]
         stopped = PairwiseAligner(open_gap_score=-math.inf, extend_gap_score=-1)
+        unreached = PairwiseAligner(
+            mode="local", open_gap_score=-1, extend_gap_score=math.inf
+        )
         target = "AGAACTTATCGCTTGACGTAAC"
         query = "AGAACTATCGCTGACGTTAAC"
 
@@ -122,6 +128,9 @@ class AlignmentExtensionTests(unittest.TestCase):
             alignments = forced_align(stopped)
             len(alignments)
             next(alignments._paths)  # holds NULLs: not to be looked at
+            alignments = forced_align(unreached)
+            len(alignments)
+            list(alignments)
 
         assert_bounded_growth(self, align)
 

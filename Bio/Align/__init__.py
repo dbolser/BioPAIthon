@@ -4107,11 +4107,11 @@ class PairwiseAlignments(AlignmentsAbstractBaseClass):
     even for relatively short sequences, if they align poorly to each other. We
     therefore recommend to first check the number of alignments, accessible as
     len(alignments), which can be calculated quickly even if the number of
-    alignments is very large. For long sequences aligned globally with linear
-    or affine gap scores, or locally with linear gap scores, the score,
-    len(alignments) and alignments[0] use little memory, but going past the
-    first alignment builds the full traceback matrix, of about len(target) x
-    len(query) bytes, twice that with affine gap scores.
+    alignments is very large. For long sequences aligned globally or locally
+    with linear or affine gap scores, the score, len(alignments) and
+    alignments[0] use little memory, but going past the first alignment builds
+    the full traceback matrix, of about len(target) x len(query) bytes, twice
+    that with affine gap scores.
     """
 
     def __init__(self, seqA, seqB, score, paths):

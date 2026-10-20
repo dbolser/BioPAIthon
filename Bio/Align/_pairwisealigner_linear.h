@@ -28,7 +28,8 @@
  * - Later paths build the full matrix with the existing kernel and delegate
  *   to its PathGenerator, after checking it agrees.  So does the first
  *   path where the full matrix's own stops short of the origin, as Gotoh's
- *   can with infinite or NaN scores.
+ *   can with infinite or NaN scores, or where its clean-up of a Gotoh local
+ *   alignment removed a trace the path would take.
  *
  * It is used only where it holds less memory than the matrix.  A row of
  * trace bits costs less than a row of doubles, so a short target against
@@ -37,9 +38,9 @@
  * Settings, substitution matrix and sequences are copied at align(), so
  * later changes to them cannot change the results.  Each algorithm
  * supplies a LinearKernel to the generic strip driver; Needleman-Wunsch,
- * Gotoh global and Smith-Waterman alignments have one.  The threshold is
- * 512 MiB by default; the private _set_traceback_limits changes it, for
- * testing.
+ * Smith-Waterman and Gotoh global and local alignments have one.  The
+ * threshold is 512 MiB by default; the private _set_traceback_limits
+ * changes it, for testing.
  */
 
 
@@ -91,16 +92,18 @@ typedef struct {
                        const int* sB, int nB, unsigned char strand);
 } LinearKernel;
 
-/* What SMITHWATERMAN_ALIGN keeps while it fills the matrix, carried from
- * row to row at the start of a saved row.  It marks a cell as an end point
- * if its trace has a diagonal move, it is not a start point, and its score
- * is less than epsilon below the highest score so far.  Where the score is
- * more than epsilon above, a rise, it unmarks every cell from the previous
- * rise on.  So the end points are the cells marked before the first rise
- * or from the last one on.  Cells are (i, j), compared in row-major order;
- * i = 0 is none. */
+/* What SMITHWATERMAN_ALIGN and GOTOH_LOCAL_ALIGN keep while they fill the
+ * matrix, carried from row to row at the start of a saved row.  They mark
+ * a cell as an end point if it is not a start point, its score is less
+ * than epsilon below the highest score so far, and, for Smith-Waterman,
+ * its trace has a diagonal move (every move into Gotoh's M is).
+ * Where the score is more than epsilon above, a rise, they unmark every
+ * cell from the previous rise on.  So the end points are the cells marked
+ * before the first rise or from the last one on.  Cells are (i, j),
+ * compared in row-major order; i = 0 is none. */
 typedef struct {
-    double maximum;      /* the highest score so far */
+    double maximum;      /* the highest score so far; for Gotoh, the score
+                          * of the last rise */
     Py_ssize_t total;    /* for len(), the paths ending in the cells so far */
     int first[2];        /* the first marked cell */
     int rise[2];         /* the first rise */
@@ -135,7 +138,10 @@ struct LinearPaths {
                           * (see LinearWalker); 0 if there are no paths */
     int end_i;           /* the cell the first path ends in */
     int end_j;
-    LinearLocal local;   /* Smith-Waterman: as the forward pass left it */
+    bool done;           /* yields no paths until reset, as the full
+                          * matrix's generator of a Gotoh local alignment
+                          * with a highest score of 0 does */
+    LinearLocal local;   /* local alignments: as the forward pass left it */
     LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
                           * first path is known */
@@ -157,7 +163,8 @@ struct LinearWalker {
     int last;            /* direction of the move out of (i, j); 0 at the end */
     int trace;           /* for Gotoh, the matrices the path can be in at
                           * (i, j): the trace bits of the next cell on the
-                          * path, or LinearPaths.end at the end; for
+                          * path, or LinearPaths.end (M for a local
+                          * alignment) at the end; for
                           * Smith-Waterman, the moves it may make out of
                           * (i, j): only DIAGONAL out of the end */
     int* points;         /* (i, j) where the path turns, last one first */
@@ -1079,35 +1086,45 @@ linear_sw_start(const LinearPaths* lp, double* saved, Py_ssize_t* counts)
     if (counts) for (j = 0; j <= nB; j++) counts[j] = 1;
 }
 
-/* The score as SMITHWATERMAN_ALIGN returns it, the highest, and the end of
- * the first path.  PathGenerator_next_smithwaterman ends it at the first
- * end point in row-major order: the first marked cell if it comes before
- * the first rise, else the last rise (see LinearLocal).  Every cell has a
- * trace, to cells before it in row-major order, and no cell before the
- * first end point is one.  So SMITHWATERMAN_ALIGN removes no trace from the
- * cells before it (see linear_sw_count), and the walk can follow them as
- * the sweep computes them.  With a highest score of 0 there are no paths,
- * as there. */
+/* The score as SMITHWATERMAN_ALIGN and GOTOH_LOCAL_ALIGN return it, the
+ * highest, and the end of the first path, with the walker's trace end
+ * there.  PathGenerator_next_smithwaterman and
+ * PathGenerator_next_gotoh_local end it at the first end point in
+ * row-major order: the first marked cell if it comes before the first
+ * rise, else the last rise (see LinearLocal).  With no marked cell there
+ * are no paths. */
 static double
-linear_sw_score(LinearPaths* self, const double* saved)
+linear_local_score(LinearPaths* self, const double* saved, int end)
 {
     LinearLocal* const local = &self->local;
     memcpy(local, saved, sizeof(LinearLocal));
     self->end = 0;
-    if (local->maximum != 0 && local->first[0]) {
+    if (local->first[0]) {
         const bool unmarked = local->first[0] == local->rise[0]
                            && local->first[1] == local->rise[1];
         const int* const cell = unmarked ? local->last : local->first;
-        self->end = DIAGONAL;
+        self->end = end;
         self->end_i = cell[0];
         self->end_j = cell[1];
     }
     return local->maximum;
 }
 
+/* Every cell has a trace, to cells before it in row-major order, and no
+ * cell before the first end point is one.  So SMITHWATERMAN_ALIGN removes
+ * no trace from the cells before it (see linear_sw_count), and the walk
+ * can follow them as the sweep computes them.  A marked cell scores above
+ * 0, so with a highest score of 0, where the full matrix's generator has
+ * no paths, there are none. */
+static double
+linear_sw_score(LinearPaths* self, const double* saved)
+{
+    return linear_local_score(self, saved, DIAGONAL);
+}
+
 static Py_ssize_t
-linear_sw_total(const LinearPaths* Py_UNUSED(self), const double* saved,
-                const Py_ssize_t* Py_UNUSED(counts))
+linear_local_total(const LinearPaths* Py_UNUSED(self), const double* saved,
+                   const Py_ssize_t* Py_UNUSED(counts))
 {
     LinearLocal local;
     memcpy(&local, saved, sizeof(LinearLocal));
@@ -1163,7 +1180,7 @@ static const LinearKernel linear_sw_compare = {
     .start = linear_sw_start,
     .sweep = linear_sw_sweep_compare,
     .score = linear_sw_score,
-    .total = linear_sw_total,
+    .total = linear_local_total,
     .walk = linear_sw_walk,
     .align = Aligner_smithwaterman_align_compare,
 };
@@ -1178,9 +1195,372 @@ static const LinearKernel linear_sw_matrix = {
     .start = linear_sw_start,
     .sweep = linear_sw_sweep_matrix,
     .score = linear_sw_score,
-    .total = linear_sw_total,
+    .total = linear_local_total,
     .walk = linear_sw_walk,
     .align = Aligner_smithwaterman_align_matrix,
+};
+
+/* ----------------------- Gotoh local ----------------------- */
+
+/* SELECT_TRACE_GOTOH_LOCAL_ALIGN, storing the trace in tr rather than in
+ * M[i][j].  Where it unmarks the cells since the previous rise, this
+ * records the rise instead (see LinearLocal).  The arithmetic must stay
+ * identical to it, or the trace bits, and with them the paths, could
+ * differ from the full matrix. */
+#define LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
+    trace = M_MATRIX; \
+    score = M_temp; \
+    if (Ix_temp > score + epsilon) { \
+        score = Ix_temp; \
+        trace = Ix_MATRIX; \
+    } \
+    else if (Ix_temp > score - epsilon) trace |= Ix_MATRIX; \
+    if (Iy_temp > score + epsilon) { \
+        score = Iy_temp; \
+        trace = Iy_MATRIX; \
+    } \
+    else if (Iy_temp > score - epsilon) trace |= Iy_MATRIX; \
+    score += (align_score); \
+    if (score < epsilon) { \
+        score = 0; \
+        trace = STARTPOINT; \
+    } \
+    else if (score > maximum - epsilon) { \
+        if (score > maximum + epsilon) { \
+            maximum = score; \
+            if (!local.rise[0]) { \
+                local.rise[0] = i; \
+                local.rise[1] = j; \
+            } \
+            local.last[0] = i; \
+            local.last[1] = j; \
+        } \
+        if (!local.first[0]) { \
+            local.first[0] = i; \
+            local.first[1] = j; \
+        } \
+        trace |= ENDPOINT; \
+    } \
+    tr[2*(size_t)j] = (unsigned char)trace;
+
+/* SELECT_TRACE_GOTOH_LOCAL_GAP, without the store of the trace. */
+#define LINEAR_GOTOH_LOCAL_GAP(score1, score2, score3) \
+    LINEAR_GOTOH_GAP(score1, score2, score3) \
+    if (score < epsilon) { \
+        score = -DBL_MAX; \
+        trace = 0; \
+    }
+
+/* A cell of GOTOH_LOCAL_ALIGN before the last row and column, in the order
+ * of its statements, with M, Ix and Iy of column j at row[3*j], row[3*j+1]
+ * and row[3*j+2]. */
+#define LINEAR_GOTOH_LOCAL_CELL(align_score) \
+    LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
+    M_temp = row[3*(size_t)j]; \
+    row[3*(size_t)j] = score; \
+    LINEAR_GOTOH_LOCAL_GAP(M_temp + gap_open_B, \
+                           row[3*(size_t)j+1] + gap_extend_B, \
+                           row[3*(size_t)j+2] + gap_open_B); \
+    tr[2*(size_t)j+1] = (unsigned char)trace; \
+    Ix_temp = row[3*(size_t)j+1]; \
+    row[3*(size_t)j+1] = score; \
+    LINEAR_GOTOH_LOCAL_GAP(row[3*(size_t)j-3] + gap_open_A, \
+                           row[3*(size_t)j-2] + gap_open_A, \
+                           row[3*(size_t)j-1] + gap_extend_A); \
+    tr[2*(size_t)j+1] |= (unsigned char)(trace << 4); \
+    Iy_temp = row[3*(size_t)j+2]; \
+    row[3*(size_t)j+2] = score;
+
+/* A cell of GOTOH_LOCAL_ALIGN in the last row or column, where Ix and Iy
+ * are 0 without a trace. */
+#define LINEAR_GOTOH_LOCAL_EDGE(align_score) \
+    LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
+    M_temp = row[3*(size_t)j]; \
+    row[3*(size_t)j] = score; \
+    Ix_temp = row[3*(size_t)j+1]; \
+    row[3*(size_t)j+1] = 0; \
+    Iy_temp = row[3*(size_t)j+2]; \
+    row[3*(size_t)j+2] = 0; \
+    tr[2*(size_t)j+1] = 0;
+
+/* One row of PathGenerator_gotoh_local_length, over the row's trace bits
+ * in tr, with the counts of M, Ix and Iy one after the other in counts:
+ * the overflows, and the order of the additions, must stay as there for
+ * len() to agree with it.  That counts over the traces as GOTOH_LOCAL_ALIGN
+ * leaves them, after two changes, as for Smith-Waterman (see
+ * linear_sw_count).  It unmarks the cells marked from the first rise to
+ * before the last.  And it removes each trace to an end point's M, or to a
+ * matrix that then no start point reaches, which it leaves without a
+ * trace.  Here an end point's M passes on a count of 0 instead; so such a
+ * matrix counts 0 too, and the same is added to every sum. */
+static void
+linear_gotoh_local_count(const LinearPaths* self, const unsigned char* tr,
+                         int i, Py_ssize_t* counts, Py_ssize_t* total)
+{
+    const int nB = self->nB;
+    const int* const rise = self->local.rise;
+    const int* const last = self->local.last;
+    Py_ssize_t* const M_counts = counts;
+    Py_ssize_t* const Ix_counts = M_counts + nB + 1;
+    Py_ssize_t* const Iy_counts = Ix_counts + nB + 1;
+    int j;
+    int trace;
+    Py_ssize_t count;
+    Py_ssize_t term;
+    Py_ssize_t M_temp;
+    Py_ssize_t Ix_temp;
+    Py_ssize_t Iy_temp;
+    Py_ssize_t sum = *total;
+    M_temp = M_counts[0];
+    M_counts[0] = 1;
+    Ix_temp = Ix_counts[0];
+    Ix_counts[0] = 0;
+    Iy_temp = Iy_counts[0];
+    Iy_counts[0] = 0;
+    for (j = 1; j <= nB; j++) {
+        count = 0;
+        trace = tr[2*(size_t)j];
+        if (trace & ENDPOINT && rise[0] && !linear_before(i, j, rise)
+                             && linear_before(i, j, last))
+            trace &= ~ENDPOINT;
+        if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_temp, count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_temp, count);
+        if (count == 0 && (trace & STARTPOINT)) count = 1;
+        M_temp = M_counts[j];
+        if (trace & ENDPOINT) {
+            SAFE_ADD(count, sum);
+            count = 0;
+        }
+        M_counts[j] = count;
+        count = 0;
+        trace = LINEAR_GOTOH_IX(tr, j);
+        if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_counts[j], count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_counts[j], count);
+        Ix_temp = Ix_counts[j];
+        Ix_counts[j] = count;
+        count = 0;
+        trace = LINEAR_GOTOH_IY(tr, j);
+        if (trace & M_MATRIX) SAFE_ADD(M_counts[j-1], count);
+        if (trace & Ix_MATRIX) SAFE_ADD(Ix_counts[j-1], count);
+        if (trace & Iy_MATRIX) SAFE_ADD(Iy_counts[j-1], count);
+        Iy_temp = Iy_counts[j];
+        Iy_counts[j] = count;
+    }
+    *total = sum;
+}
+
+/* The rows of GOTOH_LOCAL_ALIGN: Ix and Iy 0 without a trace in the last
+ * row and the last column, and column 0 as there, with the traces
+ * PathGenerator_create_Gotoh gives it.  A saved row holds a LinearLocal,
+ * then the scores. */
+#define LINEAR_GOTOH_LOCAL_SWEEP(align_score) \
+    const Aligner* const self = &lp->aligner; \
+    const int nA = lp->nA; \
+    const int nB = lp->nB; \
+    const int* const sA = lp->sA; \
+    const int* const sB = lp->sB; \
+    const double gap_open_A = self->open_internal_insertion_score; \
+    const double gap_open_B = self->open_internal_deletion_score; \
+    const double gap_extend_A = self->extend_internal_insertion_score; \
+    const double gap_extend_B = self->extend_internal_deletion_score; \
+    const double epsilon = self->epsilon; \
+    double* const row = saved + LINEAR_LOCAL_DOUBLES; \
+    LinearLocal local; \
+    double maximum; \
+    int i; \
+    int j; \
+    int jmax; \
+    int kA; \
+    int kB; \
+    int trace; \
+    int interrupted = 0; \
+    double score; \
+    double temp; \
+    double M_temp; \
+    double Ix_temp; \
+    double Iy_temp; \
+    unsigned char* tr; \
+    memcpy(&local, saved, sizeof(LinearLocal)); \
+    maximum = local.maximum; \
+    PAIRWISE_NOGIL_BEGIN \
+    for (i = r0 + 1; i <= r1; i++) { \
+        PAIRWISE_NOGIL_CHECK(i) \
+        tr = T + (size_t)(i - r0 - 1) * tstride; \
+        M_temp = row[0]; \
+        Ix_temp = row[1]; \
+        Iy_temp = row[2]; \
+        row[0] = 0; \
+        row[1] = -DBL_MAX; \
+        row[2] = -DBL_MAX; \
+        tr[0] = (i == nA) ? 0 : STARTPOINT; \
+        tr[1] = 0; \
+        kA = sA[i-1]; \
+        jmax = (i == nA) ? 0 : (c < nB) ? c : nB - 1; \
+        for (j = 1; j <= jmax; j++) { \
+            kB = sB[j-1]; \
+            LINEAR_GOTOH_LOCAL_CELL(align_score); \
+        } \
+        for ( ; j <= c; j++) { \
+            kB = sB[j-1]; \
+            LINEAR_GOTOH_LOCAL_EDGE(align_score); \
+        } \
+        if (counts) \
+            linear_gotoh_local_count(lp, tr, i, counts, &local.total); \
+    } \
+    PAIRWISE_NOGIL_END \
+    local.maximum = maximum; \
+    memcpy(saved, &local, sizeof(LinearLocal)); \
+    return interrupted ? -1 : 0;
+
+static int
+linear_gotoh_local_sweep_compare(const LinearPaths* lp, double* saved, int r0,
+                                 int r1, int c, unsigned char* T,
+                                 size_t tstride, Py_ssize_t* counts)
+{
+    const double match = lp->aligner.match;
+    const double mismatch = lp->aligner.mismatch;
+    const int wildcard = lp->aligner.wildcard;
+    LINEAR_GOTOH_LOCAL_SWEEP(COMPARE_SCORE);
+}
+
+static int
+linear_gotoh_local_sweep_matrix(const LinearPaths* lp, double* saved, int r0,
+                                int r1, int c, unsigned char* T,
+                                size_t tstride, Py_ssize_t* counts)
+{
+    const Py_ssize_t n = lp->aligner.substitution_matrix.shape[0];
+    LINEAR_GOTOH_LOCAL_SWEEP(MATRIX_SCORE_NOGIL);
+}
+
+/* Row 0 of GOTOH_LOCAL_ALIGN, nothing kept yet, and the path counts of row
+ * 0 as PathGenerator_gotoh_local_length sets them. */
+static void
+linear_gotoh_local_start(const LinearPaths* lp, double* saved,
+                         Py_ssize_t* counts)
+{
+    const int nB = lp->nB;
+    double* const row = saved + LINEAR_LOCAL_DOUBLES;
+    const LinearLocal local = {0};
+    int j;
+    memcpy(saved, &local, sizeof(LinearLocal));
+    for (j = 0; j <= nB; j++) {
+        row[3*(size_t)j] = 0;
+        row[3*(size_t)j+1] = -DBL_MAX;
+        row[3*(size_t)j+2] = -DBL_MAX;
+    }
+    if (counts) {
+        Py_ssize_t* const M_counts = counts;
+        Py_ssize_t* const Ix_counts = M_counts + nB + 1;
+        Py_ssize_t* const Iy_counts = Ix_counts + nB + 1;
+        for (j = 0; j <= nB; j++) {
+            M_counts[j] = 1;
+            Ix_counts[j] = 0;
+            Iy_counts[j] = 0;
+        }
+    }
+}
+
+/* GOTOH_LOCAL_ALIGN's clean-up also removes the traces to matrices that no
+ * start point reaches, and any end point there.  No cell before the first
+ * end point is one (see linear_sw_score), so before it the clean-up only
+ * removes traces to such matrices, which only extreme scores or epsilon,
+ * such as infinite or NaN ones, make.  A trace leading to one leads on
+ * only to others, and on to an Ix or Iy without a trace, or in row 0 or
+ * column 0, where the walk stops and asks the full matrix.  Otherwise the
+ * walk, from M, follows the trace bits as the sweep computes them, and
+ * finds the full matrix's path.
+ *
+ * GOTOH_LOCAL_ALIGN raises the highest score only at a rise, and with a
+ * highest score of 0 its generator starts exhausted.  It can still have
+ * end points, which len() counts, and its reset() starts it on them. */
+static double
+linear_gotoh_local_score(LinearPaths* self, const double* saved)
+{
+    const double score = linear_local_score(self, saved, M_MATRIX);
+    self->done = (score == 0);
+    return score;
+}
+
+/* Follow the traceback as PathGenerator_next_gotoh_local does: in each
+ * cell, take M if the walker's trace allows it, else Ix, else Iy, to a
+ * start point of M.  Row 0 is not in any block: there M is a start point.
+ * An empty trace, or Ix or Iy in row 0, is a matrix no start point
+ * reaches: the full matrix's clean-up has removed the trace leading to it,
+ * and its path goes elsewhere. */
+static int
+linear_gotoh_local_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
+                        const unsigned char* T, int r0, size_t width)
+{
+    while (w->i > r0) {
+        const unsigned char* tr = T + (size_t)(w->i - r0 - 1) * width * 2;
+        const size_t j = (size_t)w->j;
+        int trace;
+        if (w->trace & M_MATRIX) {
+            trace = tr[2*j];
+            if (trace == STARTPOINT) {
+                if (linear_walker_add(w) < 0) return -1;
+                return LINEAR_ENDED;
+            }
+            trace &= M_MATRIX | Ix_MATRIX | Iy_MATRIX;
+            if (!trace) return LINEAR_STOPPED;
+            if (linear_walker_step(w, DIAGONAL) < 0) return -1;
+            w->i--;
+            w->j--;
+        }
+        else if (w->trace & Ix_MATRIX) {
+            trace = LINEAR_GOTOH_IX(tr, j);
+            if (!trace) return LINEAR_STOPPED;
+            if (linear_walker_step(w, VERTICAL) < 0) return -1;
+            w->i--;
+        }
+        else if (w->trace & Iy_MATRIX) {
+            trace = LINEAR_GOTOH_IY(tr, j);
+            if (!trace) return LINEAR_STOPPED;
+            if (linear_walker_step(w, HORIZONTAL) < 0) return -1;
+            w->j--;
+        }
+        else {
+            LINEAR_INTERNAL_ERROR;
+            return -1;
+        }
+        w->trace = trace;
+    }
+    if (w->i > 0) return LINEAR_EXITED;
+    if (!(w->trace & M_MATRIX)) return LINEAR_STOPPED;
+    if (linear_walker_add(w) < 0) return -1;
+    return LINEAR_ENDED;
+}
+
+static const LinearKernel linear_gotoh_local_compare = {
+    .ncarried = LINEAR_LOCAL_DOUBLES,
+    .ndoubles = 3,
+    .trace_bytes = 2,
+    .ncounts = 3,
+    .matrix_cell_bytes = sizeof(Trace) + sizeof(TraceGapsGotoh),
+    .matrix_row_pointers = 2,
+    .start = linear_gotoh_local_start,
+    .sweep = linear_gotoh_local_sweep_compare,
+    .score = linear_gotoh_local_score,
+    .total = linear_local_total,
+    .walk = linear_gotoh_local_walk,
+    .align = Aligner_gotoh_local_align_compare,
+};
+
+static const LinearKernel linear_gotoh_local_matrix = {
+    .ncarried = LINEAR_LOCAL_DOUBLES,
+    .ndoubles = 3,
+    .trace_bytes = 2,
+    .ncounts = 3,
+    .matrix_cell_bytes = sizeof(Trace) + sizeof(TraceGapsGotoh),
+    .matrix_row_pointers = 2,
+    .start = linear_gotoh_local_start,
+    .sweep = linear_gotoh_local_sweep_matrix,
+    .score = linear_gotoh_local_score,
+    .total = linear_local_total,
+    .walk = linear_gotoh_local_walk,
+    .align = Aligner_gotoh_local_align_matrix,
 };
 
 
@@ -1200,8 +1580,15 @@ linear_kernel(const Aligner* self, Algorithm algorithm)
                     return NULL;
             }
         case Gotoh:
-            if (self->mode != Global) return NULL;
-            return matrix ? &linear_gotoh_matrix : &linear_gotoh_compare;
+            switch (self->mode) {
+                case Global:
+                    return matrix ? &linear_gotoh_matrix : &linear_gotoh_compare;
+                case Local:
+                    return matrix ? &linear_gotoh_local_matrix
+                                  : &linear_gotoh_local_compare;
+                default:
+                    return NULL;
+            }
         default:
             return NULL;
     }
@@ -1432,7 +1819,10 @@ LinearPaths_count(LinearPaths* self)
 
 /* Build the full traceback matrix, check it against what is already
  * known, and step its PathGenerator past the first path, which becomes
- * the first path if that is not known yet. */
+ * the first path if that is not known yet.  If that is not known, the full
+ * matrix of a Gotoh local alignment may have no paths, its clean-up having
+ * removed them (see linear_gotoh_local_score); then there is no end.  For
+ * any other kernel that is an internal error. */
 static int
 LinearPaths_materialize(LinearPaths* self)
 {
@@ -1454,7 +1844,19 @@ LinearPaths_materialize(LinearPaths* self)
     self->paths = (PathGenerator*)PyTuple_GET_ITEM(result, 1);
     Py_INCREF(self->paths);
     Py_DECREF(result);
+    /* A new generator may start exhausted, where this object was done
+     * until reset (see LinearPaths); otherwise this changes nothing. */
+    Py_DECREF(PathGenerator_reset(self->paths));  /* returns None */
     first = PathGenerator_next(self->paths);
+    if (!first && !self->first && !PyErr_Occurred()
+        && (self->kernel == &linear_gotoh_local_compare
+            || self->kernel == &linear_gotoh_local_matrix)) {
+        self->end = 0;
+        PyMem_Free(self->checkpoints);
+        self->checkpoints = NULL;
+        self->primed = true;
+        return 0;
+    }
     if (first && self->first)
         equal = PyObject_RichCompareBool(first, self->first, Py_EQ);
     if (!first || equal != 1) {
@@ -1482,6 +1884,7 @@ LinearPaths_next(LinearPaths* self)
     PyObject* path = NULL;
     if (linear_lock(self) < 0) return NULL;
     if (self->position == 0) {
+        if (self->done) goto exit;
         if (!self->first) {
             /* no paths, as the full matrix's generator finds at once */
             if (!self->end) goto exit;
@@ -1490,9 +1893,10 @@ LinearPaths_next(LinearPaths* self)
                 PyMem_Free(self->checkpoints);
                 self->checkpoints = NULL;
             }
-            /* a path stopping before the origin is whatever the full
-             * matrix makes of it */
-            else if (PyErr_Occurred() || LinearPaths_materialize(self) < 0)
+            /* a path stopping before the origin, or before a start point,
+             * is whatever the full matrix makes of it, if anything */
+            else if (PyErr_Occurred() || LinearPaths_materialize(self) < 0
+                     || !self->first)
                 goto exit;
         }
         Py_INCREF(self->first);
@@ -1538,6 +1942,7 @@ LinearPaths_reset(LinearPaths* self, PyObject* Py_UNUSED(ignored))
 {
     if (linear_lock(self) < 0) return NULL;
     self->position = 0;
+    self->done = false;
     if (self->paths) {
         Py_DECREF(PathGenerator_reset(self->paths));  /* returns None */
         self->primed = false;
