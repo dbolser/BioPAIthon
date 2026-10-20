@@ -55,6 +55,14 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+A local ``Bio.Align.PairwiseAligner`` alignment with gap score functions (the
+Waterman-Smith-Beyer local algorithm) whose score is 0 now gives the same
+alignments by index as by ``len()`` and iteration, as the Gotoh local
+algorithm does (see below). Cells scoring ``epsilon`` can be the ends of
+alignments while the reported score stays 0; ``alignments[0]`` raised
+``IndexError`` for them, and now returns the first. Biopython 1.88 has the
+same bug.
+
 ``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
 sequence whatever type the protein sequence is. ``score()`` and ``align()``
 raised "seqB must be a string, Seq, MutableSeq, or SeqRecord object" for a

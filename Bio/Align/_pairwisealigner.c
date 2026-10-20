@@ -6377,9 +6377,11 @@ exit: \
             else M[i][j].path |= Iy_MATRIX; /* reachable */ \
         } \
     } \
-    /* traceback */ \
-    if (maximum == 0) M[0][0].path = DONE; \
-    else M[0][0].path = 0; \
+    /* traceback \
+     * maximum rises only by more than epsilon, so it can stay 0 while \
+     * cells scoring within epsilon of it are end points.  Start the \
+     * generator on them, as len() counts them; with none, it finds none. */ \
+    M[0][0].path = 0; \
     return Py_BuildValue("fN", maximum, paths); \
 
 
