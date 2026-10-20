@@ -792,6 +792,8 @@ class TestDifferential(unittest.TestCase):
         # score() ignores epsilon, so it always agrees with brute force.
         rng = random.Random(2031)
         values = [-2, -1, -0.5, 0, 0.5, 1]
+        # local mode rejects positive gap scores
+        gap_values = [value for value in values if value <= 0]
         for _ in range(1500):
             alphabet = rng.choice(["AC", "ACG"])
             seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
@@ -815,7 +817,7 @@ class TestDifferential(unittest.TestCase):
                     return matrix[a, b]
 
             while True:
-                gaps = [rng.choice(values) for _ in range(4)]
+                gaps = [rng.choice(gap_values) for _ in range(4)]
                 if rng.random() < 0.7:
                     gaps[2:] = gaps[:2]
                 open_A, extend_A, open_B, extend_B = gaps
