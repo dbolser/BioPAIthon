@@ -86,6 +86,20 @@ with a gap extension, with a positive gap score. With the default epsilon of
 ``1e-6`` and typical scores nothing changes but, rarely, the last digits of
 the score. Both are upstream defects, also in Biopython 1.88.
 
+Without a substitution matrix, ``Bio.Align.PairwiseAligner`` now treats a
+list or tuple of letters like the string of those letters, in ``score()``,
+``align()`` and ``Alignment.counts()``. Each item became its index among the
+items seen, so the wildcard was never recognised in a list
+(``PairwiseAligner(mismatch_score=-1, wildcard="N")`` scored ``"GANT"``
+against ``"GACT"`` 3.0, but 2.0 as lists), and a list of letters never
+matched a ``str``, ``Seq``, ``bytes`` or array of code points, so every pair
+scored as a mismatch. Letters now become their code points, as in a string.
+Other items, such as words or numbers, still match by equality but can no
+longer be taken for the wildcard: the 79th distinct item was numbered 78, the
+code point of ``"N"``. A one-character ``bytes`` item now also matches the
+same letter as a ``str``, as ``bytes`` and ``str`` sequences already do.
+Upstream Biopython has the same defect.
+
 ``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
 sequence whatever type the protein sequence is. ``score()`` and ``align()``
 raised "seqB must be a string, Seq, MutableSeq, or SeqRecord object" for a
