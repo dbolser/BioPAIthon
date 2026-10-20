@@ -138,9 +138,6 @@ struct LinearPaths {
                           * (see LinearWalker); 0 if there are no paths */
     int end_i;           /* the cell the first path ends in */
     int end_j;
-    bool done;           /* yields no paths until reset, as the full
-                          * matrix's generator of a Gotoh local alignment
-                          * with a highest score of 0 does */
     LinearLocal local;   /* local alignments: as the forward pass left it */
     LinearPlan plan;
     double* checkpoints; /* rows 0, stride, 2 * stride, ...; freed once the
@@ -1472,15 +1469,12 @@ linear_gotoh_local_start(const LinearPaths* lp, double* saved,
  * walk, from M, follows the trace bits as the sweep computes them, and
  * finds the full matrix's path.
  *
- * GOTOH_LOCAL_ALIGN raises the highest score only at a rise, and with a
- * highest score of 0 its generator starts exhausted.  It can still have
- * end points, which len() counts, and its reset() starts it on them. */
+ * GOTOH_LOCAL_ALIGN raises the highest score only at a rise, so a highest
+ * score of 0 can still have end points, scoring within epsilon of it. */
 static double
 linear_gotoh_local_score(LinearPaths* self, const double* saved)
 {
-    const double score = linear_local_score(self, saved, M_MATRIX);
-    self->done = (score == 0);
-    return score;
+    return linear_local_score(self, saved, M_MATRIX);
 }
 
 /* Follow the traceback as PathGenerator_next_gotoh_local does: in each
@@ -1844,9 +1838,6 @@ LinearPaths_materialize(LinearPaths* self)
     self->paths = (PathGenerator*)PyTuple_GET_ITEM(result, 1);
     Py_INCREF(self->paths);
     Py_DECREF(result);
-    /* A new generator may start exhausted, where this object was done
-     * until reset (see LinearPaths); otherwise this changes nothing. */
-    Py_DECREF(PathGenerator_reset(self->paths));  /* returns None */
     first = PathGenerator_next(self->paths);
     if (!first && !self->first && !PyErr_Occurred()
         && (self->kernel == &linear_gotoh_local_compare
@@ -1884,7 +1875,6 @@ LinearPaths_next(LinearPaths* self)
     PyObject* path = NULL;
     if (linear_lock(self) < 0) return NULL;
     if (self->position == 0) {
-        if (self->done) goto exit;
         if (!self->first) {
             /* no paths, as the full matrix's generator finds at once */
             if (!self->end) goto exit;
@@ -1942,7 +1932,6 @@ LinearPaths_reset(LinearPaths* self, PyObject* Py_UNUSED(ignored))
 {
     if (linear_lock(self) < 0) return NULL;
     self->position = 0;
-    self->done = false;
     if (self->paths) {
         Py_DECREF(PathGenerator_reset(self->paths));  /* returns None */
         self->primed = false;

@@ -63,6 +63,16 @@ check looked at the protein. A nucleotide sequence of another type, such as
 ``bytes`` or a list, now raises that ``ValueError`` with a string protein as
 well, rather than ``TranslationError``, ``AttributeError`` or ``TypeError``.
 
+A local ``Bio.Align.PairwiseAligner`` alignment with affine gap scores (the
+Gotoh local algorithm) whose score is 0 now gives the same alignments by
+index as by ``len()`` and iteration. The aligner raises its highest score only
+by more than ``epsilon``, so it can report 0 while cells scoring ``epsilon``
+are the ends of alignments. ``len()`` counted those and iteration yielded
+them, but ``alignments[0]`` raised ``IndexError``. Now ``alignments[0]``
+returns the first of them. This only happens when a cell scores exactly
+``epsilon`` (with the default of ``1e-6``, rarely), and it is also in
+Biopython 1.88.
+
 ``Bio.Phylo`` now accepts any whitespace after the colon of a Newick branch
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's

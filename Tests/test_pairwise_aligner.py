@@ -1644,6 +1644,29 @@ AlignmentCounts object with
         self.assertEqual(counts.mismatches, 0)
         self.assertIsNone(counts.score)
 
+    def test_gotoh_local_score_zero(self):
+        # The highest score rises only by more than epsilon, so it stays 0
+        # here, while the matches, scoring epsilon, are end points.  Then
+        # [0] raised IndexError, while len() and iteration found them.
+        aligner = Align.PairwiseAligner(
+            mode="local",
+            mismatch_score=-1,
+            open_gap_score=-2,
+            extend_gap_score=-1,
+            epsilon=1,
+        )
+        self.assertEqual(aligner.algorithm, "Gotoh local alignment algorithm")
+        alignments = aligner.align("GAT", "TA")
+        self.assertEqual(alignments.score, 0)
+        self.assertEqual(len(alignments), 2)
+        self.assertEqual(alignments[0].coordinates.tolist(), [[1, 2], [1, 2]])
+        self.assertEqual(alignments[1].coordinates.tolist(), [[2, 3], [0, 1]])
+        with self.assertRaises(IndexError):
+            alignments[2]
+        alignments = aligner.align("GAT", "TA")
+        paths = [alignment.coordinates.tolist() for alignment in alignments]
+        self.assertEqual(paths, [[[1, 2], [1, 2]], [[2, 3], [0, 1]]])
+
 
 class TestUnknownCharacter(unittest.TestCase):
     def test_needlemanwunsch_simple1(self):
