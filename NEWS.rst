@@ -101,6 +101,17 @@ alignment scores ``-inf`` or NaN, and every alignment, as ties, with an
 infinite epsilon. The score is unchanged. Upstream Biopython has the same
 defect.
 
+``Bio.Align.Alignment.counts()`` now counts lists or tuples of letters
+correctly with a substitution matrix whose alphabet is a string, given either
+the matrix or a ``PairwiseAligner`` that uses it. It mapped the letters
+through the alphabet twice, as ``PairwiseAligner.score()`` and ``align()``
+used to, so ``counts()`` raised "sequence contains letters not in the
+alphabet" for ``PairwiseAligner(scoring="blastp")`` or, with some large
+custom alphabets, returned a wrong score without an error. It now maps lists
+with the same code as those methods, and takes an ``array.array`` of 32-bit
+integers as they do, like a NumPy array, so it agrees with ``score()`` for
+every input they accept.
+
 ``Bio.Phylo`` now accepts any whitespace after the colon of a Newick branch
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's
@@ -120,7 +131,7 @@ result as a string of the same letters, so each item must be a single
 character; a longer one raises ``TypeError``. The two methods now prepare
 their sequences in one place, so they accept the same inputs, and ``align()``
 given a strand other than ``"+"`` or ``"-"`` now raises the same error as
-``score()`` always has. ``Alignment.counts()`` still maps such lists twice.
+``score()`` always has.
 
 ``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
 local alignment with affine gap scores (the Gotoh algorithm, as the

@@ -16845,8 +16845,30 @@ AlignmentCounts object with
             "array.array": array.array("i", codes),
         }
 
+    def check_counts(self, aligner, alignment, expected):
+        """Check counts() of an alignment against those of the expected one."""
+        arguments = [aligner]
+        if aligner.substitution_matrix is not None:
+            arguments.append(aligner.substitution_matrix)
+        for argument in arguments:
+            counts = alignment.counts(argument)
+            expected_counts = expected.counts(argument)
+            for name in (
+                "score",
+                "substitution_score",
+                "aligned",
+                "identities",
+                "mismatches",
+                "positives",
+                "gaps",
+            ):
+                self.assertEqual(
+                    getattr(counts, name), getattr(expected_counts, name), name
+                )
+        self.assertEqual(alignment.counts(aligner).score, expected.score)
+
     def check_score_and_align(self, aligner, seqA, seqB, expected, strand="+"):
-        """Check score() and align() against the expected alignments."""
+        """Check score(), align() and counts() against the expected alignments."""
         self.assertEqual(aligner.score(seqA, seqB, strand), expected.score)
         alignments = aligner.align(seqA, seqB, strand)
         self.assertEqual(alignments.score, expected.score)
@@ -16856,6 +16878,8 @@ AlignmentCounts object with
         # The alignment holds the caller's objects, not the converted ones.
         self.assertIs(alignment.sequences[0], seqA)
         self.assertIs(alignment.sequences[1], seqB)
+        # counts() prepares the sequences itself, so check it agrees.
+        self.check_counts(aligner, alignment, expected[0])
 
     def test_list_of_letters_with_string_alphabet(self):
         # With a substitution matrix whose alphabet is a string, a list of
@@ -16877,6 +16901,16 @@ AlignmentCounts object with
         for method in (aligner.score, aligner.align):
             with self.assertRaisesRegex(ValueError, message):
                 method(list("HEAGAWGHE"), list("PAWHE#E"))
+        # counts() mapped such lists twice as well, and raised the same error.
+        counts = aligner.align(list("HEAGAWGHE"), list("PAWHEAE"))[0].counts(aligner)
+        self.assertEqual(counts.score, -8.0)
+        self.assertEqual(counts.identities, 4)
+        self.assertEqual(counts.positives, 4)
+        alignment = Align.Alignment(
+            [list("HEAGAWGHE"), list("HEAGAWGH#")], np.array([[0, 9], [0, 9]])
+        )
+        with self.assertRaisesRegex(ValueError, message):
+            alignment.counts(aligner)
 
     def test_list_of_letters_with_large_string_alphabet(self):
         # With a large enough alphabet, mapping a list of letters twice gave
@@ -16889,6 +16923,10 @@ AlignmentCounts object with
         expected = aligner.align("AAB", "AAB")
         self.assertEqual(expected.score, 15.0)
         self.check_score_and_align(aligner, list("AAB"), list("AAB"), expected)
+        # counts() scored the list the same wrong way.
+        counts = aligner.align(list("AAB"), list("AAB"))[0].counts(aligner)
+        self.assertEqual(counts.score, 15.0)
+        self.assertEqual(counts.substitution_score, 15.0)
 
     def test_score_and_align_accept_the_same_inputs(self):
         target = "GAACTTG"
