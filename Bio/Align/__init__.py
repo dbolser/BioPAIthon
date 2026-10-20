@@ -4008,9 +4008,12 @@ class Alignment:
                     and view.ndim == 1
                     and view.format in ("i", "l")
                     and view.itemsize == 4
+                    and view.c_contiguous
                 ):
-                    # an array of int32, such as array.array("i"), as
-                    # PairwiseAligner.score and .align take it
+                    # a contiguous array of int32, such as array.array("i"),
+                    # as PairwiseAligner.score and .align take it; the C code
+                    # asks for a contiguous buffer, so a strided view is
+                    # mapped as a sequence instead
                     sequences[i] = data
                 else:
                     sequences[i] = _map_letters(data, substitution_matrix, letters)

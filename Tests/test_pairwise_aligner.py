@@ -16928,6 +16928,21 @@ AlignmentCounts object with
         self.assertEqual(counts.score, 15.0)
         self.assertEqual(counts.substitution_score, 15.0)
 
+    def test_counts_strided_int32_buffer(self):
+        # counts() hands a contiguous int32 buffer to the C code as it is.
+        # A strided view of one must be mapped as a sequence instead: the C
+        # code would not take it as a buffer, and counted nothing.
+        aligner = Align.PairwiseAligner()
+        coordinates = np.array([[0, 7], [0, 7]])
+        sequences = []
+        for text in ("GATTACA", "GACTATA"):
+            padded = array.array("i", [code for c in text for code in (ord(c), 0)])
+            sequences.append(memoryview(padded)[::2])
+        alignment = Align.Alignment(sequences, coordinates)
+        for counts in (alignment.counts(), alignment.counts(aligner)):
+            self.assertEqual(counts.identities, 5)
+            self.assertEqual(counts.mismatches, 2)
+
     def test_score_and_align_accept_the_same_inputs(self):
         target = "GAACTTG"
         query = "GACTG"
