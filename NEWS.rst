@@ -89,6 +89,18 @@ once the number of alignments passed ``sys.maxsize``: ``"A" * 37`` against
 ``"C" * 37`` with every score 0 gave 8,001,394,856,851,978,725. Both are
 upstream defects, also in Biopython 1.86 and 1.88.
 
+``PairwiseAligner.align()`` no longer crashes Python on a global alignment
+with affine gap scores (the Gotoh algorithm) where infinite or NaN scores, or
+an infinite epsilon, leave traces that no alignment follows back to the
+start. Iterating over the alignments, or taking ``alignments[0]``, could
+segfault, or yield the same alignment forever while ``len(alignments)`` was
+0; ``end_deletion_score=float("-inf")`` aligning ``"AA"`` to ``"A"`` and
+``epsilon=float("inf")`` were two ways in. Those traces are now removed, so
+the alignments are exactly those ``len()`` counts: none where every
+alignment scores ``-inf`` or NaN, and every alignment, as ties, with an
+infinite epsilon. The score is unchanged. Upstream Biopython has the same
+defect.
+
 ``Bio.Phylo`` now accepts any whitespace after the colon of a Newick branch
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's

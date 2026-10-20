@@ -23244,6 +23244,78 @@ for method in (aligner.score, aligner.align):
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
 
 
+class TestGotohGlobalUnreachable(unittest.TestCase):
+    """Gotoh global alignments whose traces lead where no path starts.
+
+    Infinite or NaN scores, or an infinite epsilon, can leave traces into
+    the empty M and Iy of column 0, or M and Ix of row 0.  len() never
+    counted paths through them, but the traceback followed them and stopped
+    short of the origin, giving a path of NULLs that crashed Python, or
+    looping on it.  Each case runs in a child process, so that a crash
+    fails the test rather than the test run.
+    """
+
+    def run_child(self, code):
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
+    def test_no_alignments(self):
+        # Every alignment scores -inf or NaN, so there are none.
+        self.run_child(
+            """
+import itertools
+import math
+
+from Bio import Align
+
+for scores, seqA, seqB in [
+    ({"end_deletion_score": -math.inf}, "AA", "A"),
+    ({"end_insertion_score": -math.inf}, "A", "AA"),
+    ({"open_gap_score": math.nan}, "GGGGAACGT", "AACG"),
+    # This one looped on its first path, while len() was 0.
+    ({"gap_score": math.nan, "epsilon": -math.inf}, "TTGCCT", "CCAAC"),
+]:
+    aligner = Align.PairwiseAligner(
+        **{"open_gap_score": -2, "extend_gap_score": -1, **scores}
+    )
+    assert aligner.algorithm == "Gotoh global alignment algorithm"
+    alignments = aligner.align(seqA, seqB)
+    assert len(alignments) == 0, scores
+    assert list(itertools.islice(alignments, 5)) == [], scores
+    try:
+        alignments[0]
+    except IndexError:
+        pass
+    else:
+        raise AssertionError(scores)
+"""
+        )
+
+    def test_infinite_epsilon(self):
+        # An infinite epsilon makes every alignment a tie.
+        self.run_child(
+            """
+import math
+
+from Bio import Align
+
+aligner = Align.PairwiseAligner(
+    open_gap_score=-2, extend_gap_score=-1, epsilon=math.inf
+)
+alignments = aligner.align("ACGT", "AGT")
+assert alignments.score == -1
+assert alignments[0].coordinates.tolist() == [[0, 1, 4], [0, 0, 3]]
+paths = {str(alignment.coordinates.tolist()) for alignment in alignments}
+assert len(alignments) == len(paths) == 129, (len(alignments), len(paths))
+"""
+        )
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)

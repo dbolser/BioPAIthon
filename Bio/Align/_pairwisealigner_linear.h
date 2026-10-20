@@ -27,9 +27,8 @@
  *   trace bits and keeping a row of counts.
  * - Later paths build the full matrix with the existing kernel and delegate
  *   to its PathGenerator, after checking it agrees.  So does the first
- *   path where the full matrix's own stops short of the origin, as Gotoh's
- *   can with infinite or NaN scores, or where its clean-up of a Gotoh local
- *   alignment removed a trace the path would take.
+ *   path where the clean-up of a Gotoh alignment, which infinite or NaN
+ *   scores can need, removed a trace the path would take.
  *
  * It is used only where it holds less memory than the matrix.  A row of
  * trace bits costs less than a row of doubles, so a short target against
@@ -50,8 +49,8 @@ typedef struct LinearWalker LinearWalker;
 /* Return values of LinearKernel.walk and of linear_solve. */
 #define LINEAR_EXITED 0   /* the walk reached the top row of the block */
 #define LINEAR_ENDED 1    /* the path is complete */
-#define LINEAR_STOPPED 2  /* the path stops before the origin, as the full
-                           * matrix's does where a trace is empty */
+#define LINEAR_STOPPED 2  /* the path stops before the origin, where the
+                           * full matrix's clean-up removed a trace */
 
 typedef struct {
     /* A saved row holds ncarried scalars, then ndoubles per column. */
@@ -821,9 +820,12 @@ linear_gotoh_total(const LinearPaths* self, const double* Py_UNUSED(row),
 /* Follow the traceback as PathGenerator_next_gotoh_global does: in each
  * cell, take M if the walker's trace allows it, else Ix, else Iy, and read
  * that matrix's trace of the cell.  An empty trace ends the path.  That is
- * at the origin, or in column 0 or row 0 where the full matrix's path
- * stops short of the origin.  Row 0 is not in any block: its Iy traces
- * lead horizontally to the origin, its M and Ix traces are empty. */
+ * at the origin, or in column 0 or row 0, which only extreme scores or
+ * epsilon, such as infinite or NaN ones, lead to.  GOTOH_GLOBAL_ALIGN's
+ * clean-up removes the traces leading there, so the walk stops and asks
+ * the full matrix, whose path goes elsewhere, if anywhere.  Row 0 is not in
+ * any block: its Iy traces lead horizontally to the origin, its M and Ix
+ * traces are empty, and so are the origin's Ix and Iy. */
 static int
 linear_gotoh_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
                   const unsigned char* T, int r0, size_t width)
@@ -860,6 +862,7 @@ linear_gotoh_walk(const LinearPaths* Py_UNUSED(self), LinearWalker* w,
         if (linear_walker_step(w, HORIZONTAL) < 0) return -1;
         w->j = 0;
     }
+    else if (!(w->trace & M_MATRIX)) return LINEAR_STOPPED;
     /* the origin always starts the path */
     if (linear_walker_add(w) < 0) return -1;
     return LINEAR_ENDED;
@@ -1855,9 +1858,9 @@ LinearPaths_count(LinearPaths* self)
 /* Build the full traceback matrix, check it against what is already
  * known, and step its PathGenerator past the first path, which becomes
  * the first path if that is not known yet.  If that is not known, the full
- * matrix of a Gotoh local alignment may have no paths, its clean-up having
- * removed them (see linear_gotoh_local_score); then there is no end.  For
- * any other kernel that is an internal error. */
+ * matrix of a Gotoh alignment may have no paths, its clean-up having
+ * removed them (see linear_gotoh_walk and linear_gotoh_local_score); then
+ * there is no end.  For any other kernel that is an internal error. */
 static int
 LinearPaths_materialize(LinearPaths* self)
 {
@@ -1881,7 +1884,9 @@ LinearPaths_materialize(LinearPaths* self)
     Py_DECREF(result);
     first = PathGenerator_next(self->paths);
     if (!first && !self->first && !PyErr_Occurred()
-        && (self->kernel == &linear_gotoh_local_compare
+        && (self->kernel == &linear_gotoh_compare
+            || self->kernel == &linear_gotoh_matrix
+            || self->kernel == &linear_gotoh_local_compare
             || self->kernel == &linear_gotoh_local_matrix)) {
         self->end = 0;
         PyMem_Free(self->checkpoints);
