@@ -1098,8 +1098,15 @@ class TestInterrupt(unittest.TestCase):
         cls.gotoh_expected = cls.gotoh_aligner.align(*cls.seqs)
         cls.sw_aligner = sw_aligner()
         cls.sw_expected = cls.sw_aligner.align(*cls.seqs)
+        # The best local alignment of two random sequences is short, so its
+        # first path took about 5 ms, close enough to the three 1 ms timer
+        # ticks that it could finish first on a fast machine.  A query that
+        # matches each copy of a tandem repeat gives two long alignments.
+        block = random_dna(rng, 2000)
+        mutated = "".join(rng.choice("ACGT") if rng.random() < 0.15 else c for c in block)
+        cls.gotoh_local_seqs = (block + block, mutated)
         cls.gotoh_local_aligner = gotoh_local_aligner()
-        cls.gotoh_local_expected = cls.gotoh_local_aligner.align(*cls.seqs)
+        cls.gotoh_local_expected = cls.gotoh_local_aligner.align(*cls.gotoh_local_seqs)
 
     @contextlib.contextmanager
     def alarms(self, handler, delay, interval=0):
@@ -1144,13 +1151,15 @@ class TestInterrupt(unittest.TestCase):
     def test_interrupt_gotoh_local(self):
         stages = (("first path", 5), ("full matrix", 5), ("count", 3))
         aligner, expected = self.gotoh_local_aligner, self.gotoh_local_expected
-        self.check_interrupt(aligner, expected, stages)
+        self.check_interrupt(aligner, expected, stages, self.gotoh_local_seqs)
 
-    def check_interrupt(self, aligner, expected, stages):
+    def check_interrupt(self, aligner, expected, stages, seqs=None):
+        if seqs is None:
+            seqs = self.seqs
         reference = (expected[0].coordinates, expected[1].coordinates, count(expected))
         for stage, repeats in stages:
             for _ in range(repeats):
-                alignments = forced_align(aligner, *self.seqs, budgets=DEFAULT[1:])
+                alignments = forced_align(aligner, *seqs, budgets=DEFAULT[1:])
                 paths = alignments._paths
                 if stage == "full matrix":
                     next(paths)
