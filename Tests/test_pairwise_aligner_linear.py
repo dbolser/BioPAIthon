@@ -489,11 +489,11 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(
                 coordinates(forced, limit), coordinates(expected, limit), message
             )
-        # The same as the full matrix after a reset, which can differ (see
-        # test_gotoh_local_upstream).
+        # The same after a reset (see test_gotoh_local_score_zero).
         forced.rewind()
         expected.rewind()
-        self.assertEqual(outcome(forced, 0), outcome(expected, 0), message)
+        self.assertEqual(outcome(expected, 0), first, message)
+        self.assertEqual(outcome(forced, 0), first, message)
         # len() first, counting in linear space, then [0].
         forced = forced_align(aligner, *args, budgets=budgets)
         self.assertEqual(count(forced), length, message)
@@ -733,31 +733,37 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(list(forced), [], message)
             self.assertEqual(len(forced), 0, message)
 
-    def test_gotoh_local_upstream(self):
+    def test_gotoh_local_score_zero(self):
         # GOTOH_LOCAL_ALIGN raises its highest score only by more than
-        # epsilon, and with a highest score of 0 its PathGenerator starts
-        # exhausted, so that [0] finds nothing.  But it can still mark end
-        # points, which len() counts, and its reset(), as iteration calls
-        # it, starts it on them.  (Smith-Waterman stays exhausted.)  An
-        # upstream defect, also in Biopython 1.88, pinned here, not
-        # endorsed: a fix to the full matrix fails this test, and must keep
-        # the linear-space traceback in step.
+        # epsilon, so it can stay 0 while cells scoring epsilon are end
+        # points.  Its PathGenerator used to start exhausted then, so that
+        # [0] raised IndexError while len() and iteration found the paths,
+        # also in Biopython 1.88.  Now all three agree, in both tracebacks.
         aligner = gotoh_local_aligner(epsilon=1)
         for seqA, seqB, paths in (
             ("A", "A", [[[0, 1], [0, 1]]]),
             ("GAT", "TA", [[[1, 2], [1, 2]], [[2, 3], [0, 1]]]),
+            ("A", "C", []),
         ):
             message = f"{seqA} {seqB}"
             expected = aligner.align(seqA, seqB)
             forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            self.assertIs(type(forced._paths), LinearPaths, message)
             for alignments in (expected, forced):
                 self.assertEqual(alignments.score, 0, message)
                 self.assertEqual(len(alignments), len(paths), message)
+                for index, path in enumerate(paths):
+                    self.assertEqual(outcome(alignments, index), path, message)
                 with self.assertRaises(IndexError):
-                    alignments[0]
+                    alignments[len(paths)]
                 found = [alignment.coordinates.tolist() for alignment in alignments]
                 self.assertEqual(found, paths, message)
-                self.assertEqual(outcome(alignments, 0), paths[0], message)
+            # [0] before anything else, then len(), in linear space.
+            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            if paths:
+                self.assertEqual(outcome(forced, 0), paths[0], message)
+            self.assertEqual(len(forced), len(paths), message)
+            self.assertFalse(forced._paths._materialized, message)
 
     def test_sw_upstream(self):
         # With a positive gap score the full matrix's PathGenerator can fail
