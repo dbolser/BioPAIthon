@@ -29,10 +29,12 @@
 #define MEMORY_ERROR -2
 #define OTHER_ERROR -3
 
+/* Add the count t to the count s, either of which may have overflowed. */
 #define SAFE_ADD(t, s) \
 {   if (s != OVERFLOW_ERROR) { \
         term = t; \
-        if (term > PY_SSIZE_T_MAX - s) s = OVERFLOW_ERROR; \
+        if (term == OVERFLOW_ERROR || term > PY_SSIZE_T_MAX - s) \
+            s = OVERFLOW_ERROR; \
         else s += term; \
     } \
 }
@@ -244,8 +246,10 @@ PathGenerator_smithwaterman_length(PathGenerator* self)
         for (j = 1; j <= nB; j++) {
             trace = M[i][j].trace;
             count = 0;
+            /* the paths ending here, with a diagonal move (see
+             * SMITHWATERMAN_ALIGN) */
+            if (trace & ENDPOINT) SAFE_ADD(temp, total);
             if (trace & DIAGONAL) SAFE_ADD(temp, count);
-            if (M[i][j].trace & ENDPOINT) SAFE_ADD(count, total);
             if (trace & HORIZONTAL) SAFE_ADD(counts[j-1], count);
             if (trace & VERTICAL) SAFE_ADD(counts[j], count);
             temp = counts[j];
@@ -909,9 +913,10 @@ static PyObject* PathGenerator_next_smithwaterman(PathGenerator* self)
                 M[0][0].path = DONE;
                 return NULL;
             }
-            trace = M[i][j].trace;
-            if (trace & ENDPOINT) {
-                trace &= DIAGONAL; /* exclude paths ending in a gap */
+            if (M[i][j].trace & ENDPOINT) {
+                /* exclude paths ending in a gap, whatever the trace (see
+                 * SMITHWATERMAN_ALIGN) */
+                trace = DIAGONAL;
                 break;
             }
         }
@@ -4299,9 +4304,35 @@ Aligner_lock_getset(void)
     row[j] = score; \
     M[i][j].trace = trace;
 
+/* Mark cell (i, j) as an end point if a path ending there with a diagonal
+ * move, scoring end, scores less than epsilon below the highest such score
+ * so far.  A local alignment ends with a diagonal move, so the score of the
+ * alignment is the highest score of such a path; with a positive gap score,
+ * a path ending in a gap may score higher.  Where end is more than epsilon
+ * above the highest score so far, a rise, unmark every cell since the
+ * previous rise, or since the origin.  So the end points are the cells
+ * marked from the last rise on.  If the highest score rose by epsilon or
+ * less since then, some of them may score epsilon or more below it, so keep
+ * the lowest of their scores, low, for SMITHWATERMAN_ALIGN to check. */
+#define SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
+    if (end >= epsilon && end > maximum - epsilon) { \
+        if (end > maximum + epsilon) { \
+            for ( ; im < i; im++, jm = 0) \
+                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
+            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
+            im = i; \
+            jm = j; \
+            low = end; \
+        } \
+        else if (end < low) low = end; \
+        trace |= ENDPOINT; \
+    } \
+    if (end >= epsilon && end > maximum) maximum = end;
+
 #define SELECT_TRACE_SMITH_WATERMAN_HVD(align_score) \
     trace = DIAGONAL; \
     score = temp + (align_score); \
+    end = score; \
     temp = row[j-1] + gap_extend_A; \
     if (temp > score + epsilon) { \
         score = temp; \
@@ -4318,39 +4349,20 @@ Aligner_lock_getset(void)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    else if (trace & DIAGONAL && score > maximum - epsilon) { \
-        if (score > maximum + epsilon) { \
-            for ( ; im < i; im++, jm = 0) \
-                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            im = i; \
-            jm = j; \
-        } \
-        trace |= ENDPOINT; \
-    } \
+    SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
     M[i][j].trace = trace; \
-    if (score > maximum) maximum = score; \
     temp = row[j]; \
     row[j] = score;
 
 #define SELECT_TRACE_SMITH_WATERMAN_D(align_score) \
     score = temp + (align_score); \
+    end = score; \
     trace = DIAGONAL; \
     if (score < epsilon) { \
         score = 0; \
     } \
-    else if (trace & DIAGONAL && score > maximum - epsilon) { \
-        if (score > maximum + epsilon) { \
-            for ( ; im < i; im++, jm = 0) \
-                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            im = i; \
-            jm = j; \
-        } \
-        trace |= ENDPOINT; \
-    } \
+    SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
     M[i][j].trace = trace; \
-    if (score > maximum) maximum = score; \
     temp = row[j]; \
     row[j] = score
 
@@ -4875,6 +4887,8 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     return PyFloat_FromDouble(score);
 
 
+/* The score is the highest of a path ending with a diagonal move, end, as
+ * a local alignment does (see SELECT_TRACE_SMITH_WATERMAN_MARK). */
 #define SMITHWATERMAN_SCORE(align_score) \
     int i; \
     int j; \
@@ -4884,6 +4898,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     double score; \
+    double end; \
     double* row; \
     double temp; \
     double maximum = 0; \
@@ -4904,27 +4919,34 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         temp = 0; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_SCORE_LOCAL3(temp + (align_score), \
-                                row[j] + gap_extend_B, \
-                                row[j-1] + gap_extend_A); \
+            end = temp + (align_score); \
+            if (end > maximum) maximum = end; \
+            score = end; \
+            temp = row[j] + gap_extend_B; \
+            if (temp > score) score = temp; \
+            temp = row[j-1] + gap_extend_A; \
+            if (temp > score) score = temp; \
+            if (score < 0) score = 0; \
             temp = row[j]; \
             row[j] = score; \
         } \
         kB = sB[nB-1]; \
-        SELECT_SCORE_LOCAL1(temp + (align_score)); \
+        end = temp + (align_score); \
+        if (end > maximum) maximum = end; \
         temp = row[nB]; \
-        row[nB] = score; \
+        row[nB] = end < 0 ? 0 : end; \
     } \
     kA = sA[nA-1]; \
     temp = 0; \
     for (j = 1; j < nB; j++) { \
         kB = sB[j-1]; \
-        SELECT_SCORE_LOCAL1(temp + (align_score)); \
+        end = temp + (align_score); \
+        if (end > maximum) maximum = end; \
         temp = row[j]; \
-        row[j] = score; \
     } \
     kB = sB[nB-1]; \
-    SELECT_SCORE_LOCAL1(temp + (align_score)); \
+    end = temp + (align_score); \
+    if (end > maximum) maximum = end; \
     PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
     if (interrupted) return NULL; \
@@ -5014,17 +5036,20 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
 #define SMITHWATERMAN_ALIGN(align_score) \
     int i; \
     int j; \
-    int im = nA; \
-    int jm = nB; \
+    int im = 0; \
+    int jm = 0; \
     int kA; \
     int kB; \
+    int pass; \
     int interrupted = 0; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
     const double gap_extend_B = self->extend_internal_deletion_score; \
     const double epsilon = self->epsilon; \
     Trace** M = NULL; \
     double maximum = 0; \
+    double low = DBL_MAX; \
     double score = 0; \
+    double end; \
     double* row = NULL; \
     double temp; \
     int trace; \
@@ -5039,41 +5064,60 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         return PyErr_NoMemory(); \
     } \
     M = paths->M; \
-    PAIRWISE_NOGIL_BEGIN \
-    for (j = 0; j <= nB; j++) row[j] = 0; \
-    for (i = 1; i < nA; i++) { \
-        PAIRWISE_NOGIL_CHECK(i) \
+    for (pass = 0; ; pass++) { \
+        PAIRWISE_NOGIL_BEGIN \
+        for (j = 0; j <= nB; j++) row[j] = 0; \
+        for (i = 1; i < nA; i++) { \
+            PAIRWISE_NOGIL_CHECK(i) \
+            temp = 0; \
+            kA = sA[i-1]; \
+            for (j = 1; j < nB; j++) { \
+                kB = sB[j-1]; \
+                SELECT_TRACE_SMITH_WATERMAN_HVD(align_score); \
+            } \
+            kB = sB[nB-1]; \
+            SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+        } \
         temp = 0; \
-        kA = sA[i-1]; \
+        kA = sA[nA-1]; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_TRACE_SMITH_WATERMAN_HVD(align_score); \
+            SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
         } \
         kB = sB[nB-1]; \
         SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+        PAIRWISE_NOGIL_END \
+        if (interrupted) break; \
+        /* Where an end point scores epsilon or more below the highest \
+         * score, fill the matrix again, starting from the highest score, \
+         * so that the end points are exactly the cells scoring less than \
+         * epsilon below it.  This does not change the scores, and so \
+         * does not change the highest score.  Not with an epsilon of 0 \
+         * or less, which has no such tolerance, nor with an infinite \
+         * highest score. */ \
+        if (pass > 0 || !(epsilon > 0 && low <= maximum - epsilon \
+                                      && low < maximum)) break; \
+        low = DBL_MAX; \
+        im = 0; \
+        jm = 0; \
     } \
-    temp = 0; \
-    kA = sA[nA-1]; \
-    for (j = 1; j < nB; j++) { \
-        kB = sB[j-1]; \
-        SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
-    } \
-    kB = sB[nB-1]; \
-    SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
-    PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
     if (interrupted) { \
         Py_DECREF(paths); \
         return NULL; \
     } \
 \
-    /* As we don't allow zero-score extensions to alignments, \
-     * we need to remove all traces towards an ENDPOINT. \
-     * In addition, some points then won't have any path to a STARTPOINT. \
-     * Here, use path as a temporary variable to indicate if the point \
-     * is reachable from a STARTPOINT. If it is unreachable, remove all \
-     * traces from it, and don't allow it to be an ENDPOINT. It may still \
-     * be a valid STARTPOINT. */ \
+    /* As we don't allow zero-score extensions to alignments, a path \
+     * ending at an ENDPOINT with a diagonal move cannot go on from there. \
+     * So remove the diagonal trace from each ENDPOINT, keeping its traces \
+     * from gaps, if any.  The paths ending there do so with a diagonal \
+     * move, which PathGenerator_next_smithwaterman makes whatever the \
+     * trace.  In addition, some points then won't have any path to a \
+     * STARTPOINT.  Here, use path as a temporary variable to indicate if \
+     * a path can go on from the point.  If it cannot, remove all traces \
+     * from it.  It is still an ENDPOINT if a path can go on from the \
+     * point diagonally before it, and it may still be a valid \
+     * STARTPOINT. */ \
     PAIRWISE_NOGIL_BEGIN \
     for (j = 0; j <= nB; j++) M[0][j].path = 1; \
     for (i = 1; i <= nA; i++) { \
@@ -5082,20 +5126,15 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         for (j = 1; j <= nB; j++) { \
             trace = M[i][j].trace; \
             /* Remove traces to unreachable points. */ \
-            if (!M[i-1][j-1].path) trace &= ~DIAGONAL; \
+            if (!M[i-1][j-1].path) trace &= ~(DIAGONAL | ENDPOINT); \
             if (!M[i][j-1].path) trace &= ~HORIZONTAL; \
             if (!M[i-1][j].path) trace &= ~VERTICAL; \
-            if (trace & (STARTPOINT | HORIZONTAL | VERTICAL | DIAGONAL)) { \
-                /* The point is reachable. */ \
-                if (trace & ENDPOINT) M[i][j].path = 0; /* no extensions after ENDPOINT */ \
-                else M[i][j].path = 1; \
-            } \
+            if (trace & ENDPOINT) trace &= ~DIAGONAL; \
+            if (trace & (STARTPOINT | HORIZONTAL | VERTICAL | DIAGONAL)) \
+                M[i][j].path = 1; \
             else { \
-                /* The point is not reachable. Then it is not a STARTPOINT, \
-                 * all traces from it can be removed, and it cannot act as \
-                 * an ENDPOINT. */ \
                 M[i][j].path = 0; \
-                trace = 0; \
+                trace &= ENDPOINT; \
             } \
             M[i][j].trace = trace; \
         } \

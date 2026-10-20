@@ -6,6 +6,7 @@
 """Tests for the PairwiseAligner in Bio.Align."""
 
 import array
+import math
 import mmap
 import os
 import platform
@@ -17807,6 +17808,21 @@ AlignmentCounts object with
         self.assertEqual(counts.deletions, 269)
         self.assertEqual(counts.insertions, 256)
         self.assertAlmostEqual(counts.score, 1286.0)
+
+    def test_count_past_overflow(self):
+        # With every score 0, every path is optimal, and an n by n global
+        # alignment has the central Delannoy number of them.  Counts that
+        # overflowed used to be added to counts that had not, giving a
+        # wrong count, such as 8001394856851978725 for n = 37.
+        aligner = Align.PairwiseAligner(match_score=0, mismatch_score=0, gap_score=0)
+        for n in range(1, 61):
+            expected = sum(math.comb(n, k) ** 2 * 2**k for k in range(n + 1))
+            alignments = aligner.align("A" * n, "C" * n)
+            if expected <= sys.maxsize:
+                self.assertEqual(len(alignments), expected, n)
+            else:
+                with self.assertRaises(OverflowError, msg=n):
+                    len(alignments)
 
 
 class TestKeywordArgumentsConstructor(unittest.TestCase):

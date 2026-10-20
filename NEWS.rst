@@ -73,6 +73,22 @@ returns the first of them. This only happens when a cell scores exactly
 ``epsilon`` (with the default of ``1e-6``, rarely), and it is also in
 Biopython 1.88.
 
+``PairwiseAligner`` local alignments with linear gap scores (the
+Smith-Waterman algorithm) now agree on their score, ``len(alignments)`` and
+the alignments they yield. With a positive gap score the score could be that
+of a path ending in a gap, which no local alignment ends in, so ``align()``
+and ``score()`` reported a score no alignment had; alignments found while the
+score was still rising stayed among the results at a lower score; and
+iterating could raise "Unexpected trace in PathGenerator_next_smithwaterman"
+after the first alignment. An epsilon as large as the match score left the
+same stale alignments: aligning ``"CC"`` with itself with ``epsilon=1`` gave
+three one-letter alignments for a score of 2. With gap scores of 0 or less
+and a small epsilon nothing changes. Separately, ``len()`` of any pairwise
+alignment could return a wrong count, rather than raise ``OverflowError``,
+once the number of alignments passed ``sys.maxsize``: ``"A" * 37`` against
+``"C" * 37`` with every score 0 gave 8,001,394,856,851,978,725. Both are
+upstream defects, also in Biopython 1.86 and 1.88.
+
 ``Bio.Phylo`` now accepts any whitespace after the colon of a Newick branch
 length, as the format allows. Only one space used to work: after two spaces,
 a tab, or a line break and indentation, the length was read as the clade's
