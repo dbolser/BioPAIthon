@@ -2239,11 +2239,15 @@ BLOSUM62 matrix, and align these sequences to each other:
 Generalized pairwise alignments using match/mismatch scores and integer sequences
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Internally, the first step when performing an alignment is to create a
-temporary alphabet consisting of the letters in the two sequences, and
-replacing the sequences by integer arrays consisting of the indices of each
-letter in the alphabet.
-This step can be bypassed by passing integer arrays directly:
+Without a substitution matrix, the aligner compares the two sequences as
+integers. A string, or a list or tuple of single letters, becomes the Unicode
+code point of each letter, so ``list("GATTACA")`` aligns exactly as
+``"GATTACA"`` does. Any other item, such as ``"Asn"`` in a list of amino acid
+names, is given a number of its own, which never equals a letter's code point.
+Integer arrays are used as they are, so you can also pass the integers
+directly; as those numbers depend on the order in which items first appear,
+use integer arrays for both sequences rather than mixing them with lists of
+other items:
 
 .. doctest . lib:numpy
 

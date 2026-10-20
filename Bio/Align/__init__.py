@@ -1022,26 +1022,46 @@ class MultipleSeqAlignment:
 def _map_letters(sequence, substitution_matrix, letters):
     """Return the items of a sequence, such as a list, as the C code takes them (PRIVATE).
 
-    The items become their index in the alphabet of the substitution matrix
-    or, without a matrix, in the list letters, which collects the items of
-    all the sequences given.  But if the matrix's alphabet is a string, the
-    C code maps code points through it itself, so the items become their
-    code points instead, as the letters of a str do; mapping them here as
-    well would map them twice.  PairwiseAligner.score, PairwiseAligner.align
-    and Alignment.counts all use this, so that they map lists alike.
+    The items become their index in the alphabet of the substitution matrix.
+    But if the matrix's alphabet is a string, the C code maps code points
+    through it itself, so the items become their code points instead, as
+    the letters of a str do; mapping them here as well would map them twice.
+
+    Without a matrix, the C code only compares the values with each other
+    and with the code point of the wildcard.  So a letter (anything ord
+    takes) becomes its code point, as in a str: a list of letters then
+    matches a str, and the wildcard in it is seen.  Any other item, such as
+    a word or a number, becomes its index in the list letters, which
+    collects such items of all the sequences given, plus one past the last
+    code point, so that it never equals a letter or the wildcard.
+
+    PairwiseAligner.score, PairwiseAligner.align and Alignment.counts all
+    use this, so that they map lists alike.
     """
     if substitution_matrix is None:
-        for item in sequence:
-            if not any(item == letter for letter in letters):
+
+        def number(item):
+            try:
+                return ord(item)
+            except TypeError:
+                pass
+            for index, letter in enumerate(letters):
+                if item == letter:
+                    break
+            else:
+                index = len(letters)
                 letters.append(item)
-        alphabet = letters
-    else:
-        alphabet = substitution_matrix.alphabet
-        # The same test as _prepare_indices in _pairwisealigner.c:
-        if isinstance(alphabet, str) and isinstance(
-            substitution_matrix, substitution_matrices._arraycore.Array
-        ):
-            return np.fromiter(map(ord, sequence), dtype=np.int32, count=len(sequence))
+            return sys.maxunicode + 1 + index
+
+        return np.fromiter(
+            (number(item) for item in sequence), dtype=np.int32, count=len(sequence)
+        )
+    alphabet = substitution_matrix.alphabet
+    # The same test as _prepare_indices in _pairwisealigner.c:
+    if isinstance(alphabet, str) and isinstance(
+        substitution_matrix, substitution_matrices._arraycore.Array
+    ):
+        return np.fromiter(map(ord, sequence), dtype=np.int32, count=len(sequence))
     return np.fromiter(
         map(alphabet.index, sequence), dtype=np.int32, count=len(sequence)
     )
@@ -3963,7 +3983,7 @@ class Alignment:
             substitution_matrix = scoring
         elif scoring is not None:
             raise ValueError(f"unexpected argument {scoring!r}")
-        letters = []  # without a substitution matrix, the alphabet of lists
+        letters = []  # without a substitution matrix, list items other than letters
         codec = "utf-32-le" if sys.byteorder == "little" else "utf-32-be"
         n = len(self.sequences)
         sequences = [None] * n
@@ -4568,7 +4588,7 @@ AlignmentCounts object returned by the .counts method of an Alignment object."""
         With strand "-", seqB is reverse-complemented first.  The callers
         keep the original objects for the alignments they return.
         """
-        letters = []  # without a substitution matrix, the alphabet of lists
+        letters = []  # without a substitution matrix, list items other than letters
         sA = self._convert_sequence(seqA, letters)
         if strand == "-":
             seqB = reverse_complement(seqB)
@@ -4583,7 +4603,7 @@ AlignmentCounts object returned by the .counts method of an Alignment object."""
         as a NumPy array, is returned unchanged, and the C code checks it.
         The items of any other sequence, such as a list, are mapped by
         _map_letters, with the list letters collecting the items of both
-        sequences.
+        sequences that are not letters.
         """
         if isinstance(sequence, (bytes, Seq, MutableSeq, SeqRecord)):
             sequence = bytes(sequence)

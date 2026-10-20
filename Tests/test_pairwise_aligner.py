@@ -16919,6 +16919,8 @@ AlignmentCounts object with
         arguments = [aligner]
         if aligner.substitution_matrix is not None:
             arguments.append(aligner.substitution_matrix)
+        if aligner.wildcard is not None:
+            arguments.append(aligner.wildcard)
         for argument in arguments:
             counts = alignment.counts(argument)
             expected_counts = expected.counts(argument)
@@ -17012,19 +17014,68 @@ AlignmentCounts object with
             self.assertEqual(counts.identities, 5)
             self.assertEqual(counts.mismatches, 2)
 
+    def aligners_and_sequences(self):
+        """Yield aligners, each with a target and query to test it on."""
+        yield "default", Align.PairwiseAligner(), "GAACTTG", "GACTG"
+        yield "blastn", Align.PairwiseAligner("blastn"), "GAACTTG", "GACTG"
+        aligner = Align.PairwiseAligner(mismatch_score=-1, wildcard="N")
+        yield "wildcard", aligner, "GAANTTG", "GACNG"
+
     def test_score_and_align_accept_the_same_inputs(self):
-        target = "GAACTTG"
-        query = "GACTG"
-        for scoring in (None, "blastn"):
-            aligner = Align.PairwiseAligner(scoring)
+        for name, aligner, target, query in self.aligners_and_sequences():
             expected = aligner.align(target, query)
             targets = self.representations(target)
             queries = self.representations(query)
             for kind in targets:
-                with self.subTest(scoring=scoring, kind=kind):
+                with self.subTest(aligner=name, kind=kind):
                     self.check_score_and_align(
                         aligner, targets[kind], queries[kind], expected
                     )
+
+    def test_score_and_align_accept_mixed_inputs(self):
+        # Without a substitution matrix, a list was mapped to the indices of
+        # its items, which never matched the code points of a str, so a list
+        # of letters scored as all mismatches against a str.
+        for name, aligner, target, query in self.aligners_and_sequences():
+            expected = aligner.align(target, query)
+            targets = self.representations(target)
+            queries = self.representations(query)
+            for kindA in targets:
+                for kindB in queries:
+                    with self.subTest(aligner=name, target=kindA, query=kindB):
+                        self.check_score_and_align(
+                            aligner, targets[kindA], queries[kindB], expected
+                        )
+
+    def test_list_of_letters_with_wildcard(self):
+        # Without a substitution matrix, a list was mapped to the indices of
+        # its items, so the C code, comparing them with the wildcard's code
+        # point, never saw the wildcard.
+        aligner = Align.PairwiseAligner(mismatch_score=-1, wildcard="N")
+        expected = aligner.align("GANT", "GACT")
+        self.assertEqual(expected.score, 3.0)
+        for convert in (list, tuple):
+            with self.subTest(convert=convert.__name__):
+                seqA = convert("GANT")
+                seqB = convert("GACT")
+                self.check_score_and_align(aligner, seqA, seqB, expected)
+        alignment = Align.Alignment(
+            [list("GANT"), list("GACT")], np.array([[0, 4], [0, 4]])
+        )
+        for counts in (alignment.counts(aligner), alignment.counts("N")):
+            self.assertEqual(counts.identities, 3)
+            self.assertEqual(counts.mismatches, 0)
+        # Items that are not letters never match the wildcard; the 79th
+        # distinct item used to be numbered 78, the code point of "N".
+        seq = list(range(100))
+        self.assertEqual(aligner.score(seq, seq), 100.0)
+        alignment = aligner.align(seq, seq)[0]
+        for counts in (alignment.counts(aligner), alignment.counts("N")):
+            self.assertEqual(counts.identities, 100)
+        # A word is not a letter, and so is not the wildcard either.
+        self.assertEqual(aligner.score(["Asn", "N"], ["Asn", "Gly"]), 1.0)
+        # A one-character bytes item matches the same letter as a str.
+        self.assertEqual(aligner.score([b"A", "N"], ["A", "C"]), 1.0)
 
     def test_score_and_align_reverse_strand(self):
         aligner = Align.PairwiseAligner(scoring="blastn")
