@@ -63,6 +63,16 @@ alignments while the reported score stays 0; ``alignments[0]`` raised
 ``IndexError`` for them, and now returns the first. Biopython 1.88 has the
 same bug.
 
+``Bio.Align.PairwiseAligner`` now rejects positive gap scores in local mode.
+``score()`` and ``align()`` raise ``ValueError`` naming the score, such as
+"gap scores must be 0 or less in local mode, but
+open_internal_insertion_score is 0.5"; a gap score function is checked as it
+is called. A positive gap score rewards inserting gaps, so the best local
+alignment is not well defined: the aligner let a local alignment start with a
+gap, but not end with one. Zero and negative gap scores work as before, as do
+positive end gap scores, which local mode does not use, and global mode.
+Biopython still accepts these scores. See ``DEPRECATED.rst``.
+
 ``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
 sequence whatever type the protein sequence is. ``score()`` and ``align()``
 raised "seqB must be a string, Seq, MutableSeq, or SeqRecord object" for a

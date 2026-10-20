@@ -21170,6 +21170,124 @@ class TestAlgorithmRestrictions(unittest.TestCase):
             aligner.score("AAAAAAAAAAAA", "AAAAATAAAAAA")
 
 
+class TestLocalPositiveGapScores(unittest.TestCase):
+    """Local mode rejects a positive gap score when score() or align() runs.
+
+    A positive gap score rewards inserting gaps, so there is no meaningful
+    best local alignment.  Local mode uses only the internal gap scores, so
+    the end gap scores may be positive.  Zero and NaN are not positive.
+    """
+
+    seqA = "GAACTGCA"
+    seqB = "GATGCA"
+
+    def assertRejected(self, aligner, name, value, strand="+"):
+        message = f"gap scores must be 0 or less in local mode, but {name} is {value}"
+        for method in (aligner.score, aligner.align):
+            with self.assertRaises(ValueError) as cm:
+                method(self.seqA, self.seqB, strand)
+            self.assertEqual(str(cm.exception), message)
+
+    def test_internal_scores(self):
+        for gap in ("insertion", "deletion"):
+            for kind in ("open", "extend"):
+                name = f"{kind}_internal_{gap}_score"
+                for value in (0.5, 2.0, math.inf):
+                    aligner = Align.PairwiseAligner(
+                        mode="local", open_gap_score=-2, extend_gap_score=-1
+                    )
+                    setattr(aligner, name, value)
+                    self.assertEqual(
+                        aligner.algorithm, "Gotoh local alignment algorithm"
+                    )
+                    self.assertRejected(aligner, name, value)
+                    self.assertRejected(aligner, name, value, "-")
+            # Linear gap scores, set by a shorthand: the first attribute is
+            # named.
+            aligner = Align.PairwiseAligner(mode="local")
+            setattr(aligner, f"{gap}_score", 0.5)
+            self.assertEqual(aligner.algorithm, "Smith-Waterman")
+            self.assertRejected(aligner, f"open_internal_{gap}_score", 0.5)
+        aligner = Align.PairwiseAligner(mode="local", gap_score=1)
+        self.assertRejected(aligner, "open_internal_insertion_score", 1.0)
+
+    def test_mode_set_last(self):
+        # The scores and the mode can be set in any order.
+        aligner = Align.PairwiseAligner(gap_score=0.5)
+        expected = aligner.score(self.seqA, self.seqB)
+        self.assertEqual(expected, 7.0)  # every letter against a gap
+        self.assertEqual(aligner.align(self.seqA, self.seqB).score, expected)
+        aligner.mode = "local"
+        self.assertRejected(aligner, "open_internal_insertion_score", 0.5)
+        aligner.mode = "global"
+        self.assertEqual(aligner.score(self.seqA, self.seqB), expected)
+        aligner.mode = "local"
+        aligner.gap_score = -0.5
+        self.assertEqual(aligner.score(self.seqA, self.seqB), 5.0)  # GA--TGCA
+
+    def test_allowed(self):
+        # Zero and NaN gap scores, and positive end gap scores, which local
+        # mode ignores.
+        for scores in (
+            {"gap_score": 0},
+            {"open_gap_score": 0, "extend_gap_score": -1},
+            {"open_gap_score": -1, "extend_gap_score": 0},
+            {"gap_score": math.nan},
+            {"gap_score": -math.inf},
+        ):
+            aligner = Align.PairwiseAligner(mode="local", **scores)
+            score = aligner.score(self.seqA, self.seqB)
+            alignments = aligner.align(self.seqA, self.seqB)
+            self.assertEqual(alignments.score, score, scores)
+            self.assertGreater(len(alignments), 0, scores)
+        for internal in ({"gap_score": -1}, {"open_gap_score": -2}):
+            aligner = Align.PairwiseAligner(mode="local", **internal)
+            score = aligner.score(self.seqA, self.seqB)
+            alignments = aligner.align(self.seqA, self.seqB)
+            paths = sorted(alignment.coordinates.tolist() for alignment in alignments)
+            aligner.end_gap_score = 3
+            aligner.open_left_insertion_score = 0.5
+            self.assertEqual(aligner.score(self.seqA, self.seqB), score)
+            alignments = aligner.align(self.seqA, self.seqB)
+            self.assertEqual(alignments.score, score)
+            self.assertEqual(
+                sorted(alignment.coordinates.tolist() for alignment in alignments),
+                paths,
+            )
+
+    def test_gap_functions(self):
+        # A gap score function is checked as it is called.
+        aligner = Align.PairwiseAligner(mode="local")
+        aligner.gap_score = lambda start, length: 0.5 * length
+        self.assertRejected(aligner, "deletion_score(1, 1)", 0.5)
+        aligner.insertion_score = lambda start, length: 1.0
+        aligner.deletion_score = -1
+        self.assertRejected(aligner, "insertion_score(1, 1)", 1.0)
+        # A positive scalar beside a function is rejected before any call.
+        calls = []
+
+        def deletion(start, length):
+            calls.append((start, length))
+            return -length
+
+        aligner.deletion_score = deletion
+        aligner.insertion_score = 0.5
+        self.assertRejected(aligner, "open_internal_insertion_score", 0.5)
+        self.assertEqual(calls, [])
+        # Only the gaps the kernel scores are checked: here, gaps of up to
+        # two letters for three-letter sequences, which score 0 or less.
+        aligner.gap_score = lambda start, length: -1.0 if length < 3 else 1.0
+        self.assertEqual(aligner.score("GAT", "GCT"), 2.0)
+        self.assertEqual(len(aligner.align("GAT", "GCT")), 1)
+        self.assertRejected(aligner, "insertion_score(1, 3)", 1.0)
+        aligner.gap_score = lambda start, length: -1.0
+        self.assertEqual(aligner.score(self.seqA, self.seqB), 5.0)  # GA--TGCA
+        # Global mode accepts positive gap scores, from functions too.
+        aligner.mode = "global"
+        aligner.gap_score = lambda start, length: 0.5 * length
+        self.assertEqual(aligner.score("GAT", "GCT"), 3.0)
+
+
 class TestCounts(unittest.TestCase):
     def check_counts(self, counts):
         self.assertEqual(counts.left_insertions, 2)
