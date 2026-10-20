@@ -1668,6 +1668,73 @@ AlignmentCounts object with
         paths = [alignment.coordinates.tolist() for alignment in alignments]
         self.assertEqual(paths, [[[1, 2], [1, 2]], [[2, 3], [0, 1]]])
 
+    def test_waterman_smith_beyer_local_score_zero(self):
+        # As test_gotoh_local_score_zero, with gap score functions.
+        def gap_score(i, n):
+            return -2 - 0.5 * n
+
+        aligner = Align.PairwiseAligner(
+            mode="local",
+            epsilon=1,
+            insertion_score=gap_score,
+            deletion_score=gap_score,
+        )
+        self.assertEqual(
+            aligner.algorithm, "Waterman-Smith-Beyer local alignment algorithm"
+        )
+        alignments = aligner.align("A", "A")
+        self.assertEqual(alignments.score, 0)
+        self.assertEqual(len(alignments), 1)
+        self.assertEqual(alignments[0].coordinates.tolist(), [[0, 1], [0, 1]])
+        with self.assertRaises(IndexError):
+            alignments[1]
+        alignments = aligner.align("GAT", "TA")
+        self.assertEqual(alignments.score, 0)
+        self.assertEqual(len(alignments), 2)
+        self.assertEqual(alignments[0].coordinates.tolist(), [[1, 2], [1, 2]])
+        self.assertEqual(alignments[1].coordinates.tolist(), [[2, 3], [0, 1]])
+        with self.assertRaises(IndexError):
+            alignments[2]
+        alignments = aligner.align("GAT", "TA")
+        paths = [alignment.coordinates.tolist() for alignment in alignments]
+        self.assertEqual(paths, [[[1, 2], [1, 2]], [[2, 3], [0, 1]]])
+        # No cell scores epsilon, so there are no alignments.
+        alignments = aligner.align("A", "C")
+        self.assertEqual(alignments.score, 0)
+        self.assertEqual(len(alignments), 0)
+        with self.assertRaises(IndexError):
+            alignments[0]
+        self.assertEqual(list(aligner.align("A", "C")), [])
+
+    def test_waterman_smith_beyer_local_consistency(self):
+        # Indexing, len() and iteration give the same alignments.
+        rng = random.Random(0)
+        for _ in range(500):
+            open_score = rng.choice([-2, -1.5, -1, -0.5])
+            extend_score = rng.choice([-1, -0.5, 0])
+
+            def gap_score(i, n, open_score=open_score, extend_score=extend_score):
+                return open_score + extend_score * n
+
+            aligner = Align.PairwiseAligner(
+                mode="local",
+                epsilon=rng.choice([1e-6, 0.5, 1]),
+                match_score=rng.choice([1, 2]),
+                mismatch_score=rng.choice([-1, 0, 1]),
+                insertion_score=gap_score,
+                deletion_score=gap_score,
+            )
+            target = "".join(rng.choice("ACG") for _ in range(rng.randint(1, 4)))
+            query = "".join(rng.choice("ACG") for _ in range(rng.randint(1, 4)))
+            alignments = aligner.align(target, query)
+            n = len(alignments)
+            indexed = [alignments[k].coordinates.tolist() for k in range(n)]
+            with self.assertRaises(IndexError):
+                alignments[n]
+            alignments = aligner.align(target, query)
+            paths = [alignment.coordinates.tolist() for alignment in alignments]
+            self.assertEqual(indexed, paths, msg=(aligner, target, query))
+
 
 class TestUnknownCharacter(unittest.TestCase):
     def test_needlemanwunsch_simple1(self):
