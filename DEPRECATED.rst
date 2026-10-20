@@ -216,6 +216,21 @@ before release 1.88, and the source marked the method itself for removal
 or Tutorial. Code that still calls it can simply delete the call; to silence
 the warning it emitted, set the aligner's gap scores explicitly.
 
+Bio.Align.PairwiseAligner positive gap scores in local mode
+-----------------------------------------------------------
+**This change is BioPAIthon's own; Biopython accepts these scores.** Changed
+in BioPAIthon 1.89 without a deprecation period. In local mode, ``score()``
+and ``align()`` now raise ``ValueError`` if an internal gap score (opening or
+extending, insertion or deletion) is positive, or if a gap score function
+returns a positive score; the message names the score and its value. A
+positive gap score rewards inserting gaps, so the best local alignment is not
+well defined: the aligner let a local alignment start with a gap, except along
+the first row and column of the matrix, but never end with one. A warning
+period would have kept returning those alignments. Zero, negative and NaN gap
+scores still work, as do positive end gap scores, which local mode does not
+use, and positive gap scores in global mode. Code that used a positive gap
+score in local mode should use a gap score of 0 or less.
+
 Bio.Align.CodonAligner anchor_len argument
 ------------------------------------------
 Removed without a deprecation period by upstream Biopython in its work

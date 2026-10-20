@@ -83,8 +83,9 @@ class AlignmentExtensionTests(unittest.TestCase):
         second, fourth, sixth and eighth aligners are copied; the fifth to
         eighth align locally.  The aligner stopped allows no gaps, so its
         walk stops short of the origin and asks the full matrix, which has
-        no paths.  The aligner unreached reaches its only end point only from row
-        0, so it has no first path, which the full matrix finds.
+        no paths.  The aligners rejected have a positive gap score, or a
+        gap score function giving one, in local mode, and so raise
+        ValueError, after taking their snapshot.
         """
         import math
 
@@ -104,9 +105,10 @@ class AlignmentExtensionTests(unittest.TestCase):
             PairwiseAligner(mode="local", scoring="blastn"),
         ]
         stopped = PairwiseAligner(open_gap_score=-math.inf, extend_gap_score=-1)
-        unreached = PairwiseAligner(
-            mode="local", open_gap_score=-1, extend_gap_score=math.inf
-        )
+        rejected = [
+            PairwiseAligner(mode="local", substitution_matrix=matrix, gap_score=0.5),
+            PairwiseAligner(mode="local", gap_score=lambda start, length: 1.0),
+        ]
         target = "AGAACTTATCGCTTGACGTAAC"
         query = "AGAACTATCGCTGACGTTAAC"
 
@@ -128,9 +130,11 @@ class AlignmentExtensionTests(unittest.TestCase):
             alignments = forced_align(stopped)
             len(alignments)
             list(alignments)
-            alignments = forced_align(unreached)
-            len(alignments)
-            list(alignments)
+            for aligner in rejected:
+                with self.assertRaises(ValueError):
+                    forced_align(aligner)
+                with self.assertRaises(ValueError):
+                    aligner.score(target, query)
 
         assert_bounded_growth(self, align)
 

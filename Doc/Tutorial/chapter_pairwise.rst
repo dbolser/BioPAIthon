@@ -534,6 +534,13 @@ alignments if segments with a score 0 can be added to the alignment. We
 follow the suggestion by Waterman & Eggert
 [Waterman1987]_ and disallow such extensions.
 
+In local mode, gap scores must be 0 or less. A positive gap score rewards
+inserting gaps, so the best local alignment is no longer well defined, and
+``aligner.score`` and ``aligner.align`` raise a ``ValueError`` naming the
+positive score. A gap score function (see section
+:ref:`sec:pairwise-general-gapscores`) is checked as it is called. Local
+alignments do not use the end gap scores, so these are not checked.
+
 If ``aligner.mode`` is set to ``"fogsaa"``, then the Fast Optimal Global
 Alignment Algorithm [Chakraborty2013]_ with some modifications is used. This
 mode also calculates a global alignment, but uses a heuristic to detect steps

@@ -7287,6 +7287,63 @@ Aligner_gotoh_local_align_matrix(Aligner* self,
     GOTOH_LOCAL_ALIGN(MATRIX_SCORE_NOGIL);
 }
 
+/* Raise ValueError naming the gap score and its value, and return -1. */
+static int
+_local_gap_score_error(const char* name, double value)
+{
+    PyObject* score = PyFloat_FromDouble(value);
+    if (!score) return -1;
+    PyErr_Format(PyExc_ValueError,
+                 "gap scores must be 0 or less in local mode, "
+                 "but %s is %R", name, score);
+    Py_DECREF(score);
+    return -1;
+}
+
+/* In local mode, raise ValueError, and return 0, if the gap score function
+ * stored as name gave a positive score for a gap of length j at i.
+ * Otherwise return 1. */
+static int
+_check_local_gap_function(const Aligner* aligner, const char* name,
+                          int i, int j, double value)
+{
+    char call[64];
+    if (aligner->mode != Local || !(value > 0)) return 1;
+    snprintf(call, sizeof(call), "%s(%d, %d)", name, i, j);
+    _local_gap_score_error(call, value);
+    return 0;
+}
+
+/* In local mode, raise ValueError, and return -1, if a gap score is
+ * positive.  A positive gap score rewards inserting gaps, so there is no
+ * meaningful best local alignment: the kernels let an alignment start
+ * with a gap but not end with one.  Only the internal gap scores are
+ * checked, as local mode never uses the end gap scores.  A gap score
+ * function is checked as it is called, by _call_deletion_score_function
+ * and _call_insertion_score_function.  NaN is not positive. */
+static int
+Aligner_check_local_gap_scores(const Aligner* self)
+{
+    if (self->mode != Local) return 0;
+    if (!self->insertion_score_function) {
+        if (self->open_internal_insertion_score > 0)
+            return _local_gap_score_error("open_internal_insertion_score",
+                                          self->open_internal_insertion_score);
+        if (self->extend_internal_insertion_score > 0)
+            return _local_gap_score_error("extend_internal_insertion_score",
+                                          self->extend_internal_insertion_score);
+    }
+    if (!self->deletion_score_function) {
+        if (self->open_internal_deletion_score > 0)
+            return _local_gap_score_error("open_internal_deletion_score",
+                                          self->open_internal_deletion_score);
+        if (self->extend_internal_deletion_score > 0)
+            return _local_gap_score_error("extend_internal_deletion_score",
+                                          self->extend_internal_deletion_score);
+    }
+    return 0;
+}
+
 static int
 _call_deletion_score_function(Aligner* aligner, int i, int j, int n, double* score)
 {
@@ -7313,6 +7370,8 @@ _call_deletion_score_function(Aligner* aligner, int i, int j, int n, double* sco
         value = PyFloat_AsDouble(result);
         Py_DECREF(result);
         if (value == -1.0 && PyErr_Occurred()) return 0;
+        if (!_check_local_gap_function(aligner, "deletion_score", i, j, value))
+            return 0;
     }
     *score = value;
     return 1;
@@ -7344,6 +7403,8 @@ _call_insertion_score_function(Aligner* aligner, int i, int j, int n, double* sc
         value = PyFloat_AsDouble(result);
         Py_DECREF(result);
         if (value == -1.0 && PyErr_Occurred()) return 0;
+        if (!_check_local_gap_function(aligner, "insertion_score", i, j, value))
+            return 0;
     }
     *score = value;
     return 1;
@@ -7855,6 +7916,7 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     mode = self->mode;
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
+    if (Aligner_check_local_gap_scores(self) < 0) goto exit;
 
     {
         const Py_ssize_t lA = bA.len / bA.itemsize;
@@ -8006,6 +8068,7 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     mode = self->mode;
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
+    if (Aligner_check_local_gap_scores(self) < 0) goto exit;
 
     {
         const Py_ssize_t lA = bA.len / bA.itemsize;

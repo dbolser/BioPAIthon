@@ -174,7 +174,8 @@ def random_case(rng, lengths, algorithm=NW):
     Draws the alphabet (with or without a wildcard), the scoring (match and
     mismatch scores, an Array with an alphabet, or a NumPy matrix with
     integer-coded sequences), all six gap scores (all twelve opening and
-    extension scores for Gotoh), epsilon (also half or all of a score, or
+    extension scores for Gotoh; the internal ones 0 or less for local
+    alignments), epsilon (also half or all of a score, or
     negative, for local alignments) and the strand.
     """
     alphabet = rng.choice(["ACGT", "AC", "A"])
@@ -204,12 +205,18 @@ def random_case(rng, lengths, algorithm=NW):
             seqB = np.array([alphabet.index(c) for c in seqB], np.int32)
     while True:
         for end in ("left", "internal", "right"):
+            # Local mode rejects a positive internal gap score, and ignores
+            # the end gap scores.
+            if end == "internal" and algorithm in LOCAL:
+                choices = [value for value in values if value <= 0]
+            else:
+                choices = values
             for gap in ("insertion", "deletion"):
                 if algorithm in AFFINE:
-                    setattr(aligner, f"open_{end}_{gap}_score", rng.choice(values))
-                    setattr(aligner, f"extend_{end}_{gap}_score", rng.choice(values))
+                    setattr(aligner, f"open_{end}_{gap}_score", rng.choice(choices))
+                    setattr(aligner, f"extend_{end}_{gap}_score", rng.choice(choices))
                 else:
-                    setattr(aligner, f"{end}_{gap}_score", rng.choice(values))
+                    setattr(aligner, f"{end}_{gap}_score", rng.choice(choices))
         if aligner.algorithm == algorithm:
             break
     epsilons = [None, 0, 0.05, 0.31]
@@ -580,16 +587,17 @@ class TestDifferential(unittest.TestCase):
     def test_sw_brute_force(self):
         # The full matrix's score, number of paths and paths against every
         # optimal local alignment of tiny sequences, found by brute force,
-        # with negative, zero and positive gap scores; then the linear-space
-        # traceback against the full matrix.
+        # with negative and zero gap scores (local mode rejects positive
+        # ones); then the linear-space traceback against the full matrix.
         rng = random.Random(2030)
         values = [-2, -1, -0.5, 0, 0.5, 1]
+        gap_values = [value for value in values if value <= 0]
         for _ in range(1500):
             alphabet = rng.choice(["AC", "ACG"])
             seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
             seqB = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
-            insertion = rng.choice(values)
-            deletion = rng.choice(values) if rng.random() < 0.3 else insertion
+            insertion = rng.choice(gap_values)
+            deletion = rng.choice(gap_values) if rng.random() < 0.3 else insertion
             if rng.random() < 0.5:
                 match = rng.choice([1, 2, 0.5])
                 mismatch = rng.choice([-1, 0, -0.5])
@@ -815,12 +823,16 @@ class TestDifferential(unittest.TestCase):
     def test_unreached(self):
         # GOTOH_LOCAL_ALIGN's clean-up removes the traces to matrices that no
         # start point reaches, and any end point there.  An infinite gap
-        # extension score makes every Ix infinite from row 0, where no path
-        # can start, and so the only end point, the first infinite M, is
-        # reached only from there.  With NaN scores as well, the walk meets
-        # an Ix or Iy without a trace inside the block.  The full matrix has
-        # no paths, and len() counts none in linear space.  The walk finds
-        # the trace it took removed, and asks the full matrix.
+        # extension score made every Ix infinite from row 0, where no path
+        # can start, and so the only end point, the first infinite M, was
+        # reached only from there; with NaN scores as well, the walk met an
+        # Ix or Iy without a trace inside the block.  The walk then found
+        # the trace it took removed, and asked the full matrix, which had no
+        # paths.  Local mode now rejects these positive gap scores, in
+        # linear space as well.  A fuzz of Gotoh local aligners (100,000 draws),
+        # with match and mismatch scores in {1, 0, -1, inf, -inf, NaN}, gap
+        # scores in {-2, -1, 0, -inf, NaN} and epsilons including 0, ±inf
+        # and NaN, found no other way into that walk; it stays, for safety.
         unreached = gotoh_local_aligner(open_gap_score=-1, extend_gap_score=math.inf)
         nan_Ix = gotoh_local_aligner(
             match_score=math.nan,
@@ -834,26 +846,24 @@ class TestDifferential(unittest.TestCase):
             open_deletion_score=-math.inf,
             extend_deletion_score=math.nan,
         )
-        for aligner, seqA, seqB in (
-            (unreached, "CC", "CA"),
-            (unreached, "AGAACTTATCGCTTGACGTAAC", "ACGTTAAC"),
-            (nan_Ix, "ACCCC", "AA"),
-            (nan_Iy, "CA", "ACCCA"),
+        for aligner, seqA, seqB, name in (
+            (unreached, "CC", "CA", "extend_internal_insertion_score"),
+            (
+                unreached,
+                "AGAACTTATCGCTTGACGTAAC",
+                "ACGTTAAC",
+                "extend_internal_insertion_score",
+            ),
+            (nan_Ix, "ACCCC", "AA", "extend_internal_deletion_score"),
+            (nan_Iy, "CA", "ACCCA", "extend_internal_insertion_score"),
         ):
-            message = f"{aligner} {seqA} {seqB}"
-            expected = aligner.align(seqA, seqB)
-            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
-            self.assertIs(type(forced._paths), LinearPaths, message)
-            self.assertEqual(repr(forced.score), repr(expected.score), message)
-            self.assertEqual(len(expected), 0, message)
-            self.assertEqual(list(expected), [], message)
-            self.assertEqual(len(forced), 0, message)
-            self.assertFalse(forced._paths._materialized, message)
-            with self.assertRaises(IndexError):
-                forced[0]
-            self.assertTrue(forced._paths._materialized, message)
-            self.assertEqual(list(forced), [], message)
-            self.assertEqual(len(forced), 0, message)
+            message = f"^gap scores must be 0 or less in local mode, but {name} is inf$"
+            with self.assertRaisesRegex(ValueError, message):
+                aligner.align(seqA, seqB)
+            with self.assertRaisesRegex(ValueError, message):
+                forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            with self.assertRaisesRegex(ValueError, message):
+                aligner.score(seqA, seqB)
 
     def test_gotoh_local_score_zero(self):
         # GOTOH_LOCAL_ALIGN raises its highest score only by more than
@@ -892,30 +902,20 @@ class TestDifferential(unittest.TestCase):
         # 1.88, that the linear-space traceback copied.  With a positive gap
         # score the highest score could be that of a path ending in a gap,
         # which no alignment ends in, and an end point found before it rose
-        # stayed one, so that the first path here scored 1, and the
-        # PathGenerator then failed on an end point left without a diagonal
-        # trace.  Now the paths are the optimal alignments, as brute force
-        # finds them, scoring the score.
+        # stayed one, so that the first path of "AAA" and "CAACC" scored 1,
+        # and the PathGenerator then failed on an end point left without a
+        # diagonal trace.  Local mode now rejects a positive gap score, in
+        # linear space as well.
         aligner = sw_aligner(gap_score=0.5)
-
-        def substitution(a, b):
-            return 1 if a == b else -1
-
+        message = "gap scores must be 0 or less in local mode, but "
+        message += "open_internal_insertion_score is 0.5"
         for seqA, seqB in (("AAA", "CAACC"), ("ACC", "CACAA")):
-            message = f"{seqA} {seqB}"
-            score, paths = brute_force_sw(seqA, seqB, substitution, 0.5, 0.5)
-            self.assertEqual(score, 2.5, message)
-            expected = aligner.align(seqA, seqB)
-            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
-            for alignments in (expected, forced):
-                self.assertEqual(alignments.score, score, message)
-                self.assertEqual(len(alignments), len(paths), message)
-                found = coordinates(alignments, len(paths) + 1)
-                found = [tuple(map(tuple, path)) for path in found]
-                self.assertEqual(len(found), len(paths), message)
-                self.assertEqual(set(found), paths, message)
-            self.assertEqual(coordinates(forced, 9), coordinates(expected, 9))
-            self.assertEqual(aligner.score(seqA, seqB), score, message)
+            with self.assertRaisesRegex(ValueError, f"^{message}$"):
+                aligner.align(seqA, seqB)
+            with self.assertRaisesRegex(ValueError, f"^{message}$"):
+                forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            with self.assertRaisesRegex(ValueError, f"^{message}$"):
+                aligner.score(seqA, seqB)
         # With an epsilon of the match score, the highest score rises by no
         # more than epsilon at a time, and the end points found on the way
         # stayed end points: the paths each scored 1 here (three of them
@@ -932,18 +932,19 @@ class TestDifferential(unittest.TestCase):
                     coordinates(alignments, 2), [[[0, 2], [0, 2]]], message
                 )
         # The number of paths overflowed, but adding an overflowed count to
-        # a count that had not gave a wrong count, here of 1.  It yielded
-        # 10,000 distinct paths.
-        matrix = substitution_matrices.Array("ACGT", dims=2)
-        matrix[:, :] = [
-            [1, -0.1, -1, -0.1],
-            [-1, 0, -0.7, 1],
-            [-0.7, -2, 0, -0.3],
-            [-0.7, 1, -0.3, 0],
-        ]
-        aligner = sw_aligner(substitution_matrix=matrix, gap_score=0.5)
-        seqA = "ACGACCTAGTTCTGCGCGGCTGGGCCAACTAAAAAAGTTGAGGGAA"
-        seqB = "CCGTAGAGTGCTTCATACGCAGTCGTACGAAAATGTCGCAGACTTAAAGTGCACACCTAT"
+        # a count that had not gave a wrong count: 13274987183379644 here, on
+        # Biopython 1.88.
+        aligner = sw_aligner(gap_score=0)
+        seqA = (
+            "AACAAACAAAACCACCCAACCCACACCCCCCAACCAAACCACAACACAACACAACCACCAACAAAC"
+            "CCCCCACCCCAAAACAAACCAAACACCCCCACCCAACCCCCACCCCACACACCCACACAAAACCCC"
+            "CAACCAACCCCCCCCCAACCCC"
+        )
+        seqB = (
+            "AACAACCAACAAAACACAACCCCCACACACAACCCCAAAAAAACCCAAAACCCAACACACACACAA"
+            "CCACACACCCCCCAAAAAACACCACAACACCACCACCACACCAAACAACACAACCCAAAACCAAAC"
+            "ACACCAAACAAAAAACACAACA"
+        )
         expected = aligner.align(seqA, seqB)
         forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
         overflow = f"number of optimal alignments is larger than {sys.maxsize}"
