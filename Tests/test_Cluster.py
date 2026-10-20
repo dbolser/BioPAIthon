@@ -3593,8 +3593,8 @@ class TestClusterCrashes(unittest.TestCase):
         if TestCluster.module != "Bio.Cluster":
             self.skipTest("these tests call Bio.Cluster")
 
-    def run_child(self, code):
-        env = os.environ.copy()
+    def run_child(self, code, env=None):
+        env = os.environ.copy() if env is None else env
         env["PYTHONMALLOC"] = "debug"
         result = subprocess.run(
             [sys.executable, "-c", code],
@@ -3641,6 +3641,11 @@ print("OK")
         written through regardless.  The address-space limit leaves room
         for the copy of index1 (4 bytes an entry) but not the buffer (8).
         """
+        # Under AddressSanitizer, as in CI, a failed allocation aborts the
+        # process unless the allocator is allowed to return NULL.
+        env = os.environ.copy()
+        options = env.get("ASAN_OPTIONS", "")
+        env["ASAN_OPTIONS"] = f"{options}:allocator_may_return_null=1"
         self.run_child(
             """
 import resource
@@ -3667,7 +3672,8 @@ for matrix, transpose in ((data, False), (data.T.copy(), True)):
         resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
     del index1
 print("OK")
-"""
+""",
+            env,
         )
 
     def test_pca_infinite_data(self):
