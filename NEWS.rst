@@ -55,6 +55,17 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+``PairwiseAligner`` local alignments with gap score functions (the
+Waterman-Smith-Beyer local algorithm) now report the highest score, as
+``score()`` does, and only the alignments scoring within ``epsilon`` of it,
+as Gotoh local alignments do (see below). With ``epsilon=1`` and gap score
+functions ``-2 - 0.5 * n``, aligning ``"A"`` with ``"A"`` gave a score of 0
+where ``score()`` gives 1. With ``epsilon=1``, ``mismatch_score=-1`` and
+gap score functions ``-2 - (n - 1)``, aligning ``"ACGT"`` with itself gave
+one alignment, of ``"A"`` with ``"A"``, for a score of 4. With the default
+epsilon of ``1e-6`` and typical scores nothing changes but, rarely, the last
+digits of the score. This is an upstream defect, also in Biopython 1.88.
+
 A local ``Bio.Align.PairwiseAligner`` alignment with gap score functions (the
 Waterman-Smith-Beyer local algorithm) whose score is 0 now gives the same
 alignments by index as by ``len()`` and iteration, as the Gotoh local
