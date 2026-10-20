@@ -3,8 +3,9 @@
 # as part of this package.
 """Tests for the linear-space traceback of PairwiseAligner.align().
 
-Needleman-Wunsch and Gotoh global alignments use it where their traceback
-matrix would be over 512 MiB; the private _set_traceback_limits changes that.
+Needleman-Wunsch, Gotoh global and Smith-Waterman alignments use it where
+their traceback matrix would be over 512 MiB; the private
+_set_traceback_limits changes that.
 It must give the full traceback matrix's score, number of paths, and paths in
 the same order. BIOPAITHON_SLOW_TESTS=1 adds a soak and alignments of over
 INT_MAX cells.
@@ -12,6 +13,7 @@ INT_MAX cells.
 
 import contextlib
 import functools
+import itertools
 import math
 import os
 import platform
@@ -47,14 +49,16 @@ set_limits = _pairwisealigner._set_traceback_limits
 DEFAULT = set_limits(None, 1, 1)
 set_limits(*DEFAULT)
 
-# Route every Needleman-Wunsch and Gotoh global alignment to the linear-space
-# traceback, even where it holds more memory than the full matrix.
+# Route every Needleman-Wunsch, Gotoh global and Smith-Waterman alignment to
+# the linear-space traceback, even where it holds more memory than the full
+# matrix.
 ALWAYS = -1
 
 SLOW = os.environ.get("BIOPAITHON_SLOW_TESTS") == "1"
 
 NW = "Needleman-Wunsch"
 GOTOH = "Gotoh global alignment algorithm"
+SW = "Smith-Waterman"
 
 
 @contextlib.contextmanager
@@ -82,6 +86,14 @@ def gotoh_aligner(**scores):
     return aligner
 
 
+def sw_aligner(**scores):
+    """Return a Smith-Waterman aligner."""
+    defaults = {"mode": "local", "mismatch_score": -1, "gap_score": -1}
+    aligner = Align.PairwiseAligner(**{**defaults, **scores})
+    assert aligner.algorithm == SW, aligner.algorithm
+    return aligner
+
+
 def forced_align(aligner, *args, budgets=(1 << 16, 1 << 12)):
     """Align with the linear-space traceback, and these budgets in bytes."""
     with limits(ALWAYS, *budgets):
@@ -98,9 +110,26 @@ with limits(ALWAYS, 1, 1):
 PathGenerator = type(nw_aligner().align("A", "A")._paths)
 
 
-def coordinates(alignments):
-    """Return the coordinates of all alignments, in order, as lists."""
-    return [alignment.coordinates.tolist() for alignment in alignments]
+def coordinates(alignments, limit):
+    """Return the coordinates of the first limit alignments, in order, as lists.
+
+    An error ends the list, which then holds its repr in its place.
+    """
+    result = []
+    try:
+        for alignment in itertools.islice(alignments, limit):
+            result.append(alignment.coordinates.tolist())
+    except RuntimeError as exception:
+        result.append(repr(exception))
+    return result
+
+
+def outcome(alignments, index):
+    """Return the coordinates of alignments[index] as lists, or the error."""
+    try:
+        return alignments[index].coordinates.tolist()
+    except (IndexError, RuntimeError) as exception:
+        return repr(exception)
 
 
 def count(alignments):
@@ -124,12 +153,13 @@ def traced_peak(function, *args):
 
 
 def random_case(rng, lengths, algorithm=NW):
-    """Return a random global aligner and its align() arguments.
+    """Return a random aligner and its align() arguments.
 
     Draws the alphabet (with or without a wildcard), the scoring (match and
     mismatch scores, an Array with an alphabet, or a NumPy matrix with
     integer-coded sequences), all six gap scores (all twelve opening and
-    extension scores for Gotoh), epsilon and the strand.
+    extension scores for Gotoh), epsilon (also half or all of a score, or
+    negative, for Smith-Waterman) and the strand.
     """
     alphabet = rng.choice(["ACGT", "AC", "A"])
     if rng.random() < 0.5:
@@ -137,7 +167,7 @@ def random_case(rng, lengths, algorithm=NW):
     seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(*lengths)))
     seqB = "".join(rng.choice(alphabet) for _ in range(rng.randint(*lengths)))
     values = [0, 0.5, 1, -0.1, -0.3, -0.7, -1, -2]
-    aligner = Align.PairwiseAligner()
+    aligner = Align.PairwiseAligner(mode="local" if algorithm == SW else "global")
     scoring = rng.choice(["compare", "array", "numpy"])
     if scoring == "compare":
         aligner.match_score = rng.choice([1, 2, 1.1, 0.3])
@@ -159,14 +189,18 @@ def random_case(rng, lengths, algorithm=NW):
     while True:
         for end in ("left", "internal", "right"):
             for gap in ("insertion", "deletion"):
-                if algorithm == NW:
-                    setattr(aligner, f"{end}_{gap}_score", rng.choice(values))
-                else:
+                if algorithm == GOTOH:
                     setattr(aligner, f"open_{end}_{gap}_score", rng.choice(values))
                     setattr(aligner, f"extend_{end}_{gap}_score", rng.choice(values))
+                else:
+                    setattr(aligner, f"{end}_{gap}_score", rng.choice(values))
         if aligner.algorithm == algorithm:
             break
-    epsilon = rng.choice([None, 0, 0.05, 0.31])
+    epsilons = [None, 0, 0.05, 0.31]
+    if algorithm == SW:
+        # Scores can then land exactly on a tie's edge.
+        epsilons += [0.5, 1, -1e-6, -0.05, -1]
+    epsilon = rng.choice(epsilons)
     if epsilon is not None:
         aligner.epsilon = epsilon
     if scoring != "numpy" and rng.random() < 0.5:
@@ -180,8 +214,11 @@ def random_case(rng, lengths, algorithm=NW):
 def random_budgets(rng, nB, algorithm=NW):
     """Return a checkpoint and a block budget, from one cell or row to large."""
     # Gotoh keeps three scores and two bytes of trace bits a cell.
-    scores, trace_bytes = (1, 1) if algorithm == NW else (3, 2)
-    row = 8 * scores * (nB + 1)
+    # Smith-Waterman carries five doubles at the start of a saved row (the
+    # LinearLocal struct).
+    scores, trace_bytes = (3, 2) if algorithm == GOTOH else (1, 1)
+    carried = 5 if algorithm == SW else 0
+    row = 8 * (carried + scores * (nB + 1))
     trace = trace_bytes * (nB + 1)
     checkpoint_bytes = rng.choice([1, row, rng.randint(1, 16 * row), 1 << 30])
     block_bytes = rng.choice([1, trace, rng.randint(1, 16 * trace), 1 << 30])
@@ -189,7 +226,7 @@ def random_budgets(rng, nB, algorithm=NW):
 
 
 class TestDefaults(unittest.TestCase):
-    """Global alignments above 512 MiB of traceback matrix, and nothing else."""
+    """Alignments above 512 MiB of traceback matrix, and nothing else."""
 
     def test_defaults(self):
         # The threshold, the checkpoint budget and the block budget.
@@ -198,10 +235,14 @@ class TestDefaults(unittest.TestCase):
 
     def test_routing(self):
         # The smallest square alignment over the threshold, and one below it.
-        # A Needleman-Wunsch matrix row has a byte a cell and a row pointer,
-        # a Gotoh one two of each.
+        # A Needleman-Wunsch or Smith-Waterman matrix row has a byte a cell
+        # and a row pointer, a Gotoh one two of each.
         pointer = struct.calcsize("P")
-        for aligner, size, n in ((nw_aligner(), 1, 23000), (gotoh_aligner(), 2, 16000)):
+        for aligner, size, n in (
+            (nw_aligner(), 1, 23000),
+            (gotoh_aligner(), 2, 16000),
+            (sw_aligner(), 1, 23000),
+        ):
             while (n + 1) * size * (n + 1 + pointer) <= DEFAULT[0]:
                 n += 1
             rng = random.Random(n)
@@ -212,13 +253,15 @@ class TestDefaults(unittest.TestCase):
             self.assertIs(type(alignments._paths), PathGenerator, aligner.algorithm)
 
     def test_algorithms(self):
-        # Needleman-Wunsch and Gotoh global alignments can be routed;
-        # Smith-Waterman, Gotoh local, Waterman-Smith-Beyer and FOGSAA keep
-        # the full traceback matrix.
-        aligners = [(nw_aligner(), LinearPaths), (gotoh_aligner(), LinearPaths)]
+        # Needleman-Wunsch, Gotoh global and Smith-Waterman alignments can be
+        # routed; Gotoh local, Waterman-Smith-Beyer and FOGSAA keep the full
+        # traceback matrix.
+        aligners = [
+            (make(), LinearPaths) for make in (nw_aligner, gotoh_aligner, sw_aligner)
+        ]
         for aligner in (
-            Align.PairwiseAligner(mode="local", gap_score=-1),
             Align.PairwiseAligner(mode="local", open_gap_score=-2),
+            Align.PairwiseAligner(mode="local", gap_score=lambda i, n: -n),
             Align.PairwiseAligner(gap_score=lambda i, n: -n),
             Align.PairwiseAligner(mode="fogsaa", mismatch_score=-1, gap_score=-2),
         ):
@@ -229,12 +272,16 @@ class TestDefaults(unittest.TestCase):
             self.assertIs(type(alignments._paths), expected, aligner.algorithm)
 
     def test_threshold(self):
-        # The full Needleman-Wunsch matrix of 200 x 200 letters is 201 rows
-        # of 201 one-byte cells and a row pointer; the Gotoh one has 201
-        # two-byte cells and two row pointers a row.
+        # The full Needleman-Wunsch or Smith-Waterman matrix of 200 x 200
+        # letters is 201 rows of 201 one-byte cells and a row pointer; the
+        # Gotoh one has 201 two-byte cells and two row pointers a row.
         pointer = struct.calcsize("P")
         seqs = ("ACGT" * 50, "AGCT" * 50)
-        for aligner, size in ((nw_aligner(), 1), (gotoh_aligner(), 2)):
+        for aligner, size in (
+            (nw_aligner(), 1),
+            (gotoh_aligner(), 2),
+            (sw_aligner(), 1),
+        ):
             nbytes = 201 * size * (201 + pointer)
             with limits(nbytes, 1, 1):
                 alignments = aligner.align(*seqs)
@@ -259,6 +306,7 @@ class TestDefaults(unittest.TestCase):
         for aligner in (
             nw_aligner(mismatch_score=0, gap_score=0),
             gotoh_aligner(mismatch_score=0, open_gap_score=-0.5, extend_gap_score=0),
+            sw_aligner(mismatch_score=0, gap_score=0),
         ):
             expected = aligner.align("TACCG", "ACG")
             self.assertGreater(len(expected), 1)
@@ -319,6 +367,10 @@ class TestMemory(unittest.TestCase):
         for nA, nB, routed in shapes:
             seqs = (random_dna(rng, nA), random_dna(rng, nB))
             self.check(gotoh_aligner(), seqs, routed)
+        shapes = [(20, 100000, False), (50, 100000, True), (100000, 50, True)]
+        for nA, nB, routed in shapes:
+            seqs = (random_dna(rng, nA), random_dna(rng, nB))
+            self.check(sw_aligner(), seqs, routed)
 
     def test_substitution_matrix(self):
         # The linear-space traceback keeps a copy of the substitution matrix.
@@ -331,6 +383,8 @@ class TestMemory(unittest.TestCase):
             (nw_aligner, 400, False),
             (gotoh_aligner, 100, True),
             (gotoh_aligner, 600, False),
+            (sw_aligner, 100, True),
+            (sw_aligner, 400, False),
         ]:
             aligner = make(substitution_matrix=rng.random((size, size)))
             seqA, seqB = rng.integers(size, size=(2, 1000), dtype=np.int32)
@@ -354,7 +408,11 @@ class TestMemory(unittest.TestCase):
         # Gotoh), not the full matrix of about 9 MB (18 MB for Gotoh).
         rng = random.Random(3000)
         seqs = (random_dna(rng, 3000), random_dna(rng, 3000))
-        for aligner, size in ((nw_aligner(), 9_000_000), (gotoh_aligner(), 18_000_000)):
+        for aligner, size in (
+            (nw_aligner(), 9_000_000),
+            (gotoh_aligner(), 18_000_000),
+            (sw_aligner(), 9_000_000),
+        ):
             linear, full = self.peaks(aligner, seqs)
             self.assertLess(linear, 2_000_000, aligner.algorithm)
             self.assertGreater(full, size, aligner.algorithm)
@@ -367,7 +425,7 @@ class TestMemory(unittest.TestCase):
         rng = np.random.default_rng(1000000)
         seqA = rng.integers(4, size=1000000, dtype=np.int32)
         seqB = np.array([0, 1, 2, 3, 0, 1, 2, 3], np.int32)
-        for aligner in (nw_aligner(), gotoh_aligner()):
+        for aligner in (nw_aligner(), gotoh_aligner(), sw_aligner()):
             linear, full = self.peaks(aligner, (seqA, seqB))
             self.assertLess(3 * linear, full, aligner.algorithm)
 
@@ -382,27 +440,28 @@ class TestDifferential(unittest.TestCase):
         self.assertIs(type(forced._paths), LinearPaths, message)
         self.assertIs(type(expected._paths), PathGenerator, message)
         self.assertEqual(forced.score, expected.score, message)
-        # [0] first, before anything builds the full matrix.
-        first = expected[0].coordinates
-        self.assertTrue(np.array_equal(forced[0].coordinates, first), message)
-        try:
-            second = expected[1].coordinates
-        except IndexError:
-            with self.assertRaises(IndexError):
-                forced[1]
-        else:
-            self.assertTrue(np.array_equal(forced[1].coordinates, second), message)
+        # [0] first, before anything builds the full matrix; then [1].  Each
+        # is the same alignment, or the same error: no alignment, or one of
+        # the full matrix's PathGenerator.
+        first = outcome(expected, 0)
+        self.assertEqual(outcome(forced, 0), first, message)
+        self.assertEqual(outcome(forced, 1), outcome(expected, 1), message)
         # The number of paths, or the same OverflowError message.
         length = count(expected)
         self.assertEqual(count(forced), length, message)
         if isinstance(length, int) and length <= 50:
-            self.assertEqual(coordinates(forced), coordinates(expected), message)
+            # One more than len(), as the full matrix's Smith-Waterman
+            # PathGenerator can go on past it (see test_sw_upstream).
+            limit = length + 1
+            self.assertEqual(
+                coordinates(forced, limit), coordinates(expected, limit), message
+            )
         forced.rewind()
-        self.assertTrue(np.array_equal(forced[0].coordinates, first), message)
+        self.assertEqual(outcome(forced, 0), first, message)
         # len() first, counting in linear space, then [0].
         forced = forced_align(aligner, *args, budgets=budgets)
         self.assertEqual(count(forced), length, message)
-        self.assertTrue(np.array_equal(forced[0].coordinates, first), message)
+        self.assertEqual(outcome(forced, 0), first, message)
         self.assertFalse(forced._paths._materialized, message)
 
     def run_cases(self, seed, count, lengths, algorithm=NW):
@@ -417,23 +476,29 @@ class TestDifferential(unittest.TestCase):
     def test_short_gotoh(self):
         self.run_cases(seed=2027, count=2000, lengths=(1, 40), algorithm=GOTOH)
 
+    def test_short_sw(self):
+        self.run_cases(seed=2028, count=2000, lengths=(1, 40), algorithm=SW)
+
     def run_long_cases(self, seed, count, algorithm):
         # Scores that are not dyadic fractions, so that rounding matters.
         rng = random.Random(seed)
         values = [-0.1, -0.3, -0.7, -1.3]
+        mode = "local" if algorithm == SW else "global"
         for _ in range(count):
             seqA = random_dna(rng, rng.randint(300, 3000))
             seqB = random_dna(rng, rng.randint(300, 3000))
-            aligner = Align.PairwiseAligner(match_score=1.1, mismatch_score=-0.7)
+            aligner = Align.PairwiseAligner(
+                mode=mode, match_score=1.1, mismatch_score=-0.7
+            )
             for end in ("left", "internal", "right"):
                 for gap in ("insertion", "deletion"):
-                    if algorithm == NW:
-                        setattr(aligner, f"{end}_{gap}_score", rng.choice(values))
-                    else:
+                    if algorithm == GOTOH:
                         setattr(aligner, f"open_{end}_{gap}_score", rng.choice(values))
                         setattr(
                             aligner, f"extend_{end}_{gap}_score", rng.choice(values)
                         )
+                    else:
+                        setattr(aligner, f"{end}_{gap}_score", rng.choice(values))
             if aligner.algorithm != algorithm:
                 aligner.open_internal_insertion_score = -2.9
             aligner.epsilon = rng.choice([1e-6, 0, 0.05, 0.31])
@@ -445,6 +510,35 @@ class TestDifferential(unittest.TestCase):
 
     def test_long_gotoh(self):
         self.run_long_cases(seed=18, count=12, algorithm=GOTOH)
+
+    def test_long_sw(self):
+        self.run_long_cases(seed=19, count=12, algorithm=SW)
+
+    def test_read(self):
+        # A read with a few changes, inside a longer random target, as a
+        # local alignment is mostly used: the path ends inside the matrix,
+        # and starts well away from row 0 and column 0.
+        rng = random.Random(1912)
+        for _ in range(8):
+            seqA = random_dna(rng, rng.randint(1000, 4000))
+            start = rng.randrange(len(seqA) - 500)
+            seqB = list(seqA[start : start + rng.randint(100, 500)])
+            for _ in range(len(seqB) // 20):
+                position = rng.randrange(len(seqB))
+                change = rng.choice("sid")
+                if change == "s":
+                    seqB[position] = rng.choice("ACGT")
+                elif change == "i":
+                    seqB.insert(position, rng.choice("ACGT"))
+                else:
+                    del seqB[position]
+            seqB = random_dna(rng, 50) + "".join(seqB) + random_dna(rng, 50)
+            aligner = sw_aligner(match_score=rng.choice([1, 2, 1.1]))
+            aligner.epsilon = rng.choice([1e-6, 0, 0.05])
+            args = (seqA, seqB, "+")
+            if rng.random() < 0.5:
+                args = (seqA, reverse_complement(seqB), "-")
+            self.check(aligner, args, random_budgets(rng, len(seqB), SW))
 
     def test_presets(self):
         # The scoring schemes using Gotoh: blastn on DNA, blastp on protein.
@@ -524,6 +618,90 @@ class TestDifferential(unittest.TestCase):
             self.assertFalse(forced._paths._materialized, message)
         self.check(nw_aligner(epsilon=-1), ("ACGT", "AGT", "+"), (1, 1))
 
+    def test_no_paths_sw(self):
+        # Smith-Waterman has no paths where no cell scores above 0, and none
+        # where it marks no cell as an end point: with an epsilon of -1, a
+        # cell must score more than 1 above the highest score before it.
+        for aligner, seqA, seqB, score in [
+            (sw_aligner(), "AAA", "CCC", 0),
+            (sw_aligner(epsilon=-1), "ACGT", "ACGT", 4),
+        ]:
+            message = f"{aligner.algorithm} {seqA} {seqB} {aligner.epsilon}"
+            expected = aligner.align(seqA, seqB)
+            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            self.assertIs(type(forced._paths), LinearPaths, message)
+            self.assertEqual(expected.score, score, message)
+            self.assertEqual(forced.score, score, message)
+            self.assertEqual(len(expected), 0, message)
+            self.assertEqual(list(expected), [], message)
+            with self.assertRaises(IndexError):
+                forced[0]
+            self.assertEqual(list(forced), [], message)
+            self.assertEqual(len(forced), 0, message)
+            self.assertFalse(forced, message)
+            self.assertFalse(forced._paths._materialized, message)
+
+    def test_sw_upstream(self):
+        # With a positive gap score the full matrix's PathGenerator can fail
+        # after the first path, or yield more paths than len() counts.  The
+        # linear-space traceback gives that first path and the count, and
+        # then what the full matrix gives.  Both are upstream defects, also
+        # in Biopython 1.86 and 1.88, pinned here, not endorsed: a fix to the
+        # full matrix fails this test, and must keep linear_sw_count in step.
+        aligner = sw_aligner(gap_score=0.5)
+        for seqA, seqB in (("AAA", "CAACC"), ("ACC", "CACAA")):
+            expected = aligner.align(seqA, seqB)
+            first = expected[0].coordinates
+            with self.assertRaises(RuntimeError) as context:
+                expected[1]
+            error = str(context.exception)
+            self.assertEqual(
+                error, "Unexpected trace in PathGenerator_next_smithwaterman"
+            )
+            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            self.assertEqual(forced.score, expected.score)
+            self.assertEqual(len(forced), len(expected))
+            self.assertTrue(np.array_equal(forced[0].coordinates, first))
+            self.assertFalse(forced._paths._materialized)
+            with self.assertRaisesRegex(RuntimeError, error):
+                forced[1]
+        matrix = substitution_matrices.Array("ACGT", dims=2)
+        matrix[:, :] = [
+            [1, -0.1, -1, -0.1],
+            [-1, 0, -0.7, 1],
+            [-0.7, -2, 0, -0.3],
+            [-0.7, 1, -0.3, 0],
+        ]
+        aligner = sw_aligner(substitution_matrix=matrix, gap_score=0.5)
+        seqA = "ACGACCTAGTTCTGCGCGGCTGGGCCAACTAAAAAAGTTGAGGGAA"
+        seqB = "CCGTAGAGTGCTTCATACGCAGTCGTACGAAAATGTCGCAGACTTAAAGTGCACACCTAT"
+        expected = aligner.align(seqA, seqB)
+        self.assertEqual(len(expected), 1)
+        paths = list(itertools.islice(expected._paths, 100))
+        self.assertEqual(len(set(paths)), 100)
+        forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+        self.assertEqual(forced.score, expected.score)
+        self.assertEqual(len(forced), 1)
+        self.assertEqual(next(forced._paths), paths[0])
+        self.assertFalse(forced._paths._materialized)
+        self.assertEqual(list(itertools.islice(forced._paths, 99)), paths[1:])
+
+    def test_interior_start(self):
+        # A path can start at a start point inside the matrix, as the second
+        # does here, after the mismatch of A with B.  Both counts seed such a
+        # start point with one path, so both count the two optimal local
+        # alignments, as enumerating every local alignment gives.
+        aligner = sw_aligner()
+        paths = [[[0, 1], [1, 2]], [[1, 2], [1, 2]]]
+        expected = aligner.align("AA", "BA")
+        forced = forced_align(aligner, "AA", "BA", budgets=(1, 1))
+        for alignments in (expected, forced):
+            self.assertEqual(alignments.score, 1)
+            self.assertEqual(len(alignments), 2)
+        self.assertFalse(forced._paths._materialized)
+        for alignments in (expected, forced):
+            self.assertEqual(coordinates(alignments, 3), paths)
+
     def test_overflow(self):
         # TestOverflowError of test_pairwise_aligner, in linear space; the
         # same with affine gap scores; and a count just short of it.
@@ -553,6 +731,22 @@ class TestDifferential(unittest.TestCase):
             first = expected[0].coordinates
             self.assertTrue(np.array_equal(forced[0].coordinates, first))
             self.assertFalse(forced._paths._materialized)
+        # Smith-Waterman, overflowing, and a count just short of it.
+        aligner = sw_aligner()
+        for n, alignments in (
+            (None, f">{sys.maxsize} alignments; score=945"),
+            (700, "4314952315699200 alignments; score=380"),
+        ):
+            expected = aligner.align(seqA[:n], seqB[:n])
+            forced = forced_align(aligner, seqA[:n], seqB[:n])
+            self.assertEqual(
+                repr(forced),
+                f"<PairwiseAlignments object ({alignments}) at {hex(id(forced))}>",
+            )
+            self.assertEqual(count(forced), count(expected))
+            first = expected[0].coordinates
+            self.assertTrue(np.array_equal(forced[0].coordinates, first))
+            self.assertFalse(forced._paths._materialized)
 
     @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
     def test_soak(self):
@@ -560,6 +754,8 @@ class TestDifferential(unittest.TestCase):
         self.run_cases(seed=3407, count=300, lengths=(100, 1500))
         self.run_cases(seed=4590, count=50000, lengths=(1, 60), algorithm=GOTOH)
         self.run_cases(seed=3408, count=300, lengths=(100, 1500), algorithm=GOTOH)
+        self.run_cases(seed=4591, count=50000, lengths=(1, 60), algorithm=SW)
+        self.run_cases(seed=3409, count=300, lengths=(100, 1500), algorithm=SW)
 
     @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
     def test_more_than_int_max_cells(self):
@@ -576,19 +772,20 @@ class TestDifferential(unittest.TestCase):
                 seqB[position:position] = rng.choices("ACGT", k=rng.randint(1, 30))
         seqB = "".join(seqB)
         self.assertGreater((len(seqA) + 1) * (len(seqB) + 1), 2**31 - 1)
-        for aligner in (nw_aligner(), gotoh_aligner()):
+        for aligner in (nw_aligner(), gotoh_aligner(), sw_aligner()):
             alignments = forced_align(aligner, seqA, seqB, budgets=DEFAULT[1:])
             alignment = alignments[0]
             self.assertEqual(alignment.counts(aligner).score, alignments.score)
             self.assertEqual(alignments.score, aligner.score(seqA, seqB))
-            end = alignment.coordinates[:, -1].tolist()
-            self.assertEqual(end, [len(seqA), len(seqB)])
+            if aligner.mode == "global":
+                end = alignment.coordinates[:, -1].tolist()
+                self.assertEqual(end, [len(seqA), len(seqB)])
 
     @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
     def test_read_against_genome(self):
         # A 1,000-letter read against 2.2 million letters, with the default
         # limits: over INT_MAX cells, and a 2.2 GB full matrix (4.4 GB for
-        # Gotoh).
+        # Gotoh).  Aligned locally, the read is found where it came from.
         rng = random.Random(2200000)
         seqA = random_dna(rng, 2200000)
         seqB = list(seqA[1100000:1101000])
@@ -596,13 +793,17 @@ class TestDifferential(unittest.TestCase):
             seqB[rng.randrange(len(seqB))] = rng.choice("ACGT")
         seqB = "".join(seqB)
         self.assertGreater((len(seqA) + 1) * (len(seqB) + 1), 2**31 - 1)
-        for aligner in (nw_aligner(), gotoh_aligner()):
+        for aligner in (nw_aligner(), gotoh_aligner(), sw_aligner()):
             alignments = aligner.align(seqA, seqB)
             self.assertIs(type(alignments._paths), LinearPaths)
             alignment = alignments[0]
             self.assertEqual(alignment.counts(aligner).score, alignments.score)
             self.assertEqual(alignments.score, aligner.score(seqA, seqB))
             self.assertFalse(alignments._paths._materialized)
+        start, end = alignment.coordinates[0, [0, -1]].tolist()
+        self.assertLessEqual(1100000, start)
+        self.assertLessEqual(end, 1101000)
+        self.assertGreater(end - start, 900)
 
 
 class TestSnapshot(unittest.TestCase):
@@ -636,6 +837,7 @@ class TestSnapshot(unittest.TestCase):
             gotoh_aligner(
                 wildcard="N", mismatch_score=0, open_gap_score=-0.5, extend_gap_score=0
             ),
+            sw_aligner(wildcard="N", mismatch_score=0, gap_score=0),
         ):
             self.check(aligner, seqA, seqB, functools.partial(change, aligner))
 
@@ -647,7 +849,7 @@ class TestSnapshot(unittest.TestCase):
             for letter in "ACGT":
                 matrix[letter, letter] = -10
 
-        for make in (nw_aligner, gotoh_aligner):
+        for make in (nw_aligner, gotoh_aligner, sw_aligner):
             matrix = substitution_matrices.load("NUC.4.4")
             aligner = make(substitution_matrix=matrix)
             self.check(aligner, seqA, seqB, functools.partial(change, matrix))
@@ -658,7 +860,7 @@ class TestSnapshot(unittest.TestCase):
             seqB[:] = 1
             matrix[:, :] = 5
 
-        for make in (nw_aligner, gotoh_aligner):
+        for make in (nw_aligner, gotoh_aligner, sw_aligner):
             matrix = 2 * np.identity(4) - 1
             aligner = make(substitution_matrix=matrix)
             seqA = np.array(["ACGT".index(c) for c in "GAACTTGACGTTAGCCTA"], np.int32)
@@ -674,6 +876,7 @@ class TestThreads(unittest.TestCase):
         for aligner in (
             nw_aligner(mismatch_score=0, gap_score=0),
             gotoh_aligner(open_gap_score=-0.5, extend_gap_score=-1),
+            sw_aligner(mismatch_score=0, gap_score=0),
         ):
             with self.subTest(algorithm=aligner.algorithm):
                 self.check(aligner)
@@ -736,6 +939,8 @@ class TestInterrupt(unittest.TestCase):
         cls.expected = cls.aligner.align(*cls.seqs)
         cls.gotoh_aligner = gotoh_aligner()
         cls.gotoh_expected = cls.gotoh_aligner.align(*cls.seqs)
+        cls.sw_aligner = sw_aligner()
+        cls.sw_expected = cls.sw_aligner.align(*cls.seqs)
 
     @contextlib.contextmanager
     def alarms(self, handler, delay, interval=0):
@@ -772,6 +977,10 @@ class TestInterrupt(unittest.TestCase):
     def test_interrupt_gotoh(self):
         stages = (("first path", 5), ("full matrix", 5), ("count", 3))
         self.check_interrupt(self.gotoh_aligner, self.gotoh_expected, stages)
+
+    def test_interrupt_sw(self):
+        stages = (("first path", 5), ("full matrix", 5), ("count", 3))
+        self.check_interrupt(self.sw_aligner, self.sw_expected, stages)
 
     def check_interrupt(self, aligner, expected, stages):
         reference = (expected[0].coordinates, expected[1].coordinates, count(expected))
@@ -838,7 +1047,7 @@ class TestInterrupt(unittest.TestCase):
 
 original_align = Align.PairwiseAligner.align
 align_lock = threading.Lock()  # the tests' threads share the limits
-calls = {"tests": 0, NW: 0, GOTOH: 0}
+calls = {"tests": 0, NW: 0, GOTOH: 0, SW: 0}
 
 
 def checked_align(self, *args, **kwargs):
@@ -846,10 +1055,10 @@ def checked_align(self, *args, **kwargs):
     with align_lock:
         forced = original_align(self, *args, **kwargs)
         algorithm = self.algorithm
-        if algorithm not in (NW, GOTOH):
+        if algorithm not in (NW, GOTOH, SW):
             return forced
-        # Every Needleman-Wunsch and Gotoh global alignment takes the
-        # linear-space traceback.
+        # Every Needleman-Wunsch, Gotoh global and Smith-Waterman alignment
+        # takes the linear-space traceback.
         assert type(forced._paths) is LinearPaths, type(forced._paths)
         calls[algorithm] += 1
         with limits(*DEFAULT):
@@ -917,6 +1126,7 @@ class TestForcedRerun(unittest.TestCase):
             self.skipTest("needs the whole forced re-run in this process")
         self.assertGreater(calls[NW], 50)
         self.assertGreater(calls[GOTOH], 50)
+        self.assertGreater(calls[SW], 40)
 
 
 if __name__ == "__main__":
