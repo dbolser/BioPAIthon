@@ -60,8 +60,8 @@ Waterman-Smith-Beyer local algorithm) whose score is 0 now gives the same
 alignments by index as by ``len()`` and iteration, as the Gotoh local
 algorithm does (see below). Cells scoring ``epsilon`` can be the ends of
 alignments while the reported score stays 0; ``alignments[0]`` raised
-``IndexError`` for them, and now returns the first. This is also in
-Biopython 1.88.
+``IndexError`` for them, and now returns the first. Biopython 1.88 has the
+same bug.
 
 ``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
 sequence whatever type the protein sequence is. ``score()`` and ``align()``
