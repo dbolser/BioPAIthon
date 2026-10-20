@@ -5439,6 +5439,31 @@ exit: \
     return PyErr_NoMemory(); \
 
 
+/* Whether a trace of a Gotoh global alignment leads to a matrix in row 0
+ * or column 0 that no path from the origin reaches: M and Ix of row 0, M
+ * and Iy of column 0, and Ix and Iy of the origin.  Only traces in row 1
+ * and column 1 can.  Every trace but those of the last cell has a bit
+ * set, so if none of these leads there, the origin reaches every matrix
+ * of every cell. */
+static bool
+gotoh_global_unreachable(Trace** M, TraceGapsGotoh** gaps, int nA, int nB)
+{
+    int i;
+    int j;
+    if (gaps[1][1].Ix & (M_MATRIX | Ix_MATRIX)) return true;
+    if (gaps[1][1].Iy & (M_MATRIX | Iy_MATRIX)) return true;
+    if (M[1][1].trace & (Ix_MATRIX | Iy_MATRIX)) return true;
+    for (j = 2; j <= nB; j++) {
+        if (M[1][j].trace & (M_MATRIX | Ix_MATRIX)) return true;
+        if (gaps[1][j].Ix & (M_MATRIX | Ix_MATRIX)) return true;
+    }
+    for (i = 2; i <= nA; i++) {
+        if (M[i][1].trace & (M_MATRIX | Iy_MATRIX)) return true;
+        if (gaps[i][1].Iy & (M_MATRIX | Iy_MATRIX)) return true;
+    }
+    return false;
+}
+
 #define GOTOH_GLOBAL_ALIGN(align_score) \
     int i; \
     int j; \
@@ -5608,6 +5633,39 @@ exit: \
     if (M_row[nB] < score - epsilon) M[nA][nB].trace = 0; \
     if (Ix_row[nB] < score - epsilon) gaps[nA][nB].Ix = 0; \
     if (Iy_row[nB] < score - epsilon) gaps[nA][nB].Iy = 0; \
+ \
+    /* Infinite or NaN scores, or an epsilon that keeps every tie or none, \
+     * can leave traces into the empty M and Iy of column 0, or M and Ix \
+     * of row 0, which no path from the origin reaches.  The traceback \
+     * then stopped short of the origin, on a path len() does not count. \
+     * Where there are any, use path as a temporary variable holding the \
+     * matrices of each point that the origin reaches, and remove the \
+     * traces to the others, as GOTOH_LOCAL_ALIGN does for its start \
+     * points. */ \
+    if (!interrupted && gotoh_global_unreachable(M, gaps, nA, nB)) { \
+        M[0][0].path = M_MATRIX; \
+        for (j = 1; j <= nB; j++) M[0][j].path = Iy_MATRIX; \
+        for (i = 1; i <= nA; i++) { \
+            PAIRWISE_NOGIL_CHECK(i) \
+            M[i][0].path = Ix_MATRIX; \
+            for (j = 1; j <= nB; j++) { \
+                const unsigned char M_trace = M[i][j].trace \
+                                            & M[i-1][j-1].path; \
+                const unsigned char Ix_trace = gaps[i][j].Ix \
+                                             & M[i-1][j].path; \
+                const unsigned char Iy_trace = gaps[i][j].Iy \
+                                             & M[i][j-1].path; \
+                M[i][j].trace = M_trace; \
+                gaps[i][j].Ix = Ix_trace; \
+                gaps[i][j].Iy = Iy_trace; \
+                M[i][j].path = (M_trace ? M_MATRIX : 0) \
+                             | (Ix_trace ? Ix_MATRIX : 0) \
+                             | (Iy_trace ? Iy_MATRIX : 0); \
+            } \
+        } \
+        M[0][0].path = 0; \
+        M[nA][nB].path = 0; \
+    } \
     PAIRWISE_NOGIL_END \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \

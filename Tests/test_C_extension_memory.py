@@ -82,8 +82,8 @@ class AlignmentExtensionTests(unittest.TestCase):
         the second from the full matrix.  The substitution matrices of the
         second, fourth, sixth and eighth aligners are copied; the fifth to
         eighth align locally.  The aligner stopped allows no gaps, so its
-        first path stops short of the origin and comes from the full matrix
-        too.  The aligner unreached reaches its only end point only from row
+        walk stops short of the origin and asks the full matrix, which has
+        no paths.  The aligner unreached reaches its only end point only from row
         0, so it has no first path, which the full matrix finds.
         """
         import math
@@ -127,7 +127,7 @@ class AlignmentExtensionTests(unittest.TestCase):
                 str(alignments[0])
             alignments = forced_align(stopped)
             len(alignments)
-            next(alignments._paths)  # holds NULLs: not to be looked at
+            list(alignments)
             alignments = forced_align(unreached)
             len(alignments)
             list(alignments)

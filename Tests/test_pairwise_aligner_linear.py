@@ -711,40 +711,53 @@ class TestDifferential(unittest.TestCase):
                     budgets = random_budgets(rng, len(seqB), algorithm)
                     self.check(aligner, args, budgets)
 
-    @unittest.skipUnless(
-        platform.python_implementation() == "CPython",
-        "the full matrix's path is a tuple holding NULLs here",
-    )
     def test_stopped(self):
-        # The first path of the full matrix can stop short of the origin,
-        # where infinite or NaN scores leave no alignment with a score.  It
-        # then comes out of create_path as a tuple holding NULLs, which only
-        # repr() shows safely.  The linear-space traceback gives the full
-        # matrix's own first path there.
+        # Infinite or NaN scores, or an infinite epsilon, leave traces into
+        # column 0 or row 0, or the origin's Ix or Iy, where no path
+        # starts.  GOTOH_GLOBAL_ALIGN's clean-up removes them, but the walk
+        # follows them and stops, and asks the full matrix, whose path goes
+        # elsewhere, if anywhere.  (The full matrix's path used to stop
+        # there too, a tuple holding NULLs that crashed Python, while len()
+        # did not count it.)
         no_end_deletions = gotoh_aligner(end_deletion_score=-math.inf)
         no_end_insertions = gotoh_aligner(end_insertion_score=-math.inf)
         no_gaps = gotoh_aligner(open_gap_score=-math.inf)
         nan = gotoh_aligner(open_gap_score=math.nan)
-        for aligner, seqA, seqB in [
+        infinite_gap = gotoh_aligner(
+            gap_score=math.inf, open_left_gap_score=-1, epsilon=-math.inf
+        )
+        every_tie = gotoh_aligner(epsilon=math.inf)
+        for aligner, seqA, seqB, paths in [
             # stops in column 0, in a block
-            (no_end_deletions, "AA", "A"),
-            (no_gaps, "AACGTTGCA", "ACG"),
-            (nan, "GGGGAACGT", "AACG"),
+            (no_end_deletions, "AA", "A", 0),
+            (no_gaps, "AACGTTGCA", "ACG", 0),
+            (nan, "GGGGAACGT", "AACG", 0),
             # stops in row 0
-            (no_end_insertions, "A", "AA"),
-            (no_gaps, "ACG", "AACGTTGCA"),
-            (nan, "AACG", "GGGGAACGT"),
+            (no_end_insertions, "A", "AA", 0),
+            (no_gaps, "ACG", "AACGTTGCA", 0),
+            (nan, "AACG", "GGGGAACGT", 0),
+            # stops at the origin, in Iy
+            (infinite_gap, "GT", "A", 0),
+            # stops in column 0, where the full matrix's path goes elsewhere
+            (every_tie, "ACGT", "AGT", 129),
         ]:
             message = f"{aligner.algorithm} {seqA} {seqB}"
             expected = aligner.align(seqA, seqB)
-            first = repr(next(expected._paths))
             forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
             self.assertIs(type(forced._paths), LinearPaths, message)
             self.assertEqual(repr(forced.score), repr(expected.score), message)
-            self.assertEqual(count(forced), count(expected), message)
+            self.assertEqual(len(expected), paths, message)
+            self.assertEqual(len(forced), paths, message)
             self.assertFalse(forced._paths._materialized, message)
-            self.assertEqual(repr(next(forced._paths)), first, message)
+            found = [alignment.coordinates.tolist() for alignment in expected]
+            self.assertEqual(len(found), paths, message)
+            self.assertEqual(outcome(forced, 0), outcome(expected, 0), message)
             self.assertTrue(forced._paths._materialized, message)
+            self.assertEqual(
+                [alignment.coordinates.tolist() for alignment in forced],
+                found,
+                message,
+            )
 
     def test_no_paths(self):
         # A negative epsilon clears every trace of Gotoh's last cell, so the
