@@ -1103,7 +1103,9 @@ class TestInterrupt(unittest.TestCase):
         # ticks that it could finish first on a fast machine.  A query that
         # matches each copy of a tandem repeat gives two long alignments.
         block = random_dna(rng, 2000)
-        mutated = "".join(rng.choice("ACGT") if rng.random() < 0.15 else c for c in block)
+        mutated = "".join(
+            rng.choice("ACGT") if rng.random() < 0.15 else c for c in block
+        )
         cls.gotoh_local_seqs = (block + block, mutated)
         cls.gotoh_local_aligner = gotoh_local_aligner()
         cls.gotoh_local_expected = cls.gotoh_local_aligner.align(*cls.gotoh_local_seqs)
