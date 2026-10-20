@@ -5035,7 +5035,7 @@ class CodonAligner(_codonaligner.CodonAligner):
             sB0 = bytes(sB0)
             sB1 = bytes(sB1)
             sB2 = bytes(sB2)
-        elif isinstance(seqA, str):
+        elif isinstance(seqB, str):
             sB0 = translate(seqB0, codon_table)
             sB1 = translate(seqB1, codon_table)
             sB2 = translate(seqB2, codon_table)
