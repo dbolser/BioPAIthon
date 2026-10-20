@@ -32,7 +32,7 @@ env:
   # the cached environment is reused and dependencies are never upgraded.
   # Bump this number to discard every pip cache and force fresh installs.
   # (The previous hard-coded key segment was "v2", hence starting at 3.)
-  CACHE_EPOCH: "3"
+  CACHE_EPOCH: "4"
 
 jobs:
   # Style Checking: Linux and Python version only.
@@ -84,7 +84,9 @@ jobs:
   linux_prep:
     timeout-minutes: 10
     needs: [style]
-    runs-on: ubuntu-latest
+    # Pinned with test_linux, which restores the Python install this job
+    # caches; the cache key does not name the image, so both must match.
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -264,7 +266,10 @@ jobs:
     # which silently skipped check_tests and docs downstream.
     timeout-minutes: 30
     needs: [style, build, linux_prep]
-    runs-on: ubuntu-latest
+    # Pinned because ubuntu-latest became ubuntu-26.04 in October 2026, and
+    # that image has no MySQL server for the BioSQL tests. Moving to a MySQL
+    # service container would lift the pin.
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
