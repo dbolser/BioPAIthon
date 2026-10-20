@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <float.h>
+#include <math.h>
 #include "cluster.h"
 
 #include "../_freethreading.h"
@@ -2260,7 +2261,9 @@ py_clusterdistance(PyObject* self, PyObject* args, PyObject* keywords)
                                transpose);
     Py_END_ALLOW_THREADS
 
-    if (distance < -0.5) /* Actually -1.0; avoiding roundoff errors */
+    if (distance < -1.5) /* Actually -2.0; avoiding roundoff errors */
+        PyErr_NoMemory();
+    else if (distance < -0.5) /* Actually -1.0; avoiding roundoff errors */
         PyErr_SetString(PyExc_IndexError, "index out of range");
     else
         result = PyFloat_FromDouble(distance);
@@ -2618,14 +2621,20 @@ py_pca(PyObject* self, PyObject* args)
     nmin = nrows < ncols ? nrows : ncols;
     if (pc.nrows != nmin || pc.ncols != ncols) {
         PyErr_Format(PyExc_RuntimeError,
-                     "pc has inconsistent size %zd x %zd (expected %d x %d)",
-                     mean.shape[0], mean.shape[1], nmin, ncols);
+                     "pc has inconsistent size %d x %d (expected %d x %d)",
+                     pc.nrows, pc.ncols, nmin, ncols);
         goto exit;
     }
     if (coordinates.nrows != nrows || coordinates.ncols != nmin) {
         PyErr_Format(PyExc_RuntimeError,
-            "coordinates has inconsistent size %zd x %zd (expected %d x %d)",
-            mean.shape[0], mean.shape[1], nrows, nmin);
+            "coordinates has inconsistent size %d x %d (expected %d x %d)",
+            coordinates.nrows, coordinates.ncols, nrows, nmin);
+        goto exit;
+    }
+    if (eigenvalues.shape[0] != nmin) {
+        PyErr_Format(PyExc_RuntimeError,
+                     "eigenvalues has inconsistent size %zd (expected %d)",
+                     eigenvalues.shape[0], nmin);
         goto exit;
     }
     if (nrows >= ncols) {
@@ -2642,6 +2651,12 @@ py_pca(PyObject* self, PyObject* args)
         p[j] = 0.0;
         for (i = 0; i < nrows; i++) p[j] += values[i][j];
         p[j] /= nrows;
+        if (!isfinite(p[j])) {
+            PyErr_SetString(PyExc_ValueError,
+                "data contains infinite or NaN values, or values so large "
+                "that the sum of a column overflows");
+            goto exit;
+        }
     }
     /* --   Subtract the mean of each column ----------------------------- */
     for (i = 0; i < nrows; i++)

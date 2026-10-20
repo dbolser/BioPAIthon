@@ -4,6 +4,7 @@
 
 """Tests for Cluster module."""
 
+import os
 import subprocess
 import sys
 import sysconfig
@@ -3012,6 +3013,15 @@ class TestCluster(unittest.TestCase):
         message = "^array has incorrect data type$"
         with self.assertRaisesRegex(RuntimeError, message):
             pca(data, columnmean, coordinates, pc, np.ones(3, dtype=np.int16))
+        message = "^pc has inconsistent size 3 x 2 \\(expected 2 x 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, coordinates, np.zeros((3, 2)), eigenvalues)
+        message = "^coordinates has inconsistent size 4 x 3 \\(expected 4 x 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, np.zeros((4, 3)), pc, eigenvalues)
+        message = "^eigenvalues has inconsistent size 3 \\(expected 2\\)$"
+        with self.assertRaisesRegex(RuntimeError, message):
+            pca(data, columnmean, coordinates, pc, np.zeros(3))
 
     def test_pca(self):
         if TestCluster.module == "Bio.Cluster":
@@ -3124,6 +3134,54 @@ class TestCluster(unittest.TestCase):
         self.assertAlmostEqual(eigenvalues[1], 3.0108911400291856)
         self.assertAlmostEqual(eigenvalues[2], 1.8775592718563467)
         self.assertAlmostEqual(eigenvalues[3], 0.0)
+
+    def test_pca_overflow_in_result(self):
+        """Check pca raises if the SVD overflows without crashing.
+
+        These finite data used to give an infinity or a NaN, or finite but
+        wrong values, instead of an error.
+        """
+        if TestCluster.module == "Bio.Cluster":
+            from Bio.Cluster import pca
+        elif TestCluster.module == "Pycluster":
+            from Pycluster import pca
+
+        message = "^Singular value decomposition failed to converge$"
+        for data in (
+            # The reduction to bidiagonal form overflows in u only
+            [[8.5e307], [-8.5e307], [0.0]],
+            [[5e307, 0, 0, 0], [0, 0, -1.3e308, 0], [-5e307, 0, 1.3e308, 0]],
+            # The QR iterations overflow
+            [[1.0, 0.0], [0.0, 1e300]],
+            # anorm overflows; the eigenvalues were 9.8e307 and 2.0e307,
+            # instead of 1.4e308 and 2.4e307
+            [[0.0, -2e307, -1e308], [0.0, 2e307, 0.0], [0.0, 0.0, 1e308]],
+        ):
+            with self.subTest(data=data):
+                with self.assertRaisesRegex(RuntimeError, message):
+                    pca(data)
+        # A rotation norm overflows; the eigenvalues were 0 and 0, instead
+        # of 2.6e140 and nearly 0. Whether it overflows depends on which
+        # multiply-adds the compiler fuses. With clang's, as on arm64 macOS,
+        # the first QR sweep leaves w[0] small enough to count as zero, the
+        # iterations stop a sweep early, and nothing overflows. GCC fuses
+        # too, but still overflows. So accept either the error or the right
+        # answer.
+        data = [[1e140, 2e140, 3e140], [0.0, 0.0, 0.0]]
+        with self.subTest(data=data):
+            try:
+                columnmean, coordinates, pc, eigenvalues = pca(data)
+            except RuntimeError as error:
+                self.assertRegex(str(error), message)
+            else:
+                data = np.array(data)
+                expected = np.linalg.svd(data - data.mean(axis=0), compute_uv=False)
+                atol = 1e-12 * expected[0]
+                np.testing.assert_allclose(eigenvalues, expected, rtol=0, atol=atol)
+                np.testing.assert_allclose(
+                    columnmean + coordinates @ pc, data, rtol=0, atol=atol
+                )
+                np.testing.assert_allclose(pc @ pc.T, np.eye(2), rtol=0, atol=1e-12)
 
 
 class TestClusterRNGSeed(unittest.TestCase):
@@ -3521,6 +3579,181 @@ class TestClusterThreads(unittest.TestCase):
         used from a private copy, so they cannot go out of bounds.
         """
         self.run_child(CHANGING_INDEX_ARRAYS)
+
+
+class TestClusterCrashes(unittest.TestCase):
+    """Tests of input that used to crash Python inside Bio.Cluster.
+
+    Each runs in a child process with PYTHONMALLOC=debug, which pads every
+    allocation, so a write past the end of a buffer stops the child rather
+    than passing unnoticed or taking down the whole test run.
+    """
+
+    def setUp(self):
+        if TestCluster.module != "Bio.Cluster":
+            self.skipTest("these tests call Bio.Cluster")
+
+    def run_child(self, code, env=None):
+        env = os.environ.copy() if env is None else env
+        env["PYTHONMALLOC"] = "debug"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            env=env,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout.strip(), "OK", result.stderr)
+
+    def test_clusterdistance_median_repeated_indices(self):
+        """Check method "m" takes clusters larger than the matrix.
+
+        An index may be repeated, so a cluster can have more members than
+        the matrix has rows; the median used to be collected in a buffer
+        with room for one value per row.
+        """
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import clusterdistance
+
+data = np.arange(12.0).reshape(3, 4)
+for matrix, transpose in ((data, False), (data.T.copy(), True)):
+    expected = clusterdistance(
+        matrix, index1=[0], index2=[1, 2], method="m", transpose=transpose
+    )
+    for index1, index2 in (([0] * 5000, [1, 2]), ([0], [1, 2] * 2500)):
+        distance = clusterdistance(
+            matrix, index1=index1, index2=index2, method="m", transpose=transpose
+        )
+        assert distance == expected, (distance, expected)
+print("OK")
+"""
+        )
+
+    @unittest.skipUnless(sys.platform == "linux", "needs RLIMIT_AS and /proc")
+    def test_clusterdistance_median_out_of_memory(self):
+        """Check method "m" raises MemoryError when its buffer cannot be had.
+
+        The median buffer grows with the index lists, which may repeat, so
+        its allocation can fail for a caller's input; the buffer used to be
+        written through regardless.  The address-space limit leaves room
+        for the copy of index1 (4 bytes an entry) but not the buffer (8).
+        """
+        # Under AddressSanitizer, as in CI, a failed allocation aborts the
+        # process unless the allocator is allowed to return NULL.
+        env = os.environ.copy()
+        options = env.get("ASAN_OPTIONS", "")
+        env["ASAN_OPTIONS"] = f"{options}:allocator_may_return_null=1"
+        self.run_child(
+            """
+import resource
+import numpy as np
+from Bio.Cluster import clusterdistance
+
+data = np.arange(12.0).reshape(3, 4)
+n = 25_000_000
+for matrix, transpose in ((data, False), (data.T.copy(), True)):
+    index1 = np.zeros(n, dtype=np.intc)
+    with open("/proc/self/statm") as f:
+        size = int(f.read().split()[0]) * resource.getpagesize()
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    resource.setrlimit(resource.RLIMIT_AS, (size + 6 * n, hard))
+    try:
+        clusterdistance(
+            matrix, index1=index1, index2=[1, 2], method="m", transpose=transpose
+        )
+    except MemoryError:
+        pass
+    else:
+        raise AssertionError("no MemoryError")
+    finally:
+        resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
+    del index1
+print("OK")
+""",
+            env,
+        )
+
+    def test_pca_infinite_data(self):
+        """Check pca rejects data whose column sums are not finite."""
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import _cluster, pca
+
+message = (
+    "data contains infinite or NaN values, "
+    "or values so large that the sum of a column overflows"
+)
+for data in (
+    [[1.0, 2.0], [3.0, np.inf], [5.0, 6.0]],
+    [[1.0, 2.0, 3.0], [-np.inf, 5.0, 6.0]],
+    [[1.0], [np.inf]],
+    np.full((3, 2), 1e308),
+    np.full((2, 3), 1e308),
+):
+    try:
+        pca(data)
+    except ValueError as error:
+        assert str(error) == message, error
+    else:
+        raise AssertionError(f"no ValueError for {data}")
+# pca rejects NaN itself, but the private function did not
+data = np.array([[1.0, np.nan], [2.0, 3.0], [4.0, 5.0]])
+arrays = (np.empty(2), np.empty((3, 2)), np.empty((2, 2)), np.empty(2))
+try:
+    _cluster.pca(data, *arrays)
+except ValueError as error:
+    assert str(error) == message, error
+else:
+    raise AssertionError("no ValueError for NaN")
+print("OK")
+"""
+        )
+
+    def test_pca_overflow(self):
+        """Check pca fails cleanly if finite data overflow in the SVD."""
+        self.run_child(
+            """
+from Bio.Cluster import pca
+
+for data in (
+    [[1e308, 1.0], [-1e308, 2.0], [0.0, 3.0]],
+    [[1e308, 1.0, 3.0], [-1e308, 2.0, 5.0]],
+    [[1e308], [-1e308], [0.0]],
+):
+    try:
+        pca(data)
+    except RuntimeError as error:
+        assert str(error) == "Singular value decomposition failed to converge"
+    else:
+        raise AssertionError(f"no RuntimeError for {data}")
+print("OK")
+"""
+        )
+
+    def test_pca_short_eigenvalues(self):
+        """Check the private pca checks the size of its eigenvalues array."""
+        self.run_child(
+            """
+import numpy as np
+from Bio.Cluster import _cluster
+
+data = np.random.default_rng(0).random((200, 100))
+arrays = (np.empty(100), np.empty((200, 100)), np.empty((100, 100)))
+for size in (1, 99):
+    try:
+        _cluster.pca(data, *arrays, np.empty(size))
+    except RuntimeError as error:
+        expected = f"eigenvalues has inconsistent size {size} (expected 100)"
+        assert str(error) == expected, error
+    else:
+        raise AssertionError(f"no RuntimeError for size {size}")
+print("OK")
+"""
+        )
 
 
 if __name__ == "__main__":
