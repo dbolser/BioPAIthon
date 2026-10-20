@@ -230,15 +230,75 @@ def random_case(rng, lengths, algorithm=NW):
 def random_budgets(rng, nB, algorithm=NW):
     """Return a checkpoint and a block budget, from one cell or row to large."""
     # Gotoh keeps three scores and two bytes of trace bits a cell.  Local
-    # alignments carry five doubles at the start of a saved row (the
+    # alignments carry six doubles at the start of a saved row (the
     # LinearLocal struct).
     scores, trace_bytes = (3, 2) if algorithm in AFFINE else (1, 1)
-    carried = 5 if algorithm in LOCAL else 0
+    carried = 6 if algorithm in LOCAL else 0
     row = 8 * (carried + scores * (nB + 1))
     trace = trace_bytes * (nB + 1)
     checkpoint_bytes = rng.choice([1, row, rng.randint(1, 16 * row), 1 << 30])
     block_bytes = rng.choice([1, trace, rng.randint(1, 16 * trace), 1 << 30])
     return checkpoint_bytes, block_bytes
+
+
+def brute_force_sw(seqA, seqB, substitution, insertion, deletion):
+    """Return the score and coordinates of the optimal local alignments.
+
+    Enumerates every path, independently of the dynamic programming, for
+    tiny sequences: from any cell, by diagonal moves, insertions
+    (horizontal) and deletions (vertical), never into row 0 or column 0,
+    whose cells are start points only.  A local alignment ends with a
+    diagonal move, and every part of it before its end scores above 0 (no
+    zero-scoring lead-in).  The score is the highest of any, or 0; the
+    optimal alignments score it, and none of them extends a shorter one
+    ending with a diagonal move by a part scoring 0 (Waterman & Eggert).
+    Use scores that add up exactly in floating point.
+    """
+    nA = len(seqA)
+    nB = len(seqB)
+    found = []
+
+    def extend(start, i, j, moves, score, prefix):
+        # prefix: the highest score of a part ending with a diagonal move
+        for move in "DHV":
+            di = move != "H"
+            dj = move != "V"
+            if i + di > nA or j + dj > nB or i + di == 0 or j + dj == 0:
+                continue
+            if move == "D":
+                step = substitution(seqA[i], seqB[j])
+            else:
+                step = insertion if move == "H" else deletion
+            total = score + step
+            if move == "D":
+                found.append((total, prefix, start, moves + move))
+            if total > 0:
+                extend(
+                    start,
+                    i + di,
+                    j + dj,
+                    moves + move,
+                    total,
+                    max(prefix, total) if move == "D" else prefix,
+                )
+
+    for i in range(nA + 1):
+        for j in range(nB + 1):
+            extend((i, j), i, j, "", 0, -math.inf)
+    best = max([total for total, prefix, start, moves in found if total > 0] or [0])
+    paths = set()
+    for total, prefix, (i, j), moves in found:
+        if best > 0 and total == best and prefix < best:
+            points = [(i, j)]
+            for k, move in enumerate(moves):
+                i += move != "H"
+                j += move != "V"
+                if k > 0 and move == moves[k - 1]:
+                    points[-1] = (i, j)
+                else:
+                    points.append((i, j))
+            paths.add(tuple(zip(*points)))
+    return best, paths
 
 
 class TestDefaults(unittest.TestCase):
@@ -483,12 +543,11 @@ class TestDifferential(unittest.TestCase):
         length = count(expected)
         self.assertEqual(count(forced), length, message)
         if isinstance(length, int) and length <= 50:
-            # One more than len(), as the full matrix's Smith-Waterman
-            # PathGenerator can go on past it (see test_sw_upstream).
+            # One more than len(), to see that neither goes on past it.
             limit = length + 1
-            self.assertEqual(
-                coordinates(forced, limit), coordinates(expected, limit), message
-            )
+            paths = coordinates(expected, limit)
+            self.assertEqual(coordinates(forced, limit), paths, message)
+            self.assertEqual(len(paths), length, message)
         # The same after a reset (see test_gotoh_local_score_zero).
         forced.rewind()
         expected.rewind()
@@ -517,6 +576,56 @@ class TestDifferential(unittest.TestCase):
 
     def test_short_gotoh_local(self):
         self.run_cases(seed=2029, count=2000, lengths=(1, 40), algorithm=GOTOH_LOCAL)
+
+    def test_sw_brute_force(self):
+        # The full matrix's score, number of paths and paths against every
+        # optimal local alignment of tiny sequences, found by brute force,
+        # with negative, zero and positive gap scores; then the linear-space
+        # traceback against the full matrix.
+        rng = random.Random(2030)
+        values = [-2, -1, -0.5, 0, 0.5, 1]
+        for _ in range(1500):
+            alphabet = rng.choice(["AC", "ACG"])
+            seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            seqB = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            insertion = rng.choice(values)
+            deletion = rng.choice(values) if rng.random() < 0.3 else insertion
+            if rng.random() < 0.5:
+                match = rng.choice([1, 2, 0.5])
+                mismatch = rng.choice([-1, 0, -0.5])
+                aligner = sw_aligner(match_score=match, mismatch_score=mismatch)
+
+                def substitution(a, b, match=match, mismatch=mismatch):
+                    return match if a == b else mismatch
+
+            else:
+                matrix = substitution_matrices.Array(alphabet, dims=2)
+                matrix[:, :] = [
+                    [rng.choice(values) for _ in alphabet] for _ in alphabet
+                ]
+                aligner = sw_aligner(substitution_matrix=matrix)
+
+                def substitution(a, b, matrix=matrix):
+                    return matrix[a, b]
+
+            aligner.insertion_score = insertion
+            aligner.deletion_score = deletion
+            # As exact, as the scores are dyadic and the edges of ties
+            # further apart than epsilon.
+            aligner.epsilon = rng.choice([1e-6, 0.25])
+            message = f"{aligner} {seqA} {seqB}"
+            score, paths = brute_force_sw(seqA, seqB, substitution, insertion, deletion)
+            alignments = aligner.align(seqA, seqB)
+            self.assertEqual(alignments.score, score, message)
+            self.assertEqual(aligner.score(seqA, seqB), score, message)
+            self.assertEqual(len(alignments), len(paths), message)
+            found = [
+                tuple(map(tuple, coordinates))
+                for coordinates in coordinates(alignments, len(paths) + 1)
+            ]
+            self.assertEqual(len(found), len(paths), message)
+            self.assertEqual(set(found), paths, message)
+            self.check(aligner, (seqA, seqB, "+"), random_budgets(rng, len(seqB), SW))
 
     def run_long_cases(self, seed, count, algorithm):
         # Scores that are not dyadic fractions, so that rounding matters.
@@ -766,29 +875,52 @@ class TestDifferential(unittest.TestCase):
             self.assertFalse(forced._paths._materialized, message)
 
     def test_sw_upstream(self):
-        # With a positive gap score the full matrix's PathGenerator can fail
-        # after the first path, or yield more paths than len() counts.  The
-        # linear-space traceback gives that first path and the count, and
-        # then what the full matrix gives.  Both are upstream defects, also
-        # in Biopython 1.86 and 1.88, pinned here, not endorsed: a fix to the
-        # full matrix fails this test, and must keep linear_sw_count in step.
+        # Upstream defects of the full matrix, also in Biopython 1.86 and
+        # 1.88, that the linear-space traceback copied.  With a positive gap
+        # score the highest score could be that of a path ending in a gap,
+        # which no alignment ends in, and an end point found before it rose
+        # stayed one, so that the first path here scored 1, and the
+        # PathGenerator then failed on an end point left without a diagonal
+        # trace.  Now the paths are the optimal alignments, as brute force
+        # finds them, scoring the score.
         aligner = sw_aligner(gap_score=0.5)
+
+        def substitution(a, b):
+            return 1 if a == b else -1
+
         for seqA, seqB in (("AAA", "CAACC"), ("ACC", "CACAA")):
+            message = f"{seqA} {seqB}"
+            score, paths = brute_force_sw(seqA, seqB, substitution, 0.5, 0.5)
+            self.assertEqual(score, 2.5, message)
             expected = aligner.align(seqA, seqB)
-            first = expected[0].coordinates
-            with self.assertRaises(RuntimeError) as context:
-                expected[1]
-            error = str(context.exception)
-            self.assertEqual(
-                error, "Unexpected trace in PathGenerator_next_smithwaterman"
-            )
             forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
-            self.assertEqual(forced.score, expected.score)
-            self.assertEqual(len(forced), len(expected))
-            self.assertTrue(np.array_equal(forced[0].coordinates, first))
-            self.assertFalse(forced._paths._materialized)
-            with self.assertRaisesRegex(RuntimeError, error):
-                forced[1]
+            for alignments in (expected, forced):
+                self.assertEqual(alignments.score, score, message)
+                self.assertEqual(len(alignments), len(paths), message)
+                found = coordinates(alignments, len(paths) + 1)
+                found = [tuple(map(tuple, path)) for path in found]
+                self.assertEqual(len(found), len(paths), message)
+                self.assertEqual(set(found), paths, message)
+            self.assertEqual(coordinates(forced, 9), coordinates(expected, 9))
+            self.assertEqual(aligner.score(seqA, seqB), score, message)
+        # With an epsilon of the match score, the highest score rises by no
+        # more than epsilon at a time, and the end points found on the way
+        # stayed end points: the paths each scored 1 here (three of them
+        # for "CC"), and blocked the path scoring 2.
+        aligner = sw_aligner(epsilon=1)
+        for seqA, seqB in (("CC", "CC"), ("AC", "AC")):
+            message = f"{seqA} {seqB}"
+            expected = aligner.align(seqA, seqB)
+            forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+            for alignments in (expected, forced):
+                self.assertEqual(alignments.score, 2, message)
+                self.assertEqual(len(alignments), 1, message)
+                self.assertEqual(
+                    coordinates(alignments, 2), [[[0, 2], [0, 2]]], message
+                )
+        # The number of paths overflowed, but adding an overflowed count to
+        # a count that had not gave a wrong count, here of 1.  It yielded
+        # 10,000 distinct paths.
         matrix = substitution_matrices.Array("ACGT", dims=2)
         matrix[:, :] = [
             [1, -0.1, -1, -0.1],
@@ -800,15 +932,14 @@ class TestDifferential(unittest.TestCase):
         seqA = "ACGACCTAGTTCTGCGCGGCTGGGCCAACTAAAAAAGTTGAGGGAA"
         seqB = "CCGTAGAGTGCTTCATACGCAGTCGTACGAAAATGTCGCAGACTTAAAGTGCACACCTAT"
         expected = aligner.align(seqA, seqB)
-        self.assertEqual(len(expected), 1)
-        paths = list(itertools.islice(expected._paths, 100))
-        self.assertEqual(len(set(paths)), 100)
         forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
+        overflow = f"number of optimal alignments is larger than {sys.maxsize}"
+        self.assertEqual(count(expected), overflow)
+        self.assertEqual(count(forced), overflow)
         self.assertEqual(forced.score, expected.score)
-        self.assertEqual(len(forced), 1)
-        self.assertEqual(next(forced._paths), paths[0])
-        self.assertFalse(forced._paths._materialized)
-        self.assertEqual(list(itertools.islice(forced._paths, 99)), paths[1:])
+        paths = coordinates(expected, 100)
+        self.assertEqual(len(set(map(str, paths))), 100)
+        self.assertEqual(coordinates(forced, 100), paths)
 
     def test_interior_start(self):
         # A path can start at a start point inside the matrix, as the second
@@ -889,6 +1020,21 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(count(forced), count(expected))
             first = expected[0].coordinates
             self.assertTrue(np.array_equal(forced[0].coordinates, first))
+            self.assertFalse(forced._paths._materialized)
+        # Counts after an overflow, which a count that had not overflowed
+        # used to absorb (see test_count_past_overflow in
+        # test_pairwise_aligner): 26 by 26 gives the largest central
+        # Delannoy number below sys.maxsize, and 37 by 37 a wrong count.
+        aligner = nw_aligner(match_score=0, mismatch_score=0, gap_score=0)
+        overflow = f"number of optimal alignments is larger than {sys.maxsize}"
+        for n, alignments in (
+            (26, 8970232353223635949),
+            (27, overflow),
+            (37, overflow),
+        ):
+            forced = forced_align(aligner, "A" * n, "C" * n)
+            self.assertEqual(count(forced), alignments, n)
+            self.assertEqual(count(aligner.align("A" * n, "C" * n)), alignments, n)
             self.assertFalse(forced._paths._materialized)
 
     @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
