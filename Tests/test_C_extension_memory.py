@@ -79,30 +79,46 @@ class AlignmentExtensionTests(unittest.TestCase):
 
         The private test hook routes these short sequences to it.  len()
         counts in linear space, the first path comes from checkpointed rows,
-        the second from the full matrix.  The second aligner's substitution
-        matrix is copied.
+        the second from the full matrix.  The substitution matrices of the
+        second and fourth aligners are copied.  The last aligner allows no
+        gaps, so its first path stops short of the origin and comes from the
+        full matrix too.
         """
+        import math
+
         from Bio.Align import _pairwisealigner
         from Bio.Align import PairwiseAligner
         from Bio.Align import substitution_matrices
 
         matrix = substitution_matrices.load("NUC.4.4")
-        aligners = [PairwiseAligner(), PairwiseAligner(substitution_matrix=matrix)]
+        aligners = [
+            PairwiseAligner(),
+            PairwiseAligner(substitution_matrix=matrix),
+            PairwiseAligner(open_gap_score=-2, extend_gap_score=-1),
+            PairwiseAligner(scoring="blastn"),
+        ]
+        stopped = PairwiseAligner(open_gap_score=-math.inf, extend_gap_score=-1)
         target = "AGAACTTATCGCTTGACGTAAC"
         query = "AGAACTATCGCTGACGTTAAC"
 
+        def forced_align(aligner):
+            previous = _pairwisealigner._set_traceback_limits(-1, 64, 16)
+            try:
+                return aligner.align(target, query)
+            finally:
+                _pairwisealigner._set_traceback_limits(*previous)
+
         def align():
             for aligner in aligners:
-                previous = _pairwisealigner._set_traceback_limits(-1, 64, 16)
-                try:
-                    alignments = aligner.align(target, query)
-                finally:
-                    _pairwisealigner._set_traceback_limits(*previous)
+                alignments = forced_align(aligner)
                 len(alignments)
                 str(alignments[0])
                 str(alignments[1])
                 alignments.rewind()
                 str(alignments[0])
+            alignments = forced_align(stopped)
+            len(alignments)
+            next(alignments._paths)  # holds NULLs: not to be looked at
 
         assert_bounded_growth(self, align)
 

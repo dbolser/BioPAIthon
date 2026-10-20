@@ -76,6 +76,24 @@ their sequences in one place, so they accept the same inputs, and ``align()``
 given a strand other than ``"+"`` or ``"-"`` now raises the same error as
 ``score()`` always has. ``Alignment.counts()`` still maps such lists twice.
 
+``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
+global alignment with affine gap scores (the Gotoh algorithm, which the
+``blastn`` and ``blastp`` scoring schemes use) when that matrix would take
+more than 512 MiB, about 16 kb against 16 kb. As BioPAIthon 1.88 already did
+for linear gap scores, it keeps some rows of scores and recomputes the rest
+as needed, so the score, ``len(alignments)`` (and so ``repr()`` and
+``bool()``) and ``alignments[0]`` use memory in proportion to the sequence
+lengths. Aligning two 20 kb sequences with ``scoring="blastn"`` took 797 MB
+and now takes 76 MB; two 30 kb sequences took 1.75 GB and now take 76 MB. The
+score, the number of alignments, and the alignments in their order are
+exactly those of the full matrix. The price is time: ``alignments[0]`` takes
+about 1.5 times as long as before for sequences of similar length, and up to
+about 4 times as long for a short target against a long query; ``len()``
+takes about twice as long. Going past the first alignment still builds the
+full matrix, so for a huge alignment a ``MemoryError`` now comes from
+``alignments[1]`` rather than from ``align()``. Local alignments, gap score
+functions and FOGSAA still build the full matrix.
+
 ``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
 version once ``Bio`` has been imported, instead of raising
 ``PackageNotFoundError``. The distribution is still called ``biopaithon``;
