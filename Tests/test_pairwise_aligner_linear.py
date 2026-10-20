@@ -60,6 +60,7 @@ NW = "Needleman-Wunsch"
 GOTOH = "Gotoh global alignment algorithm"
 SW = "Smith-Waterman"
 GOTOH_LOCAL = "Gotoh local alignment algorithm"
+WSB_LOCAL = "Waterman-Smith-Beyer local alignment algorithm"
 LOCAL = (SW, GOTOH_LOCAL)
 AFFINE = (GOTOH, GOTOH_LOCAL)
 
@@ -452,6 +453,129 @@ def tied_gotoh_local(
         for matrix in trace:
             if matrix != "M" or (i, j) not in ends:
                 trace_back(i, j, matrix, move + path)
+
+    for i, j in ends:
+        trace_back(i, j, "M", "")
+    return best, paths
+
+
+def brute_force_wsb_local(seqA, seqB, substitution, insertion, deletion):
+    """Return the score and coordinates of the optimal WSB local alignments.
+
+    As brute_force_gotoh_local, with gap score functions of the length of
+    the gap (insertion for gaps in A, deletion for gaps in B): a gap is one
+    block, scoring the function of its length, and follows a diagonal move
+    or a gap in the other sequence.  The parts of a path before its end,
+    ending with a diagonal move or a whole gap, score above 0.
+    """
+    nA = len(seqA)
+    nB = len(seqB)
+    found = []
+
+    def extend(start, i, j, moves, score, prefix):
+        if i < nA and j < nB:
+            total = score + substitution(seqA[i], seqB[j])
+            found.append((total, prefix, start, moves + "D"))
+            if total > 0:
+                extend(start, i + 1, j + 1, moves + "D", total, max(prefix, total))
+        for move, function in (("V", deletion), ("H", insertion)):
+            if moves.endswith(move):
+                continue
+            for k in range(1, max(nA, nB)):
+                ni = i + k * (move == "V")
+                nj = j + k * (move == "H")
+                # no gap into row 0, column 0, the last row or the last column
+                if not (0 < ni < nA and 0 < nj < nB):
+                    break
+                total = score + function(k)
+                if total > 0:
+                    extend(start, ni, nj, moves + move * k, total, prefix)
+
+    for i in range(nA + 1):
+        for j in range(nB + 1):
+            extend((i, j), i, j, "", 0, -math.inf)
+    best = max([total for total, prefix, start, moves in found if total > 0] or [0])
+    paths = {
+        path_coordinates(start, moves)
+        for total, prefix, start, moves in found
+        if best > 0 and total == best and prefix < best
+    }
+    return best, paths
+
+
+def tied_wsb_local(seqA, seqB, substitution, insertion, deletion, epsilon):
+    """Return the score and coordinates of WSB local alignments with ties.
+
+    As tied_gotoh_local, with gap score functions of the length of the gap:
+    a score in Ix (or Iy) is that of the first of M and Iy (or Ix) of each
+    gap length in turn that no other beats by more than epsilon.  For a
+    positive epsilon below the steps between scores, it agrees with
+    brute_force_wsb_local.
+    """
+    nA = len(seqA)
+    nB = len(seqB)
+    scores = {}
+    traces = {}
+
+    def select(*candidates):
+        (score, source), *others = candidates
+        trace = {source}
+        for value, source in others:
+            if value > score + epsilon:
+                score, trace = value, {source}
+            elif value > score - epsilon:
+                trace.add(source)
+        return score, trace
+
+    for i in range(nA + 1):
+        for j in range(nB + 1):
+            if i == 0 or j == 0:
+                scores[i, j] = {"M": 0, "Ix": -math.inf, "Iy": -math.inf}
+                traces[i, j] = {"M": None}
+                continue
+            last = scores[i - 1, j - 1]
+            score, trace = select(*((last[m], (m, 1)) for m in ("M", "Ix", "Iy")))
+            score += substitution(seqA[i - 1], seqB[j - 1])
+            if score < epsilon:
+                score, trace = 0, None  # a start point
+            scores[i, j] = {"M": score, "Ix": -math.inf, "Iy": -math.inf}
+            traces[i, j] = {"M": trace, "Ix": set(), "Iy": set()}
+            if i == nA or j == nB:
+                continue
+            for gap, other, length, function in (
+                ("Ix", "Iy", i, deletion),
+                ("Iy", "Ix", j, insertion),
+            ):
+                candidates = []
+                for k in range(1, length + 1):
+                    cell = (i - k, j) if gap == "Ix" else (i, j - k)
+                    for m in ("M", other):
+                        candidates.append((scores[cell][m] + function(k), (m, k)))
+                score, trace = select(*candidates)
+                if score >= epsilon:
+                    scores[i, j][gap] = score
+                    traces[i, j][gap] = trace
+    starts = [cell for cell in traces if traces[cell]["M"] is None]
+    best = max([s["M"] for cell, s in scores.items() if cell not in starts] or [0])
+    ends = {
+        cell
+        for cell, s in scores.items()
+        if cell not in starts and s["M"] > best - epsilon
+    }
+    moves = {"M": "D", "Ix": "V", "Iy": "H"}
+    paths = set()
+
+    def trace_back(i, j, matrix, path):
+        trace = traces[i, j][matrix]
+        if trace is None:
+            paths.add(path_coordinates((i, j), path))
+            return
+        move = moves[matrix]
+        for source, k in trace:
+            ni = i - k * (move != "H")
+            nj = j - k * (move != "V")
+            if source != "M" or (ni, nj) not in ends:
+                trace_back(ni, nj, source, move * k + path)
 
     for i, j in ends:
         trace_back(i, j, "M", "")
@@ -1342,6 +1466,95 @@ class TestDifferential(unittest.TestCase):
                 self.assertLessEqual(1100000, start)
                 self.assertLessEqual(end, 1101000)
                 self.assertGreater(end - start, 900)
+
+
+class TestWatermanSmithBeyerLocal(unittest.TestCase):
+    """The Waterman-Smith-Beyer local full matrix against brute force.
+
+    It has no linear-space traceback, but shares the brute force here.
+    """
+
+    def test_brute_force(self):
+        # As test_gotoh_local_brute_force, with gap score functions of the
+        # length of the gap, affine or not.
+        rng = random.Random(2032)
+        values = [-2, -1, -0.5, 0, 0.5, 1]
+        # local mode rejects positive gap scores
+        gap_values = [value for value in values if value <= 0]
+        for _ in range(1500):
+            alphabet = rng.choice(["AC", "ACG"])
+            seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            seqB = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            if rng.random() < 0.5:
+                match = rng.choice([1, 2, 0.5])
+                mismatch = rng.choice([-1, 0, -0.5])
+                scores = {"match_score": match, "mismatch_score": mismatch}
+
+                def substitution(a, b, match=match, mismatch=mismatch):
+                    return match if a == b else mismatch
+
+            else:
+                matrix = substitution_matrices.Array(alphabet, dims=2)
+                matrix[:, :] = [
+                    [rng.choice(values) for _ in alphabet] for _ in alphabet
+                ]
+                scores = {"substitution_matrix": matrix}
+
+                def substitution(a, b, matrix=matrix):
+                    return matrix[a, b]
+
+            functions = []
+            for _ in range(2):
+                if rng.random() < 0.5:
+                    opening, extension = rng.choice(gap_values), rng.choice(gap_values)
+                    table = [opening + extension * k for k in range(5)]
+                else:
+                    table = [rng.choice(gap_values) for _ in range(5)]
+                functions.append(table)
+            if rng.random() < 0.7:
+                functions[1] = functions[0]
+            insertion_table, deletion_table = functions
+
+            def insertion(n, table=insertion_table):
+                return table[n - 1]
+
+            def deletion(n, table=deletion_table):
+                return table[n - 1]
+
+            aligner = Align.PairwiseAligner(
+                mode="local",
+                insertion_score=lambda i, n: insertion(n),
+                deletion_score=lambda i, n: deletion(n),
+                **scores,
+            )
+            self.assertEqual(aligner.algorithm, WSB_LOCAL)
+            # The scores are dyadic, so they add up exactly.
+            aligner.epsilon = rng.choice([1e-6, 0.25, 0.5, 1, 2, 5])
+            message = f"{aligner} {seqA} {seqB} {insertion_table} {deletion_table}"
+            best, paths = brute_force_wsb_local(
+                seqA, seqB, substitution, insertion, deletion
+            )
+            self.assertEqual(aligner.score(seqA, seqB), best, message)
+            tied = tied_wsb_local(
+                seqA, seqB, substitution, insertion, deletion, aligner.epsilon
+            )
+            if aligner.epsilon < 0.5:
+                self.assertEqual(tied, (best, paths), message)
+            best, paths = tied
+            alignments = aligner.align(seqA, seqB)
+            self.assertEqual(alignments.score, best, message)
+            self.assertEqual(len(alignments), len(paths), message)
+            found = [
+                tuple(map(tuple, coordinates))
+                for coordinates in coordinates(alignments, len(paths) + 1)
+            ]
+            self.assertEqual(len(found), len(paths), message)
+            self.assertEqual(set(found), paths, message)
+            indexed = [
+                tuple(map(tuple, alignments[k].coordinates.tolist()))
+                for k in range(len(paths))
+            ]
+            self.assertEqual(indexed, found, message)
 
 
 class TestSnapshot(unittest.TestCase):

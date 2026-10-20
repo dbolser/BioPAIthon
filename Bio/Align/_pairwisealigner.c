@@ -4311,13 +4311,14 @@ Aligner_lock_getset(void)
  * move, scoring end, scores less than epsilon below the highest such score
  * so far.  A local alignment ends with a diagonal move, so the score of the
  * alignment is the highest score of such a path; with a positive gap score,
- * a path ending in a gap may score higher.  For Gotoh, end is the score of
- * the cell in M.  Where end is more than epsilon above the highest score so
- * far, a rise, unmark every cell since the previous rise, or since the
- * origin.  So the end points are the cells marked from the last rise on.
- * If the highest score rose by epsilon or less since then, some of them may
- * score epsilon or more below it, so keep the lowest of their scores, low,
- * for SMITHWATERMAN_ALIGN and GOTOH_LOCAL_ALIGN to check. */
+ * a path ending in a gap may score higher.  For Gotoh and
+ * Waterman-Smith-Beyer, end is the score of the cell in M.  Where end is
+ * more than epsilon above the highest score so far, a rise, unmark every
+ * cell since the previous rise, or since the origin.  So the end points
+ * are the cells marked from the last rise on.  If the highest score rose by
+ * epsilon or less since then, some of them may score epsilon or more below
+ * it, so keep the lowest of their scores, low, for SMITHWATERMAN_ALIGN,
+ * GOTOH_LOCAL_ALIGN and WATERMANSMITHBEYER_LOCAL_ALIGN to check. */
 #define SELECT_TRACE_LOCAL_MARK(end) \
     if (end >= epsilon && end > maximum - epsilon) { \
         if (end > maximum + epsilon) { \
@@ -4506,16 +4507,8 @@ Aligner_lock_getset(void)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    else if (score > maximum - epsilon) { \
-        if (score > maximum + epsilon) { \
-            maximum = score; \
-            for ( ; im < i; im++, jm = 0) \
-                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            im = i; \
-            jm = j; \
-        } \
-        trace |= ENDPOINT; \
+    else { \
+        SELECT_TRACE_LOCAL_MARK(score) \
     } \
     M_row[i][j] = score; \
     M[i][j].trace = trace;
@@ -6263,7 +6256,6 @@ exit: \
                 nm = 0; \
                 ng = 0; \
             } \
-            else if (score > maximum) maximum = score; \
             gapM[nm] = 0; \
             gapXY[ng] = 0; \
             Ix_row[i][j] = score; \
@@ -6297,7 +6289,6 @@ exit: \
                 nm = 0; \
                 ng = 0; \
             } \
-            else if (score > maximum) maximum = score; \
             gapM = PyMem_Realloc(gapM, (nm+1)*sizeof(int)); \
             if (!gapM) goto exit; \
             gaps[i][j].MIy = gapM; \
@@ -6308,6 +6299,22 @@ exit: \
             gapXY[ng] = 0; \
             Iy_row[i][j] = score; \
             M[i][j].path = 0; \
+        } \
+    } \
+    /* Where an end point scores epsilon or more below the highest score, \
+     * mark the end points again, starting from the highest score, as \
+     * SMITHWATERMAN_ALIGN fills its matrix again.  M_row keeps every \
+     * score, so only the marks are redone, and the gap score functions \
+     * are not called again. */ \
+    if (epsilon > 0 && low <= maximum - epsilon && low < maximum) { \
+        im = 0; \
+        jm = 0; \
+        for (i = 1; i <= nA; i++) { \
+            for (j = 1; j <= nB; j++) { \
+                trace = M[i][j].trace & ~ENDPOINT; \
+                SELECT_TRACE_LOCAL_MARK(M_row[i][j]) \
+                M[i][j].trace = trace; \
+            } \
         } \
     } \
     for (i = 0; i <= nA; i++) PyMem_Free(M_row[i]); \
@@ -6386,9 +6393,8 @@ exit: \
         } \
     } \
     /* traceback \
-     * maximum rises only by more than epsilon, so it can stay 0 while \
-     * cells scoring within epsilon of it are end points.  Start the \
-     * generator on them, as len() counts them; with none, it finds none. */ \
+     * Start the generator on the end points, as len() counts them; with \
+     * none, it finds none. */ \
     M[0][0].path = 0; \
     return Py_BuildValue("fN", maximum, paths); \
 
@@ -7562,9 +7568,10 @@ Aligner_watermansmithbeyer_local_align_compare(Aligner* self,
     const double match = self->match;
     const double mismatch = self->mismatch;
     const int wildcard = self->wildcard;
-    int im = nA;
-    int jm = nB;
+    int im = 0;
+    int jm = 0;
     double maximum = 0;
+    double low = DBL_MAX;
     WATERMANSMITHBEYER_ENTER_ALIGN(Local);
     switch (strand) {
         case '+': {
@@ -7587,9 +7594,10 @@ Aligner_watermansmithbeyer_local_align_matrix(Aligner* self,
 {
     const Py_ssize_t n = self->substitution_matrix.shape[0];
     const double* substitution_matrix = self->substitution_matrix.buf;
-    int im = nA;
-    int jm = nB;
+    int im = 0;
+    int jm = 0;
     double maximum = 0;
+    double low = DBL_MAX;
     WATERMANSMITHBEYER_ENTER_ALIGN(Local);
     switch (strand) {
         case '+': {

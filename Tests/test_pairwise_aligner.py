@@ -1670,8 +1670,8 @@ AlignmentCounts object with
         paths = [alignment.coordinates.tolist() for alignment in alignments]
         self.assertEqual(paths, [[[1, 2], [1, 2]], [[2, 3], [0, 1]]])
 
-    def test_waterman_smith_beyer_local_score_zero(self):
-        # As test_gotoh_local_score_zero, with gap score functions.
+    def test_waterman_smith_beyer_local_score_epsilon(self):
+        # As test_gotoh_local_score_epsilon, with gap score functions.
         def gap_score(i, n):
             return -2 - 0.5 * n
 
@@ -1685,13 +1685,15 @@ AlignmentCounts object with
             aligner.algorithm, "Waterman-Smith-Beyer local alignment algorithm"
         )
         alignments = aligner.align("A", "A")
-        self.assertEqual(alignments.score, 0)
+        self.assertEqual(alignments.score, 1)
+        self.assertEqual(aligner.score("A", "A"), 1)
         self.assertEqual(len(alignments), 1)
         self.assertEqual(alignments[0].coordinates.tolist(), [[0, 1], [0, 1]])
         with self.assertRaises(IndexError):
             alignments[1]
         alignments = aligner.align("GAT", "TA")
-        self.assertEqual(alignments.score, 0)
+        self.assertEqual(alignments.score, 1)
+        self.assertEqual(aligner.score("GAT", "TA"), 1)
         self.assertEqual(len(alignments), 2)
         self.assertEqual(alignments[0].coordinates.tolist(), [[1, 2], [1, 2]])
         self.assertEqual(alignments[1].coordinates.tolist(), [[2, 3], [0, 1]])
