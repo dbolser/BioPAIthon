@@ -4271,14 +4271,17 @@ Aligner_lock_getset(void)
     if (score < 0) score = 0; \
     else if (score > maximum) maximum = score;
 
-#define SELECT_SCORE_LOCAL3(score1, score2, score3) \
+/* A gap of GOTOH_LOCAL_SCORE.  A local alignment ends with a diagonal
+ * move into M, so a gap does not raise the highest score.  Nor does a
+ * path go on from a gap scoring 0 or less: it would extend a part
+ * scoring 0 or less, as GOTOH_LOCAL_ALIGN does not. */
+#define SELECT_SCORE_GOTOH_LOCAL_GAP(score1, score2, score3) \
     score = score1; \
     temp = score2; \
     if (temp > score) score = temp; \
     temp = score3; \
     if (temp > score) score = temp; \
-    if (score < 0) score = 0; \
-    else if (score > maximum) maximum = score;
+    if (score <= 0) score = -DBL_MAX;
 
 #define SELECT_SCORE_LOCAL1(score1) \
     score = score1; \
@@ -4308,13 +4311,14 @@ Aligner_lock_getset(void)
  * move, scoring end, scores less than epsilon below the highest such score
  * so far.  A local alignment ends with a diagonal move, so the score of the
  * alignment is the highest score of such a path; with a positive gap score,
- * a path ending in a gap may score higher.  Where end is more than epsilon
- * above the highest score so far, a rise, unmark every cell since the
- * previous rise, or since the origin.  So the end points are the cells
- * marked from the last rise on.  If the highest score rose by epsilon or
- * less since then, some of them may score epsilon or more below it, so keep
- * the lowest of their scores, low, for SMITHWATERMAN_ALIGN to check. */
-#define SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
+ * a path ending in a gap may score higher.  For Gotoh, end is the score of
+ * the cell in M.  Where end is more than epsilon above the highest score so
+ * far, a rise, unmark every cell since the previous rise, or since the
+ * origin.  So the end points are the cells marked from the last rise on.
+ * If the highest score rose by epsilon or less since then, some of them may
+ * score epsilon or more below it, so keep the lowest of their scores, low,
+ * for SMITHWATERMAN_ALIGN and GOTOH_LOCAL_ALIGN to check. */
+#define SELECT_TRACE_LOCAL_MARK(end) \
     if (end >= epsilon && end > maximum - epsilon) { \
         if (end > maximum + epsilon) { \
             for ( ; im < i; im++, jm = 0) \
@@ -4349,7 +4353,7 @@ Aligner_lock_getset(void)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
+    SELECT_TRACE_LOCAL_MARK(end) \
     M[i][j].trace = trace; \
     temp = row[j]; \
     row[j] = score;
@@ -4361,7 +4365,7 @@ Aligner_lock_getset(void)
     if (score < epsilon) { \
         score = 0; \
     } \
-    SELECT_TRACE_SMITH_WATERMAN_MARK(end) \
+    SELECT_TRACE_LOCAL_MARK(end) \
     M[i][j].trace = trace; \
     temp = row[j]; \
     row[j] = score
@@ -4418,16 +4422,8 @@ Aligner_lock_getset(void)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    else if (score > maximum - epsilon) { \
-        if (score > maximum + epsilon) { \
-            maximum = score; \
-            for ( ; im < i; im++, jm = 0) \
-                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            im = i; \
-            jm = j; \
-        } \
-        trace |= ENDPOINT; \
+    else { \
+        SELECT_TRACE_LOCAL_MARK(score) \
     } \
     M[i][j].trace = trace;
 
@@ -4888,7 +4884,7 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
 
 
 /* The score is the highest of a path ending with a diagonal move, end, as
- * a local alignment does (see SELECT_TRACE_SMITH_WATERMAN_MARK). */
+ * a local alignment does (see SELECT_TRACE_LOCAL_MARK). */
 #define SMITHWATERMAN_SCORE(align_score) \
     int i; \
     int j; \
@@ -5380,14 +5376,14 @@ exit: \
                                            (align_score)); \
             M_temp = M_row[j]; \
             M_row[j] = score; \
-            SELECT_SCORE_LOCAL3(M_temp + gap_open_B, \
-                                Ix_row[j] + gap_extend_B, \
-                                Iy_row[j] + gap_open_B); \
+            SELECT_SCORE_GOTOH_LOCAL_GAP(M_temp + gap_open_B, \
+                                         Ix_row[j] + gap_extend_B, \
+                                         Iy_row[j] + gap_open_B); \
             Ix_temp = Ix_row[j]; \
             Ix_row[j] = score; \
-            SELECT_SCORE_LOCAL3(M_row[j-1] + gap_open_A, \
-                                Ix_row[j-1] + gap_open_A, \
-                                Iy_row[j-1] + gap_extend_A); \
+            SELECT_SCORE_GOTOH_LOCAL_GAP(M_row[j-1] + gap_open_A, \
+                                         Ix_row[j-1] + gap_open_A, \
+                                         Iy_row[j-1] + gap_extend_A); \
             Iy_temp = Iy_row[j]; \
             Iy_row[j] = score; \
         } \
@@ -5686,10 +5682,11 @@ exit: \
 #define GOTOH_LOCAL_ALIGN(align_score) \
     int i; \
     int j; \
-    int im = nA; \
-    int jm = nB; \
+    int im = 0; \
+    int jm = 0; \
     int kA; \
     int kB; \
+    int pass; \
     const double gap_open_A = self->open_internal_insertion_score; \
     const double gap_open_B = self->open_internal_deletion_score; \
     const double gap_extend_A = self->extend_internal_insertion_score; \
@@ -5708,6 +5705,7 @@ exit: \
     double Ix_temp; \
     double Iy_temp; \
     double maximum = 0.0; \
+    double low = DBL_MAX; \
     PathGenerator* paths; \
  \
     /* Gotoh algorithm with three states */ \
@@ -5721,80 +5719,91 @@ exit: \
     if (!Ix_row) goto exit; \
     Iy_row = PyMem_Malloc((nB+1)*sizeof(double)); \
     if (!Iy_row) goto exit; \
-    PAIRWISE_NOGIL_BEGIN \
-    M_row[0] = 0; \
-    Ix_row[0] = -DBL_MAX; \
-    Iy_row[0] = -DBL_MAX; \
-    for (j = 1; j <= nB; j++) { \
-        M_row[j] = 0; \
-        Ix_row[j] = -DBL_MAX; \
-        Iy_row[j] = -DBL_MAX; \
-    } \
-    for (i = 1; i < nA; i++) { \
-        PAIRWISE_NOGIL_CHECK(i) \
-        M_temp = M_row[0]; \
-        Ix_temp = Ix_row[0]; \
-        Iy_temp = Iy_row[0]; \
+    for (pass = 0; ; pass++) { \
+        PAIRWISE_NOGIL_BEGIN \
         M_row[0] = 0; \
         Ix_row[0] = -DBL_MAX; \
         Iy_row[0] = -DBL_MAX; \
-        kA = sA[i-1]; \
+        for (j = 1; j <= nB; j++) { \
+            M_row[j] = 0; \
+            Ix_row[j] = -DBL_MAX; \
+            Iy_row[j] = -DBL_MAX; \
+        } \
+        for (i = 1; i < nA; i++) { \
+            PAIRWISE_NOGIL_CHECK(i) \
+            M_temp = M_row[0]; \
+            Ix_temp = Ix_row[0]; \
+            Iy_temp = Iy_row[0]; \
+            M_row[0] = 0; \
+            Ix_row[0] = -DBL_MAX; \
+            Iy_row[0] = -DBL_MAX; \
+            kA = sA[i-1]; \
+            for (j = 1; j < nB; j++) { \
+                kB = sB[j-1]; \
+                SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+                M_temp = M_row[j]; \
+                M_row[j] = score; \
+                SELECT_TRACE_GOTOH_LOCAL_GAP(Ix, \
+                                         M_temp + gap_open_B, \
+                                         Ix_row[j] + gap_extend_B, \
+                                         Iy_row[j] + gap_open_B); \
+                Ix_temp = Ix_row[j]; \
+                Ix_row[j] = score; \
+                SELECT_TRACE_GOTOH_LOCAL_GAP(Iy, \
+                                         M_row[j-1] + gap_open_A, \
+                                         Ix_row[j-1] + gap_open_A, \
+                                         Iy_row[j-1] + gap_extend_A); \
+                Iy_temp = Iy_row[j]; \
+                Iy_row[j] = score; \
+            } \
+            kB = sB[nB-1]; \
+            SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+            M_temp = M_row[j]; \
+            M_row[j] = score; \
+            Ix_temp = Ix_row[nB]; \
+            Ix_row[nB] = 0; \
+            gaps[i][nB].Ix = 0; \
+            Iy_temp = Iy_row[nB]; \
+            Iy_row[nB] = 0; \
+            gaps[i][nB].Iy = 0; \
+        } \
+        M_temp = M_row[0]; \
+        M_row[0] = 0; \
+        M[nA][0].trace = 0; \
+        Ix_temp = Ix_row[0]; \
+        Ix_row[0] = -DBL_MAX; \
+        gaps[nA][0].Ix = 0; \
+        gaps[nA][0].Iy = 0; \
+        Iy_temp = Iy_row[0]; \
+        Iy_row[0] = -DBL_MAX; \
+        kA = sA[nA-1]; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
             SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
             M_temp = M_row[j]; \
             M_row[j] = score; \
-            SELECT_TRACE_GOTOH_LOCAL_GAP(Ix, \
-                                     M_temp + gap_open_B, \
-                                     Ix_row[j] + gap_extend_B, \
-                                     Iy_row[j] + gap_open_B); \
             Ix_temp = Ix_row[j]; \
-            Ix_row[j] = score; \
-            SELECT_TRACE_GOTOH_LOCAL_GAP(Iy, \
-                                     M_row[j-1] + gap_open_A, \
-                                     Ix_row[j-1] + gap_open_A, \
-                                     Iy_row[j-1] + gap_extend_A); \
+            Ix_row[j] = 0; \
+            gaps[nA][j].Ix = 0; \
             Iy_temp = Iy_row[j]; \
-            Iy_row[j] = score; \
+            Iy_row[j] = 0; \
+            gaps[nA][j].Iy = 0; \
         } \
         kB = sB[nB-1]; \
         SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
-        M_temp = M_row[j]; \
-        M_row[j] = score; \
-        Ix_temp = Ix_row[nB]; \
-        Ix_row[nB] = 0; \
-        gaps[i][nB].Ix = 0; \
-        Iy_temp = Iy_row[nB]; \
-        Iy_row[nB] = 0; \
-        gaps[i][nB].Iy = 0; \
+        gaps[nA][nB].Ix = 0; \
+        gaps[nA][nB].Iy = 0; \
+        PAIRWISE_NOGIL_END \
+        if (interrupted) break; \
+        /* Where an end point scores epsilon or more below the highest \
+         * score, fill the matrix again, starting from the highest score, \
+         * as SMITHWATERMAN_ALIGN does. */ \
+        if (pass > 0 || !(epsilon > 0 && low <= maximum - epsilon \
+                                      && low < maximum)) break; \
+        low = DBL_MAX; \
+        im = 0; \
+        jm = 0; \
     } \
-    M_temp = M_row[0]; \
-    M_row[0] = 0; \
-    M[nA][0].trace = 0; \
-    Ix_temp = Ix_row[0]; \
-    Ix_row[0] = -DBL_MAX; \
-    gaps[nA][0].Ix = 0; \
-    gaps[nA][0].Iy = 0; \
-    Iy_temp = Iy_row[0]; \
-    Iy_row[0] = -DBL_MAX; \
-    kA = sA[nA-1]; \
-    for (j = 1; j < nB; j++) { \
-        kB = sB[j-1]; \
-        SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
-        M_temp = M_row[j]; \
-        M_row[j] = score; \
-        Ix_temp = Ix_row[j]; \
-        Ix_row[j] = 0; \
-        gaps[nA][j].Ix = 0; \
-        Iy_temp = Iy_row[j]; \
-        Iy_row[j] = 0; \
-        gaps[nA][j].Iy = 0; \
-    } \
-    kB = sB[nB-1]; \
-    SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
-    gaps[nA][nB].Ix = 0; \
-    gaps[nA][nB].Iy = 0; \
-    PAIRWISE_NOGIL_END \
 \
     PyMem_Free(M_row); \
     PyMem_Free(Ix_row); \
@@ -5874,9 +5883,8 @@ exit: \
     } \
 \
     /* traceback \
-     * maximum rises only by more than epsilon, so it can stay 0 while \
-     * cells scoring within epsilon of it are end points.  Start the \
-     * generator on them, as len() counts them; with none, it finds none. */ \
+     * Start the generator on the end points, as len() counts them; with \
+     * none, it finds none. */ \
     M[0][0].path = 0; \
     return Py_BuildValue("fN", maximum, paths); \
 \

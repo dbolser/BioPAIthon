@@ -98,15 +98,13 @@ typedef struct {
  * the score of a path ending there with a diagonal move, and of the
  * highest such path; for Gotoh, of the cell in M.
  * Where the score is more than epsilon above, a rise, they unmark every
- * cell from the previous rise on; Smith-Waterman's first rise unmarks
- * every cell before it.  So the end points are the cells marked from the
- * last rise on, and for Gotoh also those marked before the first rise.
+ * cell from the previous rise on, and the first rise every cell before
+ * it.  So the end points are the cells marked from the last rise on.
  * Cells are (i, j), compared in row-major order; i = 0 is none. */
 typedef struct {
-    double maximum;      /* the highest score so far; for Gotoh, the score
-                          * of the last rise */
-    double low;          /* Smith-Waterman: the lowest score of a cell
-                          * marked from the last rise on, or DBL_MAX */
+    double maximum;      /* the highest score so far */
+    double low;          /* the lowest score of a cell marked from the
+                          * last rise on, or DBL_MAX */
     Py_ssize_t total;    /* for len(), the paths ending in the cells so far */
     int first[2];        /* the first marked cell */
     int rise[2];         /* the first rise */
@@ -142,9 +140,9 @@ struct LinearPaths {
     int end_i;           /* the cell the first path ends in */
     int end_j;
     LinearLocal local;   /* local alignments: as the forward pass left it */
-    double maximum;      /* Smith-Waterman: the highest score each pass
+    double maximum;      /* local alignments: the highest score each pass
                           * starts from: 0, or the score once a second
-                          * forward pass is needed (see linear_sw_score) */
+                          * forward pass is needed (see linear_local_score) */
     bool again;          /* the kernel's score asks for another forward
                           * pass */
     LinearPlan plan;
@@ -907,9 +905,9 @@ linear_before(int i, int j, const int* cell)
     return i < cell[0] || (i == cell[0] && j < cell[1]);
 }
 
-/* SELECT_TRACE_SMITH_WATERMAN_MARK.  Where it unmarks the cells since
+/* SELECT_TRACE_LOCAL_MARK.  Where it unmarks the cells since
  * the previous rise, this records the rise instead (see LinearLocal). */
-#define LINEAR_SW_MARK(end) \
+#define LINEAR_LOCAL_MARK(end) \
     if (end >= epsilon && end > maximum - epsilon) { \
         if (end > maximum + epsilon) { \
             if (!local.rise[0]) { \
@@ -953,7 +951,7 @@ linear_before(int i, int j, const int* cell)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    LINEAR_SW_MARK(end) \
+    LINEAR_LOCAL_MARK(end) \
     tr[j] = (unsigned char)trace; \
     temp = row[j]; \
     row[j] = score;
@@ -966,7 +964,7 @@ linear_before(int i, int j, const int* cell)
     if (score < epsilon) { \
         score = 0; \
     } \
-    LINEAR_SW_MARK(end) \
+    LINEAR_LOCAL_MARK(end) \
     tr[j] = (unsigned char)trace; \
     temp = row[j]; \
     row[j] = score;
@@ -1105,32 +1103,12 @@ linear_sw_start(const LinearPaths* lp, double* saved, Py_ssize_t* counts)
  * highest, and the end of the first path, with the walker's trace end
  * there.  PathGenerator_next_smithwaterman and
  * PathGenerator_next_gotoh_local end it at the first end point in
- * row-major order: the first marked cell if it comes before the first
- * rise, else the last rise (see LinearLocal).  With no marked cell there
- * are no paths. */
-static double
-linear_local_score(LinearPaths* self, const double* saved, int end)
-{
-    LinearLocal* const local = &self->local;
-    memcpy(local, saved, sizeof(LinearLocal));
-    self->end = 0;
-    if (local->first[0]) {
-        const bool unmarked = local->first[0] == local->rise[0]
-                           && local->first[1] == local->rise[1];
-        const int* const cell = unmarked ? local->last : local->first;
-        self->end = end;
-        self->end_i = cell[0];
-        self->end_j = cell[1];
-    }
-    return local->maximum;
-}
-
-/* The score, and the end of the first path, as linear_local_score finds
- * them, but as Smith-Waterman's first rise unmarks the cells before it,
- * the first path ends at the last rise if there is one.  Where a cell
- * marked from then on scores epsilon or more below the score,
- * SMITHWATERMAN_ALIGN fills the matrix again from the score, and so this
- * asks for another forward pass from it.
+ * row-major order: as the first rise unmarks the cells before it, that is
+ * the last rise if there is one, else the first marked cell (see
+ * LinearLocal).  With no marked cell there are no paths.  Where a cell
+ * marked from then on scores epsilon or more below the score, the full
+ * matrix is filled again from the score, and so this asks for another
+ * forward pass from it.
  *
  * Every cell has a trace, to cells before it in row-major order, and no
  * cell before the first end point is one.  So SMITHWATERMAN_ALIGN removes
@@ -1139,7 +1117,7 @@ linear_local_score(LinearPaths* self, const double* saved, int end)
  * 0, so with a highest score of 0, where the full matrix's generator has
  * no paths, there are none. */
 static double
-linear_sw_score(LinearPaths* self, const double* saved)
+linear_local_score(LinearPaths* self, const double* saved, int end)
 {
     LinearLocal* const local = &self->local;
     const double epsilon = self->aligner.epsilon;
@@ -1147,7 +1125,7 @@ linear_sw_score(LinearPaths* self, const double* saved)
     self->end = 0;
     if (local->first[0]) {
         const int* const cell = local->rise[0] ? local->last : local->first;
-        self->end = DIAGONAL;
+        self->end = end;
         self->end_i = cell[0];
         self->end_j = cell[1];
     }
@@ -1158,6 +1136,12 @@ linear_sw_score(LinearPaths* self, const double* saved)
         self->again = true;
     }
     return local->maximum;
+}
+
+static double
+linear_sw_score(LinearPaths* self, const double* saved)
+{
+    return linear_local_score(self, saved, DIAGONAL);
 }
 
 static Py_ssize_t
@@ -1241,8 +1225,7 @@ static const LinearKernel linear_sw_matrix = {
 /* ----------------------- Gotoh local ----------------------- */
 
 /* SELECT_TRACE_GOTOH_LOCAL_ALIGN, storing the trace in tr rather than in
- * M[i][j].  Where it unmarks the cells since the previous rise, this
- * records the rise instead (see LinearLocal).  The arithmetic must stay
+ * M[i][j], and marking with LINEAR_LOCAL_MARK.  The arithmetic must stay
  * identical to it, or the trace bits, and with them the paths, could
  * differ from the full matrix. */
 #define LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
@@ -1263,21 +1246,8 @@ static const LinearKernel linear_sw_matrix = {
         score = 0; \
         trace = STARTPOINT; \
     } \
-    else if (score > maximum - epsilon) { \
-        if (score > maximum + epsilon) { \
-            maximum = score; \
-            if (!local.rise[0]) { \
-                local.rise[0] = i; \
-                local.rise[1] = j; \
-            } \
-            local.last[0] = i; \
-            local.last[1] = j; \
-        } \
-        if (!local.first[0]) { \
-            local.first[0] = i; \
-            local.first[1] = j; \
-        } \
-        trace |= ENDPOINT; \
+    else { \
+        LINEAR_LOCAL_MARK(score) \
     } \
     tr[2*(size_t)j] = (unsigned char)trace;
 
@@ -1326,8 +1296,8 @@ static const LinearKernel linear_sw_matrix = {
  * the overflows, and the order of the additions, must stay as there for
  * len() to agree with it.  That counts over the traces as GOTOH_LOCAL_ALIGN
  * leaves them, after two changes, as for Smith-Waterman (see
- * linear_sw_count).  It unmarks the cells marked from the first rise to
- * before the last.  And it removes each trace to an end point's M, or to a
+ * linear_sw_count).  It unmarks the cells marked before the last rise.
+ * And it removes each trace to an end point's M, or to a
  * matrix that then no start point reaches, which it leaves without a
  * trace.  Here an end point's M passes on a count of 0 instead; so such a
  * matrix counts 0 too, and the same is added to every sum. */
@@ -1358,8 +1328,7 @@ linear_gotoh_local_count(const LinearPaths* self, const unsigned char* tr,
     for (j = 1; j <= nB; j++) {
         count = 0;
         trace = tr[2*(size_t)j];
-        if (trace & ENDPOINT && rise[0] && !linear_before(i, j, rise)
-                             && linear_before(i, j, last))
+        if (trace & ENDPOINT && rise[0] && linear_before(i, j, last))
             trace &= ~ENDPOINT;
         if (trace & M_MATRIX) SAFE_ADD(M_temp, count);
         if (trace & Ix_MATRIX) SAFE_ADD(Ix_temp, count);
@@ -1472,15 +1441,16 @@ linear_gotoh_local_sweep_matrix(const LinearPaths* lp, double* saved, int r0,
     LINEAR_GOTOH_LOCAL_SWEEP(MATRIX_SCORE_NOGIL);
 }
 
-/* Row 0 of GOTOH_LOCAL_ALIGN, nothing kept yet, and the path counts of row
- * 0 as PathGenerator_gotoh_local_length sets them. */
+/* Row 0 of GOTOH_LOCAL_ALIGN, nothing kept yet but the highest score the
+ * pass starts from, and the path counts of row 0 as
+ * PathGenerator_gotoh_local_length sets them. */
 static void
 linear_gotoh_local_start(const LinearPaths* lp, double* saved,
                          Py_ssize_t* counts)
 {
     const int nB = lp->nB;
     double* const row = saved + LINEAR_LOCAL_DOUBLES;
-    const LinearLocal local = {0};
+    const LinearLocal local = {.maximum = lp->maximum, .low = DBL_MAX};
     int j;
     memcpy(saved, &local, sizeof(LinearLocal));
     for (j = 0; j <= nB; j++) {
@@ -1502,16 +1472,13 @@ linear_gotoh_local_start(const LinearPaths* lp, double* saved,
 
 /* GOTOH_LOCAL_ALIGN's clean-up also removes the traces to matrices that no
  * start point reaches, and any end point there.  No cell before the first
- * end point is one (see linear_sw_score), so before it the clean-up only
+ * end point is one (see linear_local_score), so before it the clean-up only
  * removes traces to such matrices, which only extreme scores or epsilon,
  * such as infinite or NaN ones, make.  A trace leading to one leads on
  * only to others, and on to an Ix or Iy without a trace, or in row 0 or
  * column 0, where the walk stops and asks the full matrix.  Otherwise the
  * walk, from M, follows the trace bits as the sweep computes them, and
- * finds the full matrix's path.
- *
- * GOTOH_LOCAL_ALIGN raises the highest score only at a rise, so a highest
- * score of 0 can still have end points, scoring within epsilon of it. */
+ * finds the full matrix's path. */
 static double
 linear_gotoh_local_score(LinearPaths* self, const double* saved)
 {

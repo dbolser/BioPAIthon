@@ -73,6 +73,19 @@ gap, but not end with one. Zero and negative gap scores work as before, as do
 positive end gap scores, which local mode does not use, and global mode.
 Biopython still accepts these scores. See ``DEPRECATED.rst``.
 
+``PairwiseAligner`` local alignments with affine gap scores (the Gotoh local
+algorithm) now report the highest score, as ``score()`` does, and only the
+alignments scoring within ``epsilon`` of it, as Smith-Waterman alignments
+already do. The aligner raised its score only by more than ``epsilon``, so
+it could report up to ``epsilon`` less, and kept alignments it found while
+the score was still rising. With ``epsilon=1``, aligning ``"ACGT"`` with
+itself gave one alignment, of ``"A"`` with ``"A"``, for a score of 4, and
+``"GAT"`` with ``"TA"`` gave a score of 0 where ``score()`` gives 1.
+``score()`` also no longer counts alignments ending in a gap, or starting
+with a gap extension, with a positive gap score. With the default epsilon of
+``1e-6`` and typical scores nothing changes but, rarely, the last digits of
+the score. Both are upstream defects, also in Biopython 1.88.
+
 ``Bio.Align.CodonAligner`` now accepts a plain string as the nucleotide
 sequence whatever type the protein sequence is. ``score()`` and ``align()``
 raised "seqB must be a string, Seq, MutableSeq, or SeqRecord object" for a
