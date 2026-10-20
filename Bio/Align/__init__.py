@@ -1019,6 +1019,34 @@ class MultipleSeqAlignment:
         return alignment
 
 
+def _map_letters(sequence, substitution_matrix, letters):
+    """Return the items of a sequence, such as a list, as the C code takes them (PRIVATE).
+
+    The items become their index in the alphabet of the substitution matrix
+    or, without a matrix, in the list letters, which collects the items of
+    all the sequences given.  But if the matrix's alphabet is a string, the
+    C code maps code points through it itself, so the items become their
+    code points instead, as the letters of a str do; mapping them here as
+    well would map them twice.  PairwiseAligner.score, PairwiseAligner.align
+    and Alignment.counts all use this, so that they map lists alike.
+    """
+    if substitution_matrix is None:
+        for item in sequence:
+            if not any(item == letter for letter in letters):
+                letters.append(item)
+        alphabet = letters
+    else:
+        alphabet = substitution_matrix.alphabet
+        # The same test as _prepare_indices in _pairwisealigner.c:
+        if isinstance(alphabet, str) and isinstance(
+            substitution_matrix, substitution_matrices._arraycore.Array
+        ):
+            return np.fromiter(map(ord, sequence), dtype=np.int32, count=len(sequence))
+    return np.fromiter(
+        map(alphabet.index, sequence), dtype=np.int32, count=len(sequence)
+    )
+
+
 class Alignment:
     """Represents a sequence alignment.
 
@@ -3935,8 +3963,7 @@ class Alignment:
             substitution_matrix = scoring
         elif scoring is not None:
             raise ValueError(f"unexpected argument {scoring!r}")
-        if substitution_matrix is None:
-            alphabet = []
+        letters = []  # without a substitution matrix, the alphabet of lists
         codec = "utf-32-le" if sys.byteorder == "little" else "utf-32-be"
         n = len(self.sequences)
         sequences = [None] * n
@@ -3972,15 +3999,24 @@ class Alignment:
             elif data is None:
                 sequences[i] = data
             else:
-                if substitution_matrix is None:
-                    for item in data:
-                        if not any(item == letter for letter in alphabet):
-                            alphabet.append(item)
+                try:
+                    view = memoryview(data)
+                except TypeError:
+                    view = None
+                if (
+                    view is not None
+                    and view.ndim == 1
+                    and view.format in ("i", "l")
+                    and view.itemsize == 4
+                    and view.c_contiguous
+                ):
+                    # a contiguous array of int32, such as array.array("i"),
+                    # as PairwiseAligner.score and .align take it; the C code
+                    # asks for a contiguous buffer, so a strided view is
+                    # mapped as a sequence instead
+                    sequences[i] = data
                 else:
-                    alphabet = substitution_matrix.alphabet
-                sequences[i] = np.fromiter(
-                    map(alphabet.index, data), dtype="i", count=len(data)
-                )
+                    sequences[i] = _map_letters(data, substitution_matrix, letters)
         if aligner is not None:
             return _alignmentcounts.AlignmentCounts(
                 sequences, coordinates, strands, aligner
@@ -4545,12 +4581,9 @@ AlignmentCounts object returned by the .counts method of an Alignment object."""
         The letters of a str, bytes, Seq, MutableSeq or SeqRecord become
         their code points.  An object supporting the buffer protocol, such
         as a NumPy array, is returned unchanged, and the C code checks it.
-        The items of any other sequence, such as a list, become their index
-        in the alphabet of the substitution matrix or, without a matrix, in
-        the list letters, which collects the items of both sequences.  But
-        if the matrix's alphabet is a string, the C code maps code points
-        through it itself, so the items become their code points instead,
-        as letters do; mapping them here as well would map them twice.
+        The items of any other sequence, such as a list, are mapped by
+        _map_letters, with the list letters collecting the items of both
+        sequences.
         """
         if isinstance(sequence, (bytes, Seq, MutableSeq, SeqRecord)):
             sequence = bytes(sequence)
@@ -4563,24 +4596,7 @@ AlignmentCounts object returned by the .counts method of an Alignment object."""
             pass
         else:
             return sequence  # the C code checks the data type
-        substitution_matrix = self.substitution_matrix
-        if substitution_matrix is None:
-            for item in sequence:
-                if not any(item == letter for letter in letters):
-                    letters.append(item)
-            alphabet = letters
-        else:
-            alphabet = substitution_matrix.alphabet
-            # The same test as _prepare_indices in _pairwisealigner.c:
-            if isinstance(alphabet, str) and isinstance(
-                substitution_matrix, substitution_matrices._arraycore.Array
-            ):
-                return np.fromiter(
-                    map(ord, sequence), dtype=np.int32, count=len(sequence)
-                )
-        return np.fromiter(
-            map(alphabet.index, sequence), dtype=np.int32, count=len(sequence)
-        )
+        return _map_letters(sequence, self.substitution_matrix, letters)
 
     def align(self, seqA, seqB, strand="+"):
         """Return the alignments of two sequences using PairwiseAligner."""
