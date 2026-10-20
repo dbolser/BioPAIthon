@@ -293,18 +293,168 @@ def brute_force_sw(seqA, seqB, substitution, insertion, deletion):
         for j in range(nB + 1):
             extend((i, j), i, j, "", 0, -math.inf)
     best = max([total for total, prefix, start, moves in found if total > 0] or [0])
+    paths = {
+        path_coordinates(start, moves)
+        for total, prefix, start, moves in found
+        if best > 0 and total == best and prefix < best
+    }
+    return best, paths
+
+
+def path_coordinates(start, moves):
+    """Return the coordinates of a path from start by moves, as tuples.
+
+    Moves are "D" (diagonal), "H" (an insertion) and "V" (a deletion).
+    """
+    i, j = start
+    points = [(i, j)]
+    for k, move in enumerate(moves):
+        i += move != "H"
+        j += move != "V"
+        if k > 0 and move == moves[k - 1]:
+            points[-1] = (i, j)
+        else:
+            points.append((i, j))
+    return tuple(zip(*points))
+
+
+def brute_force_gotoh_local(
+    seqA, seqB, substitution, open_A, extend_A, open_B, extend_B
+):
+    """Return the score and coordinates of the optimal Gotoh local alignments.
+
+    As brute_force_sw, with affine gap scores: a gap opens with the opening
+    score, also after a gap in the other sequence, and goes on with the
+    extension score (A for insertions, B for deletions).  As in
+    GOTOH_LOCAL_ALIGN, a path starts in any cell, and makes no gap into
+    row 0, column 0, the last row or the last column.  The parts of a path
+    before its end score above 0, and the optimal alignments extend no
+    shorter one ending with a diagonal move by a part scoring 0.
+    """
+    nA = len(seqA)
+    nB = len(seqB)
+    found = []
+
+    def extend(start, i, j, moves, score, prefix):
+        for move in "DHV":
+            ni = i + (move != "H")
+            nj = j + (move != "V")
+            if ni > nA or nj > nB:
+                continue
+            if move == "D":
+                step = substitution(seqA[i], seqB[j])
+            elif ni == 0 or nj == 0 or ni == nA or nj == nB:
+                continue
+            elif move == "H":
+                step = extend_A if moves.endswith("H") else open_A
+            else:
+                step = extend_B if moves.endswith("V") else open_B
+            total = score + step
+            if move == "D":
+                found.append((total, prefix, start, moves + move))
+            if total > 0:
+                extend(
+                    start,
+                    ni,
+                    nj,
+                    moves + move,
+                    total,
+                    max(prefix, total) if move == "D" else prefix,
+                )
+
+    for i in range(nA + 1):
+        for j in range(nB + 1):
+            extend((i, j), i, j, "", 0, -math.inf)
+    best = max([total for total, prefix, start, moves in found if total > 0] or [0])
+    paths = {
+        path_coordinates(start, moves)
+        for total, prefix, start, moves in found
+        if best > 0 and total == best and prefix < best
+    }
+    return best, paths
+
+
+def tied_gotoh_local(
+    seqA, seqB, substitution, open_A, extend_A, open_B, extend_B, epsilon
+):
+    """Return the score and coordinates of Gotoh local alignments with ties.
+
+    With an epsilon as large as the steps between scores, a score in M, Ix
+    or Iy is that of the first of the matrices before it, in that order,
+    that no other beats by more than epsilon, and its trace is all of them
+    less than epsilon below that; M below epsilon is a start point, and Ix
+    and Iy below epsilon are no path.  The score is the highest of M, or 0;
+    the end points are the cells of M less than epsilon below it, and no
+    path goes on from one.  For a positive epsilon below the steps between
+    scores, it agrees with brute_force_gotoh_local.
+    """
+    nA = len(seqA)
+    nB = len(seqB)
+    scores = {}
+    traces = {}
+
+    def select(*candidates):
+        (score, matrix), *others = candidates
+        trace = {matrix}
+        for value, matrix in others:
+            if value > score + epsilon:
+                score, trace = value, {matrix}
+            elif value > score - epsilon:
+                trace.add(matrix)
+        return score, trace
+
+    for i in range(nA + 1):
+        for j in range(nB + 1):
+            if i == 0 or j == 0:
+                scores[i, j] = {"M": 0, "Ix": -math.inf, "Iy": -math.inf}
+                traces[i, j] = {"M": None}
+                continue
+            last = scores[i - 1, j - 1]
+            score, trace = select(*((last[m], m) for m in ("M", "Ix", "Iy")))
+            score += substitution(seqA[i - 1], seqB[j - 1])
+            if score < epsilon:
+                score, trace = 0, None  # a start point
+            scores[i, j] = {"M": score, "Ix": -math.inf, "Iy": -math.inf}
+            traces[i, j] = {"M": trace, "Ix": set(), "Iy": set()}
+            if i == nA or j == nB:
+                continue
+            for gap, last, opening, extension in (
+                ("Ix", scores[i - 1, j], open_B, extend_B),
+                ("Iy", scores[i, j - 1], open_A, extend_A),
+            ):
+                score, trace = select(
+                    *(
+                        (last[m] + (extension if m == gap else opening), m)
+                        for m in ("M", "Ix", "Iy")
+                    )
+                )
+                if score >= epsilon:
+                    scores[i, j][gap] = score
+                    traces[i, j][gap] = trace
+    starts = [cell for cell in traces if traces[cell]["M"] is None]
+    best = max([s["M"] for cell, s in scores.items() if cell not in starts] or [0])
+    ends = {
+        cell
+        for cell, s in scores.items()
+        if cell not in starts and s["M"] > best - epsilon
+    }
+    moves = {"M": "D", "Ix": "V", "Iy": "H"}
     paths = set()
-    for total, prefix, (i, j), moves in found:
-        if best > 0 and total == best and prefix < best:
-            points = [(i, j)]
-            for k, move in enumerate(moves):
-                i += move != "H"
-                j += move != "V"
-                if k > 0 and move == moves[k - 1]:
-                    points[-1] = (i, j)
-                else:
-                    points.append((i, j))
-            paths.add(tuple(zip(*points)))
+
+    def trace_back(i, j, matrix, path):
+        trace = traces[i, j][matrix]
+        if trace is None:
+            paths.add(path_coordinates((i, j), path))
+            return
+        move = moves[matrix]
+        i -= move != "H"
+        j -= move != "V"
+        for matrix in trace:
+            if matrix != "M" or (i, j) not in ends:
+                trace_back(i, j, matrix, move + path)
+
+    for i, j in ends:
+        trace_back(i, j, "M", "")
     return best, paths
 
 
@@ -555,7 +705,7 @@ class TestDifferential(unittest.TestCase):
             paths = coordinates(expected, limit)
             self.assertEqual(coordinates(forced, limit), paths, message)
             self.assertEqual(len(paths), length, message)
-        # The same after a reset (see test_gotoh_local_score_zero).
+        # The same after a reset (see test_gotoh_local_score_epsilon).
         forced.rewind()
         expected.rewind()
         self.assertEqual(outcome(expected, 0), first, message)
@@ -634,6 +784,76 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(len(found), len(paths), message)
             self.assertEqual(set(found), paths, message)
             self.check(aligner, (seqA, seqB, "+"), random_budgets(rng, len(seqB), SW))
+
+    def test_gotoh_local_brute_force(self):
+        # As test_sw_brute_force, for Gotoh local alignments, with epsilon
+        # from below the steps between scores, where brute force finds the
+        # paths, to far above, where they follow the ties (tied_gotoh_local).
+        # score() ignores epsilon, so it always agrees with brute force.
+        rng = random.Random(2031)
+        values = [-2, -1, -0.5, 0, 0.5, 1]
+        # local mode rejects positive gap scores
+        gap_values = [value for value in values if value <= 0]
+        for _ in range(1500):
+            alphabet = rng.choice(["AC", "ACG"])
+            seqA = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            seqB = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 5)))
+            if rng.random() < 0.5:
+                match = rng.choice([1, 2, 0.5])
+                mismatch = rng.choice([-1, 0, -0.5])
+                scores = {"match_score": match, "mismatch_score": mismatch}
+
+                def substitution(a, b, match=match, mismatch=mismatch):
+                    return match if a == b else mismatch
+
+            else:
+                matrix = substitution_matrices.Array(alphabet, dims=2)
+                matrix[:, :] = [
+                    [rng.choice(values) for _ in alphabet] for _ in alphabet
+                ]
+                scores = {"substitution_matrix": matrix}
+
+                def substitution(a, b, matrix=matrix):
+                    return matrix[a, b]
+
+            while True:
+                gaps = [rng.choice(gap_values) for _ in range(4)]
+                if rng.random() < 0.7:
+                    gaps[2:] = gaps[:2]
+                open_A, extend_A, open_B, extend_B = gaps
+                aligner = Align.PairwiseAligner(
+                    mode="local",
+                    open_insertion_score=open_A,
+                    extend_insertion_score=extend_A,
+                    open_deletion_score=open_B,
+                    extend_deletion_score=extend_B,
+                    **scores,
+                )
+                if aligner.algorithm == GOTOH_LOCAL:
+                    break
+            # The scores are dyadic, so they add up exactly.
+            aligner.epsilon = rng.choice([1e-6, 0.25, 0.5, 1, 2, 5])
+            message = f"{aligner} {seqA} {seqB}"
+            best, paths = brute_force_gotoh_local(seqA, seqB, substitution, *gaps)
+            self.assertEqual(aligner.score(seqA, seqB), best, message)
+            tied = tied_gotoh_local(seqA, seqB, substitution, *gaps, aligner.epsilon)
+            if aligner.epsilon < 0.5:
+                self.assertEqual(tied, (best, paths), message)
+            best, paths = tied
+            alignments = aligner.align(seqA, seqB)
+            self.assertEqual(alignments.score, best, message)
+            self.assertEqual(len(alignments), len(paths), message)
+            found = [
+                tuple(map(tuple, coordinates))
+                for coordinates in coordinates(alignments, len(paths) + 1)
+            ]
+            self.assertEqual(len(found), len(paths), message)
+            self.assertEqual(set(found), paths, message)
+            self.check(
+                aligner,
+                (seqA, seqB, "+"),
+                random_budgets(rng, len(seqB), GOTOH_LOCAL),
+            )
 
     def run_long_cases(self, seed, count, algorithm):
         # Scores that are not dyadic fractions, so that rounding matters.
@@ -865,24 +1085,26 @@ class TestDifferential(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, message):
                 aligner.score(seqA, seqB)
 
-    def test_gotoh_local_score_zero(self):
-        # GOTOH_LOCAL_ALIGN raises its highest score only by more than
-        # epsilon, so it can stay 0 while cells scoring epsilon are end
+    def test_gotoh_local_score_epsilon(self):
+        # GOTOH_LOCAL_ALIGN raised its highest score only by more than
+        # epsilon, so it stayed 0 while cells scoring epsilon were end
         # points.  Its PathGenerator used to start exhausted then, so that
         # [0] raised IndexError while len() and iteration found the paths,
-        # also in Biopython 1.88.  Now all three agree, in both tracebacks.
+        # also in Biopython 1.88.  Now all three agree, in both tracebacks,
+        # and the score is theirs, as score() has it.
         aligner = gotoh_local_aligner(epsilon=1)
-        for seqA, seqB, paths in (
-            ("A", "A", [[[0, 1], [0, 1]]]),
-            ("GAT", "TA", [[[1, 2], [1, 2]], [[2, 3], [0, 1]]]),
-            ("A", "C", []),
+        for seqA, seqB, score, paths in (
+            ("A", "A", 1, [[[0, 1], [0, 1]]]),
+            ("GAT", "TA", 1, [[[1, 2], [1, 2]], [[2, 3], [0, 1]]]),
+            ("A", "C", 0, []),
         ):
             message = f"{seqA} {seqB}"
             expected = aligner.align(seqA, seqB)
             forced = forced_align(aligner, seqA, seqB, budgets=(1, 1))
             self.assertIs(type(forced._paths), LinearPaths, message)
+            self.assertEqual(aligner.score(seqA, seqB), score, message)
             for alignments in (expected, forced):
-                self.assertEqual(alignments.score, 0, message)
+                self.assertEqual(alignments.score, score, message)
                 self.assertEqual(len(alignments), len(paths), message)
                 for index, path in enumerate(paths):
                     self.assertEqual(outcome(alignments, index), path, message)
