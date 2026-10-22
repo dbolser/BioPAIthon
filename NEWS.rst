@@ -57,7 +57,7 @@ and the default branch is now ``main`` rather than ``master``.
 
 The EMBL and IMGT writers no longer produce output their own parsers reject
 when a feature qualifier value contains a line break. The GenBank writer was
-fixed earlier (see below, from biopython/biopython#3911), but
+fixed in BioPAIthon 1.88 (from biopython/biopython#3911), but
 ``Bio.SeqIO.write(..., "embl")`` still wrote the qualifier across two lines
 with the continuation unindented, and reading the file back raised
 ``ValueError``. Each line break — LF, CR or a CRLF pair — is now replaced
