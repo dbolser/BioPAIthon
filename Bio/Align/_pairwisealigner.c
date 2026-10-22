@@ -7898,73 +7898,121 @@ error:
     return 0;
 }
 
+/* The state of one score() or align() call: the caller's sequences, the
+ * snapshot of the aligner the call runs on, the private copies of the
+ * letters (with a substitution matrix), and what the kernels read.
+ * Aligner_prepare_call fills it in and Aligner_finish_call releases it
+ * on every path, including those where Aligner_prepare_call failed. */
+typedef struct {
+    Py_buffer bA;
+    Py_buffer bB;
+    int* copyA;
+    int* copyB;
+    Aligner snapshot;
+    const int* sA;
+    const int* sB;
+    int nA;
+    int nB;
+    char strand;
+} AlignerCall;
+
+/* Parse the arguments of score() and align() and check everything both
+ * check before running a kernel.  Returns 0 on success, or -1 with an
+ * exception set; call Aligner_finish_call either way. */
+static int
+Aligner_prepare_call(Aligner* self, PyObject* args, PyObject* keywords,
+                     AlignerCall* call)
+{
+    Aligner* snapshot = &call->snapshot;
+    Py_ssize_t lA;
+    Py_ssize_t lB;
+
+    static char *kwlist[] = {"sequenceA", "sequenceB", "strand", NULL};
+
+    memset(call, 0, sizeof(*call));
+    call->strand = '+';
+    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&", kwlist,
+                                     sequence_converter, &call->bA,
+                                     sequence_converter, &call->bB,
+                                     strand_converter, &call->strand))
+        return -1;
+
+    /* Work on a snapshot, as gap functions may reconfigure the aligner. */
+    if (Aligner_snapshot(self, snapshot) < 0) return -1;
+    if (Aligner_check_local_gap_scores(snapshot) < 0) return -1;
+
+    lA = call->bA.len / call->bA.itemsize;
+    lB = call->bB.len / call->bB.itemsize;
+    if (lA > MAX_SEQUENCE_LENGTH || lB > MAX_SEQUENCE_LENGTH) {
+        PyErr_Format(PyExc_ValueError,
+                     "sequences too long (%zd and %zd letters); the "
+                     "pairwise aligner supports at most %zd letters "
+                     "per sequence",
+                     lA, lB, MAX_SEQUENCE_LENGTH);
+        return -1;
+    }
+    call->nA = (int) lA;
+    call->nB = (int) lB;
+
+    if (snapshot->substitution_matrix.obj) {
+        /* The letters index the matrix: check them in private copies. */
+        call->copyA = _copy_indices(&call->bA);
+        if (!call->copyA) return -1;
+        call->copyB = _copy_indices(&call->bB);
+        if (!call->copyB) return -1;
+        if (!_prepare_indices(&snapshot->substitution_matrix,
+                              call->copyA, call->nA,
+                              call->copyB, call->nB)) return -1;
+        call->sA = call->copyA;
+        call->sB = call->copyB;
+    }
+    else {
+        /* The letters are only compared, never used as indices. */
+        call->sA = call->bA.buf;
+        call->sB = call->bB.buf;
+    }
+    return 0;
+}
+
+/* Release what Aligner_prepare_call took.  Each step is a no-op on what
+ * it did not take, so this is safe after a failed Aligner_prepare_call,
+ * including one that failed before taking anything. */
+static void
+Aligner_finish_call(AlignerCall* call)
+{
+    PyMem_Free(call->copyA);
+    PyMem_Free(call->copyB);
+    Aligner_snapshot_release(&call->snapshot);
+    sequence_converter(NULL, &call->bA);
+    sequence_converter(NULL, &call->bB);
+}
+
 static const char Aligner_score__doc__[] = "calculates the alignment score";
 
 static PyObject*
 Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
 {
+    AlignerCall call;
     const int* sA;
     const int* sB;
     int nA;
     int nB;
-    Py_buffer bA = {0};
-    Py_buffer bB = {0};
-    int* copyA = NULL;
-    int* copyB = NULL;
-    Aligner snapshot;
     Mode mode;
     Algorithm algorithm;
-    char strand = '+';
+    char strand;
     PyObject* result = NULL;
     PyObject* substitution_matrix;
 
-    static char *kwlist[] = {"sequenceA", "sequenceB", "strand", NULL};
-
-    if (!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&", kwlist,
-                                     sequence_converter, &bA,
-                                     sequence_converter, &bB,
-                                     strand_converter, &strand))
-        return NULL;
-
-    /* Work on a snapshot, as gap functions may reconfigure the aligner. */
-    if (Aligner_snapshot(self, &snapshot) < 0) goto exit;
-    self = &snapshot;
+    if (Aligner_prepare_call(self, args, keywords, &call) < 0) goto exit;
+    self = &call.snapshot;
     mode = self->mode;
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
-    if (Aligner_check_local_gap_scores(self) < 0) goto exit;
-
-    {
-        const Py_ssize_t lA = bA.len / bA.itemsize;
-        const Py_ssize_t lB = bB.len / bB.itemsize;
-        if (lA > MAX_SEQUENCE_LENGTH || lB > MAX_SEQUENCE_LENGTH) {
-            PyErr_Format(PyExc_ValueError,
-                         "sequences too long (%zd and %zd letters); the "
-                         "pairwise aligner supports at most %zd letters "
-                         "per sequence",
-                         lA, lB, MAX_SEQUENCE_LENGTH);
-            goto exit;
-        }
-        nA = (int) lA;
-        nB = (int) lB;
-    }
-
-    if (substitution_matrix) {
-        /* The letters index the matrix: check them in private copies. */
-        copyA = _copy_indices(&bA);
-        if (!copyA) goto exit;
-        copyB = _copy_indices(&bB);
-        if (!copyB) goto exit;
-        if (!_prepare_indices(&self->substitution_matrix,
-                              copyA, nA, copyB, nB)) goto exit;
-        sA = copyA;
-        sB = copyB;
-    }
-    else {
-        /* The letters are only compared, never used as indices. */
-        sA = bA.buf;
-        sB = bB.buf;
-    }
+    sA = call.sA;
+    sB = call.sB;
+    nA = call.nA;
+    nB = call.nB;
+    strand = call.strand;
 
     switch (algorithm) {
         case NeedlemanWunschSmithWaterman:
@@ -8041,12 +8089,7 @@ Aligner_score(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
-    PyMem_Free(copyA);
-    PyMem_Free(copyB);
-    Aligner_snapshot_release(&snapshot);
-    sequence_converter(NULL, &bA);
-    sequence_converter(NULL, &bB);
-
+    Aligner_finish_call(&call);
     return result;
 }
 
@@ -8055,68 +8098,27 @@ static const char Aligner_align__doc__[] = "align two sequences";
 static PyObject*
 Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
 {
+    AlignerCall call;
     const int* sA;
     const int* sB;
     int nA;
     int nB;
-    Py_buffer bA = {0};
-    Py_buffer bB = {0};
-    int* copyA = NULL;
-    int* copyB = NULL;
-    Aligner snapshot;
     Mode mode;
     Algorithm algorithm;
-    char strand = '+';
+    char strand;
     PyObject* result = NULL;
     PyObject* substitution_matrix;
 
-    static char *kwlist[] = {"sequenceA", "sequenceB", "strand", NULL};
-
-    if(!PyArg_ParseTupleAndKeywords(args, keywords, "O&O&O&", kwlist,
-                                    sequence_converter, &bA,
-                                    sequence_converter, &bB,
-                                    strand_converter, &strand))
-        return NULL;
-
-    /* Work on a snapshot, as gap functions may reconfigure the aligner. */
-    if (Aligner_snapshot(self, &snapshot) < 0) goto exit;
-    self = &snapshot;
+    if (Aligner_prepare_call(self, args, keywords, &call) < 0) goto exit;
+    self = &call.snapshot;
     mode = self->mode;
     algorithm = _get_algorithm(self);
     substitution_matrix = self->substitution_matrix.obj;
-    if (Aligner_check_local_gap_scores(self) < 0) goto exit;
-
-    {
-        const Py_ssize_t lA = bA.len / bA.itemsize;
-        const Py_ssize_t lB = bB.len / bB.itemsize;
-        if (lA > MAX_SEQUENCE_LENGTH || lB > MAX_SEQUENCE_LENGTH) {
-            PyErr_Format(PyExc_ValueError,
-                         "sequences too long (%zd and %zd letters); the "
-                         "pairwise aligner supports at most %zd letters "
-                         "per sequence",
-                         lA, lB, MAX_SEQUENCE_LENGTH);
-            goto exit;
-        }
-        nA = (int) lA;
-        nB = (int) lB;
-    }
-
-    if (substitution_matrix) {
-        /* The letters index the matrix: check them in private copies. */
-        copyA = _copy_indices(&bA);
-        if (!copyA) goto exit;
-        copyB = _copy_indices(&bB);
-        if (!copyB) goto exit;
-        if (!_prepare_indices(&self->substitution_matrix,
-                              copyA, nA, copyB, nB)) goto exit;
-        sA = copyA;
-        sB = copyB;
-    }
-    else {
-        /* The letters are only compared, never used as indices. */
-        sA = bA.buf;
-        sB = bB.buf;
-    }
+    sA = call.sA;
+    sB = call.sB;
+    nA = call.nA;
+    nB = call.nB;
+    strand = call.strand;
 
     if (LinearPaths_wanted(self, algorithm, nA, nB)) {
         result = LinearPaths_align(self, sA, nA, sB, nB, strand);
@@ -8198,12 +8200,7 @@ Aligner_align(Aligner* self, PyObject* args, PyObject* keywords)
     }
 
 exit:
-    PyMem_Free(copyA);
-    PyMem_Free(copyB);
-    Aligner_snapshot_release(&snapshot);
-    sequence_converter(NULL, &bA);
-    sequence_converter(NULL, &bB);
-
+    Aligner_finish_call(&call);
     return result;
 }
 
