@@ -37,9 +37,10 @@ def import_fresh_with_warnings(module_name):
     with every warning recorded, and returns ``(module, caught)`` where
     ``caught`` is the list of :class:`warnings.WarningMessage` objects.
 
-    The interpreter is left as it was found: the original module object
-    goes back into ``sys.modules`` and onto its parent package, so other
-    tests holding references to it keep seeing one module, not two.
+    The original module object goes back into ``sys.modules`` and onto its
+    parent package afterwards, so other tests holding references to it keep
+    seeing one module, not two. Only that module and attribute are restored;
+    any module the fresh import pulls in for the first time stays imported.
     """
     parent_name, _, child_name = module_name.rpartition(".")
     parent = sys.modules.get(parent_name)
