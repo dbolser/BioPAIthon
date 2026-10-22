@@ -310,13 +310,16 @@ class BuiltinTables(unittest.TestCase):
         """
         for package in [SeqIO, Phylo]:
             with self.subTest(package=package.__name__):
-                tree = ast.parse(open(package.__file__).read())
-                (block,) = [
+                with open(package.__file__) as handle:
+                    tree = ast.parse(handle.read())
+                blocks = [
                     node
                     for node in tree.body
                     if isinstance(node, ast.If)
                     and ast.unparse(node.test) == "typing.TYPE_CHECKING"
                 ]
+                self.assertEqual(len(blocks), 1)
+                (block,) = blocks
                 imported = {
                     alias.name
                     for node in block.body
