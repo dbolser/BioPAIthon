@@ -4,6 +4,7 @@
 # package.
 """Tests for the lazy format tables of Bio.SeqIO, Bio.Align and Bio.Phylo."""
 
+import ast
 import importlib
 import importlib.util
 import os
@@ -299,6 +300,34 @@ class BuiltinTables(unittest.TestCase):
                 self.assertIs(module, importlib.import_module(f"Bio.Phylo.{name}"))
                 self.assertTrue(callable(module.parse))
                 self.assertTrue(callable(module.write))
+
+    def test_type_checking_imports_match_submodule_names(self):
+        """The names a type checker sees are the ones __getattr__ imports.
+
+        Bio.SeqIO and Bio.Phylo each list their lazily imported submodules
+        twice: as real imports under "if typing.TYPE_CHECKING:" and as the
+        _submodule_names that the module __getattr__ accepts at run time.
+        """
+        for package in [SeqIO, Phylo]:
+            with self.subTest(package=package.__name__):
+                with open(package.__file__) as handle:
+                    tree = ast.parse(handle.read())
+                blocks = [
+                    node
+                    for node in tree.body
+                    if isinstance(node, ast.If)
+                    and ast.unparse(node.test) == "typing.TYPE_CHECKING"
+                ]
+                self.assertEqual(len(blocks), 1)
+                (block,) = blocks
+                imported = {
+                    alias.name
+                    for node in block.body
+                    if isinstance(node, ast.ImportFrom)
+                    and node.module == package.__name__
+                    for alias in node.names
+                }
+                self.assertEqual(imported, package._submodule_names)
 
     def test_import_seqio_stays_light(self):
         """Importing Bio.SeqIO needs neither Bio.Align nor importlib.metadata."""
