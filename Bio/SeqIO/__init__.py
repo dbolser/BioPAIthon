@@ -411,8 +411,6 @@ from collections.abc import Iterable
 from os import fspath
 from typing import Union
 
-from Bio._io_registry import _ABSENT
-from Bio._io_registry import _same_handler
 from Bio._io_registry import FormatRegistry as _FormatRegistry
 from Bio.SeqRecord import SeqRecord
 
@@ -659,6 +657,7 @@ _FormatToIterator = _FormatRegistry(
     package="Bio.SeqIO",
     group="biopaithon.seqio.iterators",
     name_rule=_plugin_format_name,
+    role="an iterator",
 )
 
 # Right now used in the unit tests as proxy for all supported outputs...
@@ -699,6 +698,7 @@ _FormatToWriter = _FormatRegistry(
     package="Bio.SeqIO",
     group="biopaithon.seqio.writers",
     name_rule=_plugin_format_name,
+    role="a writer",
 )
 
 
@@ -1392,14 +1392,11 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
     if iterator is None and writer is None:
         raise TypeError("Need an iterator or a writer for the file format")
     roles = [
-        (table, role, value)
-        for table, role, value in [
-            (_FormatToIterator, "an iterator", iterator),
-            (_FormatToWriter, "a writer", writer),
-        ]
+        (table, value)
+        for table, value in [(_FormatToIterator, iterator), (_FormatToWriter, writer)]
         if value is not None
     ]
-    for table, role, value in roles:
+    for table, value in roles:
         if isinstance(value, str):
             if ":" not in value:
                 raise ValueError(
@@ -1408,46 +1405,26 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
         elif not callable(value):
             raise TypeError(f"Expected a callable or a string, not {value!r}")
 
-    def vacant(table, entry):
-        """Return whether a role is free to set without replace (PRIVATE).
-
-        It is if the format lacks that role, or has it from an entry point.
-        """
-        return entry is _ABSENT or name in table.plugins
-
-    def check():
-        """Return each role's current entry, if the role may be set (PRIVATE).
-
-        Raises ValueError if either role holds another handler and replace
-        is false.  Comparing a spec string with an object imports the spec.
-        """
-        entries = []
-        for table, role, value in roles:
-            entry = dict.get(table, name, _ABSENT)
-            if not (replace or vacant(table, entry) or _same_handler(entry, value)):
-                raise ValueError(
-                    f"Format {name!r} already has {role};"
-                    " use replace=True to replace it"
-                )
-            entries.append(entry)
-        return entries
-
     # Checking may import a module, which must not happen under the lock, as
     # the module may register a format as it is imported.  So check without
     # the lock, and store under it if the entries are still the ones checked.
     # If another registration changed one meanwhile, check again.  Either
     # both roles are stored, or neither.
     while True:
-        entries = check()
+        entries = [table.check(name, value, replace=replace) for table, value in roles]
         with _registration_lock:
             if any(
-                dict.get(table, name, _ABSENT) is not entry
-                for (table, role, value), entry in zip(roles, entries)
+                table.entry(name) is not entry
+                for (table, value), entry in zip(roles, entries)
             ):
                 continue
-            for (table, role, value), entry in zip(roles, entries):
-                if replace or vacant(table, entry):
-                    table.register(name, value, replace=True)
+            # Now only a first use of a role can move its entry, by resolving
+            # it; then the roles stored before it are checked again and kept.
+            if not all(
+                table.store(name, value, entry, replace=replace)
+                for (table, value), entry in zip(roles, entries)
+            ):
+                continue
             if replace:
                 # Drop the convert shortcuts which read (or write) this
                 # format themselves, rather than with the replacement:

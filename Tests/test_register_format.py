@@ -612,6 +612,74 @@ class AlignRegisterFormat(unittest.TestCase):
         self.assertEqual(Align.read(CLUSTAL, "fasta").format("fasta"), self.expected)
 
 
+class Precedence(unittest.TestCase):
+    """Bio.SeqIO and Bio.Align give the same registrations the same outcomes."""
+
+    def setUp(self):
+        for table in [
+            SeqIO._FormatToIterator,
+            SeqIO._FormatToWriter,
+            SeqIO._converter,
+            Align._registry,
+        ]:
+            self.addCleanup(restore, table, stored(table))
+
+    def outcomes(self, register, table, name, handlers, spec):
+        """Register the handlers under name in a fixed order; say what each did.
+
+        Each outcome is the index of the handler the table holds afterwards,
+        or "refused" if the registration raised ValueError.  Before the last
+        two registrations, the table is given name as a plugin would give
+        it: holding spec, which names handlers[0], and listed in plugins.
+        """
+        outcomes = []
+
+        def attempt(value, replace=False):
+            try:
+                register(name, value, replace=replace)
+            except ValueError:
+                outcomes.append("refused")
+            else:
+                outcomes.append(handlers.index(table[name]))
+
+        one, two = handlers
+        attempt(one)  # absent
+        attempt(one)  # the same handler again
+        attempt(two)  # another handler, without replace
+        attempt(two, replace=True)
+        attempt(one)  # the handler it was built with is just another now
+        dict.__setitem__(table, name, spec)
+        table.plugins.add(name)
+        self.addCleanup(table.plugins.discard, name)
+        attempt(two)  # a plugin gives way without replace
+        self.assertNotIn(name, table.plugins)
+        attempt(one)  # and the replacement is an explicit registration
+        return outcomes
+
+    def test_same_outcomes(self):
+        expected = [0, 0, "refused", 1, "refused", 1, "refused"]
+        self.assertEqual(
+            self.outcomes(
+                SeqIO.register_format,
+                SeqIO._FormatToIterator,
+                "test-fasta",
+                [FastaIterator, MarkingFastaIterator],
+                "Bio.SeqIO.FastaIO:FastaIterator",
+            ),
+            expected,
+        )
+        self.assertEqual(
+            self.outcomes(
+                Align.register_format,
+                Align._registry,
+                "test-aln",
+                [clustal, types.SimpleNamespace(AlignmentIterator=None)],
+                "Bio.Align.clustal",
+            ),
+            expected,
+        )
+
+
 class Registry(unittest.TestCase):
     """FormatRegistry.register and its built-in names."""
 
