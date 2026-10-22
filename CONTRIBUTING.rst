@@ -92,10 +92,10 @@ API documentation. We also use reStructuredText for files like ``README.rst``.
 
 To facilitate style checking, we make use of ``pre-commit`` to automatically
 run ``black``, ``ruff``, ``flake8`` and ``mypy`` on the Python code, and
-``rstcheck`` and ``doc8`` on the RST files; the Style section of `AGENTS.md
-<AGENTS.md>`__ has the full list. We also use continuous integration on GitHub
-to run these checks, but we strongly suggest you install and run
-``pre-commit`` in your local machine (see below).
+``rstcheck`` and ``doc8`` on the RST files, among other checks. We also use
+continuous integration on GitHub to run these checks, but we strongly suggest
+you install and run ``pre-commit`` in your local machine (see the Setup
+section of `AGENTS.md <AGENTS.md>`__).
 
 
 Testing

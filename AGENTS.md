@@ -127,8 +127,8 @@ Use the project's own exceptions, defined in `Bio/__init__.py`:
 uv pip install -e ".[test]"   # or: pip install -e ".[test]"
 ```
 
-The `test` extra brings pytest and every optional package the suite
-exercises; `pip install -e . "pytest>=9"` also works, but then every test
+The `test` extra brings pytest and the optional packages the Linux CI jobs
+test with; `pip install -e . "pytest>=9"` also works, but then every test
 needing one of those packages is skipped rather than run.
 
 Pre-commit hooks run black, ruff, flake8, mypy, rstcheck, doc8 and codespell:
