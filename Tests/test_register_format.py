@@ -683,7 +683,7 @@ class Precedence(unittest.TestCase):
 class MovedEntry(unittest.TestCase):
     """SeqIO.register_format checks again when an entry moves under its lock.
 
-    FormatRegistry.store() refuses if the entry is not the one check()
+    FormatRegistry.store() refuses if the name is not in the state check()
     returned.  Under SeqIO's registration lock an entry can still move by a
     first use resolving it, or by plugin discovery adding an absent name, as
     neither takes that lock.
@@ -705,10 +705,10 @@ class MovedEntry(unittest.TestCase):
         real = table.store
         calls = []
 
-        def store(name, value, entry, *, replace=False):
+        def store(name, value, state, *, replace=False):
             if not calls:
                 move()
-            calls.append(real(name, value, entry, replace=replace))
+            calls.append(real(name, value, state, replace=replace))
             return calls[-1]
 
         table.store = store
@@ -767,6 +767,40 @@ class Registry(unittest.TestCase):
         registry.register("fmt", None, replace=True)
         self.assertIsNone(dict.__getitem__(registry, "fmt"))
         self.assertEqual(dict.__getitem__(registry, "new"), "a.b:c")
+
+    def test_plugin_replaced_while_checking(self):
+        """A plugin's name replaced between check() and store() is checked again.
+
+        Another thread's store() replaces the entry and drops the plugin
+        marker together, under the lock.  Had check() seen the new entry
+        with the marker still there, it would have let a second handler
+        pass as a plugin's replacement; store() must refuse, so that the
+        second handler is checked against the first and refused (found by
+        Codex).
+        """
+        registry = FormatRegistry({}, role="an iterator")
+        dict.__setitem__(registry, "fmt", "a.b:c")
+        registry.plugins.add("fmt")
+        first, second = object(), object()
+        state = registry.check("fmt", second)
+        registry.register("fmt", first)
+        self.assertFalse(registry.store("fmt", second, state))
+        # What the other thread's store() must never show check():
+        registry.plugins.add("fmt")
+        state = registry.check("fmt", second)
+        self.assertEqual(state, (first, True))
+        registry.plugins.discard("fmt")
+        self.assertFalse(registry.store("fmt", second, state))
+        self.assertIs(dict.__getitem__(registry, "fmt"), first)
+        with self.assertRaises(ValueError) as cm:
+            registry.check("fmt", second)
+        self.assertEqual(
+            str(cm.exception),
+            "Format 'fmt' already has an iterator; use replace=True to replace it",
+        )
+        # The same handler is not refused, nor stored twice:
+        self.assertTrue(registry.store("fmt", first, registry.check("fmt", first)))
+        self.assertNotIn("fmt", registry.plugins)
 
     def test_entry_dropped_while_resolving(self):
         """A lookup returns what it resolved if the entry is deleted meanwhile.

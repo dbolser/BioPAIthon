@@ -1411,19 +1411,18 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
     # If another registration changed one meanwhile, check again.  Either
     # both roles are stored, or neither.
     while True:
-        entries = [table.check(name, value, replace=replace) for table, value in roles]
+        states = [table.check(name, value, replace=replace) for table, value in roles]
         with _registration_lock:
             if any(
-                table.entry(name) is not entry
-                for (table, value), entry in zip(roles, entries)
+                table.moved(name, state) for (table, value), state in zip(roles, states)
             ):
                 continue
             # Now an entry can move only by a first use resolving it, or by
             # plugin discovery adding an absent name: neither takes this
             # lock.  Then check again; the roles stored before it are kept.
             if not all(
-                table.store(name, value, entry, replace=replace)
-                for (table, value), entry in zip(roles, entries)
+                table.store(name, value, state, replace=replace)
+                for (table, value), state in zip(roles, states)
             ):
                 continue
             if replace:

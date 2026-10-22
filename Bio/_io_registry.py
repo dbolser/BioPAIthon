@@ -330,47 +330,57 @@ class FormatRegistry(dict):
         """Return a list of all (format, handler) pairs, importing as needed."""
         return [(name, self[name]) for name in self]
 
-    def entry(self, name):
-        """Return the value stored for name, or _ABSENT.
+    def _state(self, name):
+        """Return name's entry, or _ABSENT, and whether a plugin gave it (PRIVATE).
 
         This resolves nothing and never looks for entry points.
         """
-        return super().get(name, _ABSENT)
+        return super().get(name, _ABSENT), name in self.plugins
 
-    def _free(self, name, entry, replace):
-        """Return whether a name with this entry may be stored over (PRIVATE)."""
-        return replace or entry is _ABSENT or name in self.plugins
+    def _free(self, state, replace):
+        """Return whether a name in this state may be stored over (PRIVATE)."""
+        entry, plugin = state
+        return replace or entry is _ABSENT or plugin
+
+    def moved(self, name, state):
+        """Return whether name is no longer in the state check() returned."""
+        entry, plugin = state
+        current, now = self._state(name)
+        return current is not entry or now != plugin
 
     def check(self, name, value, *, replace=False):
-        """Return the entry stored for name, if value may be registered there.
+        """Return the state name is in, if value may be registered there.
 
         An absent name may be, and so may a name added from an entry point,
         or any name if replace is true.  Otherwise a name holding the same
         handler may (and store() then keeps what it holds), and one holding
         another handler raises ValueError.  This never looks for entry
-        points.  It takes no lock, as comparing a spec string with an object
-        imports the spec, and the module imported may register a format.
+        points.  The state is read under the lock, so that it is not one
+        which store() has half written; it is compared outside, as comparing
+        a spec string with an object imports the spec, and the module
+        imported may register a format.
         """
-        entry = self.entry(name)
-        if not (self._free(name, entry, replace) or _same_handler(entry, value)):
+        with self._lock:
+            state = self._state(name)
+        if not (self._free(state, replace) or _same_handler(state[0], value)):
             has = f"has {self._role}" if self._role else "exists"
             raise ValueError(
                 f"Format {name!r} already {has}; use replace=True to replace it"
             )
-        return entry
+        return state
 
-    def store(self, name, value, entry, *, replace=False):
-        """Store value under name, if its entry is still what check() returned.
+    def store(self, name, value, state, *, replace=False):
+        """Store value under name, if name is still in the state check() returned.
 
-        Return whether it was.  If not, nothing is stored: the entry moved
+        Return whether it was.  If not, nothing is stored: name moved
         between check() and store(), so check again.  Give the replace that
         check() was given; as it says, a name which already holds value's
         handler is left as it is unless replace is true.
         """
         with self._lock:
-            if self.entry(name) is not entry:
+            if self.moved(name, state):
                 return False
-            if self._free(name, entry, replace):
+            if self._free(state, replace):
                 super().__setitem__(name, value)
                 self.plugins.discard(name)
             return True
@@ -385,6 +395,6 @@ class FormatRegistry(dict):
         points.
         """
         while True:
-            entry = self.check(name, value, replace=replace)
-            if self.store(name, value, entry, replace=replace):
+            state = self.check(name, value, replace=replace)
+            if self.store(name, value, state, replace=replace):
                 return
