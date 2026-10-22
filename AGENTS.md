@@ -124,10 +124,14 @@ Use the project's own exceptions, defined in `Bio/__init__.py`:
 ## Setup
 
 ```bash
-uv pip install -e .   # or: pip install -e .
+uv pip install -e ".[test]"   # or: pip install -e ".[test]"
 ```
 
-Pre-commit hooks run black, ruff, flake8, mypy, rstcheck and doc8:
+The `test` extra brings pytest and every optional package the suite
+exercises; `pip install -e . "pytest>=9"` also works, but then every test
+needing one of those packages is skipped rather than run.
+
+Pre-commit hooks run black, ruff, flake8, mypy, rstcheck, doc8 and codespell:
 
 ```bash
 pip install pre-commit && pre-commit install
@@ -135,9 +139,8 @@ pip install pre-commit && pre-commit install
 
 ## Testing
 
-The tests are written with `unittest` and run by pytest 9 or later
-(`pip install pytest`, or the `test` extra for every optional dependency the
-suite exercises). `Tests/conftest.py` holds the suite's own rules, and
+The tests are written with `unittest` and run by pytest 9 or later (see
+[Setup](#setup)). `Tests/conftest.py` holds the suite's own rules, and
 `Tests/run_tests.py` is a shim that translates the old command line into a
 pytest one, so both of these work:
 
@@ -172,10 +175,14 @@ rather than fail. A test module may skip only by raising
 `MissingExternalDependencyError` (or `MissingPythonDependencyError`) when it is
 imported, and must then be listed in `Tests/expected_skips.txt`.
 
+The online Entrez tests need an NCBI API key in the `NCBI_API_KEY`
+environment variable and are skipped when it is unset; never commit a key.
+
 ## Style
 
 - **black**, targeting Python 3.10.
-- **ruff** with `--extend-select=B,C4,D,ISC,UP`, and **flake8** with
+- **ruff** with `--extend-select=B,C4,D,ISC,UP,S307` (plus `S101` over the
+  parser packages), and **flake8** with
   `flake8-rst-docstrings`.
 - **mypy** over `Bio` and `BioSQL`; see [Typing](#typing).
 - Docstrings are reStructuredText and follow PEP257.
