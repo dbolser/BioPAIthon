@@ -179,6 +179,7 @@ PathGenerator_create_path(PathGenerator* self, int i, int j) {
     return PyErr_NoMemory();
 }
 
+/* Mirrored by linear_nw_count (_pairwisealigner_linear.h): change both. */
 static Py_ssize_t
 PathGenerator_needlemanwunsch_length(PathGenerator* self)
 {
@@ -222,6 +223,7 @@ exit:
     return count;
 }
 
+/* Mirrored by linear_sw_count (_pairwisealigner_linear.h): change both. */
 static Py_ssize_t
 PathGenerator_smithwaterman_length(PathGenerator* self)
 {
@@ -263,6 +265,7 @@ exit:
     return count;
 }
 
+/* Mirrored by linear_gotoh_count (_pairwisealigner_linear.h): change both. */
 static Py_ssize_t
 PathGenerator_gotoh_global_length(PathGenerator* self)
 {
@@ -337,6 +340,8 @@ exit:
     return count;
 }
 
+/* Mirrored by linear_gotoh_local_count (_pairwisealigner_linear.h):
+ * change both. */
 static Py_ssize_t
 PathGenerator_gotoh_local_length(PathGenerator* self)
 {
@@ -789,6 +794,7 @@ PathGenerator_dealloc(PathGenerator* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
+/* Mirrored by linear_nw_walk (_pairwisealigner_linear.h): change both. */
 static PyObject* PathGenerator_next_needlemanwunsch(PathGenerator* self)
 {
     int i = 0;
@@ -852,6 +858,7 @@ static PyObject* PathGenerator_next_needlemanwunsch(PathGenerator* self)
     return PathGenerator_create_path(self, 0, 0);
 }
 
+/* Mirrored by linear_sw_walk (_pairwisealigner_linear.h): change both. */
 static PyObject* PathGenerator_next_smithwaterman(PathGenerator* self)
 {
     int trace = 0;
@@ -942,6 +949,7 @@ static PyObject* PathGenerator_next_smithwaterman(PathGenerator* self)
     }
 }
 
+/* Mirrored by linear_gotoh_walk (_pairwisealigner_linear.h): change both. */
 static PyObject* PathGenerator_next_gotoh_global(PathGenerator* self)
 {
     int i = 0;
@@ -1076,6 +1084,8 @@ static PyObject* PathGenerator_next_gotoh_global(PathGenerator* self)
     return PathGenerator_create_path(self, 0, 0);
 }
 
+/* Mirrored by linear_gotoh_local_walk (_pairwisealigner_linear.h):
+ * change both. */
 static PyObject* PathGenerator_next_gotoh_local(PathGenerator* self)
 {
     int trace = 0;
@@ -4288,7 +4298,16 @@ Aligner_lock_getset(void)
     if (score < 0) score = 0; \
     else if (score > maximum) maximum = score;
 
-#define SELECT_TRACE_NEEDLEMAN_WUNSCH(hgap, vgap, align_score) \
+/* The SELECT_TRACE_* macros below take their trace store as a parameter,
+ * store, a statement storing trace: the full matrix stores it in M[i][j]
+ * and gaps[i][j], the linear-space traceback (_pairwisealigner_linear.h)
+ * in a row of bytes.  Both expand the same macro, so the arithmetic, and
+ * the order of the stores, cannot drift apart; a change here changes the
+ * trace bits, and with them the paths, of both.  The mark parameter of
+ * the local macros is the macro marking an end point: SELECT_TRACE_LOCAL_MARK
+ * here, LINEAR_LOCAL_MARK there. */
+
+#define SELECT_TRACE_NEEDLEMAN_WUNSCH(hgap, vgap, align_score, store) \
     score = temp + (align_score); \
     trace = DIAGONAL; \
     temp = row[j-1] + hgap; \
@@ -4305,7 +4324,7 @@ Aligner_lock_getset(void)
     else if (temp > score - epsilon) trace |= VERTICAL; \
     temp = row[j]; \
     row[j] = score; \
-    M[i][j].trace = trace;
+    store;
 
 /* Mark cell (i, j) as an end point if a path ending there with a diagonal
  * move, scoring end, scores less than epsilon below the highest such score
@@ -4318,23 +4337,34 @@ Aligner_lock_getset(void)
  * are the cells marked from the last rise on.  If the highest score rose by
  * epsilon or less since then, some of them may score epsilon or more below
  * it, so keep the lowest of their scores, low, for SMITHWATERMAN_ALIGN,
- * GOTOH_LOCAL_ALIGN and WATERMANSMITHBEYER_LOCAL_ALIGN to check. */
-#define SELECT_TRACE_LOCAL_MARK(end) \
+ * GOTOH_LOCAL_ALIGN and WATERMANSMITHBEYER_LOCAL_ALIGN to check.
+ * SELECT_TRACE_LOCAL_MARK_WITH holds the comparisons, shared with
+ * LINEAR_LOCAL_MARK, which records the rise rather than unmarking: rise
+ * is the statement run at a rise, mark one run at each mark, and low the
+ * variable holding the lowest score. */
+#define SELECT_TRACE_LOCAL_MARK_WITH(end, low, rise, mark) \
     if (end >= epsilon && end > maximum - epsilon) { \
         if (end > maximum + epsilon) { \
-            for ( ; im < i; im++, jm = 0) \
-                for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
-            im = i; \
-            jm = j; \
+            rise \
             low = end; \
         } \
         else if (end < low) low = end; \
+        mark \
         trace |= ENDPOINT; \
     } \
     if (end >= epsilon && end > maximum) maximum = end;
 
-#define SELECT_TRACE_SMITH_WATERMAN_HVD(align_score) \
+#define SELECT_TRACE_LOCAL_UNMARK \
+    for ( ; im < i; im++, jm = 0) \
+        for ( ; jm <= nB; jm++) M[im][jm].trace &= ~ENDPOINT; \
+    for ( ; jm < j; jm++) M[im][jm].trace &= ~ENDPOINT; \
+    im = i; \
+    jm = j;
+
+#define SELECT_TRACE_LOCAL_MARK(end) \
+    SELECT_TRACE_LOCAL_MARK_WITH(end, low, SELECT_TRACE_LOCAL_UNMARK, )
+
+#define SELECT_TRACE_SMITH_WATERMAN_HVD(align_score, mark, store) \
     trace = DIAGONAL; \
     score = temp + (align_score); \
     end = score; \
@@ -4354,24 +4384,24 @@ Aligner_lock_getset(void)
         score = 0; \
         trace = STARTPOINT; \
     } \
-    SELECT_TRACE_LOCAL_MARK(end) \
-    M[i][j].trace = trace; \
+    mark(end) \
+    store; \
     temp = row[j]; \
     row[j] = score;
 
-#define SELECT_TRACE_SMITH_WATERMAN_D(align_score) \
+#define SELECT_TRACE_SMITH_WATERMAN_D(align_score, mark, store) \
     score = temp + (align_score); \
     end = score; \
     trace = DIAGONAL; \
     if (score < epsilon) { \
         score = 0; \
     } \
-    SELECT_TRACE_LOCAL_MARK(end) \
-    M[i][j].trace = trace; \
+    mark(end) \
+    store; \
     temp = row[j]; \
     row[j] = score
 
-#define SELECT_TRACE_GOTOH_GLOBAL_GAP(matrix, score1, score2, score3) \
+#define SELECT_TRACE_GOTOH_GLOBAL_GAP(score1, score2, score3, store) \
     trace = M_MATRIX; \
     score = score1; \
     temp = score2; \
@@ -4386,9 +4416,9 @@ Aligner_lock_getset(void)
         trace = Iy_MATRIX; \
     } \
     else if (temp > score - epsilon) trace |= Iy_MATRIX; \
-    gaps[i][j].matrix = trace;
+    store;
 
-#define SELECT_TRACE_GOTOH_GLOBAL_ALIGN \
+#define SELECT_TRACE_GOTOH_GLOBAL_ALIGN(store) \
     trace = M_MATRIX; \
     score = M_temp; \
     temp = Ix_temp; \
@@ -4403,9 +4433,9 @@ Aligner_lock_getset(void)
         trace = Iy_MATRIX; \
     } \
     else if (temp > score - epsilon) trace |= Iy_MATRIX; \
-    M[i][j].trace = trace;
+    store;
 
-#define SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+#define SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, mark, store) \
     trace = M_MATRIX; \
     score = M_temp; \
     if (Ix_temp > score + epsilon) { \
@@ -4424,11 +4454,11 @@ Aligner_lock_getset(void)
         trace = STARTPOINT; \
     } \
     else { \
-        SELECT_TRACE_LOCAL_MARK(score) \
+        mark(score) \
     } \
-    M[i][j].trace = trace;
+    store;
 
-#define SELECT_TRACE_GOTOH_LOCAL_GAP(matrix, score1, score2, score3) \
+#define SELECT_TRACE_GOTOH_LOCAL_GAP(score1, score2, score3, store) \
     trace = M_MATRIX; \
     score = score1; \
     temp = score2; \
@@ -4447,7 +4477,7 @@ Aligner_lock_getset(void)
         score = -DBL_MAX; \
         trace = 0; \
     } \
-    gaps[i][j].matrix = trace;
+    store;
 
 #define SELECT_TRACE_WATERMAN_SMITH_BEYER_GLOBAL_ALIGN(score4) \
     trace = M_MATRIX; \
@@ -4998,20 +5028,24 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
         kA = sA[i-1]; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_TRACE_NEEDLEMAN_WUNSCH(gap_extend_A, gap_extend_B, align_score); \
+            SELECT_TRACE_NEEDLEMAN_WUNSCH(gap_extend_A, gap_extend_B, align_score, \
+                                          M[i][j].trace = trace); \
         } \
         kB = sB[j-1]; \
-        SELECT_TRACE_NEEDLEMAN_WUNSCH(gap_extend_A, right_gap_extend_B, align_score); \
+        SELECT_TRACE_NEEDLEMAN_WUNSCH(gap_extend_A, right_gap_extend_B, align_score, \
+                                      M[i][j].trace = trace); \
     } \
     temp = row[0]; \
     row[0] = i * left_gap_extend_B; \
     kA = sA[nA-1]; \
     for (j = 1; j < nB; j++) { \
         kB = sB[j-1]; \
-        SELECT_TRACE_NEEDLEMAN_WUNSCH(right_gap_extend_A, gap_extend_B, align_score); \
+        SELECT_TRACE_NEEDLEMAN_WUNSCH(right_gap_extend_A, gap_extend_B, align_score, \
+                                      M[i][j].trace = trace); \
     } \
     kB = sB[j-1]; \
-    SELECT_TRACE_NEEDLEMAN_WUNSCH(right_gap_extend_A, right_gap_extend_B, align_score); \
+    SELECT_TRACE_NEEDLEMAN_WUNSCH(right_gap_extend_A, right_gap_extend_B, align_score, \
+                                  M[i][j].trace = trace); \
     PAIRWISE_NOGIL_END \
     PyMem_Free(row); \
     if (interrupted) { \
@@ -5062,19 +5096,23 @@ static struct fogsaa_queue_node fogsaa_queue_pop(struct fogsaa_queue *queue) {
             kA = sA[i-1]; \
             for (j = 1; j < nB; j++) { \
                 kB = sB[j-1]; \
-                SELECT_TRACE_SMITH_WATERMAN_HVD(align_score); \
+                SELECT_TRACE_SMITH_WATERMAN_HVD(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                                M[i][j].trace = trace); \
             } \
             kB = sB[nB-1]; \
-            SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+            SELECT_TRACE_SMITH_WATERMAN_D(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                          M[i][j].trace = trace); \
         } \
         temp = 0; \
         kA = sA[nA-1]; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+            SELECT_TRACE_SMITH_WATERMAN_D(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                          M[i][j].trace = trace); \
         } \
         kB = sB[nB-1]; \
-        SELECT_TRACE_SMITH_WATERMAN_D(align_score); \
+        SELECT_TRACE_SMITH_WATERMAN_D(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                      M[i][j].trace = trace); \
         PAIRWISE_NOGIL_END \
         if (interrupted) break; \
         /* Where an end point scores epsilon or more below the highest \
@@ -5543,36 +5581,36 @@ gotoh_global_unreachable(Trace** M, TraceGapsGotoh** gaps, int nA, int nB)
         Iy_row[0] = -DBL_MAX; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_TRACE_GOTOH_GLOBAL_ALIGN; \
+            SELECT_TRACE_GOTOH_GLOBAL_ALIGN(M[i][j].trace = trace); \
             M_temp = M_row[j]; \
             M_row[j] = score + (align_score); \
-            SELECT_TRACE_GOTOH_GLOBAL_GAP(Ix, \
-                                          M_temp + gap_open_B, \
+            SELECT_TRACE_GOTOH_GLOBAL_GAP(M_temp + gap_open_B, \
                                           Ix_row[j] + gap_extend_B, \
-                                          Iy_row[j] + gap_open_B); \
+                                          Iy_row[j] + gap_open_B, \
+                                          gaps[i][j].Ix = trace); \
             Ix_temp = Ix_row[j]; \
             Ix_row[j] = score; \
-            SELECT_TRACE_GOTOH_GLOBAL_GAP(Iy, \
-                                          M_row[j-1] + gap_open_A, \
+            SELECT_TRACE_GOTOH_GLOBAL_GAP(M_row[j-1] + gap_open_A, \
                                           Ix_row[j-1] + gap_open_A, \
-                                          Iy_row[j-1] + gap_extend_A); \
+                                          Iy_row[j-1] + gap_extend_A, \
+                                          gaps[i][j].Iy = trace); \
             Iy_temp = Iy_row[j]; \
             Iy_row[j] = score; \
         } \
         kB = sB[nB-1]; \
-        SELECT_TRACE_GOTOH_GLOBAL_ALIGN; \
+        SELECT_TRACE_GOTOH_GLOBAL_ALIGN(M[i][j].trace = trace); \
         M_temp = M_row[nB]; \
         M_row[nB] = score + (align_score); \
-        SELECT_TRACE_GOTOH_GLOBAL_GAP(Ix, \
-                                      M_temp + right_gap_open_B, \
+        SELECT_TRACE_GOTOH_GLOBAL_GAP(M_temp + right_gap_open_B, \
                                       Ix_row[nB] + right_gap_extend_B, \
-                                      Iy_row[nB] + right_gap_open_B); \
+                                      Iy_row[nB] + right_gap_open_B, \
+                                      gaps[i][j].Ix = trace); \
         Ix_temp = Ix_row[nB]; \
         Ix_row[nB] = score; \
-        SELECT_TRACE_GOTOH_GLOBAL_GAP(Iy, \
-                                      M_row[nB-1] + gap_open_A, \
+        SELECT_TRACE_GOTOH_GLOBAL_GAP(M_row[nB-1] + gap_open_A, \
                                       Ix_row[nB-1] + gap_open_A, \
-                                      Iy_row[nB-1] + gap_extend_A); \
+                                      Iy_row[nB-1] + gap_extend_A, \
+                                      gaps[i][j].Iy = trace); \
         Iy_temp = Iy_row[nB]; \
         Iy_row[nB] = score; \
     } \
@@ -5585,35 +5623,35 @@ gotoh_global_unreachable(Trace** M, TraceGapsGotoh** gaps, int nA, int nB)
     Iy_row[0] = -DBL_MAX; \
     for (j = 1; j < nB; j++) { \
         kB = sB[j-1]; \
-        SELECT_TRACE_GOTOH_GLOBAL_ALIGN; \
+        SELECT_TRACE_GOTOH_GLOBAL_ALIGN(M[i][j].trace = trace); \
         M_temp = M_row[j]; \
         M_row[j] = score + (align_score); \
-        SELECT_TRACE_GOTOH_GLOBAL_GAP(Ix, \
-                                      M_temp + gap_open_B, \
+        SELECT_TRACE_GOTOH_GLOBAL_GAP(M_temp + gap_open_B, \
                                       Ix_row[j] + gap_extend_B, \
-                                      Iy_row[j] + gap_open_B); \
+                                      Iy_row[j] + gap_open_B, \
+                                      gaps[i][j].Ix = trace); \
         Ix_temp = Ix_row[j]; \
         Ix_row[j] = score; \
-        SELECT_TRACE_GOTOH_GLOBAL_GAP(Iy, \
-                                      M_row[j-1] + right_gap_open_A, \
+        SELECT_TRACE_GOTOH_GLOBAL_GAP(M_row[j-1] + right_gap_open_A, \
                                       Ix_row[j-1] + right_gap_open_A, \
-                                      Iy_row[j-1] + right_gap_extend_A); \
+                                      Iy_row[j-1] + right_gap_extend_A, \
+                                      gaps[i][j].Iy = trace); \
         Iy_temp = Iy_row[j]; \
         Iy_row[j] = score; \
     } \
     kB = sB[nB-1]; \
-    SELECT_TRACE_GOTOH_GLOBAL_ALIGN; \
+    SELECT_TRACE_GOTOH_GLOBAL_ALIGN(M[i][j].trace = trace); \
     M_temp = M_row[j]; \
     M_row[j] = score + (align_score); \
-    SELECT_TRACE_GOTOH_GLOBAL_GAP(Ix, \
-                                  M_temp + right_gap_open_B, \
+    SELECT_TRACE_GOTOH_GLOBAL_GAP(M_temp + right_gap_open_B, \
                                   Ix_row[j] + right_gap_extend_B, \
-                                  Iy_row[j] + right_gap_open_B); \
+                                  Iy_row[j] + right_gap_open_B, \
+                                  gaps[i][j].Ix = trace); \
     Ix_row[nB] = score; \
-    SELECT_TRACE_GOTOH_GLOBAL_GAP(Iy, \
-                                  M_row[j-1] + right_gap_open_A, \
+    SELECT_TRACE_GOTOH_GLOBAL_GAP(M_row[j-1] + right_gap_open_A, \
                                   Ix_row[j-1] + right_gap_open_A, \
-                                  Iy_row[j-1] + right_gap_extend_A); \
+                                  Iy_row[j-1] + right_gap_extend_A, \
+                                  gaps[i][j].Iy = trace); \
     Iy_row[nB] = score; \
     M[nA][nB].path = 0; \
  \
@@ -5733,24 +5771,26 @@ exit: \
             kA = sA[i-1]; \
             for (j = 1; j < nB; j++) { \
                 kB = sB[j-1]; \
-                SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+                SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                               M[i][j].trace = trace) \
                 M_temp = M_row[j]; \
                 M_row[j] = score; \
-                SELECT_TRACE_GOTOH_LOCAL_GAP(Ix, \
-                                         M_temp + gap_open_B, \
+                SELECT_TRACE_GOTOH_LOCAL_GAP(M_temp + gap_open_B, \
                                          Ix_row[j] + gap_extend_B, \
-                                         Iy_row[j] + gap_open_B); \
+                                         Iy_row[j] + gap_open_B, \
+                                         gaps[i][j].Ix = trace); \
                 Ix_temp = Ix_row[j]; \
                 Ix_row[j] = score; \
-                SELECT_TRACE_GOTOH_LOCAL_GAP(Iy, \
-                                         M_row[j-1] + gap_open_A, \
+                SELECT_TRACE_GOTOH_LOCAL_GAP(M_row[j-1] + gap_open_A, \
                                          Ix_row[j-1] + gap_open_A, \
-                                         Iy_row[j-1] + gap_extend_A); \
+                                         Iy_row[j-1] + gap_extend_A, \
+                                         gaps[i][j].Iy = trace); \
                 Iy_temp = Iy_row[j]; \
                 Iy_row[j] = score; \
             } \
             kB = sB[nB-1]; \
-            SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+            SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                           M[i][j].trace = trace) \
             M_temp = M_row[j]; \
             M_row[j] = score; \
             Ix_temp = Ix_row[nB]; \
@@ -5772,7 +5812,8 @@ exit: \
         kA = sA[nA-1]; \
         for (j = 1; j < nB; j++) { \
             kB = sB[j-1]; \
-            SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+            SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                           M[i][j].trace = trace) \
             M_temp = M_row[j]; \
             M_row[j] = score; \
             Ix_temp = Ix_row[j]; \
@@ -5783,7 +5824,8 @@ exit: \
             gaps[nA][j].Iy = 0; \
         } \
         kB = sB[nB-1]; \
-        SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score) \
+        SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, SELECT_TRACE_LOCAL_MARK, \
+                                       M[i][j].trace = trace) \
         gaps[nA][nB].Ix = 0; \
         gaps[nA][nB].Iy = 0; \
         PAIRWISE_NOGIL_END \
