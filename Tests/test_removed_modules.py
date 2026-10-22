@@ -20,9 +20,8 @@ import os
 import unittest
 
 import Bio
-from conftest import REMOVED_MODULES
+from conftest import REMOVED_MODULES, TESTS_DIR
 
-TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 DOC_CONF = os.path.join(TESTS_DIR, os.pardir, "Doc", "conf.py")
 
 # A phrase each stub's error message must contain, so that a message cannot
@@ -80,14 +79,30 @@ def find_stubs():
 
 
 def doc_conf_excludes():
-    """Return the Bio modules Doc/conf.py keeps out of the API documentation."""
+    """Return the Bio modules Doc/conf.py keeps out of the API documentation.
+
+    Only the exclude patterns passed to sphinx-apidoc count, not any other
+    string in conf.py that happens to name a Bio path.
+    """
     with open(DOC_CONF, "rb") as handle:
         tree = ast.parse(handle.read(), DOC_CONF)
-    excluded = set()
+    patterns = []
     for node in ast.walk(tree):
-        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "apidoc_main"
+        ):
             continue
-        value = node.value
+        for arg in node.args:
+            if isinstance(arg, ast.List):
+                patterns.extend(
+                    e.value
+                    for e in arg.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                )
+    excluded = set()
+    for value in patterns:
         if not value.startswith("../Bio/"):
             continue
         value = value[len("../") :]
