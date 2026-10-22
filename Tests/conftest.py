@@ -57,7 +57,10 @@ TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # These have been removed from Biopython and survive only as stubs whose
 # import raises an informative ImportError pointing at the replacement.
-EXCLUDE_DOCTEST_MODULES = [
+# This is the test suite's one list of them: test_removed_modules.py checks
+# it against the stubs actually in the tree, and against the autodoc excludes
+# in Doc/conf.py, which the docs build cannot read from here.
+REMOVED_MODULES = [
     "Bio.Align.AlignInfo",
     "Bio.Align.Applications",
     "Bio.Alphabet",
@@ -69,6 +72,9 @@ EXCLUDE_DOCTEST_MODULES = [
     "Bio.Phylo.Applications",
     "Bio.Sequencing.Applications",
 ]
+
+# Importing a stub raises, so its docstring examples cannot be collected.
+EXCLUDE_DOCTEST_MODULES = list(REMOVED_MODULES)
 
 # Exclude modules with online activity
 # They are not excluded by default, use --offline to exclude them

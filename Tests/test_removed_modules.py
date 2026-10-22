@@ -15,29 +15,128 @@ This is a deliberate difference from upstream Biopython, which ships no stub
 for any of them.
 """
 
+import ast
+import os
 import unittest
 
-# Each entry is a module and a phrase its error message must contain, so that
-# a message cannot be reworded into uselessness without failing here.
-REMOVED_MODULES = [
-    ("Bio.Align.AlignInfo", "SummaryInfo"),
-    ("Bio.Alphabet", "molecule_type"),
-    ("Bio.Application", "subprocess"),
-    ("Bio.Align.Applications", "MuscleCommandline"),
-    ("Bio.Blast.Applications", "NcbiblastnCommandline"),
-    ("Bio.Emboss.Applications", "WaterCommandline"),
-    ("Bio.HMM", "hmmlearn"),
-    ("Bio.Phylo.Applications", "PhymlCommandline"),
-    ("Bio.Sequencing.Applications", "Novoalign"),
-    ("Bio.pairwise2", "PairwiseAligner"),
-]
+import Bio
+from conftest import REMOVED_MODULES, TESTS_DIR
+
+DOC_CONF = os.path.join(TESTS_DIR, os.pardir, "Doc", "conf.py")
+
+# A phrase each stub's error message must contain, so that a message cannot
+# be reworded into uselessness without failing here.  The modules themselves
+# are listed once, in Tests/conftest.py, which the doctest collector also
+# reads.
+REPLACEMENTS = {
+    "Bio.Align.AlignInfo": "SummaryInfo",
+    "Bio.Alphabet": "molecule_type",
+    "Bio.Application": "subprocess",
+    "Bio.Align.Applications": "MuscleCommandline",
+    "Bio.Blast.Applications": "NcbiblastnCommandline",
+    "Bio.Emboss.Applications": "WaterCommandline",
+    "Bio.HMM": "hmmlearn",
+    "Bio.Phylo.Applications": "PhymlCommandline",
+    "Bio.Sequencing.Applications": "Novoalign",
+    "Bio.pairwise2": "PairwiseAligner",
+}
+
+
+def is_stub(path):
+    """Return True if the module at path does nothing but raise ImportError."""
+    with open(path, "rb") as handle:
+        tree = ast.parse(handle.read(), path)
+    body = tree.body
+    if ast.get_docstring(tree, clean=False) is not None:
+        body = body[1:]
+    return (
+        len(body) == 1
+        and isinstance(body[0], ast.Raise)
+        and isinstance(body[0].exc, ast.Call)
+        and isinstance(body[0].exc.func, ast.Name)
+        and body[0].exc.func.id == "ImportError"
+    )
+
+
+def find_stubs():
+    """Return the names of the stub modules in the Bio package being tested."""
+    package = os.path.dirname(os.path.abspath(Bio.__file__))
+    stubs = set()
+    for root, dirs, files in os.walk(package):
+        dirs[:] = [d for d in dirs if d != "__pycache__"]
+        for filename in files:
+            if not filename.endswith(".py"):
+                continue
+            path = os.path.join(root, filename)
+            if not is_stub(path):
+                continue
+            relative = os.path.relpath(path, os.path.dirname(package))
+            parts = relative[: -len(".py")].split(os.sep)
+            if parts[-1] == "__init__":
+                parts.pop()
+            stubs.add(".".join(parts))
+    return stubs
+
+
+def doc_conf_excludes():
+    """Return the Bio modules Doc/conf.py keeps out of the API documentation.
+
+    Only the exclude patterns passed to sphinx-apidoc count, not any other
+    string in conf.py that happens to name a Bio path.
+    """
+    with open(DOC_CONF, "rb") as handle:
+        tree = ast.parse(handle.read(), DOC_CONF)
+    patterns = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "apidoc_main"
+        ):
+            continue
+        for arg in node.args:
+            if isinstance(arg, ast.List):
+                patterns.extend(
+                    e.value
+                    for e in arg.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                )
+    excluded = set()
+    for value in patterns:
+        if not value.startswith("../Bio/"):
+            continue
+        value = value[len("../") :]
+        if value.endswith("/"):
+            value = value[:-1]
+        elif value.endswith(".py"):
+            value = value[: -len(".py")]
+        excluded.add(value.replace("/", "."))
+    return excluded
+
+
+class TestRemovedModulesList(unittest.TestCase):
+    """The one list in conftest.py agrees with the tree and with Doc/conf.py."""
+
+    def test_list_matches_the_stubs_in_the_tree(self):
+        self.assertEqual(sorted(REMOVED_MODULES), sorted(find_stubs()))
+
+    def test_each_stub_has_a_replacement_phrase(self):
+        self.assertEqual(sorted(REMOVED_MODULES), sorted(REPLACEMENTS))
+
+    def test_doc_conf_excludes_each_stub(self):
+        # The docs build cannot import from Tests/, so Doc/conf.py keeps its
+        # own list of what autodoc must not import.  Check it is not short.
+        if not os.path.exists(DOC_CONF):
+            self.skipTest("Doc/conf.py not present")
+        missing = set(REMOVED_MODULES) - doc_conf_excludes()
+        self.assertEqual(set(), missing)
 
 
 class TestRemovedModules(unittest.TestCase):
     """Importing a removed module raises ImportError, not ModuleNotFoundError."""
 
     def test_raises_import_error(self):
-        for name, _ in REMOVED_MODULES:
+        for name in REMOVED_MODULES:
             with self.subTest(module=name):
                 with self.assertRaises(ImportError) as cm:
                     __import__(name)
@@ -47,17 +146,17 @@ class TestRemovedModules(unittest.TestCase):
                 self.assertNotIsInstance(cm.exception, ModuleNotFoundError)
 
     def test_message_names_the_replacement(self):
-        for name, phrase in REMOVED_MODULES:
+        for name in REMOVED_MODULES:
             with self.subTest(module=name):
                 with self.assertRaises(ImportError) as cm:
                     __import__(name)
                 message = str(cm.exception)
                 self.assertIn(name, message)
-                self.assertIn(phrase, message)
+                self.assertIn(REPLACEMENTS[name], message)
 
     def test_still_importable_by_a_guarded_caller(self):
         """`except ImportError` around the old import must keep working."""
-        for name, _ in REMOVED_MODULES:
+        for name in REMOVED_MODULES:
             with self.subTest(module=name):
                 try:
                     __import__(name)
