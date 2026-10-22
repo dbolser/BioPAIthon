@@ -54,7 +54,7 @@ Acknowledgements
 
 BioPAIthon exists because the Biopython Project spent more than twenty years
 building it. `CONTRIB.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIB.rst>`_
-keeps every name upstream's has, with the fork's own contributors added, and
+keeps every name upstream has, with the fork's own contributors added, and
 the full release history in
 `NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`__ and every
 copyright notice in the source are preserved.
