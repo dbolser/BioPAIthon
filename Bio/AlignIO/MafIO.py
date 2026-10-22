@@ -39,7 +39,7 @@ from itertools import islice
 try:
     from sqlite3 import dbapi2
 except ImportError:
-    dbapi2 = None  # type: ignore
+    dbapi2 = None  # type: ignore[assignment]
 
 from Bio.Align import MultipleSeqAlignment
 from Bio.Seq import Seq

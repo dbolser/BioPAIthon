@@ -393,7 +393,7 @@ class SeqRecord:
             self._per_letter_annotations = _RestrictedDict(length=length)
         else:
             self._per_letter_annotations.clear()
-        dict.update(self._per_letter_annotations, value)  # type: ignore
+        dict.update(self._per_letter_annotations, value)  # type: ignore[arg-type]
 
     # As for id above: None on a blank record, and where Bio.Align reads a
     # file without the sequences (SAM with no @SQ lines, some BLAST tabular),
@@ -472,7 +472,7 @@ class SeqRecord:
         if letter_annotations is not None:
             length = 0 if seq is None else len(seq)
             inst._per_letter_annotations = _RestrictedDict(length=length)
-            dict.update(inst._per_letter_annotations, letter_annotations)  # type: ignore
+            dict.update(inst._per_letter_annotations, letter_annotations)  # type: ignore[arg-type]
         return inst
 
     @overload
@@ -930,7 +930,7 @@ class SeqRecord:
 
         cls = SeqIO._FormatToWriter[format_spec]
         try:
-            return cls.to_string(self)  # type: ignore
+            return cls.to_string(self)
         except StreamModeError:
             raise ValueError(
                 "Binary format %s cannot be used with SeqRecord format method"
@@ -1109,13 +1109,13 @@ class SeqRecord:
         # Can append matching per-letter-annotation
         try:
             # To make this type safe, we would need to make sure the types are compatible, eg: no adding tuples and str
-            for k, v in self.letter_annotations.items():  # type: ignore
+            for k, v in self.letter_annotations.items():
                 if k in other.letter_annotations:
                     # avoid length checks, but otherwise equivalent to answer.letter_annotations[k] = v + other.letter_annotations[k]
                     dict.__setitem__(
                         answer.letter_annotations,
                         k,
-                        v + other.letter_annotations[k],  # type: ignore
+                        v + other.letter_annotations[k],  # type: ignore[operator]
                     )
         except TypeError as exc:
             raise TypeError(

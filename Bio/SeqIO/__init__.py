@@ -501,7 +501,7 @@ class AlignmentSequenceIterator(SequenceIterator):
         # Bio.AlignIO, and Python will turn the function into a bound method
         # with self as the first argument.
         alignment_iterator_class = type(self)._alignment_iterator_class
-        alignments = alignment_iterator_class(self.stream, None)  # type: ignore
+        alignments = alignment_iterator_class(self.stream, None)  # type: ignore[call-arg]
         self.iterator = (record for alignment in alignments for record in alignment)
 
     def __next__(self):
