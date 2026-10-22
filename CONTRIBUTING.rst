@@ -91,11 +91,11 @@ like *italics* and **bold** once rendered into HTML webpages for our online
 API documentation. We also use reStructuredText for files like ``README.rst``.
 
 To facilitate style checking, we make use of ``pre-commit`` to automatically
-run various ``flake8`` plugins as well as ``black`` on the Python code, and
-``restructuredtext-lint`` (also known as ``rst-lint``) to check the RST files
-too. We also use continuous integration on GitHub to run these checks, but we
-strongly suggest you install and run ``pre-commit`` in your local machine (see
-below).
+run ``black``, ``ruff``, ``flake8`` and ``mypy`` on the Python code, and
+``rstcheck`` and ``doc8`` on the RST files, among other checks. We also use
+continuous integration on GitHub to run these checks, but we strongly suggest
+you install and run ``pre-commit`` in your local machine (see the Setup
+section of `AGENTS.md <AGENTS.md>`__).
 
 
 Testing
@@ -107,43 +107,14 @@ chapter in the Biopython Tutorial for more information on our test framework:
 http://biopython.org/DIST/docs/tutorial/Tutorial.html
 
 
-Local Development
------------------
+Local Development and Testing
+-----------------------------
 
-As mentioned above, to simplify your contributions, we provide a `pre-commit
-<https://pre-commit.com/>`_ configuration. Pre-commit is a Python package which
-automatically hooks into git. When you run "git commit" within the biopython
-repository, it will automatically run various fast checks (including ``black``,
-``flake8``, ``rst-lint`` and ``doc8``) before the commit happens. To install
-this, run::
-
-    $ pip install pre-commit
-
-    # Activate pre-commit for biopython
-    $ cd biopython-repository
-    $ pre-commit install
-
-
-Local Testing
--------------
-
-Please always run the full test suite locally before submitting a pull
-request, e.g.::
-
-    $ pip install -e . --group dev
-    $ cd Tests
-    $ python run_tests.py
-    $ git commit ...
-
-The ``dev`` dependency group brings pytest, which runs the tests.
-``python -m pytest`` in ``Tests`` is equivalent to ``python run_tests.py``,
-and takes all of pytest's own options.
-
-Have a look at the `related chapter <http://biopython.org/DIST/docs/tutorial/Tutorial.html#chapter%3Atesting>`_ in the documentation for more details.
-
-Online Entrez tests require an NCBI API key supplied through the
-``NCBI_API_KEY`` environment variable. They are skipped when the variable is
-unset; never commit API keys to the repository.
+Please run the full test suite locally before submitting a pull request, and
+run ``pre-commit`` so the style checks pass before CI sees your change. How to
+install BioPAIthon for development, enable the ``pre-commit`` hooks, and run
+the test suite is described once, in the Setup and Testing sections of
+`AGENTS.md <AGENTS.md>`__; the README carries the same commands for users.
 
 Continuous Integration
 ----------------------

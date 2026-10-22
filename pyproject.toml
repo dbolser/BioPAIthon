@@ -80,10 +80,11 @@ all = [
     "scipy",
 ]
 # What the offline test suite exercises; ci-dependencies.txt installs this
-# extra so the two cannot drift. Not simply `all`: BioSQL MySQL testing is
-# disabled (upstream #3834), so no mysqlclient. mmtf-python is still needed
-# for the offline mmtf parser tests; numpy 2.1.0 is excluded per upstream
-# (see ci-dependencies.txt history).
+# extra so the two cannot drift. Not simply `all`: mysqlclient needs a running
+# MySQL server, so ci.yml installs it only on the matrix entry that starts
+# one, and the other entries skip the MySQL tests cleanly. mmtf-python is
+# still needed for the offline mmtf parser tests; numpy 2.1.0 is excluded per
+# upstream (see ci-dependencies.txt history).
 test = [
     "biopaithon[graphics,phylo,structure]",
     "coverage",
