@@ -7,9 +7,7 @@
 """Tests for PopGen GenePop nodepend module."""
 
 import gc
-import importlib
 import os
-import sys
 import tempfile
 import unittest
 import warnings
@@ -298,16 +296,13 @@ class LargeFileParserDeprecationTest(unittest.TestCase):
     """Check the module-level deprecation warning of LargeFileParser.
 
     The warning fires only when the module is first executed, so the module
-    is removed from ``sys.modules`` and imported afresh.
+    is imported afresh through support.import_fresh_with_warnings.
     """
 
     def test_import_warns_and_names_replacements(self):
         """A fresh import warns BiopythonDeprecationWarning, naming successors."""
         module_name = "Bio.PopGen.GenePop.LargeFileParser"
-        sys.modules.pop(module_name, None)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            importlib.import_module(module_name)
+        _, caught = support.import_fresh_with_warnings(module_name)
         messages = [
             str(w.message)
             for w in caught
