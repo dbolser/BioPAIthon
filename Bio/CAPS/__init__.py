@@ -17,8 +17,6 @@ __all__ = [
     "AlignmentHasDifferentLengthsError",
     "CAPSMap",
     "DifferentialCutsite",
-    "MultipleSeqAlignment",
-    "Seq",
 ]
 
 from Bio.Align import MultipleSeqAlignment

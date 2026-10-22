@@ -122,8 +122,6 @@ same length.
 """
 
 __all__ = [
-    "MultipleSeqAlignment",
-    "as_handle",
     "convert",
     "parse",
     "read",

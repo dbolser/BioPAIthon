@@ -7,10 +7,8 @@
 """Code for dealing with Codon Alignments."""
 
 __all__ = [
-    "BiopythonWarning",
     "CodonAlignment",
     "CodonSeq",
-    "SeqRecord",
     "build",
     "mktest",
 ]

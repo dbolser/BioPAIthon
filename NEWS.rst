@@ -55,6 +55,23 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+The ``__all__`` declarations of the re-exporting packages now name only what
+each package or its own submodules define: 43 names that 17 packages merely
+import from elsewhere in ``Bio`` are gone from their ``__all__`` lists, so
+``from Bio.Align import *`` no longer injects ``Seq``, ``SeqRecord`` and
+``translate``, and ``Bio.Blast``, ``Bio.Entrez`` and ``Bio.TogoWS`` no longer
+declare the private decorator ``Bio._utils.function_with_previous`` as public
+API. This completes the pruning of standard-library and NumPy names below.
+The attributes themselves are unchanged; only the declared public surface
+shrank, and the public-exports test now rejects any name defined outside the
+package and its submodules, so none can creep back. ``Bio.PDB`` imports
+``NeighborSearch`` and ``ShrakeRupley`` unconditionally, as it already did
+``CEAligner``. The ``ImportError`` guards around the first two had stopped
+meaning anything once ``__all__`` listed them: ``ShrakeRupley`` needs the
+``kdtrees`` extension, which every build compiles (as ``CEAligner`` needs
+``ccealign``), and ``NeighborSearch`` only imports ``kdtrees`` lazily, so its
+guard never fired at all.
+
 (Entries are added here as changes land. As of 2026-10-22 the plan is to
 condense this section to a release summary when 1.89 is released.)
 

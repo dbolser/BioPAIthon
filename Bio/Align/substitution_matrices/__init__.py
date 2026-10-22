@@ -9,7 +9,6 @@
 
 __all__ = [
     "Array",
-    "as_handle",
     "load",
     "read",
 ]

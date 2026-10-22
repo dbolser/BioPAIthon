@@ -34,7 +34,6 @@ http://soapy.sourceforge.net/
 __all__ = [
     "convert",
     "entry",
-    "function_with_previous",
     "search",
     "search_count",
     "search_iter",

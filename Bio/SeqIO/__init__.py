@@ -347,7 +347,6 @@ making up each alignment as SeqRecords.
 __all__ = [
     "AlignmentSequenceIterator",
     "AlignmentSequenceWriter",
-    "SeqRecord",
     "SequenceIterator",
     "SequenceWriter",
     "convert",

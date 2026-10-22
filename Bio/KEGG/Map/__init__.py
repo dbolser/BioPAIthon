@@ -19,7 +19,6 @@ EC number of the enzyme that catalyze the reaction.
 """
 
 __all__ = [
-    "Reaction",
     "parse",
 ]
 
