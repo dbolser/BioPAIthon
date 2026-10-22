@@ -4,6 +4,7 @@
 
 """Tests for Cluster module."""
 
+import functools
 import os
 import subprocess
 import sys
@@ -374,6 +375,9 @@ class TestCluster(unittest.TestCase):
         if TestCluster.module == "Bio.Cluster":
             from Bio.Cluster._cluster import clustercentroids
             from Bio.Cluster._cluster import kcluster
+
+            # Bio.Cluster's C kcluster requires rng_seed; Pycluster's has none.
+            kcluster = functools.partial(kcluster, rng_seed=0)
         elif TestCluster.module == "Pycluster":
             from Pycluster._cluster import clustercentroids
             from Pycluster._cluster import kcluster
@@ -2239,6 +2243,9 @@ class TestCluster(unittest.TestCase):
         # Test if incorrect arguments are caught by the C code
         if TestCluster.module == "Bio.Cluster":
             from Bio.Cluster._cluster import somcluster
+
+            # Bio.Cluster's C somcluster requires rng_seed; Pycluster's has none.
+            somcluster = functools.partial(somcluster, rng_seed=0)
         elif TestCluster.module == "Pycluster":
             from Pycluster._cluster import somcluster
 
@@ -2748,6 +2755,9 @@ class TestCluster(unittest.TestCase):
         if TestCluster.module == "Bio.Cluster":
             from Bio.Cluster._cluster import distancematrix
             from Bio.Cluster._cluster import kmedoids
+
+            # Bio.Cluster's C kmedoids requires rng_seed; Pycluster's has none.
+            kmedoids = functools.partial(kmedoids, rng_seed=0)
         elif TestCluster.module == "Pycluster":
             from Pycluster._cluster import distancematrix
             from Pycluster._cluster import kmedoids
@@ -3290,6 +3300,38 @@ class TestClusterRNGSeed(unittest.TestCase):
         # The extreme valid seeds are accepted.
         kcluster(data, nclusters=3, npass=1, rng_seed=0)
         kcluster(data, nclusters=3, npass=1, rng_seed=2**64 - 1)
+
+    def test_private_module_requires_int_seed(self):
+        # The C functions take only an integer rng_seed. The Bio.Cluster
+        # wrappers resolve None to a seed drawn from os.urandom, so the C
+        # layer has no None branch of its own to keep in step with them.
+        from Bio.Cluster import _cluster
+
+        data = self._data(nrows=10, ncols=3)
+        mask = np.ones(data.shape, np.int32)
+        weight = np.ones(data.shape[1])
+        clusterid = np.zeros(len(data), np.int32)
+        clusterids = np.zeros((len(data), 2), np.int32)
+        celldata = np.zeros((2, 2, data.shape[1]))
+        distances = np.zeros((len(data), len(data)))
+        calls = [
+            (_cluster.kcluster, (data, 2, mask, weight, 0, 1, "a", "e", clusterid)),
+            (_cluster.kmedoids, (distances, 2, 1, clusterid)),
+            (
+                _cluster.somcluster,
+                (clusterids, celldata, data, mask, weight, 0, 0.02, 1, "e"),
+            ),
+        ]
+        message = "^rng_seed must be an integer$"
+        for function, args in calls:
+            with self.subTest(function=function.__name__):
+                function(*args, 0)
+                function(*args, rng_seed=0)
+                self.assertRaises(TypeError, function, *args)
+                with self.assertRaisesRegex(TypeError, message):
+                    function(*args, None)
+                with self.assertRaisesRegex(TypeError, message):
+                    function(*args, rng_seed=None)
 
     def test_global_rand_stream_untouched(self):
         # Bio.Cluster used to seed the C library's global random number

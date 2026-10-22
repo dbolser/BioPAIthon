@@ -85,14 +85,14 @@ def kcluster(
     method: str,
     dist: str,
     clusterid: _OutBuffer,
-    rng_seed: int | None = None,
+    rng_seed: int,
 ) -> tuple[float, int]: ...
 def kmedoids(
     distance: _DistanceMatrix[_RowT],
     nclusters: SupportsIndex,
     npass: SupportsIndex,
     clusterid: _OutBuffer,
-    rng_seed: int | None = None,
+    rng_seed: int,
 ) -> tuple[float, int]: ...
 
 # Exactly one of data and distancematrix is None; tree must be empty.
@@ -116,7 +116,7 @@ def somcluster(
     inittau: SupportsFloat | SupportsIndex,
     niter: SupportsIndex,
     dist: str,
-    rng_seed: int | None = None,
+    rng_seed: int,
 ) -> None: ...
 def clusterdistance(
     data: _Buffer,

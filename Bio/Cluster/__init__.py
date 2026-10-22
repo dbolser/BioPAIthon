@@ -1373,9 +1373,8 @@ def __check_rng_seed(rng_seed: int | None) -> int:
     """Return rng_seed, drawing a fresh one from os.urandom if it is None.
 
     None is resolved here, at the Python layer, so that unseeded calls
-    through the public API create no per-call Python objects inside the C
-    wrapper; the C layer resolves None itself only for callers that use
-    Bio.Cluster._cluster directly.
+    create no per-call Python objects inside the C wrapper; the C layer
+    requires an integer.
     """
     if rng_seed is None:
         rng_seed = int.from_bytes(os.urandom(8), "big")
