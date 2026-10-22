@@ -411,7 +411,9 @@ raises ``ImportError`` naming what the module provided and what to use
 instead. Upstream ships nothing under these names, so the same import raises
 ``ModuleNotFoundError`` there, which says only that a module is absent. A
 GitHub code search finds roughly 5,000 public Python files still importing
-them; see the usage survey in ``IMPROVEMENTS.md``. This follows the pattern
+them; see the `usage survey
+<https://github.com/dbolser/BioPAIthon/blob/main/IMPROVEMENTS.md#how-much-is-any-of-this-used>`__
+in the repository's ``IMPROVEMENTS.md``. This follows the pattern
 already used for ``Bio.Alphabet``. Nothing that was unavailable becomes
 available: the stubs cannot be used, only read.
 

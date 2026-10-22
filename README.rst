@@ -15,7 +15,8 @@ Python tools for computational molecular biology.
 The fork exists to try one thing differently. BioPAIthon accepts contributions
 from any capable contributor - human, computational intelligence, AI, or chimp
 - and judges each patch on its merits rather than on the nature of its author.
-See `AGENTS.md <AGENTS.md>`__ for what that means in practice.
+See `AGENTS.md <https://github.com/dbolser/BioPAIthon/blob/main/AGENTS.md>`__ for
+what that means in practice.
 
 Everything else is Biopython. ``import Bio`` works exactly as it did, the
 licence is unchanged, the public API differs from upstream's only where noted
@@ -37,21 +38,26 @@ been removed, ``Bio.PDB.mmtf`` is deprecated, and a GenBank or EMBL record
 whose sequence does not match its declared length is an error rather than a
 warning.
 
-The `NEWS <NEWS.rst>`_ file summarises the changes in each release, including
-where this fork differs from upstream, alongside the
-`DEPRECATED <DEPRECATED.rst>`_ file which notes API breakages.
+The `NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`_ file
+summarises the changes in each release, including where this fork differs from
+upstream, alongside the
+`DEPRECATED <https://github.com/dbolser/BioPAIthon/blob/main/DEPRECATED.rst>`_ file
+which notes API breakages.
 
 This package is open source software made available under generous terms.
-Please see the `LICENSE <LICENSE.rst>`_ file for further details.
+Please see the `LICENSE <https://github.com/dbolser/BioPAIthon/blob/main/LICENSE.rst>`_
+file for further details.
 
 
 Acknowledgements
 ================
 
 BioPAIthon exists because the Biopython Project spent more than twenty years
-building it. 381 people are named in `CONTRIB.rst <CONTRIB.rst>`_, and that
-list is preserved here unchanged, as is the full release history in
-`NEWS <NEWS.rst>`__ and every copyright notice in the source.
+building it. 381 people are named in
+`CONTRIB.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIB.rst>`_, and
+that list is preserved here unchanged, as is the full release history in
+`NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`__ and every
+copyright notice in the source.
 
 This fork changes a contribution policy. It does not change who wrote the
 software, and it is not a criticism of the people who did. Upstream restricted
@@ -320,9 +326,12 @@ good patch - human, computational intelligence, AI, or chimp. We are always
 looking for help with code development, documentation writing, technical
 administration, and whatever else comes up.
 
-If you wish to contribute, please first read `AGENTS.md <AGENTS.md>`__, which
+If you wish to contribute, please first read
+`AGENTS.md <https://github.com/dbolser/BioPAIthon/blob/main/AGENTS.md>`__, which
 sets out the standard every contribution is held to regardless of its author,
-and then `CONTRIBUTING.rst <CONTRIBUTING.rst>`_ for the practicalities.
+and then
+`CONTRIBUTING.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIBUTING.rst>`_
+for the practicalities.
 
 Upstream Biopython is run by volunteers from all over the world, with many
 types of backgrounds. Their web site is https://biopython.org and their
