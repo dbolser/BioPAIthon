@@ -107,13 +107,15 @@ class ClassificationTests(unittest.TestCase):
         """
         path = support.DATA.parent / ".github" / "check_wheel.py"
         tree = ast.parse(path.read_text(), filename=str(path))
-        (assignment,) = (
-            node
+        assigned = {
+            target.id: node.value
             for node in tree.body
             if isinstance(node, ast.Assign)
-            and any(target.id == "EXTENSIONS" for target in node.targets)
-        )
-        self.assertEqual(set(ast.literal_eval(assignment.value)), DECLARED)
+            for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        extensions = ast.literal_eval(assigned["EXTENSIONS"])
+        self.assertEqual(sorted(extensions), sorted(DECLARED))
 
 
 @unittest.skipUnless(
