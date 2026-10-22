@@ -303,27 +303,10 @@ error:
 /* ------------------- Needleman-Wunsch ------------------- */
 
 /* SELECT_TRACE_NEEDLEMAN_WUNSCH, storing the trace bits in a row of
- * bytes, tr, rather than in M[i][j].  The arithmetic must stay
- * identical to it, and so must the order of the stores, or the trace
- * bits, and with them the paths, could differ from the full matrix. */
+ * bytes, tr, rather than in M[i][j]. */
 #define LINEAR_NW_CELL(hgap, vgap, align_score) \
-    score = temp + (align_score); \
-    trace = DIAGONAL; \
-    temp = row[j-1] + hgap; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = HORIZONTAL; \
-    } \
-    else if (temp > score - epsilon) trace |= HORIZONTAL; \
-    temp = row[j] + vgap; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = VERTICAL; \
-    } \
-    else if (temp > score - epsilon) trace |= VERTICAL; \
-    temp = row[j]; \
-    row[j] = score; \
-    tr[j] = (unsigned char)trace;
+    SELECT_TRACE_NEEDLEMAN_WUNSCH(hgap, vgap, align_score, \
+                                  tr[j] = (unsigned char)trace)
 
 /* One row of PathGenerator_needlemanwunsch_length, over the row's trace
  * bits in tr: the overflows, and the order of the additions, must stay as
@@ -535,61 +518,26 @@ static const LinearKernel linear_nw_matrix = {
 #define LINEAR_GOTOH_IX(tr, j) ((tr)[2*(size_t)(j)+1] & 0xf)
 #define LINEAR_GOTOH_IY(tr, j) ((tr)[2*(size_t)(j)+1] >> 4)
 
-/* SELECT_TRACE_GOTOH_GLOBAL_ALIGN and SELECT_TRACE_GOTOH_GLOBAL_GAP,
- * without the store of the trace.  The arithmetic must stay identical to
- * them, or the trace bits, and with them the paths, could differ from the
- * full matrix. */
-#define LINEAR_GOTOH_ALIGN \
-    trace = M_MATRIX; \
-    score = M_temp; \
-    temp = Ix_temp; \
-    if (temp > score + epsilon) { \
-        score = Ix_temp; \
-        trace = Ix_MATRIX; \
-    } \
-    else if (temp > score - epsilon) trace |= Ix_MATRIX; \
-    temp = Iy_temp; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = Iy_MATRIX; \
-    } \
-    else if (temp > score - epsilon) trace |= Iy_MATRIX;
-
-#define LINEAR_GOTOH_GAP(score1, score2, score3) \
-    trace = M_MATRIX; \
-    score = score1; \
-    temp = score2; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = Ix_MATRIX; \
-    } \
-    else if (temp > score - epsilon) trace |= Ix_MATRIX; \
-    temp = score3; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = Iy_MATRIX; \
-    } \
-    else if (temp > score - epsilon) trace |= Iy_MATRIX;
-
 /* A cell of GOTOH_GLOBAL_ALIGN, with the gap scores of its row and column,
- * in the order of its statements.  M, Ix and Iy of column j are row[3*j],
+ * in the order of its statements, with SELECT_TRACE_GOTOH_GLOBAL_ALIGN and
+ * SELECT_TRACE_GOTOH_GLOBAL_GAP storing the trace bits in tr rather than
+ * in M[i][j] and gaps[i][j].  M, Ix and Iy of column j are row[3*j],
  * row[3*j+1] and row[3*j+2].  Indices are in size_t, as 3*j can be over
  * INT_MAX. */
 #define LINEAR_GOTOH_CELL(open_B, extend_B, open_A, extend_A, align_score) \
-    LINEAR_GOTOH_ALIGN; \
-    tr[2*(size_t)j] = (unsigned char)trace; \
+    SELECT_TRACE_GOTOH_GLOBAL_ALIGN(tr[2*(size_t)j] = (unsigned char)trace); \
     M_temp = row[3*(size_t)j]; \
     row[3*(size_t)j] = score + (align_score); \
-    LINEAR_GOTOH_GAP(M_temp + open_B, \
-                     row[3*(size_t)j+1] + extend_B, \
-                     row[3*(size_t)j+2] + open_B); \
-    tr[2*(size_t)j+1] = (unsigned char)trace; \
+    SELECT_TRACE_GOTOH_GLOBAL_GAP(M_temp + open_B, \
+                                  row[3*(size_t)j+1] + extend_B, \
+                                  row[3*(size_t)j+2] + open_B, \
+                                  tr[2*(size_t)j+1] = (unsigned char)trace); \
     Ix_temp = row[3*(size_t)j+1]; \
     row[3*(size_t)j+1] = score; \
-    LINEAR_GOTOH_GAP(row[3*(size_t)j-3] + open_A, \
-                     row[3*(size_t)j-2] + open_A, \
-                     row[3*(size_t)j-1] + extend_A); \
-    tr[2*(size_t)j+1] |= (unsigned char)(trace << 4); \
+    SELECT_TRACE_GOTOH_GLOBAL_GAP(row[3*(size_t)j-3] + open_A, \
+                                  row[3*(size_t)j-2] + open_A, \
+                                  row[3*(size_t)j-1] + extend_A, \
+                                  tr[2*(size_t)j+1] |= (unsigned char)(trace << 4)); \
     Iy_temp = row[3*(size_t)j+2]; \
     row[3*(size_t)j+2] = score;
 
@@ -905,69 +853,37 @@ linear_before(int i, int j, const int* cell)
     return i < cell[0] || (i == cell[0] && j < cell[1]);
 }
 
-/* SELECT_TRACE_LOCAL_MARK.  Where it unmarks the cells since
- * the previous rise, this records the rise instead (see LinearLocal). */
+/* SELECT_TRACE_LOCAL_MARK.  Where it unmarks the cells since the previous
+ * rise, this records the rise, and the first mark, instead (see
+ * LinearLocal). */
+#define LINEAR_LOCAL_RISE \
+    if (!local.rise[0]) { \
+        local.rise[0] = i; \
+        local.rise[1] = j; \
+    } \
+    local.last[0] = i; \
+    local.last[1] = j;
+
+#define LINEAR_LOCAL_FIRST \
+    if (!local.first[0]) { \
+        local.first[0] = i; \
+        local.first[1] = j; \
+    }
+
 #define LINEAR_LOCAL_MARK(end) \
-    if (end >= epsilon && end > maximum - epsilon) { \
-        if (end > maximum + epsilon) { \
-            if (!local.rise[0]) { \
-                local.rise[0] = i; \
-                local.rise[1] = j; \
-            } \
-            local.last[0] = i; \
-            local.last[1] = j; \
-            local.low = end; \
-        } \
-        else if (end < local.low) local.low = end; \
-        if (!local.first[0]) { \
-            local.first[0] = i; \
-            local.first[1] = j; \
-        } \
-        trace |= ENDPOINT; \
-    } \
-    if (end >= epsilon && end > maximum) maximum = end;
+    SELECT_TRACE_LOCAL_MARK_WITH(end, local.low, LINEAR_LOCAL_RISE, \
+                                 LINEAR_LOCAL_FIRST)
 
-/* SELECT_TRACE_SMITH_WATERMAN_HVD, storing the trace bits in a row of
- * bytes, tr, rather than in M[i][j].  The arithmetic must stay identical
- * to it, and so must the order of the stores, or the trace bits, and with
- * them the paths, could differ from the full matrix. */
+/* SELECT_TRACE_SMITH_WATERMAN_HVD and SELECT_TRACE_SMITH_WATERMAN_D,
+ * marking with LINEAR_LOCAL_MARK and storing the trace bits in a row of
+ * bytes, tr, rather than in M[i][j]. */
 #define LINEAR_SW_HVD(align_score) \
-    trace = DIAGONAL; \
-    score = temp + (align_score); \
-    end = score; \
-    temp = row[j-1] + gap_extend_A; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = HORIZONTAL; \
-    } \
-    else if (temp > score - epsilon) trace |= HORIZONTAL; \
-    temp = row[j] + gap_extend_B; \
-    if (temp > score + epsilon) { \
-        score = temp; \
-        trace = VERTICAL; \
-    } \
-    else if (temp > score - epsilon) trace |= VERTICAL; \
-    if (score < epsilon) { \
-        score = 0; \
-        trace = STARTPOINT; \
-    } \
-    LINEAR_LOCAL_MARK(end) \
-    tr[j] = (unsigned char)trace; \
-    temp = row[j]; \
-    row[j] = score;
+    SELECT_TRACE_SMITH_WATERMAN_HVD(align_score, LINEAR_LOCAL_MARK, \
+                                    tr[j] = (unsigned char)trace)
 
-/* SELECT_TRACE_SMITH_WATERMAN_D, likewise. */
 #define LINEAR_SW_D(align_score) \
-    score = temp + (align_score); \
-    end = score; \
-    trace = DIAGONAL; \
-    if (score < epsilon) { \
-        score = 0; \
-    } \
-    LINEAR_LOCAL_MARK(end) \
-    tr[j] = (unsigned char)trace; \
-    temp = row[j]; \
-    row[j] = score;
+    SELECT_TRACE_SMITH_WATERMAN_D(align_score, LINEAR_LOCAL_MARK, \
+                                  tr[j] = (unsigned char)trace)
 
 /* One row of PathGenerator_smithwaterman_length, over the row's trace bits
  * in tr.  That counts over the traces as SMITHWATERMAN_ALIGN leaves them,
@@ -1224,58 +1140,30 @@ static const LinearKernel linear_sw_matrix = {
 
 /* ----------------------- Gotoh local ----------------------- */
 
-/* SELECT_TRACE_GOTOH_LOCAL_ALIGN, storing the trace in tr rather than in
- * M[i][j], and marking with LINEAR_LOCAL_MARK.  The arithmetic must stay
- * identical to it, or the trace bits, and with them the paths, could
- * differ from the full matrix. */
+/* SELECT_TRACE_GOTOH_LOCAL_ALIGN, marking with LINEAR_LOCAL_MARK and
+ * storing the trace in tr rather than in M[i][j]. */
 #define LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
-    trace = M_MATRIX; \
-    score = M_temp; \
-    if (Ix_temp > score + epsilon) { \
-        score = Ix_temp; \
-        trace = Ix_MATRIX; \
-    } \
-    else if (Ix_temp > score - epsilon) trace |= Ix_MATRIX; \
-    if (Iy_temp > score + epsilon) { \
-        score = Iy_temp; \
-        trace = Iy_MATRIX; \
-    } \
-    else if (Iy_temp > score - epsilon) trace |= Iy_MATRIX; \
-    score += (align_score); \
-    if (score < epsilon) { \
-        score = 0; \
-        trace = STARTPOINT; \
-    } \
-    else { \
-        LINEAR_LOCAL_MARK(score) \
-    } \
-    tr[2*(size_t)j] = (unsigned char)trace;
-
-/* SELECT_TRACE_GOTOH_LOCAL_GAP, without the store of the trace. */
-#define LINEAR_GOTOH_LOCAL_GAP(score1, score2, score3) \
-    LINEAR_GOTOH_GAP(score1, score2, score3) \
-    if (score < epsilon) { \
-        score = -DBL_MAX; \
-        trace = 0; \
-    }
+    SELECT_TRACE_GOTOH_LOCAL_ALIGN(align_score, LINEAR_LOCAL_MARK, \
+                                   tr[2*(size_t)j] = (unsigned char)trace)
 
 /* A cell of GOTOH_LOCAL_ALIGN before the last row and column, in the order
- * of its statements, with M, Ix and Iy of column j at row[3*j], row[3*j+1]
- * and row[3*j+2]. */
+ * of its statements, with SELECT_TRACE_GOTOH_LOCAL_GAP storing the trace
+ * bits in tr rather than in gaps[i][j], and M, Ix and Iy of column j at
+ * row[3*j], row[3*j+1] and row[3*j+2]. */
 #define LINEAR_GOTOH_LOCAL_CELL(align_score) \
     LINEAR_GOTOH_LOCAL_ALIGN(align_score) \
     M_temp = row[3*(size_t)j]; \
     row[3*(size_t)j] = score; \
-    LINEAR_GOTOH_LOCAL_GAP(M_temp + gap_open_B, \
-                           row[3*(size_t)j+1] + gap_extend_B, \
-                           row[3*(size_t)j+2] + gap_open_B); \
-    tr[2*(size_t)j+1] = (unsigned char)trace; \
+    SELECT_TRACE_GOTOH_LOCAL_GAP(M_temp + gap_open_B, \
+                                 row[3*(size_t)j+1] + gap_extend_B, \
+                                 row[3*(size_t)j+2] + gap_open_B, \
+                                 tr[2*(size_t)j+1] = (unsigned char)trace); \
     Ix_temp = row[3*(size_t)j+1]; \
     row[3*(size_t)j+1] = score; \
-    LINEAR_GOTOH_LOCAL_GAP(row[3*(size_t)j-3] + gap_open_A, \
-                           row[3*(size_t)j-2] + gap_open_A, \
-                           row[3*(size_t)j-1] + gap_extend_A); \
-    tr[2*(size_t)j+1] |= (unsigned char)(trace << 4); \
+    SELECT_TRACE_GOTOH_LOCAL_GAP(row[3*(size_t)j-3] + gap_open_A, \
+                                 row[3*(size_t)j-2] + gap_open_A, \
+                                 row[3*(size_t)j-1] + gap_extend_A, \
+                                 tr[2*(size_t)j+1] |= (unsigned char)(trace << 4)); \
     Iy_temp = row[3*(size_t)j+2]; \
     row[3*(size_t)j+2] = score;
 
