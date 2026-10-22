@@ -1418,8 +1418,9 @@ def register_format(name, iterator=None, writer=None, *, replace=False):
                 for (table, value), entry in zip(roles, entries)
             ):
                 continue
-            # Now only a first use of a role can move its entry, by resolving
-            # it; then the roles stored before it are checked again and kept.
+            # Now an entry can move only by a first use resolving it, or by
+            # plugin discovery adding an absent name: neither takes this
+            # lock.  Then check again; the roles stored before it are kept.
             if not all(
                 table.store(name, value, entry, replace=replace)
                 for (table, value), entry in zip(roles, entries)

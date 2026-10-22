@@ -680,6 +680,65 @@ class Precedence(unittest.TestCase):
         )
 
 
+class MovedEntry(unittest.TestCase):
+    """SeqIO.register_format checks again when an entry moves under its lock.
+
+    FormatRegistry.store() refuses if the entry is not the one check()
+    returned.  Under SeqIO's registration lock an entry can still move by a
+    first use resolving it, or by plugin discovery adding an absent name, as
+    neither takes that lock.
+    """
+
+    name = "test-fasta"
+    spec = "Bio.SeqIO.FastaIO:FastaIterator"
+
+    def setUp(self):
+        for table in [SeqIO._FormatToIterator, SeqIO._FormatToWriter]:
+            self.addCleanup(restore, table, stored(table))
+        self.addCleanup(SeqIO._FormatToIterator.plugins.discard, self.name)
+
+    def move_before_first_store(self, table, move):
+        """Make table's first store() find its entry moved by move().
+
+        Return the list which collects what each store() returns.
+        """
+        real = table.store
+        calls = []
+
+        def store(name, value, entry, *, replace=False):
+            if not calls:
+                move()
+            calls.append(real(name, value, entry, replace=replace))
+            return calls[-1]
+
+        table.store = store
+        self.addCleanup(delattr, table, "store")
+        return calls
+
+    def test_resolved(self):
+        table = SeqIO._FormatToIterator
+        dict.__setitem__(table, self.name, self.spec)
+        calls = self.move_before_first_store(table, lambda: table[self.name])
+        SeqIO.register_format(self.name, FastaIterator, FastaWriter)
+        self.assertEqual(calls, [False, True])
+        self.assertIs(dict.__getitem__(table, self.name), FastaIterator)
+        self.assertIs(dict.__getitem__(SeqIO._FormatToWriter, self.name), FastaWriter)
+
+    def test_discovered(self):
+        table = SeqIO._FormatToIterator
+
+        def discover():
+            dict.__setitem__(table, self.name, self.spec)
+            table.plugins.add(self.name)
+
+        calls = self.move_before_first_store(table, discover)
+        SeqIO.register_format(self.name, MarkingFastaIterator, FastaWriter)
+        self.assertEqual(calls, [False, True])
+        self.assertIs(dict.__getitem__(table, self.name), MarkingFastaIterator)
+        self.assertNotIn(self.name, table.plugins)
+        self.assertIs(dict.__getitem__(SeqIO._FormatToWriter, self.name), FastaWriter)
+
+
 class Registry(unittest.TestCase):
     """FormatRegistry.register and its built-in names."""
 
