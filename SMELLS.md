@@ -14,6 +14,10 @@ made in focused patches with appropriate tests.
 
 ## 1. Duplicated alignment input preparation
 
+**Status: fixed** in PR #227 (2026-10-20). `PairwiseAligner` and
+`CodonAligner` each now prepare their input in a `_prepare_sequences` helper
+shared by `score()` and `align()`.
+
 [`PairwiseAligner.align()` and `.score()`](Bio/Align/__init__.py) separately
 implement sequence conversion, alphabet construction, and strand handling
 (around lines 4527 and 4584 at the reviewed commit). `CodonAligner` repeats
@@ -29,6 +33,10 @@ tests ensuring scoring and alignment accept the same input representations.
 Keep the original sequence objects available for the returned alignment.
 
 ## 2. Distribution tests depend on installed packages
+
+**Status: fixed** in PR #225 (2026-10-19). The tests now query fabricated
+metadata records with `sys.path` restricted to them and the standard library,
+and cover Biopython both present and absent.
 
 [`Tests/test_distribution_name.py`](Tests/test_distribution_name.py), around
 lines 45–63, assumes upstream Biopython is absent and exactly one BioPAIthon
@@ -145,6 +153,9 @@ including three subtest failures:
   the method also reported `AssertionError: 'biopython' != 'biopaithon'`.
 - `TestDistributionName.test_not_listed_twice` reported
   `AssertionError: 2 != 1`.
+
+**Status:** those five failures no longer exist. At `4ca8354ba` (2026-10-22)
+`Tests/test_distribution_name.py` passes, after PR #225.
 
 The complete session log is at
 `/tmp/biopaithon-audit-baseline.log`. This is a temporary local artifact and is

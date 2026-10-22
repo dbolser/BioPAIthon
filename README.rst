@@ -53,11 +53,11 @@ Acknowledgements
 ================
 
 BioPAIthon exists because the Biopython Project spent more than twenty years
-building it. 381 people are named in
-`CONTRIB.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIB.rst>`_, and
-that list is preserved here unchanged, as is the full release history in
+building it. `CONTRIB.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIB.rst>`_
+keeps every name upstream's has, with the fork's own contributors added, and
+the full release history in
 `NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`__ and every
-copyright notice in the source.
+copyright notice in the source are preserved.
 
 This fork changes a contribution policy. It does not change who wrote the
 software, and it is not a criticism of the people who did. Upstream restricted
