@@ -85,12 +85,22 @@ if TYPE_CHECKING:
     from Bio.SeqRecord import SeqRecord
 
 # A position method that returns its own class, as Bio/PDB/Entity.py does.
-_ExactPositionT = TypeVar("_ExactPositionT", bound="ExactPosition")
-_WithinPositionT = TypeVar("_WithinPositionT", bound="WithinPosition")
-_BetweenPositionT = TypeVar("_BetweenPositionT", bound="BetweenPosition")
-_BeforePositionT = TypeVar("_BeforePositionT", bound="BeforePosition")
-_AfterPositionT = TypeVar("_AfterPositionT", bound="AfterPosition")
-_OneOfPositionT = TypeVar("_OneOfPositionT", bound="OneOfPosition")
+# The bounds are given only to the type checker: at runtime a string bound
+# makes Python 3.14's typing import annotationlib and ast (see Bio/Seq.py).
+if TYPE_CHECKING:
+    _ExactPositionT = TypeVar("_ExactPositionT", bound="ExactPosition")
+    _WithinPositionT = TypeVar("_WithinPositionT", bound="WithinPosition")
+    _BetweenPositionT = TypeVar("_BetweenPositionT", bound="BetweenPosition")
+    _BeforePositionT = TypeVar("_BeforePositionT", bound="BeforePosition")
+    _AfterPositionT = TypeVar("_AfterPositionT", bound="AfterPosition")
+    _OneOfPositionT = TypeVar("_OneOfPositionT", bound="OneOfPosition")
+else:
+    _ExactPositionT = TypeVar("_ExactPositionT")
+    _WithinPositionT = TypeVar("_WithinPositionT")
+    _BetweenPositionT = TypeVar("_BetweenPositionT")
+    _BeforePositionT = TypeVar("_BeforePositionT")
+    _AfterPositionT = TypeVar("_AfterPositionT")
+    _OneOfPositionT = TypeVar("_OneOfPositionT")
 
 # Regular expressions for location parsing
 

@@ -40,8 +40,13 @@ if TYPE_CHECKING:
     from Bio.SeqRecord import SeqRecord
 
 # The type of a method's own Seq or MutableSeq (or subclass), as in
-# Bio/PDB/Entity.py; typing.Self needs Python 3.11.
-_SeqT = TypeVar("_SeqT", bound="_SeqAbstractBaseClass")
+# Bio/PDB/Entity.py; typing.Self needs Python 3.11. The bound is given only
+# to the type checker: at runtime a string bound makes Python 3.14's typing
+# import annotationlib and ast, about a quarter of this module's import time.
+if TYPE_CHECKING:
+    _SeqT = TypeVar("_SeqT", bound="_SeqAbstractBaseClass")
+else:
+    _SeqT = TypeVar("_SeqT")
 
 
 def _maketrans(complement_mapping: Mapping[str, str]) -> bytes:
