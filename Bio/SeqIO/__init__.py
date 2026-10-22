@@ -403,6 +403,7 @@ __all__ = [
 
 import importlib
 import threading
+import typing
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import Callable
@@ -423,40 +424,62 @@ from .Interfaces import SequenceWriter
 # The per-format modules (Bio.SeqIO.FastaIO and friends) are imported on
 # demand, so that "import Bio.SeqIO" does not pay for every parser and its
 # dependencies (Bio.AlignIO pulls in Bio.Align and hence NumPy; SeqXmlIO
-# pulls in urllib.request and xml.sax).  They remain accessible as
-# attributes of this package via the module __getattr__ below (PEP 562),
-# exactly as when they were imported eagerly.
-_submodule_names = frozenset(
-    [
-        "AbiIO",
-        "AceIO",
-        "FastaIO",
-        "GckIO",
-        "GfaIO",
-        "IgIO",  # IntelliGenetics or MASE format
-        "InsdcIO",  # EMBL and GenBank
-        "NibIO",
-        "PdbIO",
-        "PhdIO",
-        "PirIO",
-        "QualityIO",  # FastQ and qual files
-        "SeqXmlIO",
-        "SffIO",
-        "SnapGeneIO",
-        "SwissIO",
-        "TabIO",
-        "TwoBitIO",
-        "UniprotIO",
-        "XdnaIO",
-    ]
-)
+# pulls in urllib.request and xml.sax).  They remain attributes of this
+# package, exactly as when they were imported eagerly: type checkers see
+# real imports, and at run time the module __getattr__ below (PEP 562)
+# imports each on first access.
+if typing.TYPE_CHECKING:
+    from Bio.SeqIO import AbiIO
+    from Bio.SeqIO import AceIO
+    from Bio.SeqIO import FastaIO
+    from Bio.SeqIO import GckIO
+    from Bio.SeqIO import GfaIO
+    from Bio.SeqIO import IgIO  # IntelliGenetics or MASE format
+    from Bio.SeqIO import InsdcIO  # EMBL and GenBank
+    from Bio.SeqIO import NibIO
+    from Bio.SeqIO import PdbIO
+    from Bio.SeqIO import PhdIO
+    from Bio.SeqIO import PirIO
+    from Bio.SeqIO import QualityIO  # FastQ and qual files
+    from Bio.SeqIO import SeqXmlIO
+    from Bio.SeqIO import SffIO
+    from Bio.SeqIO import SnapGeneIO
+    from Bio.SeqIO import SwissIO
+    from Bio.SeqIO import TabIO
+    from Bio.SeqIO import TwoBitIO
+    from Bio.SeqIO import UniprotIO
+    from Bio.SeqIO import XdnaIO
+else:
+    _submodule_names = frozenset(
+        [
+            "AbiIO",
+            "AceIO",
+            "FastaIO",
+            "GckIO",
+            "GfaIO",
+            "IgIO",  # IntelliGenetics or MASE format
+            "InsdcIO",  # EMBL and GenBank
+            "NibIO",
+            "PdbIO",
+            "PhdIO",
+            "PirIO",
+            "QualityIO",  # FastQ and qual files
+            "SeqXmlIO",
+            "SffIO",
+            "SnapGeneIO",
+            "SwissIO",
+            "TabIO",
+            "TwoBitIO",
+            "UniprotIO",
+            "XdnaIO",
+        ]
+    )
 
-
-def __getattr__(name):
-    """Import format submodules of Bio.SeqIO on first attribute access."""
-    if name in _submodule_names:
-        return importlib.import_module("Bio.SeqIO." + name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    def __getattr__(name):
+        """Import format submodules of Bio.SeqIO on first attribute access."""
+        if name in _submodule_names:
+            return importlib.import_module("Bio.SeqIO." + name)
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _is_pathlike(obj):
