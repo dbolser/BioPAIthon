@@ -8070,6 +8070,14 @@ KEYWORDS    """,
 
     def test_line_break_in_features(self):
         """Handling line breaks."""
+        self.check_line_break_in_features("genbank")
+
+    def test_line_break_in_features_embl(self):
+        """Handling line breaks in the EMBL writer, which shares the defect."""
+        self.check_line_break_in_features("embl")
+
+    def check_line_break_in_features(self, fmt):
+        """Write qualifiers containing line breaks and read them back."""
         # Qualifier values both as a bare string and as the usual list of
         # strings; both shapes reach _write_feature (upstream issue #3885).
         # A CRLF pair collapses to a single space, and a lone "\r" counts
@@ -8083,6 +8091,7 @@ KEYWORDS    """,
             original = copy.deepcopy(qualifiers)
             record = SeqRecord(
                 Seq("AAAA"),
+                id="X",
                 annotations={"molecule_type": "DNA"},
                 features=[
                     SeqFeature(
@@ -8094,12 +8103,12 @@ KEYWORDS    """,
             )
             out_handle = StringIO()
             with self.assertWarns(BiopythonWarning):
-                SeqIO.write([record], out_handle, "genbank")
+                SeqIO.write([record], out_handle, fmt)
             generated = out_handle.getvalue()
             generated_label = generated.split("/label=")[1].split("\n")[0]
             self.assertEqual(generated_label, '"line break"')
             # The writer's own parser must accept the output again
-            back = SeqIO.read(StringIO(generated), "genbank")
+            back = SeqIO.read(StringIO(generated), fmt)
             self.assertEqual(back.features[0].qualifiers["label"], ["line break"])
             # Writing must not modify the caller's record
             self.assertEqual(record.features[0].qualifiers, original)
