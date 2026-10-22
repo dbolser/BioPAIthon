@@ -342,6 +342,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 aligned_sequences = {}  # seqname -> list of pieces
                 widths = []  # of each block
                 seqname = None  # of the last sequence line, which #=GR follows
+                gr_features = set()  # of the #=GR lines read for it so far
                 operations = bytearray()
                 references = []
                 reference_comments = []
@@ -447,6 +448,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     record = SeqRecord(None, id=seqname, description="")
                     records.append(record)
                 pieces.append(aligned_sequence.replace(".", "-"))
+                gr_features = set()
             elif line.startswith("#=GF "):
                 # Generic per-File annotation, free text
                 # Format: #=GF <feature> <free text>
@@ -517,22 +519,24 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             elif line.startswith("#=GS "):
                 # Generic per-Sequence annotation, free text
                 # Format: "#=GS <seqname> <feature> <free text>"
+                # Not seqname: a #=GS line may name another sequence, and
+                # must not break the link from a sequence line to its #=GR.
                 try:
-                    seqname, feature, text = line[5:].strip().split(None, 2)
+                    name, feature, text = line[5:].strip().split(None, 2)
                 except ValueError:
                     # Free text can sometimes be empty, which a one line split throws an error for.
                     # See https://github.com/biopython/biopython/issues/2982 for more details
-                    seqname, feature = line[5:].strip().split(None, 1)
+                    name, feature = line[5:].strip().split(None, 1)
                     text = ""
                 if feature == "DR":
-                    gs[seqname][feature].append(text)
+                    gs[name][feature].append(text)
                 else:
-                    if feature in gs[seqname]:
+                    if feature in gs[name]:
                         raise ValueError(
-                            f"Expected one #=GS {feature} line for {seqname}, "
+                            f"Expected one #=GS {feature} line for {name}, "
                             f"found a second one:\n{line}"
                         )
-                    gs[seqname][feature] = text
+                    gs[name][feature] = text
             elif line[:5] == "#=GR ":
                 # Generic per-Sequence AND per-Column markup
                 # Format: "#=GR <seqname> <feature> <exactly 1 char per column>"
@@ -543,6 +547,12 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         f"sequence), found:\n{line}"
                     )
                 feature = terms[1]
+                if feature in gr_features:
+                    raise ValueError(
+                        f"Expected one #=GR {feature} line for {seqname} in "
+                        f"this block, found a second one:\n{line}"
+                    )
+                gr_features.add(feature)
                 text = terms[2].strip()
                 if len(text) != widths[-1]:  # the width of seqname's block
                     raise ValueError(

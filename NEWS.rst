@@ -60,7 +60,9 @@ alignment as it reads them, rather than in a separate pass over the text, so
 single-block and interleaved files follow the same rules. For valid files
 nothing changes. Two ``#=GR`` lines for the same sequence and feature in one
 block now raise ``ValueError`` (``Bio.AlignIO`` rejects them too); the reader
-used to keep the last one. A ``#=GC`` feature split over two lines in a
+used to keep the last one. A ``#=GS`` line between a sequence and its ``#=GR``
+lines no longer breaks their link, so ``#=GR`` lines after it are accepted.
+A ``#=GC`` feature split over two lines in a
 single-block file is now rejected like any other ``#=GC`` line of the wrong
 width, and that error reports the block widths, as in an interleaved file. The
 width error for a sequence line no longer ends with a stray ``)``.
