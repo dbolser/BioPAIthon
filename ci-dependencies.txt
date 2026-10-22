@@ -6,6 +6,5 @@
 # sanitizer-instrumented `pip install .` in the test jobs.
 -e .[test]
 
-# MySQL testing disabled due to upstream #3834:
-#mysqlclient
-#mysql-connector-python
+# mysqlclient needs a running MySQL server, so ci.yml installs it only on the
+# matrix entry that starts one; the `biosql` extra carries it for users.
