@@ -86,19 +86,24 @@ class ImportTests(unittest.TestCase):
     """Importing the sequence modules stays cheap."""
 
     def test_no_annotationlib(self):
-        """Importing Bio.Seq and Bio.SeqFeature must not pull in annotationlib.
+        """The numpy-free sequence modules must not pull in annotationlib.
 
         On Python 3.14 a TypeVar with a string bound makes typing import
         annotationlib and ast, about a quarter of Bio.Seq's import time, so
-        the bounds are declared under TYPE_CHECKING only.  Run in a
-        subprocess because this process has long since imported both.
+        the bounds are declared under TYPE_CHECKING only.  Bio.SeqRecord and
+        Bio.SeqIO are covered too, as the entry points that would next be
+        annotated; numpy preloads annotationlib, so a module importing numpy
+        cannot be checked this way.  Run in a subprocess because this
+        process has long since imported both.
         """
         code = (
             "import sys\n"
             "import Bio.Seq\n"
             "import Bio.SeqFeature\n"
+            "import Bio.SeqRecord\n"
+            "import Bio.SeqIO\n"
             "loaded = [m for m in ('annotationlib', 'ast') if m in sys.modules]\n"
-            "assert not loaded, 'importing Bio.Seq pulled in %s' % loaded\n"
+            "assert not loaded, 'importing Bio.SeqIO pulled in %s' % loaded\n"
         )
         result = subprocess.run(
             [sys.executable, "-c", code], capture_output=True, text=True
