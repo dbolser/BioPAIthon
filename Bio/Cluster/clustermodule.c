@@ -17,8 +17,6 @@ parse_rng_seed(PyObject* object, uint64_t* rng_seed)
 /* Parses an rng_seed argument: an integer in [0, 2**64). The Bio.Cluster
  * wrappers resolve an omitted or None rng_seed to a fresh seed drawn from
  * os.urandom before calling in, so the C layer only ever sees an integer.
- * (This replaces the old srand(time(0)) seeding, which also clobbered the
- * C library's global rand() state.)
  *
  * Returns 0 on success. On failure, returns -1 with a Python exception
  * set.
