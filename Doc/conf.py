@@ -378,6 +378,9 @@ def run_apidoc(_):
             # them, so autodoc cannot document them and warns once per stub.
             # Doc/Makefile builds with -W, so those warnings fail the build.
             # Bio/Alphabet above is excluded for exactly this reason.
+            # The stubs are listed as REMOVED_MODULES in Tests/conftest.py,
+            # and Tests/test_removed_modules.py checks that every one of
+            # them is excluded here, so add new stubs to both.
             "../Bio/Align/AlignInfo.py",
             "../Bio/Application/",
             "../Bio/HMM/",
