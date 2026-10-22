@@ -5,15 +5,14 @@
 """Tests for the import-time deprecation of Bio.Blast.NCBIWWW and NCBIXML.
 
 Other test modules import these modules during collection, so an already
-imported module would not warn again. Each test therefore drops the module
-from sys.modules and imports it afresh, making the tests independent of
-earlier imports in the same process.
+imported module would not warn again. Each test therefore imports the module
+afresh through support.import_fresh_with_warnings, making the tests
+independent of earlier imports in the same process.
 """
 
-import importlib
-import sys
 import unittest
-import warnings
+
+import support
 
 from Bio import BiopythonDeprecationWarning
 
@@ -22,11 +21,8 @@ class DeprecationWarningTests(unittest.TestCase):
     """Each legacy module warns exactly once, naming its replacement."""
 
     def check_deprecation(self, module_name, replacement_fragments):
-        """Freshly import module_name and return the warning message."""
-        sys.modules.pop(module_name, None)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            importlib.import_module(module_name)
+        """Freshly import module_name and check the warning message."""
+        _, caught = support.import_fresh_with_warnings(module_name)
         deprecations = [
             item
             for item in caught

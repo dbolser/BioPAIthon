@@ -8,9 +8,7 @@
 
 """Tests for mmtf module."""
 
-import importlib
 import os
-import sys
 import tempfile
 import unittest
 import warnings
@@ -39,22 +37,13 @@ class DeprecationWarningTest(unittest.TestCase):
     """Check the module-level deprecation warning.
 
     The warning fires only when the module is first executed, so the module
-    is removed from ``sys.modules`` and imported afresh; the interpreter-wide
-    state is restored afterwards.
+    is imported afresh through support.import_fresh_with_warnings, which
+    restores the interpreter-wide state afterwards.
     """
 
     def test_import_warns_and_names_replacements(self):
         """A fresh import warns BiopythonDeprecationWarning, naming successors."""
-        old_module = sys.modules.pop("Bio.PDB.mmtf")
-        try:
-            with warnings.catch_warnings(record=True) as caught:
-                warnings.simplefilter("always")
-                importlib.import_module("Bio.PDB.mmtf")
-        finally:
-            sys.modules["Bio.PDB.mmtf"] = old_module
-            import Bio.PDB
-
-            Bio.PDB.mmtf = old_module
+        _, caught = support.import_fresh_with_warnings("Bio.PDB.mmtf")
         messages = [
             str(w.message)
             for w in caught
