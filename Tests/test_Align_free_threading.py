@@ -451,9 +451,13 @@ done = Event()
 
 
 def count():
+    # Count until 1000 calls have succeeded, however many fail in between:
+    # a changer thread descheduled between its append and del leaves the
+    # list at three sequences for a whole scheduler slice, and a fixed
+    # number of attempts can all fall within it.
     barrier.wait()
     successes = 0
-    for _ in range(2000):
+    while successes < 1000:
         try:
             counts = _alignmentcounts.AlignmentCounts(sequences, coordinates, strands)
         except ValueError as exception:
@@ -466,9 +470,6 @@ def count():
         if (counts.identities, counts.mismatches) != (90, 10):
             raise AssertionError(f"{counts.identities} identities")
         successes += 1
-    # About half the calls succeed; none would mean the counts went unchecked.
-    if successes == 0:
-        raise AssertionError("no count succeeded")
 
 
 def change():
