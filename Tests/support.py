@@ -16,6 +16,9 @@ Tests which deliberately exercise relative-path behaviour (for example
 change directory, but should change to an absolute location derived from
 :data:`DATA` in ``setUp`` and restore the original directory afterwards,
 rather than assume the process already started in ``Tests/``.
+
+:func:`import_fresh_with_warnings` re-executes an already-imported module
+to capture its module-level warnings, and puts the original back afterwards.
 """
 
 import importlib
@@ -43,9 +46,8 @@ def import_fresh_with_warnings(module_name):
     any module the fresh import pulls in for the first time stays imported.
     """
     parent_name, _, child_name = module_name.rpartition(".")
-    parent = sys.modules.get(parent_name)
     old_module = sys.modules.pop(module_name, None)
-    old_attribute = getattr(parent, child_name, _MISSING)
+    old_attribute = getattr(sys.modules.get(parent_name), child_name, _MISSING)
     try:
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -55,6 +57,10 @@ def import_fresh_with_warnings(module_name):
             sys.modules.pop(module_name, None)
         else:
             sys.modules[module_name] = old_module
+        # Looked up after the import: the parent may only now exist, with
+        # the fresh child bound to it, and that binding must not outlive
+        # the child's registration in sys.modules.
+        parent = sys.modules.get(parent_name)
         if parent is not None:
             if old_attribute is _MISSING:
                 if hasattr(parent, child_name):

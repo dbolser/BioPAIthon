@@ -66,6 +66,31 @@ class ImportFreshWithWarningsTests(unittest.TestCase):
                 sys.modules[name] = old_module
                 Bio.PopGen.GenePop.LargeFileParser = old_module
 
+    def test_unimported_parent_does_not_keep_fresh_child(self):
+        """With the parent absent before, the fresh child is not left on it."""
+        name = "Bio.SearchIO.HmmerIO"
+        parent_name = "Bio.SearchIO"
+        saved = {
+            key: sys.modules.pop(key)
+            for key in list(sys.modules)
+            if key == parent_name or key.startswith(parent_name + ".")
+        }
+        try:
+            module, caught = support.import_fresh_with_warnings(name)
+            self.assertEqual(module.__name__, name)
+            self.assertNotIn(name, sys.modules)
+            self.assertIn(parent_name, sys.modules)
+            self.assertFalse(hasattr(sys.modules[parent_name], "HmmerIO"))
+        finally:
+            for key in list(sys.modules):
+                if key == parent_name or key.startswith(parent_name + "."):
+                    del sys.modules[key]
+            sys.modules.update(saved)
+            if parent_name in saved:
+                Bio.SearchIO = saved[parent_name]
+            elif hasattr(Bio, "SearchIO"):
+                del Bio.SearchIO
+
     def test_does_not_leak_warning_filters(self):
         """The "always" filter is confined to the call."""
         before = list(warnings.filters)
