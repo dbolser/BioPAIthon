@@ -101,7 +101,8 @@ class ImportTests(unittest.TestCase):
             "for name in 'Bio.Seq', 'Bio.SeqFeature', 'Bio.SeqRecord', 'Bio.SeqIO':\n"
             "    importlib.import_module(name)\n"
             "    loaded = [m for m in ('annotationlib', 'ast') if m in sys.modules]\n"
-            "    assert not loaded, 'importing %s pulled in %s' % (name, loaded)\n"
+            "    if loaded:\n"
+            "        raise SystemExit('importing %s pulled in %s' % (name, loaded))\n"
         )
         result = subprocess.run(
             [sys.executable, "-c", code], capture_output=True, text=True
