@@ -7991,6 +7991,8 @@ s2         MNPQ
             "A,B,C,B": "A ACGT\nB ACGT\nC ACGT\nB AC-T\n",
             "block 2 missing a name": "A ACGTA\nB ACGTA\n\nA CCCCC\n",
             "new name in block 2": "A ACGTA\nB ACGTA\n\nA CCCCC\nB GGGGG\nC TTTTT\n",
+            "name twice in block 2": "A ACGTA\nB ACGTA\n\nA CCCCC\nA GGGGG\nB TTTTT\n",
+            "block 3 before block 2 ends": "A ACGTA\nB ACGTA\n\nA CCC\n\nA GG\nB GG\n",
         }
         for case, sequences in cases.items():
             with self.subTest(case=case):
@@ -8015,7 +8017,13 @@ B GGGGG
 """
         )
         with self.assertRaisesRegex(
-            ValueError, "^Aligned sequence B consists of 3 letters, expected 5 letters"
+            ValueError, "^Aligned sequence B consists of 3 letters, expected 5 letters$"
+        ):
+            Align.read(stream, "stockholm")
+        # The same rule, and message, for a single block.
+        stream = StringIO("# STOCKHOLM 1.0\nA ACGT\nB ACA\n//\n")
+        with self.assertRaisesRegex(
+            ValueError, "^Aligned sequence B consists of 3 letters, expected 4 letters$"
         ):
             Align.read(stream, "stockholm")
 
@@ -8038,6 +8046,15 @@ B GGGGG
                 "A ACGTA\nB ACGTA\n#=GC SS_cons <<<>>>>>\n\nA CCC\nB GGG\n",
                 r"^#=GC SS_cons lines have lengths \[8\], expected the "
                 r"block widths \[5, 3\]$",
+            ),
+            "#=GC in a single block": (
+                "A ACGT\nB ACGT\n#=GC SS_cons <XX>>\n",
+                r"^#=GC SS_cons lines have lengths \[5\], expected the "
+                r"block widths \[4\]$",
+            ),
+            "#=GR twice in one block": (
+                "A ACGTA\n#=GR A SS <<<<<\n#=GR A SS >>>>>\nB ACGTA\n",
+                "^#=GR SS line of A has length 10, expected 5$",
             ),
         }
         for case, (sequences, message) in cases.items():
@@ -8080,6 +8097,23 @@ B GGGGG
 """
         )
         with self.assertRaisesRegex(ValueError, "^Expected #=GR line for B "):
+            Align.read(stream, "stockholm")
+
+    def test_gr_before_any_sequence(self):
+        """Reject a #=GR line that precedes every sequence of its alignment."""
+        # The second alignment lacks its //; the first's last sequence name
+        # must not carry over to it.
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGT
+# STOCKHOLM 1.0
+#=GR A SS <<<<
+A ACGT
+//
+"""
+        )
+        with self.assertRaisesRegex(ValueError, "^Expected #=GR line for None "):
             Align.read(stream, "stockholm")
 
 
