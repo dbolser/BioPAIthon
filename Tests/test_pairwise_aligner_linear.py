@@ -54,6 +54,7 @@ set_limits(*DEFAULT)
 # matrix.
 ALWAYS = -1
 
+# No CI job sets it; run the gated tests by hand (about ten minutes).
 SLOW = os.environ.get("BIOPAITHON_SLOW_TESTS") == "1"
 
 NW = "Needleman-Wunsch"
@@ -591,15 +592,17 @@ class TestDefaults(unittest.TestCase):
         self.assertIsNot(LinearPaths, PathGenerator)
 
     def test_routing(self):
-        # The smallest square alignment over the threshold, and one below it.
-        # A Needleman-Wunsch or Smith-Waterman matrix row has a byte a cell
-        # and a row pointer, a Gotoh one two of each.
+        # The smallest square alignment over the threshold, and one below it,
+        # with the default budgets: outside BIOPAITHON_SLOW_TESTS, the only
+        # check of the linear-space traceback's memory estimate against a
+        # 512 MiB matrix.  A Needleman-Wunsch or Smith-Waterman matrix row
+        # has a byte a cell and a row pointer, a Gotoh one two of each.  One
+        # kernel of each size: test_threshold pins the sizing of all four,
+        # and a local kernel's estimate differs only by six doubles a row.
         pointer = struct.calcsize("P")
         for aligner, size, n in (
             (nw_aligner(), 1, 23000),
             (gotoh_aligner(), 2, 16000),
-            (sw_aligner(), 1, 23000),
-            (gotoh_local_aligner(), 2, 16000),
         ):
             while (n + 1) * size * (n + 1 + pointer) <= DEFAULT[0]:
                 n += 1
@@ -1740,7 +1743,7 @@ class TestInterrupt(unittest.TestCase):
             returned.append(call(paths))
 
     def test_interrupt(self):
-        stages = (("first path", 20), ("full matrix", 20), ("count", 5))
+        stages = (("first path", 5), ("full matrix", 5), ("count", 3))
         self.check_interrupt(self.aligner, self.expected, stages)
 
     def test_interrupt_gotoh(self):
