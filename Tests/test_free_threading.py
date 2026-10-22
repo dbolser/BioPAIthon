@@ -10,6 +10,7 @@ declaration in its PyInit function, through Bio/_freethreading.h, and be
 listed below in DECLARED. So a new extension must be safe without the GIL.
 """
 
+import ast
 import importlib.machinery
 import os
 import subprocess
@@ -94,6 +95,32 @@ class ClassificationTests(unittest.TestCase):
             config = tomllib.load(handle)
         built = {ext["name"] for ext in config["tool"]["setuptools"]["ext-modules"]}
         self.assertEqual(DECLARED, built)
+
+    def test_check_wheel_imports_every_extension(self):
+        """Check .github/check_wheel.py's EXTENSIONS matches DECLARED.
+
+        cibuildwheel runs that script inside each built wheel, so a
+        hand-kept list there would skip a new extension silently. The
+        script is parsed, not imported: it imports Bio on load, and its
+        wheels include Python 3.10, which has no tomllib to read
+        pyproject.toml itself.
+        """
+        path = support.DATA.parent / ".github" / "check_wheel.py"
+        tree = ast.parse(path.read_text(), filename=str(path))
+        assigned = {}
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            else:
+                continue
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    assigned[target.id] = node.value
+        self.assertIn("EXTENSIONS", assigned, f"no EXTENSIONS assignment in {path}")
+        extensions = ast.literal_eval(assigned["EXTENSIONS"])
+        self.assertEqual(sorted(extensions), sorted(DECLARED))
 
 
 @unittest.skipUnless(
