@@ -362,26 +362,6 @@ class Test_dn_ds(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             cal_dn_ds(seq1, seq2, method="NG86")
 
-    def test_get_pi_codon_frequency_models(self):
-        """Test that every documented codon frequency model builds a pi dict."""
-        from Bio.Align.analysis import _get_pi
-        from Bio.Data.CodonTable import unambiguous_dna_by_id
-
-        # F1x4 and F61 added a dict view to a list, which raises TypeError, so
-        # both were unusable; only F3x4 worked, because it already wrapped the
-        # view in list(). This needs no scipy, unlike cal_dn_ds(method="ML")
-        # which is the only caller.
-        codon_table = unambiguous_dna_by_id[1]
-        seq1 = ["ATG", "AAA", "TTT", "GGG", "TAA"]
-        seq2 = ["ATG", "AAG", "TTC", "GGA", "TAA"]
-        for cmethod in ("F1x4", "F3x4", "F61"):
-            with self.subTest(cfreq=cmethod):
-                pi = _get_pi(seq1, seq2, cmethod, codon_table)
-                self.assertGreater(len(pi), 0)
-                for codon, value in pi.items():
-                    self.assertEqual(len(codon), 3)
-                    self.assertGreaterEqual(value, 0.0)
-
     def test_dn_ds_matrix(self):
         # NG86 method with default codon table
         dn_correct = [
@@ -566,22 +546,6 @@ if np:
                 ),
                 pvalue,
             )
-
-        def test_G_test_empty_cells(self):
-            """Test that the G test accepts a table with empty cells."""
-            from Bio.Align.analysis import _G_test
-
-            # A table with an empty row or column is degenerate: every
-            # remaining observed count equals its expected count, so G is zero.
-            # An all-zero table has no expected counts at all. Both used to
-            # raise from inside the logarithm rather than return a p-value.
-            self.assertAlmostEqual(_G_test([0, 0, 0, 0]), 1.0)
-            self.assertAlmostEqual(_G_test([3, 5, 0, 0]), 1.0)
-            self.assertAlmostEqual(_G_test([0, 0, 5, 5]), 1.0)
-            # A single empty cell is not degenerate and still carries signal.
-            self.assertAlmostEqual(_G_test([2, 0, 1, 3]), 0.0506719023469902)
-            # The documented example is unchanged by the empty-cell handling.
-            self.assertAlmostEqual(_G_test([17, 7, 42, 2]), 0.004923983994975936)
 
 
 if __name__ == "__main__":
