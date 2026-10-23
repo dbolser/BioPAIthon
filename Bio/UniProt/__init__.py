@@ -60,14 +60,16 @@ class _UniProtSearchResults:
     Do not use this class directly. Instead, use the :meth:`UniProt.search` method.
     """
 
+    next_url: str | None
+
     def _fetch_next_batch(self) -> HTTPResponse:
-        if self.next_url is None:  # type: ignore
+        if self.next_url is None:
             # The x-total-results header promised more than the batches gave
             raise ValueError(
                 f"UniProt reported {len(self)} results, but gave no link "
                 f"to the next batch after {len(self.results_cache)}"
             )
-        with urlopen(self.next_url) as response:  # type: ignore
+        with urlopen(self.next_url) as response:
             self.results_cache += _get_results(response)
             self.next_url = _get_next_link(response)
             return response

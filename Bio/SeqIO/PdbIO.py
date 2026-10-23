@@ -539,7 +539,7 @@ class CifSeqresIterator(SequenceIterator):
             metadata[chain_id].append({"pdb_id": pdb_id})
             metadata[chain_id][-1].update(struct_ref)
 
-        records = []  # type: ignore
+        seqres_records = []
         for chn_id, residues in sorted(chains.items()):
             record = SeqRecord(Seq("".join(residues)))
             record.annotations = {"chain": chn_id}
@@ -559,9 +559,9 @@ class CifSeqresIterator(SequenceIterator):
                     )
             else:
                 record.id = chn_id
-            records.append(record)  # type: ignore
+            seqres_records.append(record)
 
-        self.records = iter(records)
+        self.records = iter(seqres_records)
 
     def __next__(self):
         """Return the next SeqRecord from the mmCIF chain stream."""

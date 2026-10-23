@@ -33,7 +33,7 @@ try:
     import sqlite3
 except ImportError:
     # May be missing if Python was compiled from source without its dependencies
-    sqlite3 = None  # type: ignore
+    sqlite3 = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     from Bio.bgzf import BgzfReader

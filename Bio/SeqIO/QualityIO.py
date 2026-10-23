@@ -544,7 +544,7 @@ def _get_phred_quality(record: SeqRecord) -> list[float] | list[int]:
     used instead after conversion.
     """
     try:
-        return record.letter_annotations["phred_quality"]  # type: ignore
+        return record.letter_annotations["phred_quality"]  # type: ignore[return-value]
     except KeyError:
         pass
     try:
@@ -1077,7 +1077,7 @@ class FastqIteratorAbstractBaseClass(SequenceIterator[str]):
             raise ValueError("Sequence and quality captions differ.")
 
         # Note: str.isprintable is False for ASCII characters 0-32 and 127
-        if not seq_string.isprintable() or " " in seq_string:  # type: ignore
+        if not seq_string.isprintable() or " " in seq_string:
             # first printable character
             raise ValueError("Whitespace is not allowed in the sequence.")
 

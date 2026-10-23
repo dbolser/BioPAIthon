@@ -43,7 +43,7 @@ hydrogen bonds is at <https://www.thingiverse.com/thing:3957471>.
 """
 # import re
 
-import numpy as np  # type: ignore
+import numpy as np
 
 from Bio.File import as_handle
 from Bio.PDB.internal_coords import IC_Chain
