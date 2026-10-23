@@ -55,6 +55,13 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+``Alignment.counts()`` now rejects coordinate arrays with the wrong integer
+type or coordinates outside their sequence bounds with ``ValueError``.
+Previously floating-point coordinates or out-of-range integer coordinates
+could make the C extension read outside sequence buffers and crash Python.
+The counting code takes a private contiguous copy of the coordinates before
+checking them, and handles an empty coordinate array without reading it.
+
 The ``__all__`` declarations of the re-exporting packages now name only what
 each package or its own submodules define. 43 names that 17 packages merely
 import from elsewhere in ``Bio`` are gone from their ``__all__`` lists, which

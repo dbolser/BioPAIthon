@@ -904,13 +904,19 @@ static int
 coordinates_converter(PyObject* argument, void* pointer)
 {
     Py_buffer* view = pointer;
+    const char* format;
     if (argument == NULL) {
         PyBuffer_Release(view);
         return 1;
     }
 
-    if (PyObject_GetBuffer(argument, view, PyBUF_STRIDED) != 0) return 0;
-    if (view->ndim != 2 || view->itemsize != sizeof(Py_ssize_t)) {
+    if (PyObject_GetBuffer(argument, view, PyBUF_STRIDED | PyBUF_FORMAT) != 0)
+        return 0;
+    format = view->format;
+    if (*format == '@' || *format == '=') format++;
+    if (view->ndim != 2 || view->itemsize != sizeof(Py_ssize_t)
+     || (strcmp(format, "i") != 0 && strcmp(format, "l") != 0
+      && strcmp(format, "q") != 0 && strcmp(format, "n") != 0)) {
         PyErr_SetString(PyExc_ValueError,
             "coordinates must be a 2D array of Py_ssize_t integers");
         PyBuffer_Release(view);
@@ -1202,7 +1208,7 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     Py_ssize_t rightA, rightB;
     Py_ssize_t startA, startB;
     Py_ssize_t endA, endB;
-    Py_ssize_t* buffer;
+    Py_ssize_t* buffer = NULL;
 
     PyObject* oA = NULL;
     PyObject* oB = NULL;
@@ -1252,9 +1258,18 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
     }
 
     n_columns = coordinates.shape[1];
-    row_stride = coordinates.strides[0] / sizeof(Py_ssize_t);
-    column_stride = coordinates.strides[1] / sizeof(Py_ssize_t);
-    buffer = coordinates.buf;
+    /* Read a private contiguous copy: strides need not be multiples of the
+     * item size, and Python callbacks must not change coordinates after
+     * their bounds have been checked. */
+    buffer = PyMem_Malloc(coordinates.len ? (size_t)coordinates.len : 1);
+    if (!buffer) {
+        PyErr_NoMemory();
+        goto exit;
+    }
+    if (PyBuffer_ToContiguous(buffer, &coordinates, coordinates.len, 'C') < 0)
+        goto exit;
+    row_stride = n_columns;
+    column_stride = 1;
 
     if (substitution_matrix.obj) positives = 0;
 
@@ -1278,6 +1293,26 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
         if (!sequence_converter(sequence, &sequence_buffers[k])) {
             n = k;
             goto exit;
+        }
+    }
+
+    for (k = 0; k < n; k++) {
+        const Py_buffer* view = &sequence_buffers[k];
+        Py_ssize_t length = PY_SSIZE_T_MAX;
+        Py_ssize_t column;
+        if (view->buf) length = view->len / view->itemsize;
+        else if (view->obj) {
+            length = PySequence_Size(view->obj);
+            if (length < 0) goto exit;
+        }
+        for (column = 0; column < n_columns; column++) {
+            const Py_ssize_t coordinate = buffer[k * row_stride + column];
+            if (coordinate < 0 || coordinate > length) {
+                PyErr_Format(PyExc_ValueError,
+                    "coordinate %zd in row %zd is outside the sequence bounds "
+                    "[0, %zd]", coordinate, k, length);
+                goto exit;
+            }
         }
     }
 
@@ -1305,7 +1340,7 @@ AlignmentCounts_new(PyTypeObject *type, PyObject *args, PyObject *keywords)
         }
     }
 
-    for (jA = 0; jA < n; jA++) {
+    for (jA = 0; n_columns > 0 && jA < n; jA++) {
         oA = NULL;
         sequenceA = get_buffer(&sequence_buffers[jA], &iA, &bA);
         strandA = ((bool*)(strands.buf))[jA];
@@ -1626,6 +1661,7 @@ error:
     counts = NULL;
 
 exit:
+    PyMem_Free(buffer);
     if (sequence_buffers) {
         for (k = 0; k < n; k++)
             if (sequence_buffers[k].buf) PyBuffer_Release(&sequence_buffers[k]);
