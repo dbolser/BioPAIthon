@@ -7991,6 +7991,8 @@ s2         MNPQ
             "A,B,C,B": "A ACGT\nB ACGT\nC ACGT\nB AC-T\n",
             "block 2 missing a name": "A ACGTA\nB ACGTA\n\nA CCCCC\n",
             "new name in block 2": "A ACGTA\nB ACGTA\n\nA CCCCC\nB GGGGG\nC TTTTT\n",
+            "name twice in block 2": "A ACGTA\nB ACGTA\n\nA CCCCC\nA GGGGG\nB TTTTT\n",
+            "block 3 before block 2 ends": "A ACGTA\nB ACGTA\n\nA CCC\n\nA GG\nB GG\n",
         }
         for case, sequences in cases.items():
             with self.subTest(case=case):
@@ -8015,7 +8017,13 @@ B GGGGG
 """
         )
         with self.assertRaisesRegex(
-            ValueError, "^Aligned sequence B consists of 3 letters, expected 5 letters"
+            ValueError, "^Aligned sequence B consists of 3 letters, expected 5 letters$"
+        ):
+            Align.read(stream, "stockholm")
+        # The same rule, and message, for a single block.
+        stream = StringIO("# STOCKHOLM 1.0\nA ACGT\nB ACA\n//\n")
+        with self.assertRaisesRegex(
+            ValueError, "^Aligned sequence B consists of 3 letters, expected 4 letters$"
         ):
             Align.read(stream, "stockholm")
 
@@ -8038,6 +8046,27 @@ B GGGGG
                 "A ACGTA\nB ACGTA\n#=GC SS_cons <<<>>>>>\n\nA CCC\nB GGG\n",
                 r"^#=GC SS_cons lines have lengths \[8\], expected the "
                 r"block widths \[5, 3\]$",
+            ),
+            "#=GC in a single block": (
+                "A ACGT\nB ACGT\n#=GC SS_cons <XX>>\n",
+                r"^#=GC SS_cons lines have lengths \[5\], expected the "
+                r"block widths \[4\]$",
+            ),
+            "#=GR twice in one block": (
+                "A ACGTA\n#=GR A SS <<<<<\n#=GR A SS >>>>>\nB ACGTA\n",
+                "^Expected one #=GR SS line for A in this block, found a second one:",
+            ),
+            # Over two blocks the two pieces would add up to the sequence
+            # length, so the total length check alone would not catch these.
+            "#=GR twice in block 1, not in block 2": (
+                "A ACGTA\n#=GR A SS <<<<<\n#=GR A SS >>>>>\nB ACGTA\n\n"
+                "A CCCCC\nB GGGGG\n",
+                "^Expected one #=GR SS line for A in this block, found a second one:",
+            ),
+            "#=GR twice in block 2, not in block 1": (
+                "A ACGTA\nB ACGTA\n\n"
+                "A CCCCC\n#=GR A SS <<<<<\n#=GR A SS >>>>>\nB GGGGG\n",
+                "^Expected one #=GR SS line for A in this block, found a second one:",
             ),
         }
         for case, (sequences, message) in cases.items():
@@ -8081,6 +8110,50 @@ B GGGGG
         )
         with self.assertRaisesRegex(ValueError, "^Expected #=GR line for B "):
             Align.read(stream, "stockholm")
+
+    def test_gr_before_any_sequence(self):
+        """Reject a #=GR line that precedes every sequence of its alignment."""
+        # The second alignment lacks its //; the first's last sequence name
+        # must not carry over to it.
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A ACGT
+# STOCKHOLM 1.0
+#=GR A SS <<<<
+A ACGT
+//
+"""
+        )
+        with self.assertRaisesRegex(ValueError, "^Expected #=GR line for None "):
+            Align.read(stream, "stockholm")
+        # A #=GS line naming the sequence does not make it the preceding one.
+        stream = StringIO("# STOCKHOLM 1.0\n#=GS A DE x\n#=GR A SS <<<<\nA ACGT\n//\n")
+        with self.assertRaisesRegex(ValueError, "^Expected #=GR line for None "):
+            Align.read(stream, "stockholm")
+
+    def test_gs_between_sequence_and_gr(self):
+        """Accept a #=GS line for another sequence between a sequence and its #=GR."""
+        stream = StringIO(
+            """\
+# STOCKHOLM 1.0
+A AC
+#=GS B DE The other sequence
+#=GR A SS <<
+B AC
+
+A GT
+#=GR A SS >>
+B GT
+//
+"""
+        )
+        alignment = Align.read(stream, "stockholm")
+        self.assertEqual(
+            alignment.sequences[0].letter_annotations,
+            {"secondary structure": "<<>>"},
+        )
+        self.assertEqual(alignment.sequences[1].description, "The other sequence")
 
 
 if __name__ == "__main__":

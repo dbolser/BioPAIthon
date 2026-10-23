@@ -55,6 +55,18 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+``Bio.Align``'s Stockholm reader now joins the blocks of an interleaved
+alignment as it reads them, rather than in a separate pass over the text, so
+single-block and interleaved files follow the same rules. For valid files
+nothing changes. Two ``#=GR`` lines for the same sequence and feature in one
+block now raise ``ValueError`` (``Bio.AlignIO`` rejects them too); the reader
+used to keep the last one. A ``#=GS`` line between a sequence and its ``#=GR``
+lines no longer breaks their link, so ``#=GR`` lines after it are accepted.
+A ``#=GC`` feature split over two lines in a
+single-block file is now rejected like any other ``#=GC`` line of the wrong
+width, and that error reports the block widths, as in an interleaved file. The
+width error for a sequence line no longer ends with a stray ``)``.
+
 The EMBL and IMGT writers no longer produce output their own parsers reject
 when a feature qualifier value contains a line break. The GenBank writer was
 fixed in BioPAIthon 1.88 (from biopython/biopython#3911), but

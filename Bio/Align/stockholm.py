@@ -251,7 +251,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 pass
 
     @staticmethod
-    def _store_per_column_annotations(alignment, gc, columns, skipped_columns):
+    def _store_per_column_annotations(alignment, gc, skipped_columns):
         if gc:
             alignment.column_annotations = {}
             for key, value in gc.items():
@@ -260,10 +260,6 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         letter
                         for index, letter in enumerate(value)
                         if index not in skipped_columns
-                    )
-                if len(value) != columns:
-                    raise ValueError(
-                        f"{key} length is {len(value)}, expected {columns}"
                     )
                 alignment.column_annotations[
                     AlignmentIterator.gc_mapping.get(key, key)
@@ -324,126 +320,53 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 )
 
     @staticmethod
-    def _join_blocks(stream):
-        """Read the lines of one alignment, joining interleaved blocks (PRIVATE).
-
-        The aligned sequences may be split over several blocks, each listing
-        every sequence once, in any order, with or without blank lines between
-        blocks. If no sequence name repeats, the lines are returned unchanged.
-        Otherwise every sequence, #=GR and #=GC piece must have its block's
-        width, and the pieces of each sequence, and of each of its #=GR lines,
-        are joined in block order, giving the lines of a single block: first
-        the other lines in their original order, then each sequence followed
-        by its #=GR lines, then the closing // if the record has one. The
-        #=GC pieces stay among the other lines; the reader joins them.
-        """
-        lines = []
-        names = []
-        header = 0
-        for line in stream:
-            lines.append(line)
-            line = line.strip()
-            if line == "//":
-                break
-            if line == "# STOCKHOLM 1.0":
-                # _read_next_alignment starts a new alignment here, even if
-                # the previous one lacked its //, so only count names from here
-                header = len(lines) - 1
-                names = []
-            elif line and not line.startswith("#"):
-                names.append(line.split(None, 1)[0])
-        unique = dict.fromkeys(names)
-        if len(unique) == len(names):
-            return lines
-        n = len(unique)
-        for start in range(0, len(names), n):
-            if set(names[start : start + n]) != unique.keys():
-                raise ValueError(
-                    "Sequence names repeat, but not as blocks that each list "
-                    f"all {n} sequences once"
-                )
-        sequences = {seqname: [] for seqname in unique}
-        annotations = {seqname: defaultdict(list) for seqname in unique}
-        widths = []  # of each block
-        gc_widths = defaultdict(list)  # of the pieces of each #=GC feature
-        others = lines[:header]
-        count = 0
-        seqname = None
-        for line in lines[header:]:
-            line = line.strip()
-            if line == "//":
-                break
-            elif line.startswith("#=GR "):
-                terms = line[5:].split(None, 2)
-                if terms[0] != seqname:
-                    raise ValueError(
-                        f"Expected #=GR line for {seqname} (the preceding "
-                        f"sequence), found:\n{line}"
-                    )
-                text = terms[2].strip()
-                if len(text) != widths[-1]:
-                    raise ValueError(
-                        f"#=GR {terms[1]} line of {seqname} has length "
-                        f"{len(text)}, expected {widths[-1]}"
-                    )
-                annotations[seqname][terms[1]].append(text)
-            elif line and not line.startswith("#"):
-                try:
-                    seqname, aligned_sequence = line.split(None, 1)
-                except ValueError:
-                    raise ValueError(
-                        "Could not split line into sequence name and aligned sequence:\n"
-                        + line
-                    ) from None
-                if count % n == 0:  # first sequence of a block
-                    widths.append(len(aligned_sequence))
-                elif len(aligned_sequence) != widths[-1]:
-                    raise ValueError(
-                        f"Aligned sequence {seqname} consists of {len(aligned_sequence)} letters, expected {widths[-1]} letters"
-                    )
-                count += 1
-                sequences[seqname].append(aligned_sequence)
-            else:
-                if line.startswith("#=GC "):
-                    feature, text = line[5:].split(None, 1)
-                    gc_widths[feature].append(len(text))
-                others.append(line)
-        for feature, lengths in gc_widths.items():
-            # A #=GC line may come before or after the sequences of its
-            # block, so match the pieces to the blocks by their order.
-            if lengths != widths:
-                raise ValueError(
-                    f"#=GC {feature} lines have lengths {lengths}, expected "
-                    f"the block widths {widths}"
-                )
-        for seqname, pieces in sequences.items():
-            others.append(f"{seqname} {''.join(pieces)}")
-            for feature, texts in annotations[seqname].items():
-                others.append(f"#=GR {seqname} {feature} {''.join(texts)}")
-        if line == "//":
-            others.append(line)
-        return others
+    def _check_blocks_complete(aligned_sequences, widths):
+        """Raise ValueError unless every sequence has a piece in every block (PRIVATE)."""
+        if any(len(pieces) != len(widths) for pieces in aligned_sequences.values()):
+            raise ValueError(
+                "Sequence names repeat, but not as blocks that each list all "
+                f"{len(aligned_sequences)} sequences once"
+            )
 
     def _read_next_alignment(self, stream):
-        for line in self._join_blocks(stream):
+        for line in stream:
             line = line.strip()
             if not line:
                 continue
             elif line == "# STOCKHOLM 1.0":
                 # Starting a new alignment
                 records = []
-                aligned_sequences = []
+                # The aligned sequences may be split over several blocks, each
+                # listing every sequence once; store the pieces of each
+                # sequence, and the width of each block, as they are read.
+                aligned_sequences = {}  # seqname -> list of pieces
+                widths = []  # of each block
+                seqname = None  # of the last sequence line, which #=GR follows
+                gr_features = set()  # of the #=GR lines read for it so far
+                operations = bytearray()
                 references = []
                 reference_comments = []
                 database_references = []
                 nested_domains = []
                 gf = defaultdict(list)
                 gc = {}
+                gc_widths = defaultdict(list)  # of the pieces of each feature
                 gs = defaultdict(lambda: {"DR": []})
-                gr = defaultdict(dict)
-                length = None
+                gr = defaultdict(lambda: defaultdict(str))
             elif line == "//":
                 # Reached the end of the alignment.
+                AlignmentIterator._check_blocks_complete(aligned_sequences, widths)
+                for feature, lengths in gc_widths.items():
+                    # A #=GC line may come before or after the sequences of
+                    # its block, so match the pieces to the blocks by order.
+                    if lengths != widths:
+                        raise ValueError(
+                            f"#=GC {feature} lines have lengths {lengths}, "
+                            f"expected the block widths {widths}"
+                        )
+                aligned_sequences = [
+                    "".join(pieces) for pieces in aligned_sequences.values()
+                ]
                 aligned_sequences = np.array(
                     [np.frombuffer(row.encode(), np.int8) for row in aligned_sequences]
                 )
@@ -457,8 +380,8 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                     record.seq = Seq(sequence)
                 alignment = Alignment(records, coordinates)
                 for index in sorted(skipped_columns, reverse=True):
-                    del operations[index]  # noqa: F821
-                alignment.operations = operations  # noqa: F821
+                    del operations[index]
+                alignment.operations = operations
                 alignment.annotations = {}
                 if references:
                     alignment.annotations["references"] = []
@@ -475,7 +398,7 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 rows, columns = alignment.shape
                 AlignmentIterator._store_per_file_annotations(alignment, gf, rows)
                 AlignmentIterator._store_per_column_annotations(
-                    alignment, gc, columns, skipped_columns
+                    alignment, gc, skipped_columns
                 )
                 AlignmentIterator._store_per_sequence_annotations(alignment, gs)
                 AlignmentIterator._store_per_sequence_and_per_column_annotations(
@@ -493,14 +416,20 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         "Could not split line into sequence name and aligned sequence:\n"
                         + line
                     ) from None
-                if length is None:
-                    length = len(aligned_sequence)
-                    operations = bytearray(b"M" * length)
-                elif length != len(aligned_sequence):
+                pieces = aligned_sequences.setdefault(seqname, [])
+                if len(pieces) == len(widths):
+                    # This sequence has a piece in every block read so far,
+                    # so it starts a new block; the previous one must be
+                    # complete. The first sequence line starts the first.
+                    AlignmentIterator._check_blocks_complete(aligned_sequences, widths)
+                    widths.append(len(aligned_sequence))
+                    operations.extend(b"M" * len(aligned_sequence))
+                elif len(aligned_sequence) != widths[-1]:
                     raise ValueError(
-                        f"Aligned sequence {seqname} consists of {len(aligned_sequence)} letters, expected {length} letters)"
+                        f"Aligned sequence {seqname} consists of {len(aligned_sequence)} letters, expected {widths[-1]} letters"
                     )
-                for i, letter in enumerate(aligned_sequence):
+                offset = len(operations) - widths[-1]  # columns before this block
+                for i, letter in enumerate(aligned_sequence, offset):
                     if letter == "-":
                         if operations[i] == ord("I"):
                             raise ValueError(
@@ -515,10 +444,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                                 f"{seqname}, as in earlier sequences; found '.'"
                             )
                         operations[i] = ord("I")  # insertion
-                aligned_sequence = aligned_sequence.replace(".", "-")
-                aligned_sequences.append(aligned_sequence)
-                record = SeqRecord(None, id=seqname, description="")
-                records.append(record)
+                if not pieces:  # the first block introduces the sequences
+                    record = SeqRecord(None, id=seqname, description="")
+                    records.append(record)
+                pieces.append(aligned_sequence.replace(".", "-"))
+                gr_features = set()
             elif line.startswith("#=GF "):
                 # Generic per-File annotation, free text
                 # Format: #=GF <feature> <free text>
@@ -584,26 +514,29 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                 if feature not in gc:
                     gc[feature] = ""
                 gc[feature] += text.strip()  # append to any previous entry
-                # Might be interleaved blocks, so can't check length yet
+                # Might be interleaved blocks; the widths are checked at //
+                gc_widths[feature].append(len(text.strip()))
             elif line.startswith("#=GS "):
                 # Generic per-Sequence annotation, free text
                 # Format: "#=GS <seqname> <feature> <free text>"
+                # Not seqname: a #=GS line may name another sequence, and
+                # must not break the link from a sequence line to its #=GR.
                 try:
-                    seqname, feature, text = line[5:].strip().split(None, 2)
+                    name, feature, text = line[5:].strip().split(None, 2)
                 except ValueError:
                     # Free text can sometimes be empty, which a one line split throws an error for.
                     # See https://github.com/biopython/biopython/issues/2982 for more details
-                    seqname, feature = line[5:].strip().split(None, 1)
+                    name, feature = line[5:].strip().split(None, 1)
                     text = ""
                 if feature == "DR":
-                    gs[seqname][feature].append(text)
+                    gs[name][feature].append(text)
                 else:
-                    if feature in gs[seqname]:
+                    if feature in gs[name]:
                         raise ValueError(
-                            f"Expected one #=GS {feature} line for {seqname}, "
+                            f"Expected one #=GS {feature} line for {name}, "
                             f"found a second one:\n{line}"
                         )
-                    gs[seqname][feature] = text
+                    gs[name][feature] = text
             elif line[:5] == "#=GR ":
                 # Generic per-Sequence AND per-Column markup
                 # Format: "#=GR <seqname> <feature> <exactly 1 char per column>"
@@ -614,7 +547,19 @@ class AlignmentIterator(interfaces.AlignmentIterator):
                         f"sequence), found:\n{line}"
                     )
                 feature = terms[1]
-                gr[seqname][feature] = terms[2].strip()
+                if feature in gr_features:
+                    raise ValueError(
+                        f"Expected one #=GR {feature} line for {seqname} in "
+                        f"this block, found a second one:\n{line}"
+                    )
+                gr_features.add(feature)
+                text = terms[2].strip()
+                if len(text) != widths[-1]:  # the width of seqname's block
+                    raise ValueError(
+                        f"#=GR {feature} line of {seqname} has length "
+                        f"{len(text)}, expected {widths[-1]}"
+                    )
+                gr[seqname][feature] += text  # append to any previous piece
 
 
 class AlignmentWriter(interfaces.AlignmentWriter):
