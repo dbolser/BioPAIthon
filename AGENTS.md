@@ -230,11 +230,14 @@ type checker.
   `if TYPE_CHECKING:`, as `Bio/SeqRecord.py` does for `SeqFeature`. A method
   returning its own class uses a bound `TypeVar`, as `Bio/PDB/Entity.py`
   does, not `typing.Self` (Python 3.11+); `typing_extensions` is not a
-  runtime dependency. An attribute that is `None` only on a blank object
-  still being built is typed `X | Any`, typeshed's trick, so users need not
-  narrow it; the constructor parameter stays honestly `X | None`. Overloads
-  follow the return types measured at runtime, function by function, not a
-  blanket rule.
+  runtime dependency. In a module that does not import numpy, declare the
+  bound under `if TYPE_CHECKING:` and the `TypeVar` unbound in `else:`, as
+  `Bio/Seq.py` does: on Python 3.14 a string bound makes `typing` import
+  `annotationlib` and `ast` at runtime. An attribute that is `None` only on
+  a blank object still being built is typed `X | Any`, typeshed's trick, so
+  users need not narrow it; the constructor parameter stays honestly
+  `X | None`. Overloads follow the return types measured at runtime,
+  function by function, not a blanket rule.
 - **Annotating does not change the public API.** Dump the signatures on
   `main` and on your branch, from each checkout, and diff them. Any
   difference must be intended and named in the PR. The dump covers each

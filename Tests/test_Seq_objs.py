@@ -5,6 +5,8 @@
 """Unittests for the Seq objects."""
 
 import array
+import subprocess
+import sys
 import unittest
 import warnings
 
@@ -78,6 +80,38 @@ Chilodonella_uncinata_table = CodonTable(forward_table={
 
 # Turn black code style on
 # fmt: on
+
+
+class ImportTests(unittest.TestCase):
+    """Importing the sequence modules stays cheap."""
+
+    def test_no_annotationlib(self):
+        """The numpy-free sequence modules must not pull in annotationlib.
+
+        On Python 3.14 a TypeVar with a string bound makes typing import
+        annotationlib and ast, about a quarter of Bio.Seq's import time, so
+        the bounds are declared under TYPE_CHECKING only.  Bio.SeqRecord and
+        Bio.SeqIO are covered too, as the entry points that would next be
+        annotated; numpy preloads annotationlib, so a module importing numpy
+        cannot be checked this way.  Run in a subprocess because this
+        process has long since imported both, and count only the modules
+        the imports add, as a sitecustomize or .pth hook may have loaded
+        ast before the probe starts.
+        """
+        code = (
+            "import importlib, sys\n"
+            "before = set(sys.modules)\n"
+            "for name in 'Bio.Seq', 'Bio.SeqFeature', 'Bio.SeqRecord', 'Bio.SeqIO':\n"
+            "    importlib.import_module(name)\n"
+            "    loaded = [m for m in ('annotationlib', 'ast')\n"
+            "              if m in sys.modules and m not in before]\n"
+            "    if loaded:\n"
+            "        raise SystemExit('importing %s pulled in %s' % (name, loaded))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 class StringMethodTests(unittest.TestCase):
