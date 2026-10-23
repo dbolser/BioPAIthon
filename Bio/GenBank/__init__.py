@@ -38,7 +38,6 @@ Exceptions:
 """
 
 __all__ = [
-    "BiopythonParserWarning",
     "FEATURE_KEY_INDENT",
     "FEATURE_KEY_SPACER",
     "FEATURE_QUALIFIER_INDENT",
@@ -49,14 +48,8 @@ __all__ = [
     "GENBANK_SPACER",
     "GenBankScanner",
     "Iterator",
-    "Location",
-    "LocationParserError",
     "ParserFailureError",
     "RecordParser",
-    "Reference",
-    "Seq",
-    "SeqFeature",
-    "SimpleLocation",
     "parse",
     "read",
 ]

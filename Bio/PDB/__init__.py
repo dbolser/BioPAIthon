@@ -140,15 +140,7 @@ from .vectors import Vector
 from .vectors import vector_to_axis
 
 # Fast atom neighbor search
-# Depends on kdtrees C module
-try:
-    from .NeighborSearch import NeighborSearch
-except ImportError:
-    pass
+from .NeighborSearch import NeighborSearch
 
 # Native Shrake-Rupley algorithm for SASA calculations.
-# Depends on kdtrees C module
-try:
-    from .SASA import ShrakeRupley
-except ImportError:
-    pass
+from .SASA import ShrakeRupley

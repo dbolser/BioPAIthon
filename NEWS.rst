@@ -55,6 +55,30 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+The ``__all__`` declarations of the re-exporting packages now name only what
+each package or its own submodules define. 43 names that 17 packages merely
+import from elsewhere in ``Bio`` are gone from their ``__all__`` lists, which
+completes the pruning of standard-library and NumPy names that 1.88 began.
+No attribute is removed: ``Bio.Align.Seq`` still works. What changes is the
+declared surface. ``from Bio.Align import *`` no longer provides ``Seq``,
+``SeqRecord`` or ``translate``, nor ``from Bio.SeqIO import *`` ``SeqRecord``,
+nor ``from Bio.SeqUtils import *`` ``translate``; every earlier release gave
+them, since without an ``__all__`` a star import takes every public name.
+Strict type checkers (mypy ``--no-implicit-reexport``, pyright) no longer
+accept ``from Bio.Align import Seq``, which 1.88 alone had let through:
+upstream Biopython has no ``__all__`` here and never offered it. And
+``Bio.Blast``, ``Bio.Entrez`` and ``Bio.TogoWS`` no longer declare the
+private decorator ``Bio._utils.function_with_previous`` as public API. The
+full list of names, and where to import each from, is in ``DEPRECATED.rst``.
+The public-exports test now rejects any name defined outside the package and
+its submodules, so none can creep back. ``Bio.PDB`` imports
+``NeighborSearch`` and ``ShrakeRupley`` unconditionally, as it already did
+``CEAligner``. The ``ImportError`` guards around the first two had stopped
+meaning anything once ``__all__`` listed them: ``ShrakeRupley`` needs the
+``kdtrees`` extension, which every build compiles (as ``CEAligner`` needs
+``ccealign``), and ``NeighborSearch`` only imports ``kdtrees`` lazily, so its
+guard never fired at all.
+
 (Entries are added here as changes land. As of 2026-10-22 the plan is to
 condense this section to a release summary when 1.89 is released.)
 

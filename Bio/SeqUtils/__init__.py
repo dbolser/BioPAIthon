@@ -14,9 +14,6 @@ __all__ = [
     "CodonAdaptationIndex",
     "GC123",
     "GC_skew",
-    "Seq",
-    "complement",
-    "complement_rna",
     "gc_fraction",
     "molecular_weight",
     "nt_search",
@@ -24,8 +21,6 @@ __all__ = [
     "seq1",
     "seq3",
     "six_frame_translations",
-    "standard_dna_table",
-    "translate",
     "xGC_skew",
 ]
 

@@ -138,7 +138,6 @@ __all__ = [
     "esearch",
     "espell",
     "esummary",
-    "function_with_previous",
     "local_cache",
     "max_tries",
     "parse",

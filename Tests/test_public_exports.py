@@ -53,19 +53,21 @@ REEXPORTING_PACKAGES = [
 ]
 
 
-def _is_our_name(obj):
-    """Whether the object is defined in this distribution (PRIVATE).
+def _is_own_name(package, obj):
+    """Whether the object is defined in this package or a submodule of it (PRIVATE).
 
-    Functions and classes merely imported from the standard library or
-    numpy (``urlopen``, ``deepcopy``, ``sqrt``...) are implementation
-    details, not API, and must not appear in ``__all__``: exporting them
-    makes ``import *`` inject stdlib names and turns removing an internal
-    import into an API break.  Objects with no ``__module__`` -- plain
-    data such as dictionaries and strings -- are kept, since they can only
-    have been defined by the package itself.
+    Functions and classes merely imported from elsewhere -- the standard
+    library or numpy (``urlopen``, ``deepcopy``, ``sqrt``...), but equally
+    another part of this distribution (``Bio.Align`` imports ``Seq``,
+    ``Bio.Blast`` imports ``Bio._utils.function_with_previous``) -- are
+    implementation details, not API, and must not appear in ``__all__``:
+    exporting them makes ``import *`` inject foreign names and turns
+    removing an internal import into an API break.  Objects with no
+    ``__module__`` -- plain data such as dictionaries and strings -- are
+    kept, since they can only have been defined by the package itself.
     """
     module = getattr(obj, "__module__", None)
-    return module is None or module.startswith(("Bio", "BioSQL"))
+    return module is None or module == package or module.startswith(package + ".")
 
 
 class TestPublicExports(unittest.TestCase):
@@ -101,7 +103,7 @@ class TestPublicExports(unittest.TestCase):
                 for n in dir(module)
                 if not n.startswith("_")
                 and not inspect.ismodule(getattr(module, n))
-                and _is_our_name(getattr(module, n))
+                and _is_own_name(name, getattr(module, n))
             }
             with self.subTest(package=name):
                 self.assertEqual(public, set(module.__all__))

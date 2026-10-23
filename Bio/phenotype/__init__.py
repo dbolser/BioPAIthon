@@ -84,7 +84,6 @@ write in JSON format.
 """
 
 __all__ = [
-    "as_handle",
     "parse",
     "read",
     "write",

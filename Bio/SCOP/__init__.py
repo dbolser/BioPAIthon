@@ -45,7 +45,6 @@ __all__ = [
     "Domain",
     "Node",
     "Scop",
-    "Seq",
     "astralBibIds",
     "astralEv_to_file",
     "astralEv_to_sql",

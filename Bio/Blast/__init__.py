@@ -23,10 +23,7 @@ Variables:
 """
 
 __all__ = [
-    "Alignment",
-    "Alignments",
     "BLOCK",
-    "BiopythonWarning",
     "CorruptedXMLError",
     "HSP",
     "Hit",
@@ -34,9 +31,7 @@ __all__ = [
     "NotXMLError",
     "Record",
     "Records",
-    "StreamModeError",
     "email",
-    "function_with_previous",
     "parse",
     "qblast",
     "read",

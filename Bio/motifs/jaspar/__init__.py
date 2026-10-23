@@ -9,7 +9,6 @@
 __all__ = [
     "Motif",
     "Record",
-    "Seq",
     "calculate_pseudocounts",
     "read",
     "split_jaspar_id",

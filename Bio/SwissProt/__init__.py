@@ -18,11 +18,8 @@ Functions:
 
 __all__ = [
     "FeatureTable",
-    "Position",
     "Record",
     "Reference",
-    "SeqFeature",
-    "SimpleLocation",
     "SwissProtParserError",
     "parse",
     "read",

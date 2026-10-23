@@ -83,6 +83,53 @@ From now on one should use the following commands:
 Biopython modules, methods, functions
 =====================================
 
+Names merely imported into a package, in its ``__all__``
+--------------------------------------------------------
+**This change is BioPAIthon's own; Biopython declares no ``__all__`` in
+these packages.** BioPAIthon 1.88 gave the packages that re-export their API
+from submodules an ``__all__``, and those lists also named 43 things the 17
+packages merely import from elsewhere in ``Bio``. As of BioPAIthon 1.89 they
+are out of the lists: ``Bio.Align`` no longer declares ``Seq``,
+``MutableSeq``, ``SeqRecord``, ``translate``, ``reverse_complement``,
+``SequenceDataAbstractBaseClass``, ``UndefinedSequenceError`` and
+``BiopythonDeprecationWarning``; ``Bio.SeqIO`` and ``Bio.codonalign`` no
+longer declare ``SeqRecord``; ``Bio.SeqUtils`` no longer declares ``Seq``,
+``translate``, ``complement``, ``complement_rna`` and ``standard_dna_table``;
+``Bio.GenBank`` no longer declares ``Seq``, ``SeqFeature``, ``SimpleLocation``,
+``Location``, ``Reference``, ``LocationParserError`` and
+``BiopythonParserWarning``; ``Bio.SwissProt`` no longer declares
+``SeqFeature``, ``SimpleLocation`` and ``Position``; ``Bio.Blast`` no longer
+declares ``Alignment``, ``Alignments``, ``StreamModeError``,
+``BiopythonWarning`` and ``function_with_previous``; ``Bio.AlignIO`` and
+``Bio.CAPS`` no longer declare ``MultipleSeqAlignment``; ``Bio.CAPS``,
+``Bio.SCOP`` and ``Bio.motifs.jaspar`` no longer declare ``Seq``;
+``Bio.motifs`` no longer declares ``Alignment``; ``Bio.KEGG.Map`` no longer
+declares ``Reaction``; ``Bio.codonalign`` no longer declares
+``BiopythonWarning``; ``Bio.Entrez`` and ``Bio.TogoWS`` no longer declare
+``function_with_previous``; and ``Bio.AlignIO``, ``Bio.phenotype`` and
+``Bio.Align.substitution_matrices`` no longer declare ``as_handle``.
+
+No attribute is removed and nothing warns: ``Bio.Align.Seq`` still works,
+as it always did. Two things change. A star import no longer provides these
+names: ``from Bio.Align import *`` gave ``Seq`` in every earlier release,
+because without an ``__all__`` a star import takes every public name,
+imported or not. And strict type checkers (mypy with
+``--no-implicit-reexport``, part of ``--strict``; pyright) no longer accept
+``from Bio.Align import Seq``, as they did in 1.88 and only in 1.88: without
+an ``__all__``, upstream Biopython never offered them that. Import each name
+from the module that defines it: ``Seq``, ``MutableSeq``, ``translate``,
+``reverse_complement``, ``complement``, ``complement_rna``,
+``SequenceDataAbstractBaseClass`` and ``UndefinedSequenceError`` from
+``Bio.Seq``; ``SeqRecord`` from ``Bio.SeqRecord``; ``SeqFeature``,
+``SimpleLocation``, ``Location``, ``Reference``, ``Position`` and
+``LocationParserError`` from ``Bio.SeqFeature``; ``Alignment``,
+``Alignments`` and ``MultipleSeqAlignment`` from ``Bio.Align``;
+``standard_dna_table`` from ``Bio.Data.CodonTable``; ``Reaction`` from
+``Bio.Pathway``; ``StreamModeError``, ``BiopythonWarning``,
+``BiopythonParserWarning`` and ``BiopythonDeprecationWarning`` from ``Bio``;
+``as_handle`` from ``Bio.File``. ``Bio._utils.function_with_previous`` is
+private and was never meant to be imported at all.
+
 Bio.PopGen.GenePop.LargeFileParser
 ----------------------------------
 **This deprecation is BioPAIthon's own; Biopython has not deprecated this
