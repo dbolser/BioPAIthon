@@ -3767,6 +3767,72 @@ class TestAlign_read_parse_write(unittest.TestCase):
         self.assertEqual(alignment.shape, (7, 156))
 
 
+class TestAlignmentCountsCoordinates(unittest.TestCase):
+    """Reject unsafe coordinates before reading sequence buffers."""
+
+    def check_invalid_coordinates(self, expression):
+        code = f"""\
+import numpy as np
+from Bio.Align import Alignment
+
+alignment = Alignment(["A", "A"], {expression})
+try:
+    alignment.counts()
+except ValueError:
+    pass
+else:
+    raise AssertionError("invalid coordinates were accepted")
+"""
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+
+    def test_invalid_dtype(self):
+        for dtype in ("float64", "uintp", np.dtype(np.intp).newbyteorder("S").str):
+            with self.subTest(dtype=dtype):
+                self.check_invalid_coordinates(
+                    f"np.array([[0, 1], [0, 1]], dtype={dtype!r})"
+                )
+
+    def test_out_of_bounds(self):
+        for start, end in ((10**9, 10**9 + 1), (-(10**9), -(10**9) + 1), (0, 2)):
+            with self.subTest(start=start, end=end):
+                self.check_invalid_coordinates(
+                    f"np.array([[{start}, {end}], [{start}, {end}]], dtype=np.intp)"
+                )
+
+    def test_strided_coordinates(self):
+        coordinates = np.array([[0, 0, 1, 0], [0, 0, 1, 0]], dtype=np.intp)
+        for view in (
+            coordinates[:, ::2],
+            coordinates[:, ::2][:, ::-1],
+            np.asfortranarray(coordinates[:, ::2]),
+        ):
+            with self.subTest(strides=view.strides):
+                counts = Align.Alignment(["A", "A"], view).counts()
+                self.assertEqual(counts.identities, 1)
+
+    def test_empty_coordinates(self):
+        alignment = Align.Alignment(["A", "A"], np.empty((2, 0), dtype=np.intp))
+        counts = alignment.counts()
+        self.assertEqual(counts.aligned, 0)
+        self.assertEqual(counts.identities, 0)
+
+    def test_unaligned_strides(self):
+        coordinates = np.ndarray(
+            (2, 2), dtype=np.intp, buffer=bytearray(40), strides=(19, 9)
+        )
+        coordinates[:] = [[0, 1], [0, 1]]
+        counts = _alignmentcounts.AlignmentCounts(
+            [b"A", b"A"], coordinates, np.zeros(2, bool)
+        )
+        self.assertEqual(counts.identities, 1)
+
+
 class LazyData(SequenceDataAbstractBaseClass):
     """Sequence data read on demand, as by the lazy SeqIO parsers."""
 
@@ -3792,6 +3858,21 @@ class TestAlignmentCountsLazyData(unittest.TestCase):
     The C code reads such data through the sequence protocol, which runs
     Python code partway through the count.
     """
+
+    def test_coordinates_snapshot(self):
+        coordinates = np.array([[0, 3], [0, 3]], dtype=np.intp)
+
+        class ChangingData(LazyData):
+            def __getitem__(self, key):
+                data = super().__getitem__(key)
+                if data:
+                    coordinates[:, 1] = 10**9
+                return data
+
+        counts = _alignmentcounts.AlignmentCounts(
+            [ChangingData(b"ACG"), LazyData(b"ACG")], coordinates, np.zeros(2, bool)
+        )
+        self.assertEqual(counts.identities, 3)
 
     def test_own_references(self):
         """Check counting holds its own references to the sequences."""
