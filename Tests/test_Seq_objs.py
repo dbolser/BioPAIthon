@@ -94,13 +94,17 @@ class ImportTests(unittest.TestCase):
         Bio.SeqIO are covered too, as the entry points that would next be
         annotated; numpy preloads annotationlib, so a module importing numpy
         cannot be checked this way.  Run in a subprocess because this
-        process has long since imported both.
+        process has long since imported both, and count only the modules
+        the imports add, as a sitecustomize or .pth hook may have loaded
+        ast before the probe starts.
         """
         code = (
             "import importlib, sys\n"
+            "before = set(sys.modules)\n"
             "for name in 'Bio.Seq', 'Bio.SeqFeature', 'Bio.SeqRecord', 'Bio.SeqIO':\n"
             "    importlib.import_module(name)\n"
-            "    loaded = [m for m in ('annotationlib', 'ast') if m in sys.modules]\n"
+            "    loaded = [m for m in ('annotationlib', 'ast')\n"
+            "              if m in sys.modules and m not in before]\n"
             "    if loaded:\n"
             "        raise SystemExit('importing %s pulled in %s' % (name, loaded))\n"
         )
