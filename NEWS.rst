@@ -55,6 +55,17 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+The EMBL and IMGT writers no longer produce output their own parsers reject
+when a feature qualifier value contains a line break. The GenBank writer was
+fixed in BioPAIthon 1.88 (from biopython/biopython#3911), but
+``Bio.SeqIO.write(..., "embl")`` still wrote the qualifier across two lines
+with the continuation unindented, and reading the file back raised
+``ValueError``. Each line break — LF, CR or a CRLF pair — is now replaced
+with a single space, with the same ``BiopythonWarning`` naming the qualifier,
+record and feature; the record itself is not modified. The cleaning is shared
+by all the INSDC writers, so GenBank output is unchanged. This is an upstream
+defect, also in Biopython 1.88.
+
 ``PairwiseAligner`` local alignments with gap score functions (the
 Waterman-Smith-Beyer local algorithm) now report the highest score, as
 ``score()`` does, and only the alignments scoring within ``epsilon`` of it,

@@ -486,6 +486,44 @@ class _InsdcWriter(SequenceWriter):
             + self._wrap_location(location[index + 1 :])
         )
 
+    def _clean_qualifiers(self, feature, record, index):
+        """Return the feature with stray line breaks in qualifiers replaced (PRIVATE).
+
+        Left in place, a line break in a qualifier value would produce a
+        continuation line without the leading whitespace the format
+        requires, and the GenBank and EMBL parsers would then reject the
+        file (upstream issue #3885). Each line break becomes a space, with
+        a warning naming the qualifier, record and feature.
+
+        The cleaned values go to the file only: writing a record must not
+        modify the caller's data, so when anything changes a shallow copy
+        of the feature with a rebuilt qualifiers mapping is returned,
+        otherwise the feature itself.
+        """
+        cleaned = {}
+        for key, values in feature.qualifiers.items():
+            if isinstance(values, str) and ("\n" in values or "\r" in values):
+                cleaned[key] = _replace_line_breaks(values)
+            elif isinstance(values, (list, tuple)) and any(
+                isinstance(value, str) and ("\n" in value or "\r" in value)
+                for value in values
+            ):
+                cleaned[key] = type(values)(
+                    _replace_line_breaks(value) if isinstance(value, str) else value
+                    for value in values
+                )
+            else:
+                continue
+            warnings.warn(
+                f"Replacing stray line break with space. Annotation: {key}. Record ID: {record.id}. Feature index: {index}",
+                BiopythonWarning,
+            )
+        if not cleaned:
+            return feature
+        feature = copy.copy(feature)
+        feature.qualifiers = {**feature.qualifiers, **cleaned}
+        return feature
+
     def _write_feature(self, feature, record_length):
         """Write a single SeqFeature object to features table (PRIVATE)."""
         if not feature.type:
@@ -1202,33 +1240,7 @@ class GenBankWriter(_InsdcWriter):
         handle.write("FEATURES             Location/Qualifiers\n")
         rec_length = len(record)
         for index, feature in enumerate(record.features):
-            # Handle any stray line breaks in the feature qualifiers.
-            # Left in place, they would produce continuation lines without
-            # the leading whitespace the format requires, and the GenBank
-            # parser would then reject the file (upstream issue #3885).
-            # The cleaned values go to the file only: writing a record must
-            # not modify the caller's data.
-            cleaned = {}
-            for key, values in feature.qualifiers.items():
-                if isinstance(values, str) and ("\n" in values or "\r" in values):
-                    cleaned[key] = _replace_line_breaks(values)
-                elif isinstance(values, (list, tuple)) and any(
-                    isinstance(value, str) and ("\n" in value or "\r" in value)
-                    for value in values
-                ):
-                    cleaned[key] = type(values)(
-                        _replace_line_breaks(value) if isinstance(value, str) else value
-                        for value in values
-                    )
-                else:
-                    continue
-                warnings.warn(
-                    f"Replacing stray line break with space. Annotation: {key}. Record ID: {record.id}. Feature index: {index}",
-                    BiopythonWarning,
-                )
-            if cleaned:
-                feature = copy.copy(feature)
-                feature.qualifiers = {**feature.qualifiers, **cleaned}
+            feature = self._clean_qualifiers(feature, record, index)
             self._write_feature(feature, rec_length)
         self._write_sequence(record)
         handle.write("//\n")
@@ -1583,7 +1595,8 @@ class EmblWriter(_InsdcWriter):
 
         handle.write(self.FEATURE_HEADER)
         rec_length = len(record)
-        for feature in record.features:
+        for index, feature in enumerate(record.features):
+            feature = self._clean_qualifiers(feature, record, index)
             self._write_feature(feature, rec_length)
         handle.write("XX\n")
 

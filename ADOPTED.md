@@ -133,8 +133,9 @@ via a shallow-copied feature. Third, replacing only `\n` left `\r` behind —
 and a bare carriage return read back in text mode is a line break under
 universal newlines, regenerating the defect — so CRLF collapses to one space
 and a lone CR is treated like LF. The regression test covers all of this and
-re-parses the writer's output. The EMBL writer, which shares the defect, is
-outside the pull request's scope and unchanged.
+re-parses the writer's output. The EMBL writer, which shares the defect, was
+outside the pull request's scope and left unchanged; the cleaning has since
+moved to the shared `_InsdcWriter` base, so both writers do it.
 
 ### [#4938](https://github.com/biopython/biopython/pull/4938) — Will Tyler
 
