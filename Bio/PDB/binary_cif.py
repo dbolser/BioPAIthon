@@ -69,8 +69,8 @@ def _interval_quantization_decoder(column):
 
     min_val = encoding["min"]
     max_val = encoding["max"]
-    num_steps = encoding["num_steps"]
-    delta = max_val - min_val / (num_steps - 1)
+    num_steps = encoding["numSteps"]
+    delta = (max_val - min_val) / (num_steps - 1)
     data = column["data"]["data"]
     dtype = _dtypes[encoding["srcType"]]
     decoded_data = np.add(min_val, np.multiply(data, delta, dtype=dtype), dtype=dtype)
@@ -102,7 +102,8 @@ def _delta_decoder(column):
 
     dtype = _dtypes[encoding["srcType"]]
     data = column["data"]["data"]
-    decoded_data = data.astype(dtype, copy=False)
+    # ByteArray decoding returns a read-only view of the MessagePack bytes.
+    decoded_data = data.astype(dtype, copy=True)
     decoded_data[0] += encoding["origin"]
     decoded_data.cumsum(out=decoded_data)
 

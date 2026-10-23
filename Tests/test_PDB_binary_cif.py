@@ -161,6 +161,47 @@ class TestIntegerUnpack(unittest.TestCase):
         )
 
 
+class TestNumericDecoders(unittest.TestCase):
+    """Decode numeric columns through their on-disk encoding chains."""
+
+    @staticmethod
+    def column(values, encoding):
+        return {
+            "data": {
+                "data": np.array(values, dtype="<i4").tobytes(),
+                "encoding": [encoding, {"kind": "ByteArray", "type": 3}],
+            }
+        }
+
+    def test_interval_quantization(self):
+        for src_type, dtype in ((32, np.float32), (33, np.float64)):
+            with self.subTest(src_type=src_type):
+                column = self.column(
+                    [0, 1, 2],
+                    {
+                        "kind": "IntervalQuantization",
+                        "min": 1,
+                        "max": 2,
+                        "numSteps": 3,
+                        "srcType": src_type,
+                    },
+                )
+                decoded = _decode(column)
+                np.testing.assert_array_equal(decoded, [1, 1.5, 2])
+                self.assertEqual(decoded.dtype, dtype)
+
+    def test_delta_byte_array(self):
+        for origin in (0, 10, -10):
+            with self.subTest(origin=origin):
+                column = self.column(
+                    [0, 1, 2, -1],
+                    {"kind": "Delta", "origin": origin, "srcType": 3},
+                )
+                decoded = _decode(column)
+                np.testing.assert_array_equal(decoded, np.array([0, 1, 3, 2]) + origin)
+                self.assertEqual(decoded.dtype, np.dtype("<i4"))
+
+
 class TestMalformedEncodings(unittest.TestCase):
     """Encodings that disagree with their data raise ValueError, not assert."""
 

@@ -314,6 +314,13 @@ real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
 sequence tests failed on BioPAIthon for no other reason.
 
+BinaryCIF interval quantization now reads the standard ``numSteps`` field
+and computes the step size as ``(max - min) / (numSteps - 1)``. Previously
+valid files raised ``KeyError``, and using the non-standard ``num_steps``
+field still produced incorrect values. Delta decoding now copies its input
+before modifying it, so a valid Delta followed by ByteArray encoding no
+longer fails on the read-only buffer decoded from MessagePack bytes.
+
 ``Bio.PDB.binary_cif.BinaryCIFParser`` now reads the BinaryCIF files that the
 RCSB serves. A string column stores a null value (mmCIF ``.`` or ``?``) as the
 index -1, and the decoder indexed its string table with it. A column with no
