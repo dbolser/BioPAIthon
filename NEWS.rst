@@ -40,9 +40,9 @@ out the standard in full, and ``CLAUDE.md`` points at it.
 
 What has **not** changed:
 
-- The ``Bio`` package name and the entire public API. ``import Bio`` and every
-  existing script continue to work; this is a rebrand of the project, not of
-  the importable module.
+- The ``Bio`` package name. ``import Bio`` works exactly as it did; this is a
+  rebrand of the project, not of the importable module. The public API differs
+  from upstream's only where noted in this file and in ``DEPRECATED.rst``.
 - The licence. BioPAIthon remains under your choice of the "Biopython License
   Agreement" or the "3-Clause BSD License", and all original copyright notices
   are retained.
@@ -54,6 +54,9 @@ and the default branch is now ``main`` rather than ``master``.
 
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
+
+(Entries are added here as changes land. As of 2026-10-22 the plan is to
+condense this section to a release summary when 1.89 is released.)
 
 ``Bio.Align``'s Stockholm reader now joins the blocks of an interleaved
 alignment as it reads them, rather than in a separate pass over the text, so
@@ -286,6 +289,7 @@ a small finder on ``sys.meta_path`` answers for the old name only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
 sequence tests failed on BioPAIthon for no other reason.
+
 ``Bio.PDB.binary_cif.BinaryCIFParser`` now reads the BinaryCIF files that the
 RCSB serves. A string column stores a null value (mmCIF ``.`` or ``?``) as the
 index -1, and the decoder indexed its string table with it. A column with no

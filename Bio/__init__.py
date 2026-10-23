@@ -8,7 +8,8 @@
 
 This is BioPAIthon, a fork of Biopython that accepts contributions from
 every kind of contributor. The importable package is still ``Bio``, and the
-public API is unchanged from upstream.
+public API differs from upstream's only where noted in ``DEPRECATED.rst`` and
+``NEWS.rst``.
 
 The Biopython Project, from which this code comes, is an international
 association of developers of freely available Python tools for computational

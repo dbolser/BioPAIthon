@@ -1,6 +1,7 @@
 # Work adopted from upstream
 
-Biopython has 142 open pull requests, some of them years old. A number are
+Biopython had 142 open pull requests on 2026-08-03, when this file was
+started (162 on 2026-10-22), some of them years old. A number are
 finished, reviewed and approved, and are held up only because a maintainer
 asked whether an AI tool was involved. This fork does not ask that question, so
 it can take them.

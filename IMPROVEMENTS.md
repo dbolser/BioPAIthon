@@ -1980,6 +1980,21 @@ deletion is the expensive part, not the deletion.
 
 ## Where this fork differs from upstream
 
+> **Status: no longer true.** This section described the tree on 2026-08-10
+> and has not held since 2026-08-16, when PRs #72, #70 and #79 landed within
+> twenty minutes: #72 deprecated `Bio.PDB.mmtf`, which upstream has not; #70
+> removed `as_fasta`, `as_fastq` and `as_tab`; and #79 removed `Bio.pairwise2`,
+> all of which upstream Biopython 1.88 still ships. The fork has since removed,
+> deprecated or changed other things upstream has not. Such entries in
+> `DEPRECATED.rst` say so in place ("removed in BioPAIthon 1.88 (upstream
+> Biopython 1.88 still ships it, deprecated)", "This deprecation is
+> BioPAIthon's own", "without a deprecation period"), though a few say only
+> "in BioPAIthon 1.88" (for example `QueryResult.iteritems`), and the
+> BioPAIthon 1.88 and 1.89 sections of `NEWS.rst` record each one. The
+> figures below are also stale: on 2026-10-22 `ADOPTED.md` has 14 entries and
+> the fork is 324 commits ahead of its upstream merge-base (`fc0c156786`) at
+> `4ca8354ba`. The original text is kept below for the record.
+
 **Nothing has been removed here that upstream still ships, and nothing is
 deprecated here that upstream has not deprecated.** `git diff --diff-filter=D
 upstream/master main -- Bio/ BioSQL/` lists no files: this fork has deleted
