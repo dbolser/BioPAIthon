@@ -154,6 +154,10 @@ class FormatRegistry(dict):
     The names present when the table is built are its built-in names, kept in
     the builtin attribute.  register() adds a name, or replaces one on request;
     the packages check that the name and value suit them before calling it.
+    It is check() followed by store(): a package which registers in two
+    tables at once calls those itself, under its own lock.  With role given
+    ("an iterator", say), check() refuses a name by saying that the format
+    already has that role; otherwise it says that the format exists.
 
     With group given, the table also holds the formats which installed
     distributions declare in that entry-point group.  It looks for them once:
@@ -172,7 +176,14 @@ class FormatRegistry(dict):
     """
 
     def __init__(
-        self, specs, factory=None, *, package=None, group=None, name_rule=None
+        self,
+        specs,
+        factory=None,
+        *,
+        package=None,
+        group=None,
+        name_rule=None,
+        role=None,
     ):
         """Initialize from a mapping of format name to value."""
         if package is not None:
@@ -183,6 +194,7 @@ class FormatRegistry(dict):
         self._factory = factory
         self._group = group
         self._name_rule = name_rule
+        self._role = role
         self._discovered = group is None
         self._lock = threading.Lock()
 
@@ -318,6 +330,61 @@ class FormatRegistry(dict):
         """Return a list of all (format, handler) pairs, importing as needed."""
         return [(name, self[name]) for name in self]
 
+    def _state(self, name):
+        """Return name's entry, or _ABSENT, and whether a plugin gave it (PRIVATE).
+
+        This resolves nothing and never looks for entry points.
+        """
+        return super().get(name, _ABSENT), name in self.plugins
+
+    def _free(self, state, replace):
+        """Return whether a name in this state may be stored over (PRIVATE)."""
+        entry, plugin = state
+        return replace or entry is _ABSENT or plugin
+
+    def moved(self, name, state):
+        """Return whether name is no longer in the state check() returned."""
+        entry, plugin = state
+        current, now = self._state(name)
+        return current is not entry or now != plugin
+
+    def check(self, name, value, *, replace=False):
+        """Return the state name is in, if value may be registered there.
+
+        An absent name may be, and so may a name added from an entry point,
+        or any name if replace is true.  Otherwise a name holding the same
+        handler may (and store() then keeps what it holds), and one holding
+        another handler raises ValueError.  This never looks for entry
+        points.  The state is read under the lock, so that it is not one
+        which store() has half written; it is compared outside, as comparing
+        a spec string with an object imports the spec, and the module
+        imported may register a format.
+        """
+        with self._lock:
+            state = self._state(name)
+        if not (self._free(state, replace) or _same_handler(state[0], value)):
+            has = f"has {self._role}" if self._role else "exists"
+            raise ValueError(
+                f"Format {name!r} already {has}; use replace=True to replace it"
+            )
+        return state
+
+    def store(self, name, value, state, *, replace=False):
+        """Store value under name, if name is still in the state check() returned.
+
+        Return whether it was.  If not, nothing is stored: name moved
+        between check() and store(), so check again.  Give the replace that
+        check() was given; as it says, a name which already holds value's
+        handler is left as it is unless replace is true.
+        """
+        with self._lock:
+            if self.moved(name, state):
+                return False
+            if self._free(state, replace):
+                super().__setitem__(name, value)
+                self.plugins.discard(name)
+            return True
+
     def register(self, name, value, *, replace=False):
         """Store value under name, or check it is already there.
 
@@ -327,14 +394,7 @@ class FormatRegistry(dict):
         any other handler raises ValueError.  This never looks for entry
         points.
         """
-        with self._lock:
-            stored = super().get(name, _ABSENT)
-            if replace or stored is _ABSENT or name in self.plugins:
-                super().__setitem__(name, value)
-                self.plugins.discard(name)
+        while True:
+            state = self.check(name, value, replace=replace)
+            if self.store(name, value, state, replace=replace):
                 return
-        # Outside the lock, as comparing may import:
-        if not _same_handler(stored, value):
-            raise ValueError(
-                f"Format {name!r} already exists; use replace=True to replace it"
-            )

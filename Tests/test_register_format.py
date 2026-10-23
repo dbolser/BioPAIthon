@@ -612,6 +612,133 @@ class AlignRegisterFormat(unittest.TestCase):
         self.assertEqual(Align.read(CLUSTAL, "fasta").format("fasta"), self.expected)
 
 
+class Precedence(unittest.TestCase):
+    """Bio.SeqIO and Bio.Align give the same registrations the same outcomes."""
+
+    def setUp(self):
+        for table in [
+            SeqIO._FormatToIterator,
+            SeqIO._FormatToWriter,
+            SeqIO._converter,
+            Align._registry,
+        ]:
+            self.addCleanup(restore, table, stored(table))
+
+    def outcomes(self, register, table, name, handlers, spec):
+        """Register the handlers under name in a fixed order; say what each did.
+
+        Each outcome is the index of the handler the table holds afterwards,
+        or "refused" if the registration raised ValueError.  Before the last
+        two registrations, the table is given name as a plugin would give
+        it: holding spec, which names handlers[0], and listed in plugins.
+        """
+        outcomes = []
+
+        def attempt(value, replace=False):
+            try:
+                register(name, value, replace=replace)
+            except ValueError:
+                outcomes.append("refused")
+            else:
+                outcomes.append(handlers.index(table[name]))
+
+        one, two = handlers
+        attempt(one)  # absent
+        attempt(one)  # the same handler again
+        attempt(two)  # another handler, without replace
+        attempt(two, replace=True)
+        attempt(one)  # the handler it was built with is just another now
+        dict.__setitem__(table, name, spec)
+        table.plugins.add(name)
+        self.addCleanup(table.plugins.discard, name)
+        attempt(two)  # a plugin gives way without replace
+        self.assertNotIn(name, table.plugins)
+        attempt(one)  # and the replacement is an explicit registration
+        return outcomes
+
+    def test_same_outcomes(self):
+        expected = [0, 0, "refused", 1, "refused", 1, "refused"]
+        self.assertEqual(
+            self.outcomes(
+                SeqIO.register_format,
+                SeqIO._FormatToIterator,
+                "test-fasta",
+                [FastaIterator, MarkingFastaIterator],
+                "Bio.SeqIO.FastaIO:FastaIterator",
+            ),
+            expected,
+        )
+        self.assertEqual(
+            self.outcomes(
+                Align.register_format,
+                Align._registry,
+                "test-aln",
+                [clustal, types.SimpleNamespace(AlignmentIterator=None)],
+                "Bio.Align.clustal",
+            ),
+            expected,
+        )
+
+
+class MovedEntry(unittest.TestCase):
+    """SeqIO.register_format checks again when an entry moves under its lock.
+
+    FormatRegistry.store() refuses if the name is not in the state check()
+    returned.  Under SeqIO's registration lock an entry can still move by a
+    first use resolving it, or by plugin discovery adding an absent name, as
+    neither takes that lock.
+    """
+
+    name = "test-fasta"
+    spec = "Bio.SeqIO.FastaIO:FastaIterator"
+
+    def setUp(self):
+        for table in [SeqIO._FormatToIterator, SeqIO._FormatToWriter]:
+            self.addCleanup(restore, table, stored(table))
+        self.addCleanup(SeqIO._FormatToIterator.plugins.discard, self.name)
+
+    def move_before_first_store(self, table, move):
+        """Make table's first store() find its entry moved by move().
+
+        Return the list which collects what each store() returns.
+        """
+        real = table.store
+        calls = []
+
+        def store(name, value, state, *, replace=False):
+            if not calls:
+                move()
+            calls.append(real(name, value, state, replace=replace))
+            return calls[-1]
+
+        table.store = store
+        self.addCleanup(delattr, table, "store")
+        return calls
+
+    def test_resolved(self):
+        table = SeqIO._FormatToIterator
+        dict.__setitem__(table, self.name, self.spec)
+        calls = self.move_before_first_store(table, lambda: table[self.name])
+        SeqIO.register_format(self.name, FastaIterator, FastaWriter)
+        self.assertEqual(calls, [False, True])
+        self.assertIs(dict.__getitem__(table, self.name), FastaIterator)
+        self.assertIs(dict.__getitem__(SeqIO._FormatToWriter, self.name), FastaWriter)
+
+    def test_discovered(self):
+        table = SeqIO._FormatToIterator
+
+        def discover():
+            dict.__setitem__(table, self.name, self.spec)
+            table.plugins.add(self.name)
+
+        calls = self.move_before_first_store(table, discover)
+        SeqIO.register_format(self.name, MarkingFastaIterator, FastaWriter)
+        self.assertEqual(calls, [False, True])
+        self.assertIs(dict.__getitem__(table, self.name), MarkingFastaIterator)
+        self.assertNotIn(self.name, table.plugins)
+        self.assertIs(dict.__getitem__(SeqIO._FormatToWriter, self.name), FastaWriter)
+
+
 class Registry(unittest.TestCase):
     """FormatRegistry.register and its built-in names."""
 
@@ -640,6 +767,40 @@ class Registry(unittest.TestCase):
         registry.register("fmt", None, replace=True)
         self.assertIsNone(dict.__getitem__(registry, "fmt"))
         self.assertEqual(dict.__getitem__(registry, "new"), "a.b:c")
+
+    def test_plugin_replaced_while_checking(self):
+        """A plugin's name replaced between check() and store() is checked again.
+
+        Another thread's store() replaces the entry and drops the plugin
+        marker together, under the lock.  Had check() seen the new entry
+        with the marker still there, it would have let a second handler
+        pass as a plugin's replacement; store() must refuse, so that the
+        second handler is checked against the first and refused (found by
+        Codex).
+        """
+        registry = FormatRegistry({}, role="an iterator")
+        dict.__setitem__(registry, "fmt", "a.b:c")
+        registry.plugins.add("fmt")
+        first, second = object(), object()
+        state = registry.check("fmt", second)
+        registry.register("fmt", first)
+        self.assertFalse(registry.store("fmt", second, state))
+        # What the other thread's store() must never show check():
+        registry.plugins.add("fmt")
+        state = registry.check("fmt", second)
+        self.assertEqual(state, (first, True))
+        registry.plugins.discard("fmt")
+        self.assertFalse(registry.store("fmt", second, state))
+        self.assertIs(dict.__getitem__(registry, "fmt"), first)
+        with self.assertRaises(ValueError) as cm:
+            registry.check("fmt", second)
+        self.assertEqual(
+            str(cm.exception),
+            "Format 'fmt' already has an iterator; use replace=True to replace it",
+        )
+        # The same handler is not refused, nor stored twice:
+        self.assertTrue(registry.store("fmt", first, registry.check("fmt", first)))
+        self.assertNotIn("fmt", registry.plugins)
 
     def test_entry_dropped_while_resolving(self):
         """A lookup returns what it resolved if the entry is deleted meanwhile.
