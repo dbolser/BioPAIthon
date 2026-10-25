@@ -55,6 +55,11 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+* ``Bio.Phylo`` now preserves the total branch length and all pairwise tip
+  distances when ``root_with_outgroup(..., outgroup_branch_length=...)`` is
+  called on a direct child of the root, and consequently when
+  ``root_at_midpoint()`` places the new root on a root-adjacent branch.
+
 ``Bio.SeqUtils.CodonAdaptationIndex.calculate`` no longer fails with a bare
 ``ZeroDivisionError: division by zero`` when no codon of the sequence counts
 towards the index, as for an empty sequence or one made up only of ATG and
