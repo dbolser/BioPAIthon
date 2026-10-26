@@ -55,6 +55,10 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.PDBIO`` now writes ``TER`` records within the 80 columns of the PDB
+format (they were padded to 81) and with their own serial number, which was
+reused for the first atom of the next chain.
+
 When guessing an element from a PDB atom name, ``Bio.PDB`` now treats four
 character names like ``HNZ1`` the same way as ``HE21``, giving hydrogen rather
 than the unknown element ``X``. The guess is made only when the element column
