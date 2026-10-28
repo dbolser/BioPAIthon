@@ -2432,7 +2432,7 @@ The ``CodonAligner`` class defines additional attributes that refer to a number 
    |                            | ``frameshift_plus_two_score``   |
    +----------------------------+---------------------------------+
 
-These parameters can be used as keyword arguments when creating the ``CodonAligner`` object; you can also use the following mnemonics shown in table :ref:`table:align-mnemonics`. The parameter values can also be set afterwards as attributes to the ``CodonAligner`` object.
+These parameters can be used as keyword arguments when creating the ``CodonAligner`` object; you can also use the following mnemonics shown in table :ref:`table:codonalign-mnemonics`. The parameter values can also be set afterwards as attributes to the ``CodonAligner`` object.
 
 .. table:: Mnemonics to set codon alignment parameters
    :name: table:codonalign-mnemonics
@@ -2457,7 +2457,7 @@ These parameters can be used as keyword arguments when creating the ``CodonAlign
 Using a ``CodonAligner`` to align a nucleotide sequence to an amino acid sequence
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As an example, let's consider this section of the coding sequence of the Gag and Gag-Pol proteina of HIV-1:
+As an example, let's consider this section of the coding sequence of the Gag and Gag-Pol proteins of HIV-1:
 
 .. cont-doctest
 
@@ -2511,7 +2511,7 @@ well as on the ``alignment`` object:
    >>> alignment.score
    10.0
 
-which is equal to the number of alignment amino acids (10) multiplied by the match score (1.0).
+which is equal to the number of aligned amino acids (10) multiplied by the match score (1.0).
 
 For the Gag-Pol polyprotein, we find a -1 frameshift event:
 
@@ -2553,7 +2553,7 @@ The alignment score for the Gag-Pol alignment is
    >>> alignment.score
    7.0
 
-which is equal to the number of alignment amino acids (10) multiplied by the match score (1.0), minus the penalty for a -1 frameshift (-3.0).
+which is equal to the number of aligned amino acids (10) multiplied by the match score (1.0), minus the penalty for a -1 frameshift (-3.0).
 
 By extracting rows of the alignment, you can obtain the aligned amino acid sequence and nucleotide sequence:
 
@@ -2576,7 +2576,6 @@ As an example of a positive frameshift, here we align the amino acid sequence ar
 
    >>> from Bio.Seq import Seq
    >>> from Bio.SeqRecord import SeqRecord
-   >>> nuc_ecoli = Seq("TCCGACGTTCTTAGGGGGTATCTTTGACTACGACGCCAAGAAAGAGCGT")
    >>> nuc_ecoli = SeqRecord(
    ...     Seq("TCCGACGTTCTTAGGGGGTATCTTTGACTACGACGCCAAGAAAGAGCGT"), id="Ecoli DNA"
    ... )
@@ -2649,20 +2648,20 @@ To calculate the alignment score without calculating the alignment itself, the
    13.0
 
 As before, you can obtain the aligned amino acid sequence and nucleotide sequence by
-extracting rows from the alignment. Note that the A nucleotide read twice due to the
--1 frameshift is included in the aligned nucleotide sequence:
+extracting rows from the alignment. Note that the nucleotide skipped by the +1
+frameshift is included in the aligned nucleotide sequence, with a gap at the
+corresponding position in the aligned amino acid sequence:
 
 .. cont-doctest
 
 .. code:: pycon
 
-
-   >>> alignment[0]
-   'QANFLREDLA'
-   >>> alignment[1]
-   'CAGGCUAAUUUUUUAAGGGAAGAUCUGGCC'
-   >>> len(alignment[1])
-   30
+   >>> alignment_ecoli[0]
+   'SDVLRGYL-DYDAKKER'
+   >>> alignment_ecoli[1]
+   'TCCGACGTTCTTAGGGGGTATCTTTGACTACGACGCCAAGAAAGAGCGT'
+   >>> len(alignment_ecoli[1])
+   49
 
 The orthologous sequence in *Shigella dysenteriae* does not undergo a frame shift:
 
@@ -2712,7 +2711,7 @@ to align the protein sequences to each other:
    >>> from Bio.Align import PairwiseAligner
    >>> protein_aligner = PairwiseAligner("blastp")
    >>> protein_alignments = protein_aligner.align(pro_ecoli, pro_shigella)
-   >>> len(alignments)
+   >>> len(protein_alignments)
    1
    >>> protein_alignment = protein_alignments[0]
    >>> print(protein_alignment)
@@ -2784,7 +2783,7 @@ If you want to align just a few sequences, you may want to use the
 ``codon_align`` convenience function instead. This function can be used in
 two ways:
 
-    1. With an amino acid sequence and a nucleotide sequence as the first and second rguments, respectively, this function creates a ``CodonAligner`` object, aligns the two sequences to each other, and returns an iterator over the alignments found.
+    1. With an amino acid sequence and a nucleotide sequence as the first and second arguments, respectively, this function creates a ``CodonAligner`` object, aligns the two sequences to each other, and returns an iterator over the alignments found.
 
        For example, you can use ``codon_align`` as follows to align the amino acid sequence of the PrfB protein region in *Bacillus subtilis* against its corresponding genome sequence:
 
@@ -2853,7 +2852,7 @@ The most important application of a codon alignment is to estimate the
 number of nonsynonymous substitutions per site (dN) and synonymous
 substitutions per site (dS). These can be calculated by the
 ``calculate_dn_ds`` function in ``Bio.Align.analysis``. This function
-takes a pairwise codon alignment and input, as well as the optional
+takes a pairwise codon alignment as input, as well as the optional
 arguments ``method`` specifying the calculation method, ``codon_table``
 (defaulting to the Standard Code), the ratio ``k`` of the transition and
 transversion rates, and ``cfreq`` to specify the equilibrium codon
@@ -2884,7 +2883,7 @@ frequency. Biopython currently supports three counting based methods
    -  ``F61``: count the frequency of codons from the provided codon
       sequences, with a pseudocount of 0.1.
 
-The ``calculate_dN_dS`` method can be applied to a pairwise codon
+The ``calculate_dn_ds`` function can be applied to a pairwise codon
 alignment. In general, the different calculation methods will result in
 slightly different estimates for dN and dS:
 
@@ -2908,12 +2907,14 @@ slightly different estimates for dN and dS:
 
 .. code:: pycon
 
-   >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="YN00")
-   >>> print(dN, dS)  # doctest: +ELLIPSIS
-   0.084526... 0.182723...
    >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="ML")
    >>> print(dN, dS)  # doctest: +ELLIPSIS
-   0.083040... 0.281696...
+   0.083... 0.281...
+
+The ``ML`` estimates come from a numerical optimization, so only their first
+three decimal places are shown. The ``YN00`` method is left out of this example because,
+on this alignment, ``calculate_dn_ds`` with ``method="YN00"`` currently returns
+``None`` instead of a pair of estimates.
 
 You can also calculate a matrix of dN and dS values, which is useful if you have a
 multiple sequence alignment:
@@ -2942,10 +2943,10 @@ multiple sequence alignment:
 
 The objects ``dN`` and ``dS`` returned by ``calculate_dn_ds_matrix`` are
 instances of the ``DistanceMatrix`` class in
-``Bio.Phylo.TreeConstruction``. This function only takes ``codon_table``
-as an optional argument.
+``Bio.Phylo.TreeConstruction``. This function takes ``method`` and
+``codon_table`` as optional arguments.
 
-From these two sequences, you can create a dN tree and a dS tree using
+From these two matrices, you can create a dN tree and a dS tree using
 ``Bio.Phylo.TreeConstruction``:
 
 .. cont-doctest
@@ -2990,7 +2991,7 @@ will use Adh gene from fruit fly. The data includes 11 individuals from
 the nucleotide sequences are available in the ``Tests/codonalign``
 directory as the files ``adh.aln`` and ``drosophila.fasta``,
 respectively, in the Biopython distribution. The function ``mktest`` in
-``Bio.Align.analysis`` implements the Mcdonald-Kreitman test.
+``Bio.Align.analysis`` implements the McDonald-Kreitman test.
 
 .. doctest ../Tests/codonalign lib:numpy
 
