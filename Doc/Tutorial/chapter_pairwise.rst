@@ -2912,7 +2912,7 @@ slightly different estimates for dN and dS:
    0.083... 0.281...
 
 The ``ML`` estimates come from a numerical optimization, so only their first
-decimals are shown. The ``YN00`` method is left out of this example because,
+three decimal places are shown. The ``YN00`` method is left out of this example because,
 on this alignment, ``calculate_dn_ds`` with ``method="YN00"`` currently returns
 ``None`` instead of a pair of estimates.
 
