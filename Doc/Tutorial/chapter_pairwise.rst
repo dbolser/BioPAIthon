@@ -2432,7 +2432,7 @@ The ``CodonAligner`` class defines additional attributes that refer to a number 
    |                            | ``frameshift_plus_two_score``   |
    +----------------------------+---------------------------------+
 
-These parameters can be used as keyword arguments when creating the ``CodonAligner`` object; you can also use the following mnemonics shown in table :ref:`table:align-mnemonics`. The parameter values can also be set afterwards as attributes to the ``CodonAligner`` object.
+These parameters can be used as keyword arguments when creating the ``CodonAligner`` object; you can also use the following mnemonics shown in table :ref:`table:codonalign-mnemonics`. The parameter values can also be set afterwards as attributes to the ``CodonAligner`` object.
 
 .. table:: Mnemonics to set codon alignment parameters
    :name: table:codonalign-mnemonics
@@ -2457,7 +2457,7 @@ These parameters can be used as keyword arguments when creating the ``CodonAlign
 Using a ``CodonAligner`` to align a nucleotide sequence to an amino acid sequence
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-As an example, let's consider this section of the coding sequence of the Gag and Gag-Pol proteina of HIV-1:
+As an example, let's consider this section of the coding sequence of the Gag and Gag-Pol proteins of HIV-1:
 
 .. cont-doctest
 
@@ -2649,20 +2649,20 @@ To calculate the alignment score without calculating the alignment itself, the
    13.0
 
 As before, you can obtain the aligned amino acid sequence and nucleotide sequence by
-extracting rows from the alignment. Note that the A nucleotide read twice due to the
--1 frameshift is included in the aligned nucleotide sequence:
+extracting rows from the alignment. Note that the nucleotide skipped by the +1
+frameshift is included in the aligned nucleotide sequence, with a gap at the
+corresponding position in the aligned amino acid sequence:
 
 .. cont-doctest
 
 .. code:: pycon
 
-
-   >>> alignment[0]
-   'QANFLREDLA'
-   >>> alignment[1]
-   'CAGGCUAAUUUUUUAAGGGAAGAUCUGGCC'
-   >>> len(alignment[1])
-   30
+   >>> alignment_ecoli[0]
+   'SDVLRGYL-DYDAKKER'
+   >>> alignment_ecoli[1]
+   'TCCGACGTTCTTAGGGGGTATCTTTGACTACGACGCCAAGAAAGAGCGT'
+   >>> len(alignment_ecoli[1])
+   49
 
 The orthologous sequence in *Shigella dysenteriae* does not undergo a frame shift:
 
@@ -2784,7 +2784,7 @@ If you want to align just a few sequences, you may want to use the
 ``codon_align`` convenience function instead. This function can be used in
 two ways:
 
-    1. With an amino acid sequence and a nucleotide sequence as the first and second rguments, respectively, this function creates a ``CodonAligner`` object, aligns the two sequences to each other, and returns an iterator over the alignments found.
+    1. With an amino acid sequence and a nucleotide sequence as the first and second arguments, respectively, this function creates a ``CodonAligner`` object, aligns the two sequences to each other, and returns an iterator over the alignments found.
 
        For example, you can use ``codon_align`` as follows to align the amino acid sequence of the PrfB protein region in *Bacillus subtilis* against its corresponding genome sequence:
 
@@ -2908,12 +2908,14 @@ slightly different estimates for dN and dS:
 
 .. code:: pycon
 
-   >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="YN00")
-   >>> print(dN, dS)  # doctest: +ELLIPSIS
-   0.084526... 0.182723...
    >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="ML")
    >>> print(dN, dS)  # doctest: +ELLIPSIS
    0.083040... 0.281696...
+
+The ``YN00`` method is left out of this example: on an alignment as short as
+this one its initial estimate of the transition/transversion rate ratio is
+negative, the iteration that follows never converges, and ``calculate_dn_ds``
+returns ``None`` instead of a pair of estimates.
 
 You can also calculate a matrix of dN and dS values, which is useful if you have a
 multiple sequence alignment:
