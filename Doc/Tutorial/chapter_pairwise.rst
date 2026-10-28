@@ -2905,8 +2905,6 @@ slightly different estimates for dN and dS:
    >>> print(dN, dS)  # doctest: +ELLIPSIS
    0.084526... 0.182723...
 
-.. cont-doctest
-
 .. code:: pycon
 
    >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="ML")
