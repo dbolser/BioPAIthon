@@ -55,6 +55,17 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+Upstream Biopython ``master`` as of 2026-10-26 is merged. Changes from
+upstream that users may notice: ``Bio.PDB.PDBIO.save`` now raises
+``PDBIOException`` for a residue name longer than three characters, and
+removes or truncates the partial file, instead of writing a record that
+``PDBParser`` cannot read back; ``QCPSuperimposer`` falls back to a Kabsch
+SVD when the quaternion cofactors vanish, so a collinear reference no longer
+comes back with the identity rotation; ``Bio.Align.analysis.calculate_dn_ds``
+skips aligned blocks shorter than one codon, which a frameshift produces,
+instead of passing partial codons to the substitution models; and importing
+``Bio`` from inside a source checkout no longer emits a ``BiopythonWarning``.
+
 ``Alignment.counts()`` now rejects coordinate arrays with the wrong integer
 type or coordinates outside their sequence bounds with ``ValueError``.
 Previously floating-point coordinates or out-of-range integer coordinates
@@ -1864,6 +1875,9 @@ Python 3.15 release candidate. It has also been tested on PyPy3.10 v7.3.19, as
 well as Python 3.11+ on Windows for ARM64. Python 3.10 is approaching end of
 life, our support for it is now deprecated.
 
+* ``Bio.PDB.PDBIO`` now raises ``PDBIOException`` when writing a modern residue
+  name longer than the legacy PDB format three character limit.
+
 The Clustal parsers in ``Bio.AlignIO`` and ``Bio.Align`` now accept files whose
 header line starts with ``CLUSTALW`` as a single word, as written by some tools.
 
@@ -1871,6 +1885,7 @@ Many thanks to the Biopython developers and community for making this release
 possible, especially the following contributors:
 
 - Mohit Arvind Khakharia (first contribution)
+- Yuxuan Luo (first contribution)
 
 6 August 2026: Biopython 1.88
 =============================
