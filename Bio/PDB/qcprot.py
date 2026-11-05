@@ -144,7 +144,16 @@ def qcp(coords1, coords2, natoms):
         if abs(mxEigenV - oldg) < (evalprec * mxEigenV):
             break  # convergence
     else:
-        print(f"Newton-Rhapson did not converge after {nr_it} iterations")
+        # Repeated roots can prevent Newton-Raphson convergence for collinear fits.
+        key = np.array(
+            [
+                [SxxpSyy + Szz, SyzmSzy, negSxzmSzx, SxymSyx],
+                [SyzmSzy, SxxmSyy - Szz, SxypSyx, SxzpSzx],
+                [negSxzmSzx, SxypSyx, Syy - Sxx - Szz, SyzpSzy],
+                [SxymSyx, SxzpSzx, SyzpSzy, Szz - SxxpSyy],
+            ]
+        )
+        mxEigenV = np.linalg.eigvalsh(key)[-1]
 
     # The original code has a guard if minScore > 0 and rmsd < minScore, although
     # the default value of minScore is -1. For simplicity, we ignore that check.
@@ -209,7 +218,11 @@ def qcp(coords1, coords2, natoms):
                 qsqr = q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4
 
                 if qsqr < evecprec:
-                    return rmsd, _kabsch_rotation(A), [q1, q2, q3, q4]
+                    rot = _kabsch_rotation(A)
+                    rmsd = np.sqrt(
+                        np.sum((coords1 - np.dot(coords2, rot)) ** 2) / natoms
+                    )
+                    return rmsd, rot, [q1, q2, q3, q4]
 
     normq = qsqr**0.5
     q1 /= normq
