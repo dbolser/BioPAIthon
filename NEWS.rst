@@ -57,7 +57,10 @@ and the default branch is now ``main`` rather than ``master``.
 
 BioPAIthon is renamed biop-ai (pronounced "bio pie"). It is published on PyPI
 as ``biop-ai``, and the repository is now https://github.com/BioAGI-org/biop-ai.
-``import Bio`` is unchanged.
+``import Bio`` is unchanged. The entry-point groups for format plugins are now
+``biop_ai.seqio.iterators``, ``biop_ai.seqio.writers`` and ``biop_ai.align``.
+The old ``biopaithon.*`` groups are still read, with a
+``BiopythonDeprecationWarning``; see ``DEPRECATED.rst``.
 
 Upstream Biopython ``master`` as of 2026-11-06 is merged. Changes from
 upstream that users may notice: the ``PairwiseAligner`` gap-score attribute

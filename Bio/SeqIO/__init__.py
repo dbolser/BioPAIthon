@@ -655,6 +655,7 @@ _FormatToIterator = _FormatRegistry(
     _get_alignment_sequence_iterator_class,
     package="Bio.SeqIO",
     group="biop_ai.seqio.iterators",
+    deprecated_groups=("biopaithon.seqio.iterators",),
     name_rule=_plugin_format_name,
     role="an iterator",
 )
@@ -696,6 +697,7 @@ _FormatToWriter = _FormatRegistry(
     _get_alignment_sequence_writer_class,
     package="Bio.SeqIO",
     group="biop_ai.seqio.writers",
+    deprecated_groups=("biopaithon.seqio.writers",),
     name_rule=_plugin_format_name,
     role="a writer",
 )

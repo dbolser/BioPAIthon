@@ -14,6 +14,7 @@ import threading
 import warnings
 from typing import Any
 
+from Bio import BiopythonDeprecationWarning
 from Bio import BiopythonWarning
 
 _ABSENT = object()
@@ -173,6 +174,11 @@ class FormatRegistry(dict):
     the plugins attribute; register() replaces them without replace=True.  An
     entry point's object is imported when its format is first used, and an
     error importing it then propagates.
+
+    deprecated_groups names older groups that are read as well, after group,
+    as if their entry points were in it.  An entry point found in one of them
+    and not also in group, under the same name and distribution, gets a
+    BiopythonDeprecationWarning naming the group to use.
     """
 
     def __init__(
@@ -182,6 +188,7 @@ class FormatRegistry(dict):
         *,
         package=None,
         group=None,
+        deprecated_groups=(),
         name_rule=None,
         role=None,
     ):
@@ -193,6 +200,7 @@ class FormatRegistry(dict):
         self.plugins = set()
         self._factory = factory
         self._group = group
+        self._deprecated_groups = tuple(deprecated_groups)
         self._name_rule = name_rule
         self._role = role
         self._discovered = group is None
@@ -207,40 +215,60 @@ class FormatRegistry(dict):
         if self._discovered:
             return
         group = self._group
-        # Format name to spec to the (entry point, distribution) pairs giving it:
-        offers: dict[str, dict[str, set[tuple[str, str]]]] = {}
+        # Format name to spec to the (entry point, distribution, group) giving it:
+        offers: dict[str, dict[str, set[tuple[str, str, str]]]] = {}
         messages = []
-        for entry_point, spec, distribution in _entry_points(group):
-            name = entry_point
-            if self._name_rule is not None:
-                try:
-                    name = self._name_rule(entry_point)
-                except ValueError as exception:
-                    messages.append(
-                        f"Ignoring entry point {entry_point!r} of {distribution}"
-                        f" in group {group!r}: {exception}"
+        deprecations = []
+        current = set()  # (entry point, distribution) pairs found in group itself
+        for searched in (group, *self._deprecated_groups):
+            for entry_point, spec, distribution in _entry_points(searched):
+                if searched == group:
+                    current.add((entry_point, distribution))
+                elif (entry_point, distribution) not in current:
+                    deprecations.append(
+                        f"Entry point {entry_point!r} of {distribution} is in the"
+                        f" deprecated group {searched!r}; declare it in"
+                        f" {group!r} instead"
                     )
-                    continue
-            offerers = offers.setdefault(name, {}).setdefault(spec, set())
-            offerers.add((entry_point, distribution))
+                name = entry_point
+                if self._name_rule is not None:
+                    try:
+                        name = self._name_rule(entry_point)
+                    except ValueError as exception:
+                        messages.append(
+                            f"Ignoring entry point {entry_point!r} of {distribution}"
+                            f" in group {searched!r}: {exception}"
+                        )
+                        continue
+                offerers = offers.setdefault(name, {}).setdefault(spec, set())
+                offerers.add((entry_point, distribution, searched))
         with self._lock:
             if self._discovered:  # done meanwhile, by another thread
                 return
             for name, targets in offers.items():
                 offerers = set().union(*targets.values())
-                listed = " and ".join(
-                    f"{entry_point!r} of {distribution}"
-                    for entry_point, distribution in sorted(offerers)
-                )
+                groups = {searched for _, _, searched in offerers}
+                if len(groups) == 1:
+                    [searched] = groups
+                    listed = " and ".join(
+                        f"{entry_point!r} of {distribution}"
+                        for entry_point, distribution, _ in sorted(offerers)
+                    )
+                    listed += f" in group {searched!r}"
+                else:
+                    listed = " and ".join(
+                        f"{entry_point!r} of {distribution} in group {searched!r}"
+                        for entry_point, distribution, searched in sorted(offerers)
+                    )
                 plural = "s" if len(offerers) > 1 else ""
                 if name in self.builtin:
                     messages.append(
-                        f"Ignoring entry point{plural} {listed} in group {group!r}:"
+                        f"Ignoring entry point{plural} {listed}:"
                         f" {name!r} is a built-in format"
                     )
                 elif len(targets) > 1:
                     messages.append(
-                        f"Ignoring entry point{plural} {listed} in group {group!r}:"
+                        f"Ignoring entry point{plural} {listed}:"
                         f" they give format {name!r} different objects"
                     )
                 elif not super().__contains__(name):
@@ -249,6 +277,8 @@ class FormatRegistry(dict):
                     self.plugins.add(name)
             self._discovered = True
         # Warn outside the lock, as a warning may run arbitrary code:
+        for message in deprecations:
+            warnings.warn(message, BiopythonDeprecationWarning)
         for message in messages:
             warnings.warn(message, BiopythonWarning)
 
