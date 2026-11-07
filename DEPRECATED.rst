@@ -84,16 +84,13 @@ From now on one should use the following commands:
 - ``cd Tests && python run_tests.py`` instead of `python setup.py test`
 - ``python -m build`` instead of ``python setup.py sdist`` or ``python setup.py bdist_wheel``
 
-Distribution name and plugin entry-point groups
------------------------------------------------
-**This change is biop-ai's own.** The distribution was called ``biopaithon``
-up to release 1.88 and is ``biop-ai`` from release 1.89. Both install the
-``Bio`` package, so uninstall ``biopaithon`` before installing ``biop-ai``.
-
-The entry-point groups in which installed packages declare file formats were
-renamed at the same time, from ``biopaithon.seqio.iterators``,
-``biopaithon.seqio.writers`` and ``biopaithon.align`` to
-``biop_ai.seqio.iterators``, ``biop_ai.seqio.writers`` and ``biop_ai.align``.
+Plugin entry-point groups
+-------------------------
+**This change is biop-ai's own.** The entry-point groups in which installed
+packages declare file formats were renamed with the project, from
+``biopaithon.seqio.iterators``, ``biopaithon.seqio.writers`` and
+``biopaithon.align`` to ``biop_ai.seqio.iterators``,
+``biop_ai.seqio.writers`` and ``biop_ai.align``.
 The old groups are deprecated as of release 1.89. They are still read, and
 an entry point found only in an old group gives a
 ``BiopythonDeprecationWarning`` naming the group to use instead. To support

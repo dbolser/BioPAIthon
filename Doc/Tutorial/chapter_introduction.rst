@@ -103,7 +103,7 @@ Installing Biopython
 All of the installation information for Biopython was separated from
 this document to make it easier to keep updated.
 
-The short version is use ``pip install biop-ai``, see the `main
+The short version is use ``pip install biopaithon``, see the `main
 README <https://github.com/BioAGI-org/biop-ai/blob/main/README.rst>`__
 file for other options.
 

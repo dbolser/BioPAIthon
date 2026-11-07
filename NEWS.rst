@@ -55,9 +55,9 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
-BioPAIthon is renamed biop-ai (pronounced "bio pie"). It is published on PyPI
-as ``biop-ai``, and the repository is now https://github.com/BioAGI-org/biop-ai.
-``import Bio`` is unchanged. The entry-point groups for format plugins are now
+BioPAIthon is renamed biop-ai (pronounced "bio pie"), and the repository is now
+https://github.com/BioAGI-org/biop-ai. It is still published on PyPI as
+``biopaithon``. ``import Bio`` is unchanged. The entry-point groups for format plugins are now
 ``biop_ai.seqio.iterators``, ``biop_ai.seqio.writers`` and ``biop_ai.align``.
 The old ``biopaithon.*`` groups are still read, with a
 ``BiopythonDeprecationWarning``; see ``DEPRECATED.rst``.
@@ -345,7 +345,7 @@ unchanged.
 
 ``importlib.metadata.version("biopython")`` now answers with biop-ai's
 version once ``Bio`` has been imported, instead of raising
-``PackageNotFoundError``. The distribution is called ``biop-ai``;
+``PackageNotFoundError``. The distribution is still called ``biopaithon``;
 a small finder on ``sys.meta_path`` answers for ``biopython`` only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its

@@ -122,7 +122,7 @@ class BiopythonExperimentalWarning(BiopythonWarning):
 class _BiopythonDistributionFinder:
     """Answer ``importlib.metadata`` queries for "biopython" with this package.
 
-    The fork renamed the distribution to "biop-ai" and kept the ``Bio``
+    The fork's distribution is called "biopaithon", and it kept the ``Bio``
     package. Code that asks ``importlib.metadata.version("biopython")``, for
     example to choose a code path by version, would otherwise get
     ``PackageNotFoundError`` from a package it can import. This finder sits
@@ -136,7 +136,7 @@ class _BiopythonDistributionFinder:
         return None
 
     def find_distributions(self, context=None):
-        """Yield the biop-ai distribution when asked for "biopython"."""
+        """Yield the biopaithon distribution when asked for "biopython"."""
         name = getattr(context, "name", None)
         if (
             name is None
@@ -146,7 +146,7 @@ class _BiopythonDistributionFinder:
         import importlib.metadata
 
         try:
-            return iter((importlib.metadata.distribution("biop-ai"),))
+            return iter((importlib.metadata.distribution("biopaithon"),))
         except importlib.metadata.PackageNotFoundError:
             return iter(())
 

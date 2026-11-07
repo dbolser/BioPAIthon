@@ -1,12 +1,12 @@
 .. image:: https://github.com/BioAGI-org/biop-ai/actions/workflows/ci.yml/badge.svg?branch=main
    :alt: CI status
    :target: https://github.com/BioAGI-org/biop-ai/actions/workflows/ci.yml
-.. image:: https://img.shields.io/pypi/v/biop-ai.svg?logo=pypi&logoColor=white
+.. image:: https://img.shields.io/pypi/v/biopaithon.svg?logo=pypi&logoColor=white
    :alt: biop-ai on the Python Package Index (PyPI)
-   :target: https://pypi.org/project/biop-ai/
-.. image:: https://img.shields.io/pypi/pyversions/biop-ai.svg?logo=python&logoColor=white
+   :target: https://pypi.org/project/biopaithon/
+.. image:: https://img.shields.io/pypi/pyversions/biopaithon.svg?logo=python&logoColor=white
    :alt: Supported Python versions
-   :target: https://pypi.org/project/biop-ai/
+   :target: https://pypi.org/project/biopaithon/
 
 **biop-ai** is a fork of `Biopython <https://biopython.org>`_, the
 long-running international association of developers of freely available
@@ -94,13 +94,10 @@ scientific work.
 For the impatient
 =================
 
-biop-ai is published on PyPI as ``biop-ai``::
+biop-ai is published on PyPI as ``biopaithon``, the name it had up to release
+1.88::
 
-    pip install biop-ai
-
-Up to release 1.88 this project was called BioPAIthon and published as
-``biopaithon``. Both install the ``Bio`` package, so to move an environment
-over, run ``pip uninstall biopaithon`` before ``pip install biop-ai``.
+    pip install biopaithon
 
 Note that biop-ai installs the same ``Bio`` package that Biopython does, so
 the two conflict and cannot be used side by side in one environment. Use a
@@ -144,7 +141,7 @@ Depending on which parts of Biopython you plan to use, there are a number of
 other optional Python dependencies, which can be installed later if needed.
 Most are grouped into extras, so pip can install a whole stack by name::
 
-    pip install "biop-ai[graphics]"
+    pip install "biopaithon[graphics]"
 
 - ``graphics`` -- ReportLab and Pillow, for ``Bio.Graphics``.
 - ``phylo`` -- matplotlib, networkx, igraph and rdflib, for ``Bio.Phylo``.

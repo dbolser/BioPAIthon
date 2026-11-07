@@ -5,7 +5,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "biop-ai"
+name = "biopaithon"
 dynamic = ["version"]
 description = "Freely available tools for computational molecular biology - a fork of Biopython open to contributors of every kind."
 readme = "README.rst"
@@ -76,7 +76,7 @@ phylo = [
 # scipy is used by Bio.phenotype, Bio.codonalign and Bio.Align.analysis,
 # which fit none of the named stacks, so it is listed here directly.
 all = [
-    "biop-ai[graphics,biosql,structure,phylo]",
+    "biopaithon[graphics,biosql,structure,phylo]",
     "scipy",
 ]
 # What the offline test suite exercises; ci-dependencies.txt installs this
@@ -86,7 +86,7 @@ all = [
 # still needed for the offline mmtf parser tests; numpy 2.1.0 is excluded per
 # upstream (see ci-dependencies.txt history).
 test = [
-    "biop-ai[graphics,phylo,structure]",
+    "biopaithon[graphics,phylo,structure]",
     "coverage",
     "mmtf-python",
     "numpy!=2.1.0",

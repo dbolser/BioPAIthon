@@ -72,7 +72,7 @@ Untrusted input enters through:
   `python-asan`. Run it from `Tests/`, not `/src`.
 - One test, `test_distribution_name.py::TestDistributionName::test_not_listed_twice`,
   fails under `python-asan` and when run from `/src`. Both see a second
-  `biop-ai` install: `/opt/asan`, or the build's `biop_ai.egg-info`.
+  `biopaithon` install: `/opt/asan`, or the build's `biopaithon.egg-info`.
 - `Tests/<Format>/` (`Tests/GenBank`, `Tests/PDB`, `Tests/Nexus`,
   `Tests/TwoBit`, ...) hold real sample files, good seeds for malformed
   ones.

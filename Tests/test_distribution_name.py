@@ -1,19 +1,18 @@
 """Tests for answering importlib.metadata queries for "biopython".
 
-The distribution is called biop-ai, the package is still Bio, and code in
+The distribution is called biopaithon, the package is still Bio, and code in
 the wild asks importlib.metadata for the version of "biopython".
 
 The tests that resolve names see only metadata they fabricate themselves, so
 they do not depend on what the environment running them holds: an installed
-biop-ai or none, a real Biopython or none, or the stale biopython.egg-info and
-biopaithon.egg-info a checkout keeps from before the renames.
+biopaithon or none, a real Biopython or none, or the stale biopython.egg-info a
+checkout keeps from before the rename.
 """
 
 import contextlib
 import importlib.metadata
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -32,7 +31,7 @@ PYPROJECT = os.path.join(ROOT, "pyproject.toml")
 
 # Versions no real release has, so that an answer from the environment rather
 # than from the fabricated metadata cannot pass unnoticed.
-BIOP_AI = ("biop-ai", "1.89.dev0+fixture")
+BIOPAITHON = ("biopaithon", "1.89.dev0+fixture")
 BIOPYTHON = ("biopython", "1.85+fixture")
 
 
@@ -41,7 +40,7 @@ class TestDistributionName(unittest.TestCase):
     def setUpClass(cls):
         # sys.path as a bare interpreter has it: the standard library, which
         # importlib.metadata imports from as it goes, and no site-packages or
-        # working directory that could hold another biopython or biop-ai.
+        # working directory that could hold another biopython or biopaithon.
         code = "import json, sys; print(json.dumps(sys.path))"
         output = subprocess.check_output([sys.executable, "-I", "-S", "-c", code])
         cls.stdlib_path = json.loads(output)
@@ -59,13 +58,11 @@ class TestDistributionName(unittest.TestCase):
 
         Each gets the dist-info directory an installer would write, in a
         temporary directory that replaces everything on sys.path meanwhile but
-        the standard library.  An installer escapes the name, so biop-ai's
-        directory is biop_ai-<version>.dist-info.
+        the standard library.
         """
         with tempfile.TemporaryDirectory() as directory:
             for name, version in distributions:
-                escaped = re.sub(r"[-_.]+", "_", name).lower()
-                dist_info = os.path.join(directory, f"{escaped}-{version}.dist-info")
+                dist_info = os.path.join(directory, f"{name}-{version}.dist-info")
                 os.mkdir(dist_info)
                 with open(os.path.join(dist_info, "METADATA"), "w") as handle:
                     handle.write(
@@ -83,22 +80,22 @@ class TestDistributionName(unittest.TestCase):
 
     def test_other_names_are_not_answered(self):
         Context = importlib.metadata.DistributionFinder.Context
-        for name in (None, "numpy", "biop-ai", "biopaithon", "bio"):
+        for name in (None, "numpy", "biopaithon", "bio"):
             with self.subTest(name=name):
                 self.assertEqual(
                     list(self.finder.find_distributions(Context(name=name))), []
                 )
 
-    def test_biopython_resolves_to_biop_ai(self):
+    def test_biopython_resolves_to_biopaithon(self):
         names = ("biopython", "Biopython", "BIOPYTHON")
-        with self.installed_only(BIOP_AI):
+        with self.installed_only(BIOPAITHON):
             versions = {name: importlib.metadata.version(name) for name in names}
             answer = importlib.metadata.distribution("biopython").metadata["Name"]
-        self.assertEqual(versions, dict.fromkeys(names, BIOP_AI[1]))
-        self.assertEqual(answer, "biop-ai")
+        self.assertEqual(versions, dict.fromkeys(names, BIOPAITHON[1]))
+        self.assertEqual(answer, "biopaithon")
 
     def test_real_biopython_answers_first(self):
-        with self.installed_only(BIOPYTHON, BIOP_AI):
+        with self.installed_only(BIOPYTHON, BIOPAITHON):
             version = importlib.metadata.version("biopython")
             answer = importlib.metadata.distribution("biopython").metadata["Name"]
         self.assertEqual(version, BIOPYTHON[1])
@@ -113,24 +110,24 @@ class TestDistributionName(unittest.TestCase):
         self.assertEqual(found, [])
 
     def test_not_listed_twice(self):
-        for installed in [(BIOP_AI,), (BIOPYTHON, BIOP_AI)]:
+        for installed in [(BIOPAITHON,), (BIOPYTHON, BIOPAITHON)]:
             with self.subTest(installed=installed):
                 with self.installed_only(*installed):
                     dists = importlib.metadata.distributions()
                     names = [dist.metadata["Name"] for dist in dists]
                 # The standard library may hold records of its own (PyPy's
                 # does), so count only the two names in question.
-                self.assertEqual(names.count("biop-ai"), 1)
+                self.assertEqual(names.count("biopaithon"), 1)
                 self.assertEqual(names.count("biopython"), installed.count(BIOPYTHON))
 
     @unittest.skipIf(tomllib is None, "needs tomllib, new in Python 3.11")
     def test_finder_names_this_project(self):
-        # The tests above fabricate "biop-ai", the name the finder looks up,
+        # The tests above fabricate "biopaithon", the name the finder looks up,
         # so they would still pass if the project were renamed and the finder
         # were not.
         with open(PYPROJECT, "rb") as handle:
             name = tomllib.load(handle)["project"]["name"]
-        self.assertEqual(name, BIOP_AI[0])
+        self.assertEqual(name, BIOPAITHON[0])
 
 
 if __name__ == "__main__":
