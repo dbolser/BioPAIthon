@@ -62,9 +62,16 @@ imposed on its own work.
   exists here it is offered for a clean-room reimplementation rather than
   submitted. This is the deliberate inverse of how the fork treats the same
   work internally, where the patch is adopted directly with its author's name
-  on it (`ADOPTED.md`). Upstream's own policy on AI-written code is still a
-  draft at [#5241](https://github.com/biopython/biopython/pull/5241) and not
-  agreed, so it is not described here as settled.
+  on it (`ADOPTED.md`). Upstream has not decided whether it accepts
+  AI-written code: the no-AI draft
+  [#5241](https://github.com/biopython/biopython/pull/5241) and the permissive
+  draft [#5388](https://github.com/biopython/biopython/pull/5388) are both
+  open. What it has decided, in
+  [#5334](https://github.com/biopython/biopython/pull/5334) (merged
+  2026-11-06), is that a pull request must declare any AI use and that all
+  communications must be written by a human, machine translation into English
+  excepted. Until a policy is agreed, only AI-free pull requests are being
+  merged.
 
 ## Queued
 
@@ -83,7 +90,7 @@ Verified unreported in the GitHub tracker and still present on upstream
 | 8 | `Seq.search()` never matches at the final position | Off by one since the method shipped. |
 | 9 | `six_frame_translations` misaligns the reverse frames | Correct only when `len(seq) % 3 == 1`. Display only. |
 | 10 | `_G_test` divides by zero on any empty cell | `mktest` crashes on identical sequences. |
-| 11 | `nt_search(seq, "")` never terminates | The fix is an API choice; report, do not prescribe. |
+| 11 | `nt_search(seq, "")` never terminates | The fix is an API choice; report, do not prescribe. Filed upstream by a third party as [#5406](https://github.com/biopython/biopython/issues/5406) on 2026-11-07, so nothing to send; fixed here (`NEWS.rst`). |
 | 12 | `Tm_GC(valueset=0)` raises `UnboundLocalError` | The guard admits a value no branch handles. |
 | 13 | `str()` on an `index_db` dictionary raises `AttributeError` | Upstream carries a `TODO` about this exact question; lead with it. |
 | 14 | `SeqIO.index()` raises `IndexError` on a bare `>` FASTA header | `parse()` reads the same record as `id=""`. |
@@ -165,7 +172,7 @@ file-driven.
 - `SffIO`: a file cut short inside a read raises `struct.error` ("unpack requires a buffer of 16 bytes") rather than `ValueError`, and `get_raw` returns the short read ([`_sff_read_seq_record`](https://github.com/biopython/biopython/blob/fc0c156786e86862112a05a720b6f4f47023f36a/Bio/SeqIO/SffIO.py#L898)).
 - `InsdcIO`: a short locus name with a sequence of 10^11 bp or more raises instead of using the long LOCUS line.
 - `CifSeqresIterator`'s docstring names `_entity_poly_seq`; the code reads `_pdbx_poly_seq_scheme`.
-- `Bio.SeqFeature`: `ExactPosition + float` truncates, one `LocationParserError` lacks its `f` prefix, `Reference() == None` raises, and `CompoundLocation(generator)` raises.
+- `Bio.SeqFeature`: `ExactPosition + float` truncates, one `LocationParserError` lacks its `f` prefix (fixed upstream in [#5393](https://github.com/biopython/biopython/pull/5393), merged here in the 2026-11-07 sync), `Reference() == None` raises, and `CompoundLocation(generator)` raises.
 - `Bio/Align/emboss.py`: `raise ValueError("...%s") % line` raises `TypeError` instead.
 - `Bio/Align/exonerate.py`: an error message never gets its `%` arguments.
 - `Bio/Align/sam.py`: the writer writes topology as `PP:` instead of `TP:`.
@@ -232,8 +239,18 @@ file-driven.
   high-entropy data deflates past the 65,536-byte block cap and raises
   `RuntimeError: TODO - Didn't compress enough`; compressed sizes
   65,511–65,536 slip the guard and fail later in `struct.pack("<H", ...)`.
-  htslib caps per-block input instead. Reproduced on 1.85; needs the same
-  duplicate-check before filing.
+  htslib caps per-block input instead. Fixed here in
+  [#126](https://github.com/dbolser/BioPAIthon/pull/126) (2026-10-06) by
+  capping blocks at 0xFF00 bytes. Fixed upstream independently in
+  [#5404](https://github.com/biopython/biopython/pull/5404) (2026-11-06, for
+  [#5403](https://github.com/biopython/biopython/issues/5403), filed by a third
+  party), which instead splits an oversized block in half after compressing it.
+  **That leaves a defect worth reporting:** a virtual offset `tell()` returned
+  before the split no longer seeks. With 65,536 random bytes written as 40,000
+  then the rest, `tell()` gives `(0, 40000)` and `BgzfReader.seek()` then
+  raises "Within offset 40000 but block size only 32768" on upstream `master`
+  `1ef21971a` (run 2026-11-07); the fork reads the right bytes. The 2026-11-07
+  sync kept the fork's fix and adapted #5404's test to it. Comment on #5403.
 
 ## Draft only, not sent
 
@@ -282,7 +299,8 @@ on `biopython/biopython` about it.**
 
 ## Disclosed, in progress
 
-Both of the memory-safety findings have now been passed on. Neither is closed.
+Both of the memory-safety findings have now been passed on. Neither is fully
+fixed upstream.
 
 - **`Bio/PDB/bcifhelpermodule.c` writes past the output buffer.** Sent by email
   to the `Bio/PDB` owners on 2026-08-03 under their `.github/SECURITY.md`,
@@ -294,12 +312,20 @@ Both of the memory-safety findings have now been passed on. Neither is closed.
   `eval()` bug (GHSA-cxcq-r753-xf25, still without a CVE weeks later), with
   this fork's maintainer credited as finder. On 2026-09-06 he asked Will and
   Michiel de Hoon to confirm the severity and log it. As of 2026-10-16 there
-  has been no reply, no published advisory and no fix on upstream `master`. The precedent
+  has been no reply, no published advisory and no fix on upstream `master`;
+  still none on 2026-11-07, and the file is unchanged there since 2025-08-12. The precedent
   before that, CVE-2025-68463, was assigned by MITRE at the reporter's request.
 - **`Bio/Align/_aligncore.c` returns heap contents.** Filed publicly as #5272,
   since it needs a caller to pass malformed input rather than arriving in a
   downloaded file. Different module and different owner (@mdehoon) from the
-  BinaryCIF one.
+  BinaryCIF one. Closed on 2026-08-31 with
+  [#5298](https://github.com/biopython/biopython/pull/5298), a third party's
+  hand-written fix for the unbounded `offset` only. The second half of the
+  report is still open on `master` `1ef21971a`: the row-length check
+  `buffer + m != s` cannot fire, so ragged rows are accepted and
+  `parse_printed_alignment()` returns coordinates read from the heap.
+  [#5297](https://github.com/biopython/biopython/pull/5297), an earlier
+  AI-assisted version that fixed both halves, was closed unmerged.
 
 ## Checked and not reported
 
@@ -319,9 +345,9 @@ Both of the memory-safety findings have now been passed on. Neither is closed.
   breaks `coord_space`.** Already raised. peterjc posted mypy's output on
   2025-12-27, the day after the pull request opened, naming
   `sc[2][0]` at lines 572 and 619 — "Value of type `float` is not indexable" —
-  and asking the author to avoid the double indexing. The thread has not moved
-  since; the pull request was approved by JoaoRodrigues and last saw activity in
-  February 2026.
+  and asking the author to avoid the double indexing. The thread did not move
+  after that; the pull request was approved by JoaoRodrigues, and mdehoon
+  closed it unmerged, without comment, on 2026-10-23.
 
   This fork adopted the first commit only, and confirmed the second fails at
   runtime with `IndexError: invalid index to scalar variable` against upstream

@@ -2814,7 +2814,8 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   `noqa: S101` comments; merge the two hooks' rules then. (PR #180)
 - `Bio/__init__.py:128-140`: every editable install warns "importing from
   inside the source tree", because it looks for a `biopython.egg-link`
-  that PEP 660 installs do not create. (PR #193)
+  that PEP 660 installs do not create. (PR #193) *(Fixed upstream by
+  removing the warning, biopython/biopython#5382; merged here in #266.)*
 
 ### Documentation
 
