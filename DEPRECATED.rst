@@ -392,6 +392,7 @@ class were deprecated in release 1.82, and removed in release 1.86.
 The ``print_info_content`` function in ``Bio.Align.AlignInfo`` was deprecated
 in release 1.82, and removed in release 1.86.
 
+
 Bio.kNN
 -------
 Deprecated in release 1.82, and removed in release 1.86.  Consider using
@@ -916,6 +917,7 @@ Release 1.82. Please use the new Alignment class instead.
 
 Attributes of the PairwiseAligner class referring to gap scores were renamed in
 Release 1.86, with the original name still available with a deprecation warning.
+In Release 1.89, the old names for the attributes were removed.
 These attributes were renamed to be consistent with the AlignmentCounts class
 and with the common nomenclature in the literature.
 
@@ -935,8 +937,7 @@ With the new default parameter for the gap score, only the first alignment is
 returned.
 
 The ``alphabet`` attribute of the PairwiseAligner class was deprecated in
-Release 1.86. The attribute is still being stored, but it is not used in any
-way.
+Release 1.86, and removed in Release 1.89.
 
 Bio.Align.Generic
 -----------------

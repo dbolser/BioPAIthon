@@ -55,6 +55,18 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): BioPAIthon 1.89
 ================================================
 
+Upstream Biopython ``master`` as of 2026-11-06 is merged. Changes from
+upstream that users may notice: the ``PairwiseAligner`` gap-score attribute
+names that were renamed in release 1.86, such as ``target_gap_score``, and its
+unused ``alphabet`` attribute, are removed, so the old names now raise
+``AttributeError`` (see ``DEPRECATED.rst``); the "double complement" error from
+``Location.fromstring`` now shows the offending text; and
+``WellRecord.__str__`` no longer misspells "Minimum".
+Upstream's own fix for ``BgzfWriter`` on incompressible data was not taken.
+This fork's fix, in 1.88, caps each block at 0xFF00 bytes of input, which
+keeps a virtual offset from ``tell()`` valid; upstream's splits an oversized
+block after compressing it, after which such an offset no longer seeks.
+
 Upstream Biopython ``master`` as of 2026-10-26 is merged. Changes from
 upstream that users may notice: ``Bio.PDB.PDBIO.save`` now raises
 ``PDBIOException`` for a residue name longer than three characters, and

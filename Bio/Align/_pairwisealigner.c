@@ -1854,7 +1854,6 @@ Aligner_init(Aligner *self, PyObject *args, PyObject *kwds)
     self->substitution_matrix.obj = NULL;
     self->substitution_matrix.buf = NULL;
     self->algorithm = Unknown;
-    self->alphabet = NULL;
     self->wildcard = -1;
     Py_END_CRITICAL_SECTION();
     return 0;
@@ -1865,7 +1864,6 @@ Aligner_dealloc(Aligner* self)
 {   Py_XDECREF(self->insertion_score_function);
     Py_XDECREF(self->deletion_score_function);
     PyBuffer_Release(&self->substitution_matrix);
-    Py_XDECREF(self->alphabet);
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
