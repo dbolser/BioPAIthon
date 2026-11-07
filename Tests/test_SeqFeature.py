@@ -513,6 +513,14 @@ class TestLocations(unittest.TestCase):
         self.assertEqual(int(location3.start), 10)
         self.assertEqual(int(location3.end), 40)
 
+    def test_double_complement_message(self):
+        """The double complement error shows the text it refers to."""
+        with self.assertRaises(LocationParserError) as cm:
+            Location.fromstring("complement(join(complement(1..5),10..20))")
+        self.assertEqual(
+            str(cm.exception), "double complement in 'join(complement(1..5),10..20)'?"
+        )
+
     def test_fromstring_is_static(self):
         """Test whether Location.fromstring is static.
         See `#4984 <https://github.com/biopython/biopython/pull/4984#issuecomment-2758280951>`_.

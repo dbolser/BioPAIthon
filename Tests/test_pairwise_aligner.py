@@ -222,6 +222,17 @@ Pairwise sequence aligner with parameters
             "'PairwiseAligner' object has no attribute 'no_such_property'",
         )
 
+    def test_removed_properties(self):
+        # The gap-score names renamed in release 1.86, and the unused
+        # alphabet, were removed in release 1.89.
+        aligner = Align.PairwiseAligner()
+        for name in ["alphabet", "target_gap_score", "query_left_open_gap_score"]:
+            with self.subTest(name=name):
+                with self.assertRaises(AttributeError):
+                    getattr(aligner, name)
+                with self.assertRaises(AttributeError):
+                    setattr(aligner, name, -1)
+
     def test_delete_every_property(self):
         # Deleting used to reach the setter with a NULL value, which crashed
         # for mode and wildcard and read uninitialized memory for
