@@ -346,7 +346,7 @@ unchanged.
 ``importlib.metadata.version("biopython")`` now answers with biop-ai's
 version once ``Bio`` has been imported, instead of raising
 ``PackageNotFoundError``. The distribution is called ``biop-ai``;
-a small finder on ``sys.meta_path`` answers for the old name only, after any
+a small finder on ``sys.meta_path`` answers for ``biopython`` only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
 sequence tests failed on biop-ai for no other reason.
@@ -543,8 +543,8 @@ from the source distribution.
 
 Installed packages can now add file formats to ``Bio.SeqIO`` and
 ``Bio.Align`` by declaring entry points, in the groups
-``biop_ai.seqio.iterators``, ``biop_ai.seqio.writers`` and
-``biop_ai.align``, so nobody has to call ``register_format``. They are
+``biopaithon.seqio.iterators``, ``biopaithon.seqio.writers`` and
+``biopaithon.align``, so nobody has to call ``register_format``. They are
 looked for once per process, the first time a format name is not otherwise
 known, so ``import Bio.SeqIO`` and the built-in formats cost no more than
 before, and a format's module is imported when it is first used. An entry

@@ -176,9 +176,10 @@ class FormatRegistry(dict):
     error importing it then propagates.
 
     deprecated_groups names older groups that are read as well, after group,
-    as if their entry points were in it.  An entry point found in one of them
-    and not also in group, under the same name and distribution, gets a
-    BiopythonDeprecationWarning naming the group to use.
+    as if their entry points were in it.  An entry point that a distribution
+    also declares in group, under the same name, is read from group only, so
+    the two declarations may differ.  Any other entry point found in an older
+    group gets a BiopythonDeprecationWarning naming the group to use.
     """
 
     def __init__(
@@ -224,7 +225,10 @@ class FormatRegistry(dict):
             for entry_point, spec, distribution in _entry_points(searched):
                 if searched == group:
                     current.add((entry_point, distribution))
-                elif (entry_point, distribution) not in current:
+                elif (entry_point, distribution) in current:
+                    # The distribution declares it in group too, which wins.
+                    continue
+                else:
                     deprecations.append(
                         f"Entry point {entry_point!r} of {distribution} is in the"
                         f" deprecated group {searched!r}; declare it in"

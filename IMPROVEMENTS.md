@@ -716,7 +716,8 @@ the acceptance gate.
 > `Bio.Align` format name no longer has to be a module name. PR #185 added
 > `register_format()` to SeqIO and `Bio.Align`, and PR #198 the entry-point
 > plugins, both following the "Decided API" list below, which PR #146
-> settled. The entry-point groups are `biopaithon.*`. AlignIO and SearchIO
+> settled. The entry-point groups are `biopaithon.*`
+> *(2026-11-07: renamed `biop_ai.*` for 1.89, after the new distribution name; the `biopaithon.*` groups are still read, with a `BiopythonDeprecationWarning`. See `DEPRECATED.rst`.)* AlignIO and SearchIO
 > are left as they are, by decision. The NumPy consequence this section
 > first reported went with PR #73: `import Bio.SeqIO` loads no format module,
 > nor NumPy, `Bio.Align`, `Bio.AlignIO`, `urllib.request` or `xml.sax`, and
@@ -765,7 +766,7 @@ entry-point groups so plugins work.
    `biopaithon.seqio.writers` and `biopaithon.align`, after this fork's
    distribution name. They claim nothing in upstream's namespace. Adding
    `biopython.*` groups later would break nothing, while starting with them
-   and then retreating would break plugins.
+   and then retreating would break plugins. *(2026-11-07: renamed `biop_ai.*` for 1.89, after the new distribution name; the `biopaithon.*` groups are still read, with a `BiopythonDeprecationWarning`. See `DEPRECATED.rst`.)*
 2. **Signatures:** `Bio.SeqIO.register_format(name, iterator=None, writer=None,
    *, replace=False)` and `Bio.Align.register_format(name, module, *,
    replace=False)`. A SeqIO `iterator` or `writer` is a callable or a
@@ -2447,7 +2448,7 @@ checked with `git grep`, not run there). Those entries are also queued in
   default stays label ids, and warns for files where the two differ,
   because a later release will switch it to author ids. Cross-references
   are matched by author id in every mode.
-- **Format plugin entry-point groups are `biopaithon.*`** (§1.2).
+- **Format plugin entry-point groups are `biopaithon.*`** (§1.2). *(2026-11-07: renamed `biop_ai.*` for 1.89, after the new distribution name; the `biopaithon.*` groups are still read, with a `BiopythonDeprecationWarning`. See `DEPRECATED.rst`.)*
 - **§1.1's `AlignIO` shim was dropped** in favour of closing `Bio.Align`'s
   gaps (PR #142).
 
