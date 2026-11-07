@@ -443,6 +443,32 @@ class BgzfTests(unittest.TestCase):
             self.assertEqual(offset1, h.tell())
             self.assertEqual(h.read(5), "Magic")
 
+    def test_write_random_data(self):
+        """Check writing incompressible data handles the BGZF block size limit."""
+        data = random.Random(0).randbytes(65536)
+        with bgzf.BgzfWriter(self.temp_file, "wb") as writer:
+            writer.write(data)
+
+        with gzip.open(self.temp_file, "rb") as reader:
+            self.assertEqual(reader.read(), data)
+
+        with open(self.temp_file, "rb") as handle:
+            blocks = list(bgzf.BgzfBlocks(handle))
+        # Blocks hold at most 0xFF00 bytes of input, as htslib's do, so even
+        # incompressible data fits and no block has to be split after the fact.
+        self.assertEqual([block[3] for block in blocks], [0xFF00, 0x100, 0])
+
+    def test_tell_before_incompressible_block(self):
+        """Check a virtual offset from tell() still seeks once the block is written."""
+        data = random.Random(1).randbytes(65536)
+        with bgzf.BgzfWriter(self.temp_file, "wb") as writer:
+            writer.write(data[:40000])
+            offset = writer.tell()
+            writer.write(data[40000:])
+        with bgzf.BgzfReader(self.temp_file, "rb") as reader:
+            reader.seek(offset)
+            self.assertEqual(reader.read(10), data[40000:40010])
+
     def test_append_mode(self):
         with bgzf.open(self.temp_file, "wb") as h:
             h.write(b">hello\n")

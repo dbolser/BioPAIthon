@@ -840,12 +840,6 @@ class BgzfWriter:
                 f"{len(block)} bytes compressed to {len(compressed)} bytes, "
                 "too large for a BGZF block"
             )
-        crc = zlib.crc32(block)
-        # Should cope with a mix of Python platforms...
-        if crc < 0:
-            crc = struct.pack("<i", crc)
-        else:
-            crc = struct.pack("<I", crc)
         bsize = struct.pack("<H", len(compressed) + 25)  # includes -1
         crc = struct.pack("<I", zlib.crc32(block) & 0xFFFFFFFF)
         uncompressed_length = struct.pack("<I", len(block))
