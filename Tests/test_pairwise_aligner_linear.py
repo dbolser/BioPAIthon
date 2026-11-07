@@ -1,4 +1,4 @@
-# This code is part of the BioPAIthon distribution and governed by its
+# This code is part of the biop-ai distribution and governed by its
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for the linear-space traceback of PairwiseAligner.align().

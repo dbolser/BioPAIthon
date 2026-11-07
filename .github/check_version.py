@@ -69,8 +69,8 @@ def main(argv: list[str]) -> int:
     print(f"OK: tag {tag} matches Bio.__version__ = {declared} (as {pkg_version}).")
     if pkg_version.is_prerelease:
         print(
-            f"::notice::{pkg_version} is a pre-release. `pip install biopaithon` "
-            f"will not select it; users need `pip install --pre biopaithon`."
+            f"::notice::{pkg_version} is a pre-release. `pip install biop-ai` "
+            f"will not select it; users need `pip install --pre biop-ai`."
         )
     return 0
 

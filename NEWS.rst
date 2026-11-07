@@ -1,11 +1,11 @@
-News for BioPAIthon
-===================
+News for biop-ai
+================
 
 This NEWS file contains release notes covering major additions or changes.
 Separately the DEPRECATED file tracks the removal of obsolete modules or
 functions (which are generally not covered here in the NEWS file).
 
-BioPAIthon is a fork of Biopython. Entries below the fork announcement are the
+biop-ai is a fork of Biopython. Entries below the fork announcement are the
 inherited release history of the upstream Biopython Project, preserved
 unchanged; upstream's news is also posted at
 https://www.open-bio.org/category/obf-projects/biopython/
@@ -52,8 +52,12 @@ What has **not** changed:
 The distribution name on PyPI is ``biopaithon`` rather than ``biopython``,
 and the default branch is now ``main`` rather than ``master``.
 
-(In progress, not yet released): BioPAIthon 1.89
-================================================
+(In progress, not yet released): biop-ai 1.89
+=============================================
+
+BioPAIthon is renamed biop-ai (pronounced "bio pie"). It is published on PyPI
+as ``biop-ai``, and the repository is now https://github.com/BioAGI-org/biop-ai.
+``import Bio`` is unchanged.
 
 Upstream Biopython ``master`` as of 2026-11-06 is merged. Changes from
 upstream that users may notice: the ``PairwiseAligner`` gap-score attribute
@@ -126,7 +130,7 @@ width error for a sequence line no longer ends with a stray ``)``.
 
 The EMBL and IMGT writers no longer produce output their own parsers reject
 when a feature qualifier value contains a line break. The GenBank writer was
-fixed in BioPAIthon 1.88 (from biopython/biopython#3911), but
+fixed in biop-ai 1.88 (from biopython/biopython#3911), but
 ``Bio.SeqIO.write(..., "embl")`` still wrote the qualifier across two lines
 with the continuation unindented, and reading the file back raised
 ``ValueError``. Each line break — LF, CR or a CRLF pair — is now replaced
@@ -304,7 +308,7 @@ comes from ``alignments[1]`` rather than from ``align()``.
 ``PairwiseAligner.align()`` no longer builds the whole traceback matrix for a
 global alignment with affine gap scores (the Gotoh algorithm, which the
 ``blastn`` and ``blastp`` scoring schemes use) when that matrix would take
-more than 512 MiB, about 16 kb against 16 kb. As BioPAIthon 1.88 already did
+more than 512 MiB, about 16 kb against 16 kb. As biop-ai 1.88 already did
 for linear gap scores, it keeps some rows of scores and recomputes the rest
 as needed, so the score, ``len(alignments)`` (and so ``repr()`` and
 ``bool()``) and ``alignments[0]`` use memory in proportion to the sequence
@@ -336,13 +340,13 @@ instead of writing past its end, and its errors for a wrongly shaped ``pc`` or
 ``coordinates`` now give that array's shape. Results for valid input are
 unchanged.
 
-``importlib.metadata.version("biopython")`` now answers with BioPAIthon's
+``importlib.metadata.version("biopython")`` now answers with biop-ai's
 version once ``Bio`` has been imported, instead of raising
-``PackageNotFoundError``. The distribution is still called ``biopaithon``;
+``PackageNotFoundError``. The distribution is called ``biop-ai``;
 a small finder on ``sys.meta_path`` answers for the old name only, after any
 real ``biopython`` distribution that is installed. Nextstrain's augur checks
 the Biopython version this way before every sequence read, and all 50 of its
-sequence tests failed on BioPAIthon for no other reason.
+sequence tests failed on biop-ai for no other reason.
 
 BinaryCIF interval quantization now reads the standard ``numSteps`` field
 and computes the step size as ``(max - min) / (numSteps - 1)``. Previously
@@ -536,8 +540,8 @@ from the source distribution.
 
 Installed packages can now add file formats to ``Bio.SeqIO`` and
 ``Bio.Align`` by declaring entry points, in the groups
-``biopaithon.seqio.iterators``, ``biopaithon.seqio.writers`` and
-``biopaithon.align``, so nobody has to call ``register_format``. They are
+``biop_ai.seqio.iterators``, ``biop_ai.seqio.writers`` and
+``biop_ai.align``, so nobody has to call ``register_format``. They are
 looked for once per process, the first time a format name is not otherwise
 known, so ``import Bio.SeqIO`` and the built-in formats cost no more than
 before, and a format's module is imported when it is first used. An entry

@@ -1,6 +1,6 @@
 # Threat model
 
-BioPAIthon is a fork of Biopython. The importable package is still `Bio`
+biop-ai is a fork of Biopython. The importable package is still `Bio`
 (plus `BioSQL`). `AGENTS.md` has the project's own rules for changes.
 
 ## What this project does and where untrusted input enters
@@ -72,7 +72,7 @@ Untrusted input enters through:
   `python-asan`. Run it from `Tests/`, not `/src`.
 - One test, `test_distribution_name.py::TestDistributionName::test_not_listed_twice`,
   fails under `python-asan` and when run from `/src`. Both see a second
-  `biopaithon` install: `/opt/asan`, or the build's `biopaithon.egg-info`.
+  `biop-ai` install: `/opt/asan`, or the build's `biop_ai.egg-info`.
 - `Tests/<Format>/` (`Tests/GenBank`, `Tests/PDB`, `Tests/Nexus`,
   `Tests/TwoBit`, ...) hold real sample files, good seeds for malformed
   ones.

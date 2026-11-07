@@ -1,4 +1,4 @@
-# BioPAIthon Improvements Plan
+# biop-ai Improvements Plan
 
 A prioritised, evidence-backed plan for improving this codebase, produced by a
 comprehensive review of the tree at the point BioPAIthon forked from Biopython
@@ -2185,10 +2185,10 @@ first and reported only what they do not already cover. Two findings were
 fixed the same day rather than listed: PR #91's deprecation of
 `Bio.Blast.NCBIWWW`/`NCBIXML` had been merged into its stacked base branch
 rather than `main` and was invisible to the tracking (re-landed in
-[#109](https://github.com/dbolser/BioPAIthon/pull/109)), and the `__all__`
+[#109](https://github.com/BioAGI-org/biop-ai/pull/109)), and the `__all__`
 sweep had declared 45 merely-imported stdlib and NumPy names as public API
 across 14 packages (fixed in
-[#110](https://github.com/dbolser/BioPAIthon/pull/110)).
+[#110](https://github.com/BioAGI-org/biop-ai/pull/110)).
 
 The security review otherwise came back clean: TwoBit/alignmentcounts/pwm
 bounds, Entrez XML (XXE and path traversal), BLAST XML entity handling,

@@ -8,9 +8,9 @@
 # package.
 """Pairwise sequence alignment using a dynamic programming algorithm (REMOVED).
 
-Bio.pairwise2 has been removed from BioPAIthon. It was deprecated in Biopython release 1.80 (upstream Biopython still ships it, deprecated). Please use Bio.Align.PairwiseAligner instead. Migration is not mechanical: the defaults and semantics differ. In particular, pairwise2's default gap score is 0, while PairwiseAligner's has been -1 since release 1.86, so the two can rank alignments differently unless you set match, mismatch and gap scores explicitly. See DEPRECATED.rst.
+Bio.pairwise2 has been removed from biop-ai. It was deprecated in Biopython release 1.80 (upstream Biopython still ships it, deprecated). Please use Bio.Align.PairwiseAligner instead. Migration is not mechanical: the defaults and semantics differ. In particular, pairwise2's default gap score is 0, while PairwiseAligner's has been -1 since release 1.86, so the two can rank alignments differently unless you set match, mismatch and gap scores explicitly. See DEPRECATED.rst.
 """
 
 raise ImportError(
-    "Bio.pairwise2 has been removed from BioPAIthon. It was deprecated in Biopython release 1.80 (upstream Biopython still ships it, deprecated). Please use Bio.Align.PairwiseAligner instead. Migration is not mechanical: the defaults and semantics differ. In particular, pairwise2's default gap score is 0, while PairwiseAligner's has been -1 since release 1.86, so the two can rank alignments differently unless you set match, mismatch and gap scores explicitly. See DEPRECATED.rst."
+    "Bio.pairwise2 has been removed from biop-ai. It was deprecated in Biopython release 1.80 (upstream Biopython still ships it, deprecated). Please use Bio.Align.PairwiseAligner instead. Migration is not mechanical: the defaults and semantics differ. In particular, pairwise2's default gap score is 0, while PairwiseAligner's has been -1 since release 1.86, so the two can rank alignments differently unless you set match, mismatch and gap scores explicitly. See DEPRECATED.rst."
 )

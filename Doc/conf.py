@@ -44,9 +44,9 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "BioPAIthon"
+project = "biop-ai"
 
-# No trailing full stop needed. BioPAIthon is a fork of Biopython; copyright
+# No trailing full stop needed. biop-ai is a fork of Biopython; copyright
 # stays with the Biopython contributors, who wrote essentially all of this.
 copyright = "1999-2024, The Biopython Contributors. See the Biopython license terms"
 
@@ -57,7 +57,7 @@ author = (
     "Michiel de Hoon, Peter Cock, Tiago Antao, Eric Talevich, "
     "Bartek Wilczyński, and The Biopython Contributors"
 )
-document = "BioPAIthon Tutorial, Cookbook, and API Documentation"
+document = "biop-ai Tutorial, Cookbook, and API Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

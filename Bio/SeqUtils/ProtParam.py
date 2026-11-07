@@ -172,7 +172,7 @@ class ProteinAnalysis:
         scale. A non-standard residue therefore raises ``KeyError``, including
         when it occurs at the end of the final complete window.
 
-        Prior to BioPAIthon 1.88, the center residue was accidentally ignored
+        Prior to biop-ai 1.88, the center residue was accidentally ignored
         and the last complete window was omitted. Correcting those bugs changes
         both the values and length of profiles returned by older versions.
         """

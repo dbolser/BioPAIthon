@@ -5,8 +5,8 @@ name: Release
 # Triggered by pushing a version tag, e.g.:
 #     git tag v1.88.0 && git push origin v1.88.0
 #
-# The PyPI Trusted Publisher for `biopaithon` must be configured with:
-#     Owner: dbolser | Repository: BioPAIthon
+# The PyPI Trusted Publisher for `biop-ai` must be configured with:
+#     Owner: BioAGI-org | Repository: biop-ai
 #     Workflow name: release.yml | Environment name: pypi
 #
 on:
@@ -130,7 +130,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: pypi
-      url: https://pypi.org/p/biopaithon
+      url: https://pypi.org/p/biop-ai
     permissions:
       id-token: write   # required for Trusted Publishing; no API token needed
     steps:

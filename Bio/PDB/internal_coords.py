@@ -4962,7 +4962,7 @@ if not TYPE_CHECKING:
         if name == "MissingAtomError":
             warnings.warn(
                 "Bio.PDB.internal_coords.MissingAtomError has been deprecated, "
-                "and we intend to remove it in a future release of BioPAIthon. "
+                "and we intend to remove it in a future release of biop-ai. "
                 "Nothing raises it, as missing atoms are tolerated rather than "
                 "treated as errors, so an 'except MissingAtomError' clause "
                 "never runs and can be deleted.",

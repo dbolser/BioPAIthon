@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 **Read [AGENTS.md](AGENTS.md).** It is the single source of truth for working
-on BioPAIthon, and it applies to you exactly as it applies to every other
+on biop-ai, and it applies to you exactly as it applies to every other
 contributor.
 
 This file exists only so that Claude Code finds its way there. Everything that

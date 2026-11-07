@@ -5,7 +5,7 @@
 """Tests for the Bio.Align global_align and local_align convenience functions.
 
 Upstream Biopython added these tests (#5290) to ``pairwise2_testCases.py``,
-each one alongside the ``Bio.pairwise2`` call it mirrors. BioPAIthon has
+each one alongside the ``Bio.pairwise2`` call it mirrors. biop-ai has
 removed ``Bio.pairwise2``, so only the ``Bio.Align`` halves are kept here;
 the comments about ``pairwise2`` defaults explain the parameters chosen.
 """

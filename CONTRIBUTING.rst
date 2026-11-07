@@ -1,4 +1,4 @@
-Contributing to BioPAIthon
+Contributing to biop-ai
 ==========================
 
 We welcome pull requests to fix bugs or add new features, from anyone - and
@@ -6,7 +6,7 @@ anything - able to write a good patch. See `AGENTS.md <AGENTS.md>`__ for what
 that means in practice. This file is primarily concerned with the
 practicalities.
 
-BioPAIthon is a fork of Biopython, and most of the guidance below is inherited
+biop-ai is a fork of Biopython, and most of the guidance below is inherited
 from that project. Upstream's general overview is still worth reading:
 http://biopython.org/wiki/Contributing
 
@@ -14,7 +14,7 @@ http://biopython.org/wiki/Contributing
 Licensing
 ---------
 
-BioPAIthon inherits Biopython's licensing unchanged. Contributions are offered
+biop-ai inherits Biopython's licensing unchanged. Contributions are offered
 under *both* the original "Biopython License Agreement" and the more widely
 used "3-Clause BSD License" (see our LICENSE file for more details). Opening a
 pull request against this repository is taken as offering your work under
@@ -42,7 +42,7 @@ or the issue discussion makes it clear that someone is working on it, any
 issue can be worked on.
 
 We have been using the `good first issue
-<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22>`_
+<https://github.com/BioAGI-org/biop-ai/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22>`_
 label specifically for beginners. These are minor issues where the team knows
 what is needed, and could easily do it themselves (albeit some are tedious),
 but we have chosen instead to use these as teachable moments to help potential
@@ -55,11 +55,11 @@ have run the tests. Those conditions apply identically to every contributor;
 see `AGENTS.md <AGENTS.md>`__.
 
 The `help wanted
-<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22>`_
+<https://github.com/BioAGI-org/biop-ai/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22help%20wanted%22>`_
 label is typically used for issues where none of the regular contributors have the
 expertise or setup to work on an issue (eg specific platforms, or restricted datasets).
 The `needs info
-<https://github.com/dbolser/BioPAIthon/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22Needs%20info%22>`_
+<https://github.com/BioAGI-org/biop-ai/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22Needs%20info%22>`_
 label is for unresloved issues where we lack actionable information. In some cases
 these may be best closed, but perhaps another person will run into the same problem
 and can help solve it.
@@ -112,7 +112,7 @@ Local Development and Testing
 
 Please run the full test suite locally before submitting a pull request, and
 run ``pre-commit`` so the style checks pass before CI sees your change. How to
-install BioPAIthon for development, enable the ``pre-commit`` hooks, and run
+install biop-ai for development, enable the ``pre-commit`` hooks, and run
 the test suite is described once, in the Setup and Testing sections of
 `AGENTS.md <AGENTS.md>`__; the README carries the same commands for users.
 
@@ -126,7 +126,7 @@ optional dependencies included), plus also style checks using ``pre-commit``
 (also used for git pre-commit checks, see above).
 
 The continuous integration tests collect test coverage information via
-CodeCov: https://codecov.io/github/dbolser/BioPAIthon/
+CodeCov: https://codecov.io/github/BioAGI-org/biop-ai/
 
 **The continuous integration checks must pass before your pull request will be
 merged.** Ideally the CodeCov checks will also pass, but we currently do not insist on

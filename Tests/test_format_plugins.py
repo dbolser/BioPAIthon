@@ -28,7 +28,7 @@ CLUSTAL = str(support.DATA / "Clustalw" / "opuntia.aln")
 # of the distribution "nameless" gives no Name.
 DISTRIBUTIONS = {
     "fakeplugin": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 starfasta = fakeplugin_formats:StarFastaIterator
 fasta = fakeplugin_formats:StarFastaIterator
 BadName = fakeplugin_formats:StarFastaIterator
@@ -36,22 +36,22 @@ dup = fakeplugin_formats:StarFastaIterator
 same = fakeplugin_formats:StarFastaIterator
 broken = fakeplugin_broken:BrokenIterator
 
-[biopaithon.seqio.writers]
+[biop_ai.seqio.writers]
 starfasta = fakeplugin_formats:StarFastaWriter [extra]
 
-[biopaithon.align]
+[biop_ai.align]
 STAR-ALN = fakeplugin_aln
 GoodAln = fakeplugin_aln
 GOODALN = otherplugin_formats
 """,
     "otherplugin": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 dup = otherplugin_formats:OtherIterator
 same = fakeplugin_formats:StarFastaIterator
 weird = not a valid!!value
 """,
     "nameless": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 noname = fakeplugin_formats:StarFastaIterator
 NoName = fakeplugin_formats:StarFastaIterator
 """,
@@ -106,7 +106,7 @@ warnings.simplefilter("error")
 warnings.simplefilter("always", BiopythonWarning)
 """
 
-GROUP = "'biopaithon.seqio.iterators'"
+GROUP = "'biop_ai.seqio.iterators'"
 
 # The warnings given when Bio.SeqIO looks for its iterator plugins, sorted as
 # run_python returns them.  None is given for "same", which both distributions
@@ -128,7 +128,7 @@ ITERATOR_WARNINGS = [
 # case-insensitive, so the two entry points name the same format.
 ALIGN_WARNINGS = [
     "Ignoring entry points 'GOODALN' of fakeplugin and 'GoodAln' of fakeplugin"
-    " in group 'biopaithon.align': they give format 'goodaln' different objects"
+    " in group 'biop_ai.align': they give format 'goodaln' different objects"
 ]
 
 ALL_WARNINGS = sorted(ITERATOR_WARNINGS + ALIGN_WARNINGS)

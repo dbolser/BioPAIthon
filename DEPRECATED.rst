@@ -4,6 +4,10 @@ to find documentation about how to update your code to work again.
 Python releases go first, then build & packaging information,
 followed by code (modules, methods, functions).
 
+biop-ai was called BioPAIthon up to and including release 1.88, so the entries
+below that mention biop-ai 1.88 refer to the release published as
+``biopaithon``.
+
 Python
 ======
 
@@ -85,10 +89,10 @@ Biopython modules, methods, functions
 
 Names merely imported into a package, in its ``__all__``
 --------------------------------------------------------
-**This change is BioPAIthon's own; Biopython declares no ``__all__`` in
-these packages.** BioPAIthon 1.88 gave the packages that re-export their API
+**This change is biop-ai's own; Biopython declares no ``__all__`` in
+these packages.** biop-ai 1.88 gave the packages that re-export their API
 from submodules an ``__all__``, and those lists also named 43 things the 17
-packages merely import from elsewhere in ``Bio``. As of BioPAIthon 1.89 they
+packages merely import from elsewhere in ``Bio``. As of biop-ai 1.89 they
 are out of the lists: ``Bio.Align`` no longer declares ``Seq``,
 ``MutableSeq``, ``SeqRecord``, ``translate``, ``reverse_complement``,
 ``SequenceDataAbstractBaseClass``, ``UndefinedSequenceError`` and
@@ -132,8 +136,8 @@ private and was never meant to be imported at all.
 
 Bio.PopGen.GenePop.LargeFileParser
 ----------------------------------
-**This deprecation is BioPAIthon's own; Biopython has not deprecated this
-module.** Deprecated in BioPAIthon 1.88. Nothing in BioPAIthon uses it,
+**This deprecation is biop-ai's own; Biopython has not deprecated this
+module.** Deprecated in biop-ai 1.88. Nothing in biop-ai uses it,
 it had no tests, and the Tutorial does not mention it. Please use
 ``Bio.PopGen.GenePop.read`` instead, or ``Bio.PopGen.GenePop.FileParser``
 (which takes a file name rather than a handle) to work through a large file
@@ -143,10 +147,10 @@ whereas ``Bio.PopGen.GenePop.get_indiv`` reports it as ``None``.
 
 Bio.Blast.NCBIWWW and Bio.Blast.NCBIXML
 ---------------------------------------
-**This deprecation is BioPAIthon's own.** Biopython has not deprecated these
+**This deprecation is biop-ai's own.** Biopython has not deprecated these
 modules, though since Biopython 1.89 it declares ``Bio.Blast.NCBIXML``
 obsolete (discouraged, but importing it raises no warning). Deprecated in
-BioPAIthon 1.88; the modules themselves have not been removed. Both are
+biop-ai 1.88; the modules themselves have not been removed. Both are
 superseded by ``Bio.Blast`` itself: ``Bio.Blast.qblast`` accepts all the
 arguments of ``Bio.Blast.NCBIWWW.qblast`` but returns a stream of ``bytes``
 rather than text, and ``Bio.Blast.read`` and ``Bio.Blast.parse`` parse the
@@ -157,8 +161,8 @@ the old record attributes map onto the new classes.
 
 Bio.PDB.mmtf
 ------------
-**This deprecation is BioPAIthon's own; Biopython has not deprecated this
-module.** Deprecated in BioPAIthon 1.88. RCSB PDB decommissioned the MMTF
+**This deprecation is biop-ai's own; Biopython has not deprecated this
+module.** Deprecated in biop-ai 1.88. RCSB PDB decommissioned the MMTF
 file format in July 2024 and switched off its download server, so MMTF files
 can no longer be downloaded, and the ``mmtf-python`` package this module
 depends on last saw a release in 2022. Please use BinaryCIF files with
@@ -166,8 +170,8 @@ depends on last saw a release in 2022. Please use BinaryCIF files with
 
 Bio.PDB.internal_coords
 -----------------------
-**This deprecation is BioPAIthon's own; Biopython has not deprecated this
-class.** The ``MissingAtomError`` exception was deprecated in BioPAIthon 1.88.
+**This deprecation is biop-ai's own; Biopython has not deprecated this
+class.** The ``MissingAtomError`` exception was deprecated in biop-ai 1.88.
 Nothing has raised it since Biopython 1.80, which removed its only raise site;
 missing atoms are tolerated rather than treated as errors. Importing it, or
 reading it as an attribute of ``Bio.PDB.internal_coords``, now gives a
@@ -177,9 +181,9 @@ so it can simply be deleted.
 
 Bio.SeqIO.PdbIO
 ---------------
-**This deprecation is BioPAIthon's own; Biopython has not deprecated this.**
+**This deprecation is biop-ai's own; Biopython has not deprecated this.**
 The chain ids that the "cif-seqres" format of ``Bio.SeqIO`` gives by default
-are deprecated as of BioPAIthon 1.88. It names each chain by its mmCIF label
+are deprecated as of biop-ai 1.88. It names each chain by its mmCIF label
 id (``_pdbx_poly_seq_scheme.asym_id``), which the wwPDB assigns, whereas
 "cif-atom", "pdb-seqres", "pdb-atom" and ``Bio.PDB.MMCIFParser`` use the author
 id. A future release will make "cif-seqres" use the author id too. Until then
@@ -206,7 +210,7 @@ format accepted by BLAST, treating any lines starting with '#', ';', or '!' as
 comment lines and ignoring them.
 
 The functions ``as_fasta`` and ``as_fasta_2line`` in ``Bio.SeqIO.FastaIO`` were
-deprecated in release 1.86, and removed in BioPAIthon 1.88 (upstream Biopython
+deprecated in release 1.86, and removed in biop-ai 1.88 (upstream Biopython
 1.88 still ships them, deprecated). Please use ``format(record, "fasta")`` or
 ``format(record, "fasta-2line")`` instead.
 
@@ -214,7 +218,7 @@ Bio.SeqIO.qualityIO
 -------------------
 The functions ``as_fastq``, ``as_fastq_solexa``, ``as_fastq_illumina``, and
 ``as_qual`` in ``Bio.SeqIO.QualityIO`` were deprecated in release 1.86, and
-removed in BioPAIthon 1.88 (upstream Biopython 1.88 still ships them,
+removed in biop-ai 1.88 (upstream Biopython 1.88 still ships them,
 deprecated). Please use ``format(record, "fastq")``,
 ``format(record, "fastq-solexa")``, ``format(record, "fastq-illumina")``, or
 ``format(record, "qual")`` instead.
@@ -222,7 +226,7 @@ deprecated). Please use ``format(record, "fastq")``,
 Bio.SeqIO.TabIO
 -------------------
 The function ``as_tab`` in ``Bio.SeqIO.TabIO`` was deprecated in release 1.86,
-and removed in BioPAIthon 1.88 (upstream Biopython 1.88 still ships it,
+and removed in biop-ai 1.88 (upstream Biopython 1.88 still ships it,
 deprecated). Please use ``format(record, "tab")`` instead.
 
 Bio.PDB.StructureAlignment
@@ -237,7 +241,7 @@ release, without saying how. Passing the models by keyword and leaving out
 warning; passing ``fasta_align`` still works, by position or by keyword, but
 warns either way. Biopython 1.86 used the built-in ``DeprecationWarning``,
 which Python by default shows only for calls made from ``__main__``.
-BioPAIthon 1.88 raises ``BiopythonDeprecationWarning`` instead, so the
+biop-ai 1.88 raises ``BiopythonDeprecationWarning`` instead, so the
 warning is shown wherever the call is made; upstream Biopython still raises
 ``DeprecationWarning``.
 
@@ -252,7 +256,7 @@ name instead of a file handle.
 
 Bio.Align.PairwiseAligner.warn_defaults_changed
 -----------------------------------------------
-Removed in BioPAIthon 1.88 without a deprecation period. This method was
+Removed in biop-ai 1.88 without a deprecation period. This method was
 transitional plumbing added in Biopython release 1.86 alongside the change of
 the default gap score from 0 to -1: calling it emitted a one-time
 ``UserWarning`` describing the new default, unless every gap score had been
@@ -265,8 +269,8 @@ the warning it emitted, set the aligner's gap scores explicitly.
 
 Bio.Align.PairwiseAligner positive gap scores in local mode
 -----------------------------------------------------------
-**This change is BioPAIthon's own; Biopython accepts these scores.** Changed
-in BioPAIthon 1.89 without a deprecation period. In local mode, ``score()``
+**This change is biop-ai's own; Biopython accepts these scores.** Changed
+in biop-ai 1.89 without a deprecation period. In local mode, ``score()``
 and ``align()`` now raise ``ValueError`` if an internal gap score (opening or
 extending, insertion or deletion) is positive, or if a gap score function
 returns a positive score; the message names the score and its value. A
@@ -281,7 +285,7 @@ score in local mode should use a gap score of 0 or less.
 Bio.Align.CodonAligner anchor_len argument
 ------------------------------------------
 Removed without a deprecation period by upstream Biopython in its work
-towards 1.89, and so in BioPAIthon 1.88. ``CodonAligner`` accepted an
+towards 1.89, and so in biop-ai 1.88. ``CodonAligner`` accepted an
 ``anchor_len`` argument (default 10) that it never used or documented.
 Passing it positionally, as in ``CodonAligner(table, 10)``, now raises
 ``TypeError``. Passed by keyword, ``anchor_len=...`` is stored as a plain
@@ -289,15 +293,15 @@ attribute and still does nothing. Either way, delete the argument.
 
 Bio.codonalign.BiopythonExperimentalWarning
 -------------------------------------------
-Removed in BioPAIthon 1.88 without a deprecation period. ``Bio.codonalign``
+Removed in biop-ai 1.88 without a deprecation period. ``Bio.codonalign``
 (and ``Bio.CodonAlign`` before it) imported this class from ``Bio`` only to
-warn, on import, that the module was experimental. BioPAIthon 1.88 drops that
+warn, on import, that the module was experimental. biop-ai 1.88 drops that
 warning and commits to the module's API, so the import went with it. Use
 ``from Bio import BiopythonExperimentalWarning`` instead.
 
 Bio.Medline.read
 ----------------
-Changed in BioPAIthon 1.88 without a deprecation period. ``read`` now enforces
+Changed in biop-ai 1.88 without a deprecation period. ``read`` now enforces
 the exactly-one-record contract its docstring and the Tutorial always
 described, like ``Bio.SeqIO.read`` and the other ``read`` functions. A handle
 holding more than one record raises ``ValueError("More than one record found
@@ -318,7 +322,7 @@ The ``search`` function was deprecated in Release 1.84, and removed in Release
 1.86.  The CGI API this wrapped is no longer available since SCOP moved to the
 EBI website.
 
-Changed in BioPAIthon 1.88 without a deprecation period: when the HIE file
+Changed in biop-ai 1.88 without a deprecation period: when the HIE file
 names a sunid missing from the DES file, ``Bio.SCOP.Scop`` now raises a
 ``ValueError`` naming the sunid, the same exception it already raised for a
 missing parent or child. It used to print the sunid to stdout and then raise
@@ -327,7 +331,7 @@ a bare ``KeyError``; code catching ``KeyError`` for this case should catch
 
 Exceptions for malformed input
 ------------------------------
-Changed in BioPAIthon 1.88 without a deprecation period. These exception
+Changed in biop-ai 1.88 without a deprecation period. These exception
 classes now subclass ``ValueError`` rather than ``Exception`` directly:
 ``Bio.Data.CodonTable.TranslationError``, ``Bio.Nexus.Nexus.NexusError``,
 ``Bio.Nexus.Trees.TreeError``, ``Bio.Phylo.NewickIO.NewickError``,
@@ -345,7 +349,7 @@ Bio.AlignInfo
 The ``pos_specific_score_matrix`` method of the ``SummaryInfo`` class and the
 ``PSSM`` class were deprecated in release 1.82, and removed in release 1.85.
 The ``SummaryInfo`` class itself was deprecated in release 1.86, and removed
-in BioPAIthon 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It
+in biop-ai 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It
 was the last remaining content of the ``Bio.Align.AlignInfo`` module, which
 is now shipped as a stub whose import raises ``ImportError`` naming the
 replacement, following the pattern used for ``Bio.Alphabet`` and
@@ -425,7 +429,7 @@ The `Bio.HMM.DynamicProgramming`, `Bio.HMM.Trainer`, `Bio.HMM.MarkovModel`, and
 release 1.86. Consider using hmmlearn (https://pypi.org/project/hmmlearn/)
 instead.
 
-**BioPAIthon differs from Biopython here.** The 1.86 removal left the
+**biop-ai differs from Biopython here.** The 1.86 removal left the
 ``Bio.HMM`` package itself in place as a docstring-only file, so
 ``import Bio.HMM`` succeeded while providing nothing, and any use of its
 contents failed one step later with an error that never mentioned the removal.
@@ -451,7 +455,7 @@ Declared obsolete in release 1.79, deprecated in release 1.82, and removed
 in release 1.86. Please use the standard library subprocess module directly
 instead.
 
-**BioPAIthon differs from Biopython here.** ``Bio.Application``,
+**biop-ai differs from Biopython here.** ``Bio.Application``,
 ``Bio.Align.Applications``, ``Bio.Blast.Applications``,
 ``Bio.Emboss.Applications``, ``Bio.Phylo.Applications`` and
 ``Bio.Sequencing.Applications`` are still shipped, as stubs whose import
@@ -460,7 +464,7 @@ instead. Upstream ships nothing under these names, so the same import raises
 ``ModuleNotFoundError`` there, which says only that a module is absent. A
 GitHub code search finds roughly 5,000 public Python files still importing
 them; see the `usage survey
-<https://github.com/dbolser/BioPAIthon/blob/main/IMPROVEMENTS.md#how-much-is-any-of-this-used>`__
+<https://github.com/BioAGI-org/biop-ai/blob/main/IMPROVEMENTS.md#how-much-is-any-of-this-used>`__
 in the repository's ``IMPROVEMENTS.md``. This follows the pattern
 already used for ``Bio.Alphabet``. Nothing that was unavailable becomes
 available: the stubs cannot be used, only read.
@@ -571,7 +575,7 @@ Bio.codonalign in Biopython 1.65 to follow PEP8 module naming rules.
 Bio.SearchIO
 ------------
 The ``QueryResult.iteritems`` method, named after the Python 2
-``dict.iteritems``, was deprecated in BioPAIthon 1.88. Use
+``dict.iteritems``, was deprecated in biop-ai 1.88. Use
 ``zip(qresult.iterhit_keys(), qresult.iterhits())`` or the ``items``
 property instead.
 
@@ -816,9 +820,9 @@ this will support both colour and color, and both centre and center, to help
 people port existing scripts written for the standalone version of
 GenomeDiagram.  However, these were deprecated in Release 1.55 final.
 Support for centre was removed in Release 1.62. The colour aliases gave no
-warning until BioPAIthon 1.88, which makes each of them raise a
+warning until biop-ai 1.88, which makes each of them raise a
 ``BiopythonDeprecationWarning``; they will be removed in the release after
-BioPAIthon 1.88. They are the ``colour`` argument (of
+biop-ai 1.88. They are the ``colour`` argument (of
 ``ColorTranslator.translate``, ``Feature``, ``FeatureSet.add_feature``,
 ``GraphData``, ``GraphSet.new_graph`` and the drawing functions), the
 ``altcolour`` argument (of ``GraphData`` and ``GraphSet.new_graph``), the
@@ -986,7 +990,7 @@ The ``draw_graphviz`` function was removed in Release 1.79.
 Bio.pairwise2
 -------------
 The ``Bio.pairwise2`` module was deprecated in Release 1.80, and removed in
-BioPAIthon 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It is
+biop-ai 1.88 (upstream Biopython 1.88 still ships it, deprecated).  It is
 now shipped as a stub whose import raises ``ImportError`` naming the
 replacement, following the pattern used for ``Bio.Alphabet`` and
 ``Bio.Application``.  Please use ``Bio.Align.PairwiseAligner`` instead, and
@@ -995,7 +999,7 @@ In particular, ``Bio.pairwise2`` used a default gap score of 0, while the
 default gap score of ``PairwiseAligner`` has been -1 since Release 1.86 (see
 the ``Bio.Align`` entry above), so the two can rank alignments differently
 unless the match, mismatch and gap scores are all set explicitly.
-Upstream Biopython 1.89 adds, and BioPAIthon includes, the ``Bio.Align``
+Upstream Biopython 1.89 adds, and biop-ai includes, the ``Bio.Align``
 convenience functions ``global_align`` and ``local_align``, with largely the
 same functionality and similar usage as the alignment functions provided in
 ``Bio.pairwise2``.

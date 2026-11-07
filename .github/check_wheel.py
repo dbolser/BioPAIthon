@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check an installed BioPAIthon wheel; cibuildwheel's test-command runs this.
+"""Check an installed biop-ai wheel; cibuildwheel's test-command runs this.
 
 It imports every compiled extension by name, so a wheel that imports ``Bio``
 but silently shipped no C extensions fails. On a free-threaded build of
@@ -37,6 +37,6 @@ for name in EXTENSIONS:
     importlib.import_module(name)
 
 if sysconfig.get_config_var("Py_GIL_DISABLED") and sys._is_gil_enabled():
-    sys.exit("Importing BioPAIthon's C extensions turned the GIL on.")
+    sys.exit("Importing biop-ai's C extensions turned the GIL on.")
 
 print(Bio.__version__)

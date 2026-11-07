@@ -275,7 +275,7 @@ sequence, and `_check` then stripped that summary down to the characters in the
 method's base set and melted the result — no error, no warning, a plausible
 wrong number. Five commits, all taken; three corrections for this tree sit on
 top as separate commits. Taken in fork PR
-[#45](https://github.com/dbolser/BioPAIthon/pull/45).
+[#45](https://github.com/BioAGI-org/biop-ai/pull/45).
 
 ### [#4450](https://github.com/biopython/biopython/pull/4450) — Gail Bartlett
 
@@ -289,7 +289,7 @@ three corrections on top.
 
 peterjc approved it on 2023-09-25 and asked for a rebase on 2025-01-03; the
 author never returned. Taken in fork PR
-[#44](https://github.com/dbolser/BioPAIthon/pull/44).
+[#44](https://github.com/BioAGI-org/biop-ai/pull/44).
 
 ### [#3897](https://github.com/biopython/biopython/pull/3897) — Bart Grosman
 
@@ -303,7 +303,7 @@ greater* than `self.last_occupancy`. The shallow copy inherited
 copy's `selected_child` still pointed into the original: reading or
 transforming the copy read and transformed the original's coordinates. Five
 commits taken, plus corrections on top. Taken in fork PR
-[#43](https://github.com/dbolser/BioPAIthon/pull/43).
+[#43](https://github.com/BioAGI-org/biop-ai/pull/43).
 
 ### [#5181](https://github.com/biopython/biopython/pull/5181) — Ernest Provo
 
@@ -318,7 +318,7 @@ alphabet, and the author noted the consequence himself on 2026-06-05:
 `Motif("ACGT", Alignment([Seq("ACGN"), Seq("ACGT")]))` starts raising.
 Ambiguity codes in a DNA alignment are routine input, so that half would break
 working code to fix an unrelated problem. Taken in fork PR
-[#42](https://github.com/dbolser/BioPAIthon/pull/42).
+[#42](https://github.com/BioAGI-org/biop-ai/pull/42).
 
 ### [#5175](https://github.com/biopython/biopython/pull/5175) — Abdel ATIA
 

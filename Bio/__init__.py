@@ -6,7 +6,7 @@
 # package.
 """Collection of modules for dealing with biological data in Python.
 
-This is BioPAIthon, a fork of Biopython that accepts contributions from
+This is biop-ai, a fork of Biopython that accepts contributions from
 every kind of contributor. The importable package is still ``Bio``, and the
 public API differs from upstream's only where noted in ``DEPRECATED.rst`` and
 ``NEWS.rst``.
@@ -15,7 +15,7 @@ The Biopython Project, from which this code comes, is an international
 association of developers of freely available Python tools for computational
 molecular biology.
 
-https://github.com/dbolser/BioPAIthon
+https://github.com/BioAGI-org/biop-ai
 https://biopython.org
 """
 
@@ -122,7 +122,7 @@ class BiopythonExperimentalWarning(BiopythonWarning):
 class _BiopythonDistributionFinder:
     """Answer ``importlib.metadata`` queries for "biopython" with this package.
 
-    The fork renamed the distribution to "biopaithon" and kept the ``Bio``
+    The fork renamed the distribution to "biop-ai" and kept the ``Bio``
     package. Code that asks ``importlib.metadata.version("biopython")``, for
     example to choose a code path by version, would otherwise get
     ``PackageNotFoundError`` from a package it can import. This finder sits
@@ -136,7 +136,7 @@ class _BiopythonDistributionFinder:
         return None
 
     def find_distributions(self, context=None):
-        """Yield the biopaithon distribution when asked for "biopython"."""
+        """Yield the biop-ai distribution when asked for "biopython"."""
         name = getattr(context, "name", None)
         if (
             name is None
@@ -146,7 +146,7 @@ class _BiopythonDistributionFinder:
         import importlib.metadata
 
         try:
-            return iter((importlib.metadata.distribution("biopaithon"),))
+            return iter((importlib.metadata.distribution("biop-ai"),))
         except importlib.metadata.PackageNotFoundError:
             return iter(())
 

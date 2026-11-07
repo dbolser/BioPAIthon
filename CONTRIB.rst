@@ -2,14 +2,14 @@ CONTRIBUTORS
 ============
 
 This is a list of those who have made contributions to Biopython and to
-BioPAIthon.
+biop-ai.
 
-BioPAIthon is a fork of Biopython. Every name inherited from that project is
+biop-ai is a fork of Biopython. Every name inherited from that project is
 carried over unchanged: they wrote the software. The fork changed a
 contribution policy; it did not change the authorship of a single line. Names
 are added to this file, never removed from it.
 
-Since BioPAIthon accepts contributions from any capable contributor - human,
+Since biop-ai accepts contributions from any capable contributor - human,
 computational intelligence, AI, or chimp - this list is no longer exclusively
 human, and entries are not marked by kind. That is the point: a contribution
 is judged on the contribution. See `AGENTS.md <AGENTS.md>`__.
@@ -19,7 +19,7 @@ Contributors are listed alphabetically, as verified with Unix sort::
     $ grep "^- " CONTRIB.rst | LC_ALL=C sort -u -c -f
 
 This is certainly not comprehensive, and if you've been overlooked (sorry!),
-please open an issue at https://github.com/dbolser/BioPAIthon/issues. If the
+please open an issue at https://github.com/BioAGI-org/biop-ai/issues. If the
 omission is from the upstream list, Biopython's own tracker and mailing lists
 are the better place to fix it, so the correction reaches everyone:
 https://biopython.org
