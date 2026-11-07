@@ -33,7 +33,7 @@ known as because they get filed.
 | upstream | date | subject | fixed here |
 |---|---|---|---|
 | [#3771](https://github.com/biopython/biopython/issues/3771) | 2026-07-30 | Use-after-free in the `cpairwise2` sequence conversion; root cause for a crash open since 2021 | [#33](https://github.com/dbolser/BioPAIthon/pull/33) |
-| [#5269](https://github.com/biopython/biopython/issues/5269) | 2026-07-30 | `run_cealign` segfaults on a zero fragment size, short coordinate entries, or tuples | no |
+| [#5269](https://github.com/biopython/biopython/issues/5269) | 2026-07-30 | `run_cealign` segfaults on a zero fragment size, short coordinate entries, or tuples | [#39](https://github.com/dbolser/BioPAIthon/pull/39) |
 | [#5272](https://github.com/biopython/biopython/issues/5272) | 2026-08-03 | `PrintedAlignmentParser.feed()` does not bound `offset`, and its length check cannot fire | [#2](https://github.com/dbolser/BioPAIthon/pull/2) |
 | email | 2026-08-03 | Out-of-bounds write in `bcifhelpermodule.c` — to the `Bio/PDB` owners under their `SECURITY.md` | [#3](https://github.com/dbolser/BioPAIthon/pull/3) |
 | [#5252 review](https://github.com/biopython/biopython/pull/5252#issuecomment-5171465860) | 2026-08-03 | Review of their in-flight endian fix: the output array is still allocated little-endian | [#36](https://github.com/dbolser/BioPAIthon/pull/36) |
