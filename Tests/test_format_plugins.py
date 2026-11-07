@@ -134,21 +134,23 @@ OLD_GROUP = "'biopaithon.seqio.iterators'"
 # The warnings given when Bio.SeqIO looks for its iterator plugins, sorted as
 # run_python returns them.  None is given for "same", which both distributions
 # name the same, nor for "noname".
-ITERATOR_WARNINGS = sorted([
-    f"Ignoring entry point 'OldBad' of oldplugin in group {OLD_GROUP}:"
-    " Format string 'OldBad' should be lower case",
-    f"Ignoring entry point 'BadName' of fakeplugin in group {GROUP}:"
-    " Format string 'BadName' should be lower case",
-    f"Ignoring entry point 'NoName' of a distribution with no name in group"
-    f" {GROUP}: Format string 'NoName' should be lower case",
-    f"Ignoring entry point 'fasta' of fakeplugin in group {GROUP}:"
-    " 'fasta' is a built-in format",
-    f"Ignoring entry point 'weird' of otherplugin in group {GROUP}:"
-    " 'not a valid!!value' is not an object reference",
-    f"Ignoring entry points 'dup' of fakeplugin in group {GROUP} and 'dup' of"
-    f" oldplugin in group {OLD_GROUP} and 'dup' of otherplugin in group {GROUP}:"
-    " they give format 'dup' different objects",
-])
+ITERATOR_WARNINGS = sorted(
+    [
+        f"Ignoring entry point 'OldBad' of oldplugin in group {OLD_GROUP}:"
+        " Format string 'OldBad' should be lower case",
+        f"Ignoring entry point 'BadName' of fakeplugin in group {GROUP}:"
+        " Format string 'BadName' should be lower case",
+        f"Ignoring entry point 'NoName' of a distribution with no name in group"
+        f" {GROUP}: Format string 'NoName' should be lower case",
+        f"Ignoring entry point 'fasta' of fakeplugin in group {GROUP}:"
+        " 'fasta' is a built-in format",
+        f"Ignoring entry point 'weird' of otherplugin in group {GROUP}:"
+        " 'not a valid!!value' is not an object reference",
+        f"Ignoring entry points 'dup' of fakeplugin in group {GROUP} and 'dup' of"
+        f" oldplugin in group {OLD_GROUP} and 'dup' of otherplugin in group {GROUP}:"
+        " they give format 'dup' different objects",
+    ]
+)
 
 # The warning given when Bio.Align looks for its plugins.  Its names are
 # case-insensitive, so the two entry points name the same format.
