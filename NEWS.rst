@@ -55,6 +55,27 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.CodonAdaptationIndex.calculate`` now leaves out the codons
+that are the only one for their amino acid in the genetic code the index was
+made with, as Sharp and Li's codon adaptation index does, since their
+relative adaptiveness is always 1. It used to leave out ATG and TGG whatever
+the genetic code, which gave wrong values with 14 of the 27 NCBI genetic
+codes. With the mold mitochondrial code (table 4), where TGA is Trp too, a
+rarely used TGG was scored as perfectly adapted: a TGG with a relative
+adaptiveness of 1/8 gave ``ATGAAATGGTAA`` a CAI of 1 instead of 0.5. With the
+vertebrate mitochondrial code (table 2), where no amino acid has a single
+codon, ATG and TGG were wrongly left out. With the echinoderm mitochondrial
+code (table 9), where AAA is Asn, AAG, the only Lys codon, was counted, which
+pulls the CAI towards 1. Results with the standard and bacterial codes, and
+the others whose single codons are ATG and TGG, are unchanged, as are the
+``TypeError`` for an illegal codon and the handling of stop codons. A
+sequence with no codon left to count still raises ``ZeroDivisionError``, but
+which sequences those are now depends on the genetic code: ``AAG`` alone now
+raises it with table 9, and ``ATGTGG`` no longer does with table 2. This is
+an upstream defect (biopython/biopython#5345, reported by Ziqi (Adam) Chen,
+with an unmerged fix in biopython/biopython#5353 by Gheorghe Podoleanu), also
+in Biopython 1.88.
+
 ``Bio.Phylo.Consensus`` now matches clades between trees by the names of their
 tips, whatever order each tree lists its tips in. ``strict_consensus``,
 ``majority_consensus`` and so ``bootstrap_consensus`` matched them by where
