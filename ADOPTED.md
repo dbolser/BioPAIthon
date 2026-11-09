@@ -79,9 +79,10 @@ whose weights rise towards 1 at the point between the two middle residues
 (0.4, 0.8, 0.8, 0.4 for a window of 4 with an edge of 0.4). And the fix
 turned a window of 2 with an edge of 0, where both residues have a weight
 of 0, from a wrong answer (the second residue's value) into a new
-`ZeroDivisionError`; it now raises `ValueError` naming the window and edge,
-as does a window of 0, which raised `IndexError`. With these four new tests
-and only `ProtParam.py` reverted, all four fail.
+`ZeroDivisionError`; it now raises `ValueError` naming the window and edge.
+A window smaller than 1, which raised `IndexError`, is refused up front with
+its own `ValueError`. With these five new tests and only `ProtParam.py`
+reverted, all five fail.
 
 **Upstream status:** as of 2026-11-09 the pull request is open, with no
 reviews or comments since it was opened on 2026-10-08, and its CI passes.
