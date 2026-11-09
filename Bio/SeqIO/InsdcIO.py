@@ -409,6 +409,26 @@ class _InsdcWriter(SequenceWriter):
         "transl_except",
         "transl_table",
     )
+    # Qualifiers whose value format is "none", from the DDBJ/ENA/GenBank
+    # Feature Table Definition, Version 11.4, April 2026, at
+    # https://www.insdc.org/submitting-standards/feature-table/
+    # (/partial is not to be used for new entries, but old files have it).
+    # The GenBank and EMBL parsers store a bare /pseudo as [""], so an empty
+    # string for one of these is written bare too: /pseudo="" is invalid.
+    FTQUAL_NO_VALUE = (
+        "circular_RNA",
+        "environmental_sample",
+        "focus",
+        "germline",
+        "macronuclear",
+        "partial",
+        "proviral",
+        "pseudo",
+        "rearranged",
+        "ribosomal_slippage",
+        "trans_splicing",
+        "transgenic",
+    )
 
     modes = "t"
 
@@ -426,7 +446,9 @@ class _InsdcWriter(SequenceWriter):
                 BiopythonWarning,
             )
 
-        if value is None:
+        if value is None or (
+            isinstance(value, str) and value == "" and key in self.FTQUAL_NO_VALUE
+        ):
             # Value-less entry like /pseudo
             self.handle.write(f"{self.QUALIFIER_INDENT_STR}/{key}\n")
             return

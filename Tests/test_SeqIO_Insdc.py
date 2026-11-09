@@ -100,6 +100,68 @@ class TestEmbl(unittest.TestCase):
             record.format("gb")
 
 
+class TestValuelessQualifiers(unittest.TestCase):
+    """Qualifiers that take no value, like /pseudo, are written bare.
+
+    The parsers store a bare /pseudo as [""], which the writers used to
+    write as /pseudo="", invalid INSDC (upstream issues #902 and #4205).
+    """
+
+    indent = {"gb": " " * 21, "embl": "FT" + " " * 19, "imgt": "FT" + " " * 23}
+
+    def check_round_trip(self, record, key, count):
+        """Write record in each format; check key is bare and survives."""
+        for fmt, indent in self.indent.items():
+            with self.subTest(fmt=fmt):
+                text = record.format(fmt)
+                lines = text.splitlines()
+                self.assertEqual(lines.count(f"{indent}/{key}"), count)
+                self.assertNotIn(f"/{key}=", text)
+                new = SeqIO.read(StringIO(text), fmt)
+                self.assertEqual(
+                    [f.qualifiers for f in new.features],
+                    [f.qualifiers for f in record.features],
+                )
+
+    def test_pseudo(self):
+        record = SeqIO.read(support.DATA / "GenBank" / "blank_seq.gb", "gb")
+        self.assertEqual(record.features[3].qualifiers["pseudo"], [""])
+        self.check_round_trip(record, "pseudo", 1)
+
+    def test_trans_splicing(self):
+        record = SeqIO.read(support.DATA / "GenBank" / "NC_000932.gb", "gb")
+        self.check_round_trip(record, "trans_splicing", 4)
+
+    def test_empty_string(self):
+        f = SeqFeature(
+            SimpleLocation(5, 20, strand=+1),
+            type="CDS",
+            qualifiers={"pseudo": "", "germline": [""]},
+        )
+        record = SeqRecord(Seq("A" * 100), "dummy", features=[f])
+        record.annotations["molecule_type"] = "DNA"
+        for fmt, indent in self.indent.items():
+            with self.subTest(fmt=fmt):
+                lines = record.format(fmt).splitlines()
+                self.assertIn(f"{indent}/pseudo", lines)
+                self.assertIn(f"{indent}/germline", lines)
+
+    def test_empty_note_unchanged(self):
+        """An empty value for a qualifier that takes one is still quoted."""
+        f = SeqFeature(
+            SimpleLocation(5, 20, strand=+1),
+            type="misc_feature",
+            qualifiers={"note": [""]},
+        )
+        record = SeqRecord(Seq("A" * 100), "dummy", features=[f])
+        record.annotations["molecule_type"] = "DNA"
+        for fmt, indent in self.indent.items():
+            with self.subTest(fmt=fmt):
+                lines = record.format(fmt).splitlines()
+                self.assertIn(f'{indent}/note=""', lines)
+                self.assertNotIn(f"{indent}/note", lines)
+
+
 class TestWriterErrors(unittest.TestCase):
     """Records the INSDC writers cannot represent raise ValueError."""
 
