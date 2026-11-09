@@ -7,6 +7,7 @@
 """Code for performing calculations on codon alignments."""
 
 import sys
+import warnings
 from collections import Counter
 from collections import defaultdict
 from heapq import heapify
@@ -16,10 +17,12 @@ from itertools import permutations
 from math import erfc
 from math import floor
 from math import log
+from math import nan
 from math import sqrt
 
 import numpy as np
 
+from Bio import BiopythonWarning
 from Bio.Align import Alignment
 from Bio.Data import CodonTable
 
@@ -435,6 +438,10 @@ def _yn00(codons1, codons2, codon_table):
     """YN00 method main function (PRIVATE).
 
     Nomenclature is according to Yang and Nielsen (2000), PMID 10666704.
+    Returns a tuple ``(dN, dS)``. If the estimates have not converged after 20
+    iterations, the last ones are returned with a ``BiopythonWarning``. If the
+    sequences have no synonymous or no nonsynonymous sites, both are nan, also
+    with a ``BiopythonWarning``.
     """
     from scipy.linalg import expm
 
@@ -443,43 +450,28 @@ def _yn00(codons1, codons2, codon_table):
         {"A": 0, "G": 0, "C": 0, "T": 0},
         {"A": 0, "G": 0, "C": 0, "T": 0},
     ]
-    codon_fold_dict = _get_codon_fold(codon_table)
-    fold0_cnt = defaultdict(int)
-    fold4_cnt = defaultdict(int)
+    kappa = _get_kappa_YN00(codons1, codons2, codon_table)
     for codon in codons1 + codons2:
         # count sites at different codon position
         fcodon[0][codon[0]] += 1
         fcodon[1][codon[1]] += 1
         fcodon[2][codon[2]] += 1
-        # count sites in different degenerate fold class
-        fold_num = codon_fold_dict[codon]
-        for i, f in enumerate(fold_num):
-            if f == "0":
-                fold0_cnt[codon[i]] += 1
-            elif f == "4":
-                fold4_cnt[codon[i]] += 1
-    f0_total = sum(fold0_cnt.values())
-    f4_total = sum(fold4_cnt.values())
-    for i, j in zip(fold0_cnt, fold4_cnt):
-        fold0_cnt[i] = fold0_cnt[i] / f0_total
-        fold4_cnt[i] = fold4_cnt[i] / f4_total
-    # TODO:
-    # the initial kappa is different from what yn00 gives,
-    # try to find the problem.
-    TV = _get_TV(codons1, codons2, codon_table=codon_table)
-    k04 = (_get_kappa_t(fold0_cnt, TV), _get_kappa_t(fold4_cnt, TV))
-    kappa = (f0_total * k04[0] + f4_total * k04[1]) / (f0_total + f4_total)
-    # kappa = 2.4285
-    # count synonymous sites and non-synonymous sites
     for i in range(3):
         tot = sum(fcodon[i].values())
         fcodon[i] = {j: k / tot for j, k in fcodon[i].items()}
-    pi = defaultdict(int)
-    for codon in list(codon_table.forward_table.keys()) + codon_table.stop_codons:
+    # Codon frequencies from the base frequencies at each codon position
+    # (F3x4), as GetFreqs() in yn00.c of PAML computes them, scaled to sum to
+    # one over the sense codons; stop codons have frequency zero.
+    pi = {}
+    for codon in codon_table.forward_table:
+        if "U" not in codon:
+            pi[codon] = fcodon[0][codon[0]] * fcodon[1][codon[1]] * fcodon[2][codon[2]]
+    total = sum(pi.values())
+    pi = {codon: freq / total for codon, freq in pi.items()}
+    for codon in codon_table.stop_codons:
         if "U" not in codon:
             pi[codon] = 0
-    for codon in codons1 + codons2:
-        pi[codon] += 1
+    # count synonymous sites and non-synonymous sites
     S_sites1, N_sites1, bfreqSN1 = _count_site_YN00(
         codons1, codons2, pi, k=kappa, codon_table=codon_table
     )
@@ -488,24 +480,25 @@ def _yn00(codons1, codons2, codon_table):
     )
     N_sites = (N_sites1 + N_sites2) / 2
     S_sites = (S_sites1 + S_sites2) / 2
+    if not (S_sites1 + N_sites1 and S_sites2 + N_sites2 and S_sites and N_sites):
+        # Without both kinds of sites omega = dN/dS is undefined, and the
+        # weighting of the paths needs it; yn00.c gives nan here too
+        warnings.warn(
+            f"YN00 needs synonymous and nonsynonymous sites, and found "
+            f"{S_sites:g} and {N_sites:g}; returning nan for dN and dS",
+            BiopythonWarning,
+        )
+        return nan, nan
     bfreqSN = [{"A": 0, "T": 0, "C": 0, "G": 0}, {"A": 0, "T": 0, "C": 0, "G": 0}]
     for i in range(2):
+        # Average over the sequences that have sites of this kind; yn00.c
+        # averages over both, and so gives nan when one has none
+        freqs = [f[i] for f in (bfreqSN1, bfreqSN2) if any(f[i].values())]
         for base in ("A", "T", "C", "G"):
-            bfreqSN[i][base] = (bfreqSN1[i][base] + bfreqSN2[i][base]) / 2
-    # use NG86 method to get initial t and w
-    SN = [0, 0]
-    for codon1, codon2 in zip(codons1, codons2):
-        SN = [
-            m + n
-            for m, n in zip(
-                SN, _count_diff_NG86(codon1, codon2, codon_table=codon_table)
-            )
-        ]
-    ps = SN[0] / S_sites
-    pn = SN[1] / N_sites
-    p = sum(SN) / (S_sites + N_sites)
-    w = log(1 - 4.0 / 3 * pn) / log(1 - 4.0 / 3 * ps)
-    t = -3 / 4 * log(1 - 4 / 3 * p)
+            bfreqSN[i][base] = sum(f[base] for f in freqs) / len(freqs)
+    # Start from the values yn00.c starts its first pair of sequences from
+    t = 0.4
+    w = 1
     tolerance = 1e-5
     dSdN_pre = [0, 0]
     for temp in range(20):
@@ -523,81 +516,149 @@ def _yn00(codons1, codons2, codon_table):
         for (nucleotide1, nucleotide2), count in codon_npath.items():
             tv = _count_diff_YN00(nucleotide1, nucleotide2, P, codons, codon_table)
             TV = [m + n * count for m, n in zip(TV, tv)]
-        TV = (TV[0] / S_sites, TV[1] / S_sites), (TV[2] / N_sites, TV[3] / N_sites)
         # according to the DistanceF84() function of yn00.c in paml,
         # the t (e.q. 10) appears in PMID: 10666704 is dS and dN
-        dSdN = []
-        for f, tv in zip(bfreqSN, TV):
-            dSdN.append(_get_kappa_t(f, tv, t=True))
-        t = dSdN[0] * 3 * S_sites / (S_sites + N_sites) + dSdN[1] * 3 * N_sites / (
+        _, dS = _distance_f84(S_sites, TV[0] / S_sites, TV[1] / S_sites, bfreqSN[0])
+        _, dN = _distance_f84(N_sites, TV[2] / N_sites, TV[3] / N_sites, bfreqSN[1])
+        dSdN = [dS, dN]
+        t = dS * 3 * S_sites / (S_sites + N_sites) + dN * 3 * N_sites / (
             S_sites + N_sites
         )
-        w = dSdN[1] / dSdN[0]
+        # As DistanceYN00() in yn00.c: w is at least 1e-5, and 99 if dS is 0
+        w = 99 if dS < 1e-9 else max(1e-5, dN / dS)
         if all(abs(i - j) < tolerance for i, j in zip(dSdN, dSdN_pre)):
-            return dSdN[1], dSdN[0]  # dN, dS
+            return float(dN), float(dS)
         dSdN_pre = dSdN
+    warnings.warn(
+        f"YN00 did not converge in 20 iterations; returning the last "
+        f"estimates (dN = {dN:g}, dS = {dS:g})",
+        BiopythonWarning,
+    )
+    return float(dN), float(dS)
 
 
-def _get_TV(codons1, codons2, codon_table):
-    """Get TV (PRIVATE).
+def _get_kappa_YN00(codons1, codons2, codon_table):
+    """Estimate the transition to transversion rate ratio kappa (PRIVATE).
+
+    A port of ``GetKappa()`` in ``yn00.c`` of PAML for two sequences. The
+    positions that are non-degenerate in both codons give one estimate, and
+    the third positions that are fourfold degenerate in both codons, which
+    code for the same amino acid, give another. Each comes from the F84
+    distance between the bases at those positions, with the frequencies of
+    those bases. The two are averaged, weighted by their numbers of sites,
+    leaving out an estimate that is not positive. If neither is, kappa is
+    4.6, the value yn00.c starts from.
+    """
+    fold = _get_codon_fold(codon_table)
+    amino_acids = codon_table.forward_table
+    kappa = weight = 0
+    index = {base: i for i, base in enumerate("TCAG")}
+    for fold_class, positions in (("0", (0, 1, 2)), ("4", (2,))):
+        # F[i, j] is the proportion of sites with bases i and j in the two
+        # sequences, counted both ways round
+        F = np.zeros((4, 4))
+        for codon1, codon2 in zip(codons1, codons2):
+            for i in positions:
+                if fold[codon1][i] == fold[codon2][i] == fold_class and (
+                    fold_class == "0" or amino_acids[codon1] == amino_acids[codon2]
+                ):
+                    F[index[codon1[i]], index[codon2[i]]] += 0.5
+                    F[index[codon2[i]], index[codon1[i]]] += 0.5
+        n = F.sum()
+        if n == 0:
+            continue
+        F /= n
+        # Computed as yn00.c does: with few sites, 1 - 2P - Q is often exactly
+        # 0, where K80 fails, and computing P and Q another way can round it
+        # to just above 0, which gives a kappa in the tens
+        P = (F[0, 1] + F[2, 3]) * 2
+        Q = 1 - np.trace(F) - P
+        pi = dict(zip("TCAG", F.sum(axis=1)))
+        kappa_class, _ = _distance_f84(n, P, Q, pi)
+        if kappa_class > 0:
+            kappa += kappa_class * n
+            weight += n
+    if weight == 0:
+        return 4.6
+    return kappa / weight
+
+
+def _distance_f84(n, P, Q, pi):
+    """Return kappa and the distance between two sequences under F84 (PRIVATE).
+
+    A port of ``DistanceF84()`` in ``yn00.c`` of PAML, without the standard
+    error. Where F84 fails it falls back to K80, and where K80 fails too, to
+    JC69, as PAML does. Formulae and names are according to Yang and Nielsen
+    (2000), PMID 10666704.
 
     Arguments:
-     - T - proportions of transitional differences
-     - V - proportions of transversional differences
+     - n  - number of sites
+     - P  - proportion of sites with a transitional difference
+     - Q  - proportion of sites with a transversional difference
+     - pi - base frequencies, a dict with keys "T", "C", "A" and "G"
 
+    Returns a tuple ``(kappa, t)``: ``kappa`` is the HKY85 transition to
+    transversion rate ratio, at most 999, or -1 if neither F84 nor K80 gives
+    one; ``t`` is the distance, at most 99.
     """
-    purine = ("A", "G")
-    pyrimidine = ("C", "T")
-    TV = [0, 0]
-    sites = 0
-    for codon1, codon2 in zip(codons1, codons2):
-        for nucleotide1, nucleotide2 in zip(codon1, codon2):
-            if nucleotide1 == nucleotide2:
-                pass
-            elif nucleotide1 in purine and nucleotide2 in purine:
-                TV[0] += 1
-            elif nucleotide1 in pyrimidine and nucleotide2 in pyrimidine:
-                TV[0] += 1
-            else:
-                TV[1] += 1
-            sites += 1
-    return (TV[0] / sites, TV[1] / sites)
-    # return (TV[0], TV[1])
-
-
-def _get_kappa_t(pi, TV, t=False):
-    """Calculate kappa (PRIVATE).
-
-    The following formula and variable names are according to PMID: 10666704
-    """
-    pi["Y"] = pi["T"] + pi["C"]
-    pi["R"] = pi["A"] + pi["G"]
-    A = (
-        2 * (pi["T"] * pi["C"] + pi["A"] * pi["G"])
-        + 2
-        * (
-            pi["T"] * pi["C"] * pi["R"] / pi["Y"]
-            + pi["A"] * pi["G"] * pi["Y"] / pi["R"]
-        )
-        * (1 - TV[1] / (2 * pi["Y"] * pi["R"]))
-        - TV[0]
-    ) / (2 * (pi["T"] * pi["C"] / pi["Y"] + pi["A"] * pi["G"] / pi["R"]))
-    B = 1 - TV[1] / (2 * pi["Y"] * pi["R"])
-    a = -0.5 * log(A)  # this seems to be an error in YANG's original paper
-    b = -0.5 * log(B)
-    kappaF84 = a / b - 1
-    if t is False:
-        kappaHKY85 = 1 + (
-            pi["T"] * pi["C"] / pi["Y"] + pi["A"] * pi["G"] / pi["R"]
-        ) * kappaF84 / (pi["T"] * pi["C"] + pi["A"] * pi["G"])
-        return kappaHKY85
+    max_kappa = 999
+    max_t = 99.0
+    if P + Q > 1:
+        return 1, max_t
+    Y = pi["T"] + pi["C"]
+    R = pi["A"] + pi["G"]
+    tc = pi["T"] * pi["C"]
+    ag = pi["A"] * pi["G"]
+    kappa = -1
+    fail_f84 = fail_k80 = False
+    if Q < min(1e-10, 0.1 / n):
+        fail_f84 = fail_k80 = True
+    elif Y <= 0 or R <= 0 or (tc <= 0 and ag <= 0):
+        fail_f84 = True
     else:
-        t = (
-            4 * pi["T"] * pi["C"] * (1 + kappaF84 / pi["Y"])
-            + 4 * pi["A"] * pi["G"] * (1 + kappaF84 / pi["R"])
-            + 4 * pi["Y"] * pi["R"]
-        ) * b
-        return t
+        A = tc / Y + ag / R
+        B = tc + ag
+        C = Y * R
+        a = (2 * B + 2 * (tc * R / Y + ag * Y / R) * (1 - Q / (2 * C)) - P) / (2 * A)
+        b = 1 - Q / (2 * C)
+        if a <= 0 or b <= 0:
+            fail_f84 = True
+        else:
+            a = -0.5 * log(a)  # this seems to be an error in YANG's original paper
+            b = -0.5 * log(b)
+            if b <= 0:
+                fail_f84 = True
+            else:
+                kappa_f84 = a / b - 1
+                t = 4 * b * (tc * (1 + kappa_f84 / Y) + ag * (1 + kappa_f84 / R) + C)
+                kappa = (B + A * kappa_f84) / B
+    if fail_f84 and not fail_k80:
+        a = 1 - 2 * P - Q
+        b = 1 - 2 * Q
+        if a <= 0 or b <= 0:
+            fail_k80 = True
+        else:
+            a = -log(a)
+            b = -log(b)
+            if b <= 0:
+                fail_k80 = True
+            else:
+                kappa = (0.5 * a - 0.25 * b) / (0.25 * b)
+                t = 0.5 * a + 0.25 * b
+    if fail_k80:
+        P += Q
+        if P < 0.75:
+            t = abs(-0.75 * log(1 - P * 4 / 3))  # abs() turns -0.0 into 0.0
+        elif n > 1:
+            # JC69 fails too. As yn00.c, take P just below 3/4, at
+            # 3/4 (n - 1) / n, so that t = 3/4 log(n).
+            t = 0.75 * log(n)
+        else:
+            # That would not be positive, so use the maximum, as the comment
+            # on DistanceF84() in yn00.c says it does when JC69 fails.
+            t = max_t
+        t = min(t, max_t)
+    return min(kappa, max_kappa), t
 
 
 def _count_site_YN00(codons1, codons2, pi, k, codon_table):
@@ -644,144 +705,77 @@ def _count_site_YN00(codons1, codons2, pi, k, codon_table):
                     weight *= k
                 elif codon[pos] in purine and base in purine:
                     weight *= k
+                # As CountSites() in yn00.c, count the base frequencies with
+                # this codon's own base, not the neighbouring codon's
                 if codon_dict[codon] == codon_dict[neighbor_codon]:
                     S += weight
-                    freqSN[0][base] += weight * npath
+                    freqSN[0][codon[pos]] += weight * npath
                 else:
                     N += weight
-                    freqSN[1][base] += weight * npath
+                    freqSN[1][codon[pos]] += weight * npath
         S_sites += S * npath
         N_sites += N * npath
+    if S_sites + N_sites == 0:
+        # Every neighbouring codon is a stop codon or has frequency zero
+        return S_sites, N_sites, freqSN
     norm_const = 3 * length / (S_sites + N_sites)
     S_sites *= norm_const
     N_sites *= norm_const
     for i in freqSN:
         norm_const = sum(i.values())
-        for b in i:
-            i[b] /= norm_const
+        if norm_const:  # zero if the sequence has no sites of this kind
+            for b in i:
+                i[b] /= norm_const
     return S_sites, N_sites, freqSN
 
 
 def _count_diff_YN00(codon1, codon2, P, codons, codon_table):
-    """Count differences between two codons (three-letter string; PRIVATE).
+    """Count the differences between two codons (three-letter strings; PRIVATE).
 
-    The function will weighted multiple pathways from codon1 to codon2
-    according to P matrix of codon substitution. The proportion
-    of transition and transversion (TV) will also be calculated in
-    the function.
+    Returns a list of the numbers of synonymous transitions, synonymous
+    transversions, nonsynonymous transitions and nonsynonymous transversions.
+    Where the codons differ at more than one position, each order in which
+    the changes could happen is a path; a path through a stop codon is
+    impossible, and the others are weighted by their probabilities under
+    ``P``, the matrix of codon substitution probabilities indexed as
+    ``codons``. This is ``CountDiffs()`` in ``yn00.c`` of PAML.
     """
-    TV = [
-        0,
-        0,
-        0,
-        0,
-    ]  # transition and transversion counts (synonymous and nonsynonymous)
+    TV = [0, 0, 0, 0]
     if codon1 == codon2:
         return TV
-    else:
-        diff_pos = [
-            i
-            for i, (nucleotide1, nucleotide2) in enumerate(zip(codon1, codon2))
-            if nucleotide1 != nucleotide2
-        ]
-
-        def count_TV(codon1, codon2, diff, codon_table, weight=1):
-            purine = ("A", "G")
-            pyrimidine = ("T", "C")
-            dic = codon_table.forward_table
-            stop = codon_table.stop_codons
-            if codon1 in stop or codon2 in stop:
-                # stop codon is always considered as nonsynonymous
-                if codon1[diff] in purine and codon2[diff] in purine:
-                    return [0, 0, weight, 0]
-                elif codon1[diff] in pyrimidine and codon2[diff] in pyrimidine:
-                    return [0, 0, weight, 0]
-                else:
-                    return [0, 0, 0, weight]
-            elif dic[codon1] == dic[codon2]:
-                if codon1[diff] in purine and codon2[diff] in purine:
-                    return [weight, 0, 0, 0]
-                elif codon1[diff] in pyrimidine and codon2[diff] in pyrimidine:
-                    return [weight, 0, 0, 0]
-                else:
-                    return [0, weight, 0, 0]
-            else:
-                if codon1[diff] in purine and codon2[diff] in purine:
-                    return [0, 0, weight, 0]
-                elif codon1[diff] in pyrimidine and codon2[diff] in pyrimidine:
-                    return [0, 0, weight, 0]
-                else:
-                    return [0, 0, 0, weight]
-
-        if len(diff_pos) == 1:
-            TV = [
-                p + q
-                for p, q in zip(TV, count_TV(codon1, codon2, diff_pos[0], codon_table))
-            ]
-        elif len(diff_pos) == 2:
-            tmp_codons = [codon1[:i] + codon2[i] + codon1[i + 1 :] for i in diff_pos]
-            path_prob = []
-            for codon in tmp_codons:
-                codon_idx = list(map(codons.index, [codon1, codon, codon2]))
-                prob = (P[codon_idx[0], codon_idx[1]], P[codon_idx[1], codon_idx[2]])
-                path_prob.append(prob[0] * prob[1])
-            path_prob = [2 * i / sum(path_prob) for i in path_prob]
-            for n, i in enumerate(diff_pos):
-                codon = codon1[:i] + codon2[i] + codon1[i + 1 :]
-                TV = [
-                    p + q
-                    for p, q in zip(
-                        TV,
-                        count_TV(
-                            codon1, codon, i, codon_table, weight=path_prob[n] / 2
-                        ),
-                    )
-                ]
-                TV = [
-                    p + q
-                    for p, q in zip(
-                        TV,
-                        count_TV(
-                            codon1, codon, i, codon_table, weight=path_prob[n] / 2
-                        ),
-                    )
-                ]
-        elif len(diff_pos) == 3:
-            paths = list(permutations([0, 1, 2], 3))
-            path_prob = []
-            tmp_codons = []
-            for index1, index2, index3 in paths:
-                tmp1 = codon1[:index1] + codon2[index1] + codon1[index1 + 1 :]
-                tmp2 = tmp1[:index2] + codon2[index2] + tmp1[index2 + 1 :]
-                tmp_codons.append((tmp1, tmp2))
-                codon_idx = list(map(codons.index, [codon1, tmp1, tmp2, codon2]))
-                prob = (
-                    P[codon_idx[0], codon_idx[1]],
-                    P[codon_idx[1], codon_idx[2]],
-                    P[codon_idx[2], codon_idx[3]],
-                )
-                path_prob.append(prob[0] * prob[1] * prob[2])
-            path_prob = [3 * i / sum(path_prob) for i in path_prob]
-            for codon, j, k in zip(tmp_codons, path_prob, paths):
-                TV = [
-                    p + q
-                    for p, q in zip(
-                        TV, count_TV(codon1, codon[0], k[0], codon_table, weight=j / 3)
-                    )
-                ]
-                TV = [
-                    p + q
-                    for p, q in zip(
-                        TV,
-                        count_TV(codon[0], codon[1], k[1], codon_table, weight=j / 3),
-                    )
-                ]
-                TV = [
-                    p + q
-                    for p, q in zip(
-                        TV, count_TV(codon[1], codon2, k[1], codon_table, weight=j / 3)
-                    )
-                ]
+    diff_pos = [
+        i
+        for i, (nucleotide1, nucleotide2) in enumerate(zip(codon1, codon2))
+        if nucleotide1 != nucleotide2
+    ]
+    stop_codons = codon_table.stop_codons
+    amino_acids = codon_table.forward_table
+    transitions = ({"A", "G"}, {"C", "T"})
+    paths = []  # probability and differences of each possible path
+    for order in permutations(diff_pos):
+        prob = 1
+        diffs = [0, 0, 0, 0]
+        codon = codon1
+        for pos in order:
+            next_codon = codon[:pos] + codon2[pos] + codon[pos + 1 :]
+            if next_codon in stop_codons:
+                break
+            prob *= P[codons.index(codon), codons.index(next_codon)]
+            nonsynonymous = amino_acids[codon] != amino_acids[next_codon]
+            transversion = {codon[pos], codon2[pos]} not in transitions
+            diffs[2 * nonsynonymous + transversion] += 1
+            codon = next_codon
+        else:  # no stop codon on the way
+            paths.append((prob, diffs))
+    if not paths:
+        # Every path passes through a stop codon, which happens in some codon
+        # tables. As yn00.c, count all differences as nonsynonymous, half a
+        # transition and the rest transversions.
+        return [0, 0, 0.5, len(diff_pos) - 0.5]
+    total = sum(prob for prob, diffs in paths)
+    for prob, diffs in paths:
+        weight = prob / total
+        TV = [m + n * weight for m, n in zip(TV, diffs)]
     return TV
 
 
