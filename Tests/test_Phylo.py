@@ -527,9 +527,13 @@ class RerootSupportTests(unittest.TestCase):
         """The old bifurcating root's two branches merge into one."""
         # The first tree from upstream issue #745 gives the split {A,B}|{C,D}
         # two values. The clade below the merged branch keeps its own value,
-        # whichever side the outgroup is on.
-        for outgroup, ingroup, kept in (("A", ("C", "D"), 80), ("C", ("A", "B"), 90)):
-            tree = Phylo.read(StringIO("((A,B)90:1,(C,D)80:1);"), "newick")
+        # whichever side the outgroup is on, and even if its value is 0.
+        for newick, outgroup, ingroup, kept in (
+            ("((A,B)90:1,(C,D)80:1);", "A", ("C", "D"), 80),
+            ("((A,B)90:1,(C,D)80:1);", "C", ("A", "B"), 90),
+            ("((A,B)90:1,(C,D)0:1);", "A", ("C", "D"), 0),
+        ):
+            tree = Phylo.read(StringIO(newick), "newick")
             tree.root_with_outgroup(outgroup)
             self.assertEqual(tree.common_ancestor(*ingroup).confidence, kept)
             self.assertEqual(len(self.split_supports(tree)), 1)
