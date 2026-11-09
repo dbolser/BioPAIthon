@@ -254,7 +254,7 @@ class ProteinAnalysis:
         window. The sum is divided by the sum of the weights, so a window of 1
         gives the scale value of each residue. An even window has no central
         residue, and its score is for the point between its two middle
-        residues.
+        residues. A window smaller than 1 raises ValueError.
 
         Edge: The central amino acid of the window always has a weight of 1.
         By default, the amino acids at the remaining window positions have the
@@ -275,6 +275,9 @@ class ProteinAnalysis:
         Similar to expasy's ProtScale:
         http://www.expasy.org/cgi-bin/protscale.pl
         """
+        if window < 1:
+            raise ValueError(f"window must be at least 1, not {window}")
+
         # generate the weights
         #   _weight_list returns only one tail. If the list should be
         #   [0.4,0.7,1.0,0.7,0.4] what you actually get from _weights_list
