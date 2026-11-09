@@ -55,6 +55,52 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``YN00`` method of ``calculate_dn_ds`` and ``calculate_dn_ds_matrix`` in
+``Bio.Align.analysis``, which ``Bio.codonalign`` also uses for ``cal_dn_ds``
+and ``get_dn_ds_matrix``, now gives the estimates of ``yn00``, the
+implementation of the method in PAML by its first author. It often failed: on
+the Tutorial's 16-codon *E. coli* and *Shigella* alignment it returned
+``None``; on the six-codon pair in biopython/biopython#1611 it raised
+``ZeroDivisionError``; on identical sequences it raised ``RuntimeError:
+dictionary changed size during iteration``; and on the EGFR alignment in the
+test suite, the dN and dS matrices raised ``ValueError: math domain error``.
+Of 300 random pairs of related sequences of 5 to 50 codons, it gave estimates
+for 62, and now does for all of them. Where it did give estimates, they
+differed from ``yn00``'s, and depended on which sequence came first. Each step
+now follows ``yn00``. Kappa, the transition to transversion rate ratio, is
+estimated from the sites that are non-degenerate in both sequences, and from
+the third positions of pairs of codons for the same amino acid that are
+fourfold degenerate in both, where it was estimated from the differences at
+all sites, with base frequencies that were not all normalised. The codon
+frequencies come from the base frequencies at each codon position (F3x4),
+where counting the codons in the two sequences gave every codon absent from
+both a frequency of zero. The base frequencies at the synonymous and
+nonsynonymous sites count each codon's own base, not that of the codon it
+could change to. Between codons that differ at two or three positions, each
+step of each path is counted once, where the first step was counted twice and
+the last not at all. Where the F84 distance is undefined, it falls back to K80
+and then to JC69. On 400 random pairs of 5 to 300 codons, dN and dS are now
+the same in either order, and agree with ``yn00``'s to within 0.00014, and for
+392 of the pairs to the four decimal places ``yn00`` prints. For the first two
+EGFR sequences, dN and dS were 0.0198 and 0.0222, and are now 0.0201 and
+0.0208, as in ``yn00``. ``calculate_dn_ds_matrix`` gives what ``yn00`` gives
+for each pair of sequences on its own; given a file of more sequences,
+``yn00`` uses one kappa, averaged over all the pairs. Every ``YN00`` estimate
+changes, so earlier ones are worth recomputing.
+
+When its estimates have not converged after 20 iterations, ``YN00`` now
+returns the last ones with a ``BiopythonWarning``, where it returned ``None``.
+On saturated pairs they can alternate between two values, as they do in
+``yn00``. When the two sequences have no synonymous sites, or no nonsynonymous
+sites, dN and dS are now ``nan``, with a ``BiopythonWarning``, where
+``ZeroDivisionError`` was raised; ``yn00`` gives ``nan`` for omega and for at
+least one of them. One difference from ``yn00`` is deliberate: when only one
+of the sequences has synonymous sites, the base frequencies at synonymous
+sites are taken from that sequence alone, where ``yn00`` averages them over
+both, and then can give ``nan``; the same holds for nonsynonymous sites. These
+are upstream defects, also in Biopython 1.88 and still in upstream's
+development code (biopython/biopython#1611).
+
 The ``LWL85`` method of ``Bio.Align.analysis.calculate_dn_ds`` and
 ``calculate_dn_ds_matrix``, and of ``Bio.codonalign.codonseq.cal_dn_ds`` and
 ``CodonAlignment.get_dn_ds_matrix`` and ``get_dn_ds_tree``, now weights the

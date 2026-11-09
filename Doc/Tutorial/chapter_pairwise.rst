@@ -2905,16 +2905,23 @@ slightly different estimates for dN and dS:
    >>> print(dN, dS)  # doctest: +ELLIPSIS
    0.084526... 0.224985...
 
+The ``YN00`` and ``ML`` methods need SciPy:
+
 .. code:: pycon
 
+   >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="YN00")
+   >>> print(dN, dS)  # doctest: +ELLIPSIS
+   0.078459... 0.338433...
    >>> dN, dS = analysis.calculate_dn_ds(pairwise_codon_alignment, method="ML")
    >>> print(dN, dS)  # doctest: +ELLIPSIS
    0.083... 0.281...
 
 The ``ML`` estimates come from a numerical optimization, so only their first
-three decimal places are shown. The ``YN00`` method is left out of this example because,
-on this alignment, ``calculate_dn_ds`` with ``method="YN00"`` currently returns
-``None`` instead of a pair of estimates.
+three decimal places are shown. ``YN00`` gives the estimates of the ``yn00``
+program in PAML. It estimates them by iteration; if they have not converged
+after 20 rounds, ``calculate_dn_ds`` returns the last estimates with a
+``BiopythonWarning``. If the two sequences have no synonymous sites, or no
+nonsynonymous sites, it returns ``nan`` for both, also with a warning.
 
 You can also calculate a matrix of dN and dS values, which is useful if you have a
 multiple sequence alignment:
