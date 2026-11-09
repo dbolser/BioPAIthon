@@ -162,6 +162,33 @@ class Atom_Element(unittest.TestCase):
                     e = quick_assign(fullname)
                 self.assertEqual(e, element)
 
+    def test_unpadded_names(self):
+        """Unpadded names ending in a digit get the element of their first letter.
+
+        MMCIFParser passes atom names unpadded, so these are the names it
+        guesses from when _atom_site.type_symbol is missing. They gave X
+        until names ending in a digit stopped being looked up as an element
+        symbol. Left justified element names still give the full symbol.
+        """
+        expected = {
+            "C1": "C",
+            "O2": "O",
+            "N7": "N",
+            "H3": "H",
+            "CA  ": "CA",
+            "HE  ": "HE",
+            "FE  ": "FE",
+            "CL  ": "CL",
+        }
+        for fullname, element in expected.items():
+            with self.subTest(fullname=fullname):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", PDBConstructionWarning)
+                    atom = Atom.Atom(
+                        fullname.strip(), None, None, None, None, fullname, None
+                    )
+                self.assertEqual(atom.element, element)
+
 
 class SortingTests(unittest.TestCase):
     """Tests for sorting elements of the SMCRA representation."""
