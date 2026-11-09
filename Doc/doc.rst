@@ -363,7 +363,7 @@ in the python working space):
    0.0209078305058 0.0178371876389
    >>> dN, dS = cal_dn_ds(aln[0], aln[1], method="LWL85")
    >>> print(dN, dS)
-   0.0203061425453 0.0163935691992
+   0.0211316869025 0.0169796545334
    >>> dN, dS = cal_dn_ds(aln[0], aln[1], method="YN00")
    >>> print(dN, dS)
    0.0198195580321 0.0221560648799
