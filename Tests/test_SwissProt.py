@@ -6916,6 +6916,19 @@ class TestCommentContinuation(unittest.TestCase):
                 )
                 self.assertIn(expected, comment)
 
+    def test_guard_word_inside_hyphenated_word(self):
+        # The guard matches the whole first word, so "cell-" + "to-cell" is a
+        # wrapped "cell-to-cell" (123 such breaks in Swiss-Prot 2026-11-04).
+        for first, second, expected in [
+            ("signal for cell-", "to-cell movement.", "for cell-to-cell movement."),
+            ("in a head-", "to-tail manner.", "in a head-to-tail manner."),
+        ]:
+            with self.subTest(first=first):
+                comment = self.read_cc(
+                    f"CC   -!- FUNCTION: {first}\nCC       {second}\n"
+                )
+                self.assertIn(expected, comment)
+
     def test_seqio_comment(self):
         record = SeqIO.read(support.DATA / "SwissProt" / "P0CK95.txt", "swiss")
         self.assertIn(
