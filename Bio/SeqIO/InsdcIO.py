@@ -479,12 +479,16 @@ class _InsdcWriter(SequenceWriter):
                 self.handle.write(line + "\n")
                 return
             # Insert line break...
-            index = 0
             if key in _NO_SPACE_QUALIFIERS:
                 # The parsers join these lines with no space, so break
-                # after the last comma that fits, as the NCBI does:
-                index = line.rfind(",", self.QUALIFIER_INDENT, self.MAX_WIDTH) + 1
-            if not index:
+                # after the last comma that fits, as the NCBI does, or
+                # failing that at the width limit (a break at a space
+                # would lose the space):
+                index = (
+                    line.rfind(",", self.QUALIFIER_INDENT, self.MAX_WIDTH) + 1
+                    or self.MAX_WIDTH
+                )
+            else:
                 for index in range(
                     min(len(line) - 1, self.MAX_WIDTH), self.QUALIFIER_INDENT + 1, -1
                 ):

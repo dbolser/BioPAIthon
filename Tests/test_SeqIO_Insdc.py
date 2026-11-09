@@ -176,7 +176,9 @@ class TestNoSpaceQualifiers(unittest.TestCase):
     anticodon = "(pos:complement(6180084..6180086),aa:Ile,seq:gat)"
     transl_except = "(pos:complement(1123552..1123554),aa:Sec)"
 
-    # Wrapped as the NCBI wraps them in NC_018080 and NC_008463:
+    # The /anticodon lines are copied from NC_018080. The /transl_except wrap
+    # is made up: the NCBI said a break anywhere is legal, but the one
+    # /transl_except in each of NC_018080 and NC_008463 fits on one line.
     genbank = """\
 LOCUS       TEST                     100 bp    DNA              UNK 01-JAN-2000
 DEFINITION  Wrapped qualifiers.
@@ -253,6 +255,21 @@ SQ   Sequence 100 BP; 100 A; 0 C; 0 G; 0 T; 0 other;
         record = SeqIO.read(StringIO(text), "genbank")
         self.assertEqual(record.features[1].qualifiers["anticodon"], [self.anticodon])
 
+    def test_read_old_writer_output(self):
+        """A value the old writers broke inside a number reads back whole."""
+        indent = " " * 21
+        # As Biopython 1.88 wrote it, broken at column 80:
+        text = self.genbank.replace(
+            f"{indent}/transl_except=(pos:complement(1123552..1123554),\n{indent}aa:Sec)\n",
+            f"{indent}/transl_except=(pos:complement(join(1234567..1234568,123457\n"
+            f"{indent}0)),aa:Sec)\n",
+        )
+        record = SeqIO.read(StringIO(text), "genbank")
+        self.assertEqual(
+            record.features[2].qualifiers["transl_except"],
+            ["(pos:complement(join(1234567..1234568,1234570)),aa:Sec)"],
+        )
+
     def test_write(self):
         """Long values break after a comma and read back unchanged."""
         anticodon = "(pos:complement(1234567..1234569),aa:Leu,seq:tag)"
@@ -287,6 +304,35 @@ SQ   Sequence 100 BP; 100 A; 0 C; 0 G; 0 T; 0 other;
                 self.assertEqual(
                     new.features[1].qualifiers["transl_except"], [transl_except]
                 )
+
+    def test_write_comma_at_width_limit(self):
+        """A comma up to column 80 can end the line; one in column 81 cannot."""
+        indent = " " * 21
+        start = f"{indent}/transl_except=(pos:join("  # 46 columns
+        for column in (79, 80, 81):
+            n = column - 50  # puts the first comma in this column
+            value = f"(pos:join({'1' * n}..2,3..4),aa:Sec)"
+            with self.subTest(column=column):
+                record = SeqRecord(Seq("A" * 100), "dummy")
+                record.annotations["molecule_type"] = "DNA"
+                record.features = [
+                    SeqFeature(
+                        SimpleLocation(0, 99),
+                        type="CDS",
+                        qualifiers={"transl_except": [value]},
+                    )
+                ]
+                text = record.format("gb")
+                lines = text.splitlines()
+                if column <= 80:
+                    expected = [f"{start}{'1' * n}..2,", f"{indent}3..4),aa:Sec)"]
+                else:  # no comma fits, so break at the width limit
+                    expected = [f"{start}{'1' * n}..2", f"{indent},3..4),aa:Sec)"]
+                i = next(i for i, line in enumerate(lines) if line.startswith(start))
+                self.assertEqual(lines[i : i + 2], expected)
+                self.assertEqual(len(lines[i]), min(column, 80))
+                new = SeqIO.read(StringIO(text), "gb")
+                self.assertEqual(new.features[0].qualifiers["transl_except"], [value])
 
     def test_record_parser_and_writer(self):
         """Bio.GenBank's record parser and its writer agree."""
