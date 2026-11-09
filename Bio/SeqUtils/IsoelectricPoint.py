@@ -137,8 +137,12 @@ class IsoelectricPoint:
     def pi(self, pH=7.775, min_=4.05, max_=12):
         r"""Calculate and return the isoelectric point as float.
 
-        This is a recursive function that uses bisection method.
+        This uses the bisection method.
         Wiki on bisection: https://en.wikipedia.org/wiki/Bisection_method
+
+        If the pI lies outside the interval, the interval is first widened in
+        steps of 1 pH unit, but not below pH 0 or above pH 14. A sequence
+        whose pI lies beyond those limits gets a value at the limit.
 
         Arguments:
          - pH: the pH at which the current charge of the protein is computed.
