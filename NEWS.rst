@@ -97,9 +97,12 @@ sites, dN and dS are now ``nan``, with a ``BiopythonWarning``, where
 least one of them. One difference from ``yn00`` is deliberate: when only one
 of the sequences has synonymous sites, the base frequencies at synonymous
 sites are taken from that sequence alone, where ``yn00`` averages them over
-both, and then can give ``nan``; the same holds for nonsynonymous sites. These
-are upstream defects, also in Biopython 1.88 and still in upstream's
-development code (biopython/biopython#1611).
+both, and then can give ``nan``; the same holds for nonsynonymous sites. A
+codon that is both a stop codon and a sense codon, as some are in codon tables
+27, 28 and 31, is taken to be the sense codon, as ``Seq.translate`` takes it;
+``yn00`` has none of these tables. These are upstream defects, also in
+Biopython 1.88 and still in upstream's development code
+(biopython/biopython#1611).
 
 The ``LWL85`` method of ``Bio.Align.analysis.calculate_dn_ds`` and
 ``calculate_dn_ds_matrix``, and of ``Bio.codonalign.codonseq.cal_dn_ds`` and

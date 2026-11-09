@@ -441,10 +441,23 @@ def _yn00(codons1, codons2, codon_table):
     Returns a tuple ``(dN, dS)``. If the estimates have not converged after 20
     iterations, the last ones are returned with a ``BiopythonWarning``. If the
     sequences have no synonymous or no nonsynonymous sites, both are nan, also
-    with a ``BiopythonWarning``.
+    with a ``BiopythonWarning``. A codon that the table gives as both a stop
+    codon and a sense codon (TGA in table 27, for example) is taken to be the
+    sense codon throughout, as ``Seq.translate()`` takes it.
     """
     from scipy.linalg import expm
 
+    stop_codons = [
+        codon
+        for codon in codon_table.stop_codons
+        if codon not in codon_table.forward_table
+    ]
+    if len(stop_codons) < len(codon_table.stop_codons):
+        # Otherwise such a codon, which the sequences use as a sense codon,
+        # would be a stop codon in the substitution matrix, with no path out
+        codon_table = CodonTable.CodonTable(
+            forward_table=codon_table.forward_table, stop_codons=stop_codons
+        )
     fcodon = [
         {"A": 0, "G": 0, "C": 0, "T": 0},
         {"A": 0, "G": 0, "C": 0, "T": 0},

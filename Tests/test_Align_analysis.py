@@ -380,6 +380,28 @@ class YN00Tests(unittest.TestCase):
         self.assertAlmostEqual(dn, 0.5398, places=4)
         self.assertEqual(ds, 0)
 
+    def test_codons_that_are_both_stop_and_sense(self):
+        """A codon that is both a stop codon and a sense codon is sense.
+
+        In tables 27, 28 and 31 some codons are stop codons or code for an
+        amino acid, depending on context. As a stop codon in the substitution
+        matrix but a sense codon in the sequences, such a codon gave nan with
+        the sequences one way round, and with them the other way round a
+        synonymous change to it counted as nonsynonymous. yn00 has none of
+        these tables, so this checks only that dN is 0 either way round.
+        """
+        for table_id, first, second in (
+            (27, "ATGAAATTTGGGCTGCCCTGA", "ATGAAGTTTGGGCTGCCCTGG"),  # TGA is W
+            (28, "ATGAAATTTGGGCTGCCCTAA", "ATGAAGTTTGGGCTGCCCCAA"),  # TAA is Q
+            (31, "ATGAAATTTGGGCTGCCCTAG", "ATGAAGTTTGGGCTGCCCGAG"),  # TAG is E
+        ):
+            with self.subTest(table_id=table_id):
+                table = CodonTable.generic_by_id[table_id]
+                dn, ds = self.yn00(first, second, table)
+                self.assertEqual(dn, 0)
+                self.assertGreater(ds, 0)
+                self.assertLess(ds, 99)
+
     def test_kappa_where_k80_fails(self):
         """A class of sites whose K80 distance is undefined gives no kappa.
 
