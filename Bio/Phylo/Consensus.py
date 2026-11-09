@@ -63,8 +63,8 @@ class _BitString(str):
     code snippet::
 
         # suppose we are provided with a tree list, the first thing to do is
-        # to get all the terminal names in the first tree, sorted as strings
-        # (so that an unnamed terminal, None, sorts too)
+        # to get all the terminal names in the first tree, sorted (an
+        # unnamed terminal, None, first)
         term_names = [term.name for term in _sorted_terminals(trees[0])]
         # for a specific clade in any of the tree, also get its terminal names
         clade_term_names = [term.name for term in clade.get_terminals()]
@@ -652,9 +652,13 @@ def bootstrap_consensus(alignment, times, tree_constructor, consensus):
 def _sorted_terminals(tree):
     """Return a tree's terminals sorted by name, the order BitStrings use (PRIVATE).
 
-    The names are compared as strings, so an unnamed terminal (None) sorts too.
+    An unnamed terminal (None) sorts first, so it never ties with a tip named
+    "None" and the order does not depend on how the tree lists its tips.
     """
-    return sorted(tree.find_clades(terminal=True), key=lambda term: str(term.name))
+    return sorted(
+        tree.find_clades(terminal=True),
+        key=lambda term: (term.name is not None, str(term.name)),
+    )
 
 
 def _clade_to_bitstr(clade, tree_term_names):

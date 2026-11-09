@@ -257,6 +257,17 @@ class TipOrderTest(unittest.TestCase):
             },
         )
 
+    def test_unnamed_terminal_and_tip_named_none(self):
+        # An unnamed tip (None) must not sort as a tie with a tip named "None",
+        # or the two trees below, one topology in two tip orders, would list
+        # their names in different orders and be taken for different taxa.
+        trees = [read_newick("((A,None),(B,));"), read_newick("((,B),(None,A));")]
+        expected = {frozenset({"A", "None"}), frozenset({"B", None})}
+        consensus_tree = Consensus.strict_consensus(trees)
+        self.assertEqual(inner_clades(consensus_tree).keys(), expected)
+        consensus_tree = Consensus.majority_consensus(trees)
+        self.assertEqual(inner_clades(consensus_tree), dict.fromkeys(expected, 100.0))
+
     def test_inconsistent_taxa(self):
         for newick in ("(((A,B),C),(D,F));", "(((A,B),C),D);", "((A,B),C,D,E,F);"):
             trees = [self.trees[0], read_newick(newick)]
