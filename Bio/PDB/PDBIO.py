@@ -380,7 +380,10 @@ class PDBIO(StructureIO):
             serial number (``atom.serial_number``) instead of numbering the
             atoms from 1 in each model. Each TER record takes the serial
             following the last atom of its chain, so the stored numbers
-            should leave room for it, as in files read with PDBParser.
+            should leave room for it. Files from the PDB leave room after
+            each chain's polymer, where their TER is. A chain's HETATM
+            records after its TER, such as waters, are written before the
+            TER, which can then share its serial with a later atom.
         :type preserve_atom_numbering: bool
         """
         if isinstance(file, str):
