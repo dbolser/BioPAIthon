@@ -415,5 +415,6 @@ https://biopython.org
 - Yves Bastide <ybastide at domain irisa.fr>
 - Zachary Sailer <https://github.com/Zsailer>
 - Zaid Ur-Rehman <https://github.com/zaidurrehman>
+- Zehao Wang <https://github.com/JingHao-Leon>
 - Zheng Ruan <https://github.com/zruan>
 - Ziyan Rao <https://github.com/starrzy>

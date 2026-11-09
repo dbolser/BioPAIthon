@@ -55,6 +55,28 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.IsoelectricPoint.IsoelectricPoint.pi``, and so
+``Bio.SeqUtils.ProtParam.ProteinAnalysis.isoelectric_point``, now find the
+isoelectric point of strongly acidic and strongly basic sequences. They
+searched only between pH 4.05 and 12, and when the isoelectric point lay
+outside that range they returned the end of the range, with no warning, at a
+pH where the net charge is far from zero. Ten aspartates gave 4.05, where
+their charge is -4.24, and now give 3.08; ten arginines gave 12.00, where
+their charge is +4.00, and now give 12.95; short acidic peptides such as
+``DD`` and ``ED`` gave 4.05 and now give 3.89 and 4.03. A result of 4.05 or
+12.00 from an earlier version may be one of these. The search range is now
+widened one pH unit at a time until it contains the isoelectric point, but
+not below pH 0 or above pH 14, so a sequence whose isoelectric point under
+this model lies beyond those limits, such as 1000 arginines, gets 0 or 14. A
+sequence whose isoelectric point lies between 4.05 and 12 gets exactly the
+same value as before. The ``min_`` and ``max_`` arguments of ``pi`` are
+widened in the same way, so a range given explicitly that misses the
+isoelectric point now gives the isoelectric point rather than the end of the
+range: ``IsoelectricPoint("INGAR").pi(5.5, 5, 6)`` gave 6.0 and now gives
+9.75. This is an upstream defect (biopython/biopython#5312, reported by Ziqi
+(Adam) Chen), also in Biopython 1.88; the fix is Zehao Wang's, from the
+unmerged biopython/biopython#5356.
+
 ``Bio.PDB.qcprot.QCPSuperimposer`` now reports the right RMSD for point sets
 that lie exactly on a line, such as any two points, or points along a helix
 axis. The rotation it returned was right, but ``get_rms()`` was not: for three
