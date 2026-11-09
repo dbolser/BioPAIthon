@@ -207,7 +207,7 @@ class DistanceCalculatorTest(unittest.TestCase):
 
     def test_identity_skip_letters(self):
         # Identical sequences containing gap columns; skipped positions
-        # must not inflate the distance (github issue #5332).
+        # must not inflate the distance (biopython/biopython#5332).
         aln = AlignIO.read(StringIO(">Alpha\nAC--GT\n>Gamma\nAC--GT"), "fasta")
         calculator = DistanceCalculator("identity", skip_letters=("-", "*"))
         self.assertEqual(calculator.get_distance(aln)["Alpha", "Gamma"], 0.0)
@@ -218,6 +218,25 @@ class DistanceCalculatorTest(unittest.TestCase):
             calculator.get_distance(ungapped)["Alpha", "Gamma"],
             calculator.get_distance(gapped)["Alpha", "Gamma"],
         )
+
+    def test_identity_skip_letters_gap_in_one_row(self):
+        # A column with a gap in only one of the two rows is skipped for that
+        # pair, with an Alignment as well as a MultipleSeqAlignment. Align.read
+        # drops the columns that are gaps in every row, so the identical rows
+        # above would not exercise skipping with an Alignment.
+        calculator = DistanceCalculator("identity", skip_letters=("-", "*"))
+        for fasta, distance in (
+            (">Alpha\nAC--GT\n>Gamma\nACTTGT\n", 0.0),  # was 1 - 4/6
+            (">Alpha\nAC--GA\n>Gamma\nACTTGT\n", 0.25),  # was 1 - 3/6
+        ):
+            for aln in (
+                AlignIO.read(StringIO(fasta), "fasta"),
+                Align.read(StringIO(fasta), "fasta"),
+            ):
+                with self.subTest(fasta=fasta, type=type(aln).__name__):
+                    self.assertEqual(len(aln[0]), 6)
+                    dm = calculator.get_distance(aln)
+                    self.assertEqual(dm["Alpha", "Gamma"], distance)
 
 
 class DistanceTreeConstructorTest(unittest.TestCase):
