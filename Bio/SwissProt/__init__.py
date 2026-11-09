@@ -718,7 +718,21 @@ def _read_cc(record, line):
             # TCMO_STRGA in Release 37 has comment with no topic
             record.comments.append(value)
         else:
-            record.comments[-1] += " " + value
+            comment = record.comments[-1]
+            words = value.split(maxsplit=1)
+            if (
+                comment.endswith("-")
+                and not comment.endswith(" -")
+                and words
+                and words[0] not in ("and", "or", "to")
+            ):
+                # UniProt wrapped a hyphenated word or ID after its hyphen,
+                # e.g. "GPI-anchor", "HAMAP-Rule:MF_01317" or the indented
+                # sub-line in "RHEA-COMP:9566", so rejoin it without a space.
+                # A suspended hyphen, as in "N- and C-terminal", keeps it.
+                record.comments[-1] += value.lstrip()
+            else:
+                record.comments[-1] += " " + value
 
 
 def _read_dr(record, value):

@@ -6843,6 +6843,88 @@ class TestMalformedLines(unittest.TestCase):
         )
 
 
+class TestCommentContinuation(unittest.TestCase):
+    """CC lines wrapped after a hyphen are rejoined without a space.
+
+    See https://github.com/biopython/biopython/issues/4521
+    """
+
+    def read(self, filename):
+        with open(support.DATA / "SwissProt" / filename) as handle:
+            return SwissProt.read(handle)
+
+    def read_cc(self, cc_lines):
+        """Parse P68308.txt with its last comment replaced by the given lines."""
+        with open(support.DATA / "SwissProt" / "P68308.txt") as handle:
+            text = handle.read()
+        old = "CC   -!- SIMILARITY: Belongs to the complex I subunit 3 family. {ECO:0000305}.\n"
+        self.assertIn(old, text)
+        record = SwissProt.read(StringIO(text.replace(old, cc_lines)))
+        return record.comments[-1]
+
+    def test_wrapped_evidence_tags(self):
+        record = self.read("P60137.txt")
+        self.assertEqual(
+            record.comments[-1],
+            "SIMILARITY: Belongs to the PsbL family. {ECO:0000255|HAMAP-Rule:MF_01317}.",
+        )
+        self.assertIn("of the oxygen-evolving complex", record.comments[1])
+        record = self.read("P0CK95.txt")
+        self.assertEqual(
+            record.comments[1],
+            "SUBCELLULAR LOCATION: Cell inner membrane "
+            "{ECO:0000255|PROSITE-ProRule:PRU00303}; "
+            "Lipid-anchor {ECO:0000255|PROSITE-ProRule:PRU00303}.",
+        )
+
+    def test_wrapped_indented_sub_line(self):
+        # The hyphen join drops the sub-line indentation, but the other
+        # sub-lines of this CATALYTIC ACTIVITY comment keep theirs.
+        record = self.read("P68308.txt")
+        self.assertEqual(
+            record.comments[1],
+            "CATALYTIC ACTIVITY: Reaction=a ubiquinone + 5 H(+)(in) + NADH = "
+            "a ubiquinol + 4 H(+)(out) +   NAD(+); Xref=Rhea:RHEA:29091, "
+            "Rhea:RHEA-COMP:9565, Rhea:RHEA-COMP:9566, ChEBI:CHEBI:15378, "
+            "ChEBI:CHEBI:16389, ChEBI:CHEBI:17976,   ChEBI:CHEBI:57540, "
+            "ChEBI:CHEBI:57945; EC=7.1.1.2;   "
+            "Evidence={ECO:0000250|UniProtKB:P03897};",
+        )
+
+    def test_issue_example(self):
+        comment = self.read_cc(
+            "CC   -!- SUBCELLULAR LOCATION: Cell membrane {ECO:0000305}; Lipid-anchor, GPI-\n"
+            "CC       anchor {ECO:0000305}. Note=In microneme/rhoptry complexes.\n"
+        )
+        self.assertEqual(
+            comment,
+            "SUBCELLULAR LOCATION: Cell membrane {ECO:0000305}; "
+            "Lipid-anchor, GPI-anchor {ECO:0000305}. "
+            "Note=In microneme/rhoptry complexes.",
+        )
+
+    def test_suspended_hyphen_keeps_space(self):
+        for first, second, expected in [
+            ("Binds its N-", "and C-terminal domains.", "Binds its N- and C-terminal"),
+            ("Can be mono-, di-", "or trimethylated.", "mono-, di- or trimethylated"),
+            ("Activity rises 2-", "to 3-fold.", "rises 2- to 3-fold"),
+            ("Two isoforms -", "not one.", "Two isoforms - not one."),
+        ]:
+            with self.subTest(first=first):
+                comment = self.read_cc(
+                    f"CC   -!- FUNCTION: {first}\nCC       {second}\n"
+                )
+                self.assertIn(expected, comment)
+
+    def test_seqio_comment(self):
+        record = SeqIO.read(support.DATA / "SwissProt" / "P0CK95.txt", "swiss")
+        self.assertIn(
+            "\nSUBCELLULAR LOCATION: Cell inner membrane "
+            "{ECO:0000255|PROSITE-ProRule:PRU00303};",
+            record.annotations["comment"],
+        )
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)
