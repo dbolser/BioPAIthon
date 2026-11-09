@@ -44,18 +44,18 @@ Newest first.
 ### [#5405](https://github.com/biopython/biopython/pull/5405) — Muneer Alam
 
 Fixes upstream issue
-[#5368](https://github.com/biopython/biopython/issues/5368), reported by Ziqi
-(Adam) Chen. For collinear point sets, such as two points or points along a
-helix axis, `QCPSuperimposer.get_rms()` was wrong while the rotation was
-right: the issue's three identical points on a line 60 Å long reported
-2.816 Å and printed "Newton-Rhapson did not converge after 50 iterations".
-The largest root of QCP's quartic is then double and the starting guess E0
-sits on it, so f and f' are both rounding noise and `f / (f_prime + 1e-11)`
-throws the iterate to about 4e8. When the iteration does not converge, the
-pull request takes the largest eigenvalue of the 4×4 key matrix from
-`numpy.linalg.eigvalsh`, which also removes the print, and where the
-cofactor cascade falls back to the Kabsch SVD it measures the RMSD on the
-fit.
+[#5368](https://github.com/biopython/biopython/issues/5368), reported by
+Ziqi (Adam) Chen. For point sets that lie exactly on a line, such as two
+points or points along a helix axis, `QCPSuperimposer.get_rms()` was wrong
+while the rotation was right: the issue's three identical points on a line
+60 Å long reported 2.816 Å and printed "Newton-Rhapson did not converge
+after 50 iterations". The largest root of QCP's quartic is then double and
+the starting guess E0 sits on it, so f and f' are both rounding noise and
+`f / (f_prime + 1e-11)` throws the iterate to about 4e8. When the iteration
+does not converge, the pull request takes the largest eigenvalue of the 4×4
+key matrix from `numpy.linalg.eigvalsh`, which also removes the print, and
+where the cofactor cascade falls back to the Kabsch SVD it measures the RMSD
+on the fit.
 
 **The single commit taken** (`35beac4fe`). It conflicted only because this
 tree had already moved that Kabsch block into `_kabsch_rotation`, for the
@@ -81,6 +81,21 @@ on every path, so `get_rms()` always agrees with `get_transformed()`; for
 other fits the rotation is unchanged and the RMSD moves only at the level of
 rounding. A new test fits 60 wide collinear sets and fails on the previous
 main, on this commit alone, and on the commit as upstream has it.
+
+**Not fixed: points close to a line but not on it.** These can still get a
+rotation slightly worse than the best one, with no warning. In 1000 exact
+rotated copies each of 3 to 29 points lying 0.001 or 0.01 Å off a line
+spread ±100 or ±150 Å, 34 to 189 fits were worse than SVD's by more than
+1e-3 Å, up to 0.017 Å; the previous main had 35 to 246, with the same worst
+case. All of them take the quaternion path, so the quaternion's error stays
+within the tolerance of the key-matrix check. `get_rms()` now reports the
+RMSD of that fit: it is off the best RMSD by more than 1e-3 Å in those same
+34 to 189 sets, where the previous main's value from the eigenvalue was off
+in 615 to 746. A report upstream that #5368 is fixed should say this.
+
+One behaviour change beyond the issue: coordinates containing NaN or
+infinity now raise `numpy.linalg.LinAlgError` from `eigvalsh`, as
+`SVDSuperimposer` raises it, where they gave a NaN RMSD and the print.
 
 On 2026-11-06 upstream closed issue #5368 as a duplicate, and the pull
 request with "This has been solved in #5317." It is not: #5317 is the Kabsch
