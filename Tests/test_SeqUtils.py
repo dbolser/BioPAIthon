@@ -1222,6 +1222,18 @@ class IsoelectricPointTests(unittest.TestCase):
         self.assertGreater(protein.pi(), 12.0)
         self.assertAlmostEqual(protein.charge_at_pH(protein.pi()), 0.0, places=3)
 
+    def test_explicit_interval_missing_pI_is_widened(self):
+        # An explicit min_ and max_ that miss the pI used to give max_ (6.0)
+        protein = IsoelectricPoint("INGAR")
+        self.assertAlmostEqual(protein.pi(5.5, 5, 6), 9.75, places=2)
+        self.assertAlmostEqual(protein.pi(5.5, 5, 6), protein.pi(), places=3)
+
+    def test_search_stops_at_pH_14(self):
+        # Under this model the pI of 1000 arginines is above 14
+        protein = IsoelectricPoint("R" * 1000)
+        self.assertGreater(protein.charge_at_pH(14.0), 0.0)
+        self.assertAlmostEqual(protein.pi(), 14.0, places=3)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
