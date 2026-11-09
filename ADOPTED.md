@@ -60,13 +60,16 @@ interval, and the other 4905 give the same float as before.
 tests), with the one-line conflict in the import block of
 `Tests/test_SeqUtils.py` resolved by keeping both lines. The other three
 were carried over from the author's branch for the `QCPSuperimposer` fix in
-[#5351](https://github.com/biopython/biopython/pull/5351) and belong with
-that pull request, not under a `SeqUtils` title: `4c1273ece9` (an `eigh`
-fallback in `Bio/PDB/qcprot.py`), `a3d9759eb6` (a collinear
-`QCPSuperimposer` test) and `6f4c68839e` (adding the author to
-`CONTRIB.rst`). The author ticked the box for being listed already, through
-#5351, which was closed unmerged, so this fork adds the line from
-`6f4c68839e` to `CONTRIB.rst` by hand.
+[#5351](https://github.com/biopython/biopython/pull/5351) and are not part
+of this fix: `4c1273ece9` (an `eigh` fallback in `Bio/PDB/qcprot.py`),
+`a3d9759eb6` (a collinear `QCPSuperimposer` test) and `6f4c68839e` (adding
+the author to `CONTRIB.rst`). #5351 is not waiting on a decision here: this
+fork had already fixed the same `QCPSuperimposer` defect, upstream issue
+[#5346](https://github.com/biopython/biopython/issues/5346), in its own
+commit `0ff7b558c`, which uses the author's diagnosis and key-matrix check
+from #5351 and does not take the `eigh` fallback. The author ticked the
+box for being listed already, through #5351, which was closed unmerged,
+so this fork adds the line from `6f4c68839e` to `CONTRIB.rst` by hand.
 
 One correction sits on top. The `pi()` docstring no longer calls it
 recursive and says that the search stops at pH 0 and 14, and two tests pin
