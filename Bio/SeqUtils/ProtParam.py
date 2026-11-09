@@ -251,7 +251,10 @@ class ProteinAnalysis:
         neighboring residues on each side to compute the score for residue i.
         The score for residue i is the sum of the scaled values for these
         amino acids, optionally weighted according to their position in the
-        window.
+        window. The sum is divided by the sum of the weights, so a window of 1
+        gives the scale value of each residue. An even window has no central
+        residue, and its score is for the point between its two middle
+        residues.
 
         Edge: The central amino acid of the window always has a weight of 1.
         By default, the amino acids at the remaining window positions have the
@@ -259,7 +262,11 @@ class ProteinAnalysis:
         have a larger weight than the others by setting the edge value for the
         residues at the beginning and end of the interval to a value between
         0 and 1. For instance, for Edge=0.4 and a window size of 5 the weights
-        will be: 0.4, 0.7, 1.0, 0.7, 0.4.
+        will be: 0.4, 0.7, 1.0, 0.7, 0.4. In an even window the weights rise
+        in the same way towards a weight of 1 at the point between the two
+        middle residues, so for Edge=0.4 and a window size of 4 they will be:
+        0.4, 0.8, 0.8, 0.4. An edge of 0 with a window size of 2 gives every
+        residue a weight of 0, and raises ValueError.
 
         The method returns a list of values which can be plotted to view the
         change along a protein sequence.  Many scales exist. Just add your
@@ -279,6 +286,10 @@ class ProteinAnalysis:
         # (* 2 + 1) since the weight list is one sided. An even window
         # has no single center position, so its weights sum to 2*weights.
         sum_of_weights = sum(weights) * 2 + (window % 2)
+        if sum_of_weights == 0:
+            raise ValueError(
+                f"the weights of a window of {window} with edge {edge} sum to zero"
+            )
 
         for i in range(self.length - window + 1):
             subsequence = self.sequence[i : i + window]
