@@ -55,6 +55,38 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Phylo.Consensus`` now matches clades between trees by the names of their
+tips, whatever order each tree lists its tips in. ``strict_consensus``,
+``majority_consensus`` and so ``bootstrap_consensus`` matched them by where
+their tips came in each tree's own list of tips, so trees listing their tips in
+different orders, as trees of different topologies such as bootstrap
+replicates and Bayesian posterior samples usually do, got wrong support
+values, lost clades found in every tree and gained clades found in none. For
+example, 30 UPGMA trees from bootstrap replicates of the five-sequence
+alignment in the test suite gave a majority-rule consensus with
+(Epsilon,Gamma) at 86.67% and (Alpha,Beta,Delta) at 80%, although no replicate
+had either, and without (Delta,Epsilon) and (Alpha,Beta,Gamma), which 27 and
+24 of the 30 had; it now has those two, at 90% and 80%. The consensus tree now
+lists the tips within each clade by name, not in the first tree's order, and a
+tie between two conflicting clades in equally many trees (possible with the
+default ``cutoff=0``, and with ``cutoff=0.5`` when each is in exactly half the
+trees) is now broken by tip names, so the result no longer depends on how any
+tree lists its tips. Trees whose tip names differ now raise ``ValueError``, as
+some already did; others gave a wrong tree or an ``IndexError``. This is an
+upstream defect (biopython/biopython#3345), also in Biopython 1.88. Marc
+Singleton diagnosed it and proposed the fix used here, sorting the tip names;
+the unmerged biopython/biopython#2956 also fixes it.
+
+``majority_consensus`` also stopped adding clades once the root of the
+consensus had three children and one more clade would resolve it fully, so it
+left out a clade joining two of those children even when every tree had it:
+three copies of (((A,B),C),(D,E)) gave (D,E,(C,(A,B))). It now stops there
+only if every tree has three children at its root, as unrooted trees such as
+those from ``DistanceTreeConstructor.nj`` are drawn: the consensus is then
+fully resolved as an unrooted tree, and such a clade would add a root, not a
+split. Otherwise it goes on until the tree is fully resolved or no clade left
+passes the cutoff. Biopython 1.88 and upstream master have this defect too.
+
 ``Bio.SeqUtils.MeltingTemp.Tm_NN`` no longer charges a terminal mismatch, or a
 dangling end on ``seq``, as if it were a terminal base pair. Such an end base
 has its own term from ``tmm_table`` or ``de_table`` and is then set aside, but
