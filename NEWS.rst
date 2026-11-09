@@ -55,6 +55,26 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.qcprot.QCPSuperimposer`` now reports the right RMSD for collinear
+point sets, such as any two points, or points along a helix axis. The rotation
+it returned was right, but ``get_rms()`` was not: for three identical points
+on a line 60 Å long it reported 2.82 Å and printed "Newton-Rhapson did not
+converge after 50 iterations" on standard output, and for points spread over
+the size of a protein it could be out by up to a few hundredths of an Å with
+no message at all. That message is no longer printed: when the Newton-Raphson
+iteration does not converge, the largest eigenvalue is taken from QCP's 4×4
+key matrix instead. ``get_rms()``, like the RMSD that ``Bio.PDB.qcprot.qcp``
+returns, is now measured on the coordinates after the rotation returned, so it
+always agrees with ``get_transformed()``, rather than worked out from that
+eigenvalue. For other fits this changes the RMSD only at the level of
+rounding: in 2000 random fits with noise the rotation was unchanged and the
+RMSD moved by at most 1e-12 Å, and exact fits of points spread over ±100 Å now
+report at most 2e-11 Å where they reported up to 1e-5 Å. This is an upstream
+defect (biopython/biopython#5368, reported by Ziqi (Adam) Chen), also in
+Biopython 1.88 and still in upstream's development code. The fix is Muneer
+Alam's, from the unmerged biopython/biopython#5405, with a regression test by
+Mohit Arvind Khakharia from the unmerged biopython/biopython#5373.
+
 The ``Bio.PDB.internal_coords`` string keys that name an atom of the previous
 or next residue, such as ``"N:CA:C:1N"``, ``"-1C:N:CA:C"``,
 ``"-1CA:-1C:N:CA"`` and ``"0C:1N"``, now find that atom when it has
