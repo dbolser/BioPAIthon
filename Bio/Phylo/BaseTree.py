@@ -900,7 +900,9 @@ class Tree(TreeElement, TreeMixin):
            that branch make the same split, and both carry its support.
          - If the original root was bifurcating, its two branches become one
            and make one split. The clade below the merged branch keeps its own
-           support, or takes the other branch's support if it has none.
+           support, or takes the other branch's support if it has none. If
+           the new root is created on that merged branch (the outgroup was a
+           child of the original root), both halves carry the support kept.
          - The new root has no branch above it in the tree, so it has no
            support. A support value on the original root makes no split and
            is discarded.
@@ -992,6 +994,11 @@ class Tree(TreeElement, TreeMixin):
             # differ, the input gave one split two values, and one is lost.
             if ingroup._support is None:
                 ingroup._support = prev_support
+            if new_parent is new_root and new_root is not outgroup:
+                # The outgroup was a child of the old root and the new root
+                # sits on that same merged branch, so the outgroup's half
+                # carries the support just chosen for the ingroup's half.
+                outgroup._support = copy.deepcopy(ingroup._support)
             new_parent.clades.insert(0, ingroup)
             # ENH: If annotations are attached to old_root, do... something.
         else:

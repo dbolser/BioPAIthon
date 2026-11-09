@@ -567,6 +567,49 @@ class RerootSupportTests(unittest.TestCase):
         self.assertIsNone(tree.root.confidence)
         self.assertEqual(self.split_supports(tree), before)
 
+    def test_direct_child_outgroup_branch_length(self):
+        """A new root on the old root's merged branch puts one value on both halves."""
+        # Both of the old root's branches make the split {A,B}|{C,D}. The
+        # ingroup keeps its own value, and the outgroup's half gets a copy.
+        for outgroup, kept in ((("A", "B"), 80), (("C", "D"), 90)):
+            tree = Phylo.read(StringIO("((A:1,B:1)90:1,(C:1,D:1)80:1);"), "newick")
+            tree.root_with_outgroup(*outgroup, outgroup_branch_length=0.5)
+            self.assertEqual([clade.confidence for clade in tree.root], [kept, kept])
+            self.assertIsNone(tree.root.confidence)
+        # With a value on only one of the two branches, both halves get it
+        for newick in ("((A:1,B:1)90:1,(C:1,D:1):1);", "((A:1,B:1):1,(C:1,D:1)90:1);"):
+            tree = Phylo.read(StringIO(newick), "newick")
+            tree.root_with_outgroup("A", "B", outgroup_branch_length=0.5)
+            self.assertEqual([clade.confidence for clade in tree.root], [90, 90])
+        # PhyloXML: the copies are separate lists of separate objects
+        xml = """\
+<phyloxml xmlns="http://www.phyloxml.org">
+  <phylogeny rooted="true">
+    <clade>
+      <clade>
+        <branch_length>1</branch_length>
+        <confidence type="bootstrap">90</confidence>
+        <clade><name>A</name></clade>
+        <clade><name>B</name></clade>
+      </clade>
+      <clade>
+        <branch_length>1</branch_length>
+        <confidence type="bootstrap">80</confidence>
+        <clade><name>C</name></clade>
+        <clade><name>D</name></clade>
+      </clade>
+    </clade>
+  </phylogeny>
+</phyloxml>
+"""
+        tree = Phylo.read(StringIO(xml), "phyloxml")
+        tree.root_with_outgroup("A", "B", outgroup_branch_length=0.5)
+        first, second = tree.root.clades
+        self.assertEqual(phyloxml_support(first), ((80, "bootstrap"),))
+        self.assertEqual(phyloxml_support(second), ((80, "bootstrap"),))
+        self.assertIsNot(first.confidences, second.confidences)
+        self.assertIsNot(first.confidences[0], second.confidences[0])
+
     def test_root_at_midpoint(self):
         """Tree.root_at_midpoint moves support values too."""
         tree = Phylo.read(StringIO("((A:1,B:1)90:4,(C:1,D:1)80:1,E:1);"), "newick")
