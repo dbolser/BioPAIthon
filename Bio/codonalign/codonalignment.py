@@ -190,7 +190,7 @@ class CodonAlignment(MultipleSeqAlignment):
 
         Argument:
          - dn_ds_method - Available methods include NG86, LWL85, YN00 and ML.
-         - tree_method  - Available methods include UPGMA and NJ.
+         - tree_method  - Available methods include UPGMA, WPGMA and NJ.
 
         """
         from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
@@ -205,12 +205,16 @@ class CodonAlignment(MultipleSeqAlignment):
         if tree_method == "UPGMA":
             dn_tree = dn_constructor.upgma(dn_dm)
             ds_tree = ds_constructor.upgma(ds_dm)
+        elif tree_method == "WPGMA":
+            dn_tree = dn_constructor.wpgma(dn_dm)
+            ds_tree = ds_constructor.wpgma(ds_dm)
         elif tree_method == "NJ":
             dn_tree = dn_constructor.nj(dn_dm)
             ds_tree = ds_constructor.nj(ds_dm)
         else:
             raise RuntimeError(
-                f"Unknown tree method ({tree_method}). Only NJ and UPGMA are accepted."
+                f"Unknown tree method ({tree_method}). "
+                "Only UPGMA, WPGMA and NJ are accepted."
             )
         return dn_tree, ds_tree
 

@@ -482,6 +482,32 @@ class Test_dn_ds(unittest.TestCase):
         for ds_cal, ds_corr in zip(ds_list, ds_correct):
             self.assertAlmostEqual(ds_cal, ds_corr, places=4)
 
+    def test_dn_ds_tree(self):
+        """Test get_dn_ds_tree builds UPGMA trees by default, or WPGMA trees."""
+        from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
+
+        constructor = DistanceTreeConstructor()
+        dn, ds = self.aln.get_dn_ds_matrix()
+        dn_tree, ds_tree = self.aln.get_dn_ds_tree()
+        # UPGMA joins sequences 0, 1 and 5 to sequences 2, 3 and 4 at the mean
+        # of the nine dS distances between them, counting every pair equally.
+        # WPGMA, which upgma() used to compute, puts them about 2.21 apart.
+        mean = sum(ds[i, j] for i in (0, 1, 5) for j in (2, 3, 4)) / 9
+        for i in (0, 1, 5):
+            for j in (2, 3, 4):
+                with self.subTest(i=i, j=j):
+                    distance = ds_tree.distance(ds.names[i], ds.names[j])
+                    self.assertAlmostEqual(distance, mean)
+        for tree, dm in ((dn_tree, dn), (ds_tree, ds)):
+            self.assertEqual(
+                format(tree, "newick"), format(constructor.upgma(dm), "newick")
+            )
+        dn_tree, ds_tree = self.aln.get_dn_ds_tree(tree_method="WPGMA")
+        for tree, dm in ((dn_tree, dn), (ds_tree, ds)):
+            self.assertEqual(
+                format(tree, "newick"), format(constructor.wpgma(dm), "newick")
+            )
+
 
 try:
     import numpy as np

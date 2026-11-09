@@ -55,6 +55,31 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``DistanceTreeConstructor.upgma`` in ``Bio.Phylo.TreeConstruction`` now builds
+a UPGMA tree, as its name and docstring say. It used to build a WPGMA tree:
+after joining two clusters it took the plain mean of their distances to each
+other cluster, whatever their sizes, where UPGMA averages over every pair of
+sequences. The two differ once clusters of different sizes have been joined, as
+in most trees of four or more sequences, so ``upgma`` gave wrong branch lengths
+and sometimes joined the wrong clusters. For example, if A-B is 2, A-C and B-C
+are 4, A-D and B-D are 5, C-D is 11, D-E is 7.5 and E is 10 from each of A, B
+and C, then D is on average 7 from A, B and C and should join them next;
+``upgma`` put it at 8 and joined it to E at 7.5. Results now agree with SciPy's
+``average`` linkage. This changes the trees from ``upgma``, from ``build_tree``
+with ``method="upgma"``, from ``CodonAlignment.get_dn_ds_tree`` with its
+default ``tree_method="UPGMA"``, and possibly from ``ParsimonyTreeConstructor``
+without a starting tree, which starts from a UPGMA tree. Trees of three
+sequences are unchanged. The old method is kept, giving exactly the old trees,
+as the new ``wpgma`` method, ``method="wpgma"`` and
+``get_dn_ds_tree(tree_method="WPGMA")``; these agree with SciPy's ``weighted``
+linkage. Katherine Richardson diagnosed this and proposed a fix upstream. In
+2017 the author of ``Bio.Phylo`` and the original author of ``upgma`` agreed
+that it should be fixed, with the old code kept as a separate method, but the
+fix was never merged. The corrected reference tree in the test suite is
+identical to hers. This is an upstream defect
+(biopython/biopython#1208, with unmerged fixes in biopython/biopython#1213 and
+biopython/biopython#1506), also in Biopython 1.88.
+
 ``Bio.PDB.qcprot.QCPSuperimposer`` now returns the right rotation for
 coordinates turned by exactly 180 degrees, such as a copy made in memory with
 a two-fold symmetry operator, and for a mirror image made by negating the

@@ -590,7 +590,8 @@ class DistanceTreeConstructor(TreeConstructor):
 
     :Parameters:
         method : str
-            Distance tree construction method, 'nj'(default) or 'upgma'.
+            Distance tree construction method, 'nj'(default), 'upgma' or
+            'wpgma'.
         distance_calculator : DistanceCalculator
             The distance matrix calculator for multiple sequence alignment.
             It must be provided if ``build_tree`` will be called.
@@ -611,10 +612,10 @@ class DistanceTreeConstructor(TreeConstructor):
       >>> print(upgmatree)
       Tree(rooted=True)
           Clade(branch_length=0, name='Inner4')
-              Clade(branch_length=0.18749999999999994, name='Inner1')
+              Clade(branch_length=0.17948717948717946, name='Inner1')
                   Clade(branch_length=0.07692307692307693, name='Epsilon')
                   Clade(branch_length=0.07692307692307693, name='Delta')
-              Clade(branch_length=0.11057692307692304, name='Inner3')
+              Clade(branch_length=0.10256410256410256, name='Inner3')
                   Clade(branch_length=0.038461538461538464, name='Inner2')
                       Clade(branch_length=0.11538461538461536, name='Gamma')
                       Clade(branch_length=0.11538461538461536, name='Beta')
@@ -647,10 +648,10 @@ class DistanceTreeConstructor(TreeConstructor):
       >>> print(upgmatree)
       Tree(rooted=True)
           Clade(branch_length=0, name='Inner4')
-              Clade(branch_length=0.18749999999999994, name='Inner1')
+              Clade(branch_length=0.17948717948717946, name='Inner1')
                   Clade(branch_length=0.07692307692307693, name='Epsilon')
                   Clade(branch_length=0.07692307692307693, name='Delta')
-              Clade(branch_length=0.11057692307692304, name='Inner3')
+              Clade(branch_length=0.10256410256410256, name='Inner3')
                   Clade(branch_length=0.038461538461538464, name='Inner2')
                       Clade(branch_length=0.11538461538461536, name='Gamma')
                       Clade(branch_length=0.11538461538461536, name='Beta')
@@ -672,7 +673,7 @@ class DistanceTreeConstructor(TreeConstructor):
 
     """
 
-    methods = ["nj", "upgma"]
+    methods = ["nj", "upgma", "wpgma"]
 
     def __init__(self, distance_calculator=None, method="nj"):
         """Initialize the class."""
@@ -693,12 +694,14 @@ class DistanceTreeConstructor(TreeConstructor):
             )
 
     def build_tree(self, msa):
-        """Construct and return a Tree, Neighbor Joining or UPGMA."""
+        """Construct and return a Tree, Neighbor Joining, UPGMA or WPGMA."""
         if self.distance_calculator:
             dm = self.distance_calculator.get_distance(msa)
             tree = None
             if self.method == "upgma":
                 tree = self.upgma(dm)
+            elif self.method == "wpgma":
+                tree = self.wpgma(dm)
             else:
                 tree = self.nj(dm)
             return tree
@@ -711,11 +714,39 @@ class DistanceTreeConstructor(TreeConstructor):
         Constructs and returns an Unweighted Pair Group Method
         with Arithmetic mean (UPGMA) tree.
 
+        The two closest clusters are joined at each step, and the distance
+        from the new cluster to any other is the mean distance over all pairs
+        of their members, so that every sequence counts equally. Before
+        biop-ai 1.89 this method returned the WPGMA tree instead; see
+        ``wpgma``.
+
         :Parameters:
             distance_matrix : DistanceMatrix
                 The distance matrix for tree construction.
 
         """
+        return self._pair_group(distance_matrix, weighted=False)
+
+    def wpgma(self, distance_matrix):
+        """Construct and return a WPGMA tree.
+
+        Constructs and returns a Weighted Pair Group Method
+        with Arithmetic mean (WPGMA) tree.
+
+        This is UPGMA except that the distance from a new cluster to any
+        other is the plain mean of the distances from its two parts, whatever
+        their sizes, so that a sequence in the smaller part counts for more.
+        Before biop-ai 1.89, ``upgma`` returned this tree.
+
+        :Parameters:
+            distance_matrix : DistanceMatrix
+                The distance matrix for tree construction.
+
+        """
+        return self._pair_group(distance_matrix, weighted=True)
+
+    def _pair_group(self, distance_matrix, weighted):
+        """Construct a UPGMA tree, or a WPGMA tree if weighted (PRIVATE)."""
         if not isinstance(distance_matrix, DistanceMatrix):
             raise TypeError("Must provide a DistanceMatrix object.")
 
@@ -723,6 +754,8 @@ class DistanceTreeConstructor(TreeConstructor):
         dm = copy.deepcopy(distance_matrix)
         # init terminal clades
         clades = [BaseTree.Clade(None, name) for name in dm.names]
+        # number of terminals in each cluster
+        sizes = [1] * len(dm)
         # init minimum index
         min_i = 0
         min_j = 0
@@ -753,10 +786,20 @@ class DistanceTreeConstructor(TreeConstructor):
             del clades[min_i]
 
             # rebuild distance matrix,
-            # set the distances of new node at the index of min_j
+            # set the distances of new node at the index of min_j,
+            # weighting the two merged clusters by their sizes for UPGMA
+            if weighted:
+                size_i = size_j = 1
+            else:
+                size_i = sizes[min_i]
+                size_j = sizes[min_j]
             for k in range(0, len(dm)):
                 if k != min_i and k != min_j:
-                    dm[min_j, k] = (dm[min_i, k] + dm[min_j, k]) / 2
+                    dm[min_j, k] = (size_i * dm[min_i, k] + size_j * dm[min_j, k]) / (
+                        size_i + size_j
+                    )
+            sizes[min_j] += sizes[min_i]
+            del sizes[min_i]
 
             dm.names[min_j] = "Inner" + str(inner_count)
 
