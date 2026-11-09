@@ -55,6 +55,36 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Phylo`` now moves support values with their branches when a tree is
+rerooted by ``root_with_outgroup`` or ``root_at_midpoint``
+(`upstream issue #745 <https://github.com/biopython/biopython/issues/745>`_).
+This is a deliberate change of behaviour. A support value, such as a bootstrap
+percentage, describes the split of the taxa made by the branch above a clade,
+so it belongs to that branch; the PhyloXML schema defines ``confidence`` as
+"the support for a clade/parent branch". Rerooting reverses the branches
+between the old root and the new one. These methods already moved the branch
+lengths along that path but left each clade's ``confidence`` (or PhyloXML
+``confidences`` list) where it was, so afterwards the values sat on the wrong
+splits. For example, ``(((A,B)90:1,(C,D)80:1):1,E:1);`` rerooted on ``A`` put
+the 90 on the branch separating A alone from the other taxa and left the
+branch separating A and B from C, D and E unlabelled; that branch now carries
+the 90. Czech, Huerta-Cepas and Stamatakis, "A critical review on the use of
+support values in tree viewers and bioinformatics toolkits", Molecular Biology
+and Evolution 34:1535-1542 (2017), https://doi.org/10.1093/molbev/msx055,
+found this error in Biopython, among other tools.
+
+When the new root is placed on a branch (a terminal outgroup, an
+``outgroup_branch_length``, or ``root_at_midpoint``), both halves of that
+branch make the same split and both carry its support, which that paper
+describes as correct. When a bifurcating old root is removed, its two branches
+become one; the clade below keeps its own support, or takes the other
+branch's if it has none, so if the two held different values the other is
+dropped. The new root has no branch above it and so has no support, and a
+value on the old root, which makes no split, is discarded. Numeric internal
+labels that are not support values also move, as the Newick reader cannot
+tell them apart from support. Branch colours, widths and other clade
+attributes do not move. This is an upstream defect, also in Biopython 1.88.
+
 ``Bio.SwissProt`` no longer inserts a space when it joins a comment (``CC``)
 line that UniProt wrapped after a hyphen. ``record.comments`` now reads
 ``Lipid-anchor, GPI-anchor`` rather than ``GPI- anchor``, and evidence tags
