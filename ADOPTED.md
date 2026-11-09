@@ -41,6 +41,78 @@ request.
 
 Newest first.
 
+### [#5405](https://github.com/biopython/biopython/pull/5405) — Muneer Alam
+
+Fixes upstream issue
+[#5368](https://github.com/biopython/biopython/issues/5368), reported by Ziqi
+(Adam) Chen. For collinear point sets, such as two points or points along a
+helix axis, `QCPSuperimposer.get_rms()` was wrong while the rotation was
+right: the issue's three identical points on a line 60 Å long reported
+2.816 Å and printed "Newton-Rhapson did not converge after 50 iterations".
+The largest root of QCP's quartic is then double and the starting guess E0
+sits on it, so f and f' are both rounding noise and `f / (f_prime + 1e-11)`
+throws the iterate to about 4e8. When the iteration does not converge, the
+pull request takes the largest eigenvalue of the 4×4 key matrix from
+`numpy.linalg.eigvalsh`, which also removes the print, and where the
+cofactor cascade falls back to the Kabsch SVD it measures the RMSD on the
+fit.
+
+**The single commit taken** (`35beac4fe`). It conflicted only because this
+tree had already moved that Kabsch block into `_kabsch_rotation`, for the
+check of the quaternion against the key matrix
+([#5346](https://github.com/biopython/biopython/issues/5346)); the
+resolution keeps the same code. The author left the contributor-listing box
+unticked and did not add himself to `CONTRIB.rst`, so is not added.
+
+That check is what makes the pull request safe here. As upstream has it,
+without the check, the eigenvalue alone leaves the rotations of many wide
+collinear sets wrong, and with the print gone nothing says so: 144 of 300
+pairs of points spread ±150 Å got a wrong rotation, by up to 286 Å, none
+with a message. In this tree, none did.
+
+One correction sits on top. The check's own Kabsch fallback still reported
+the RMSD from the eigenvalue, and when Newton-Raphson does converge at a
+double root it finds the root only to about the square root of machine
+precision, so the RMSD reported was still silently out by up to 0.025 Å in
+22 to 117 of each 300 collinear sets. The RMSD is now measured on the fit
+on every path, so `get_rms()` always agrees with `get_transformed()`; for
+other fits the rotation is unchanged and the RMSD moves only at the level of
+rounding. A new test fits 60 wide collinear sets and fails on the previous
+main, on this commit alone, and on the commit as upstream has it.
+
+On 2026-11-06 upstream closed issue #5368 as a duplicate, and the pull
+request with "This has been solved in #5317." It is not: #5317 is the Kabsch
+fallback for vanishing cofactors, which fixes rotations, and on 2026-11-09
+upstream master, which has it, still printed the message and reported
+2.816 Å for the issue's script.
+
+### [#5373](https://github.com/biopython/biopython/pull/5373) — Mohit Arvind Khakharia
+
+The earlier fix for the same issue, #5368. **Only one test method taken**,
+`test_rmsd_identical_two_points_rotated`, which fits two points to a rotated
+copy: the previous main reported 2.5e-4 Å there, with no message, and
+#5405's tests have no such case. The commit (`2af0dbfee`) is cherry-picked
+so that he stays its author, and its message, unchanged as for every
+adoption, still describes the code change that was not taken.
+
+Left behind:
+
+- The `qcprot.py` hunk, which stops Newton-Raphson as soon as f or f' is not
+  positive. That holds at the root in exact arithmetic, but at E0 both are
+  rounding noise of either sign: when both are positive the step throws the
+  iterate below the root and the new check then stops it there. Applied to
+  the previous main, the RMSD reported was wrong by more than 1e-3 Å in 52
+  to 164 of each 300 collinear sets, by up to 352 Å, all without a message,
+  where main printed one for its large errors.
+- `test_rmsd_identical_collinear`, the same three points and assertions as
+  the first case of #5405's test, at a looser tolerance.
+- The `NEWS.rst` paragraph, written for upstream's own in-progress section;
+  the fork's own paragraph replaces it.
+
+Its author closed it, still a draft, on 2026-11-05 as a duplicate of #5317,
+which it is not (see #5405 above). peterjc's question whether it was written
+with AI was not answered. He is already in `CONTRIB.rst`.
+
 ### [#5391](https://github.com/biopython/biopython/pull/5391) — Rubén Chaves
 
 Fixes upstream issue
