@@ -145,12 +145,14 @@ class IsoelectricPoint:
         whose pI lies beyond those limits gets a value at the limit.
 
         Arguments:
-         - pH: the pH at which the current charge of the protein is computed.
-           This pH lies at the centre of the interval (mean of `min_` and `max_`).
+         - pH: the pH at which the search starts. The sign of the charge there
+           decides whether the pI is sought above or below this pH; after that,
+           each step tries the centre of the remaining interval. It need not
+           be the centre of `min_` and `max_` (the defaults are not).
          - min\_: the minimum of the interval. Initial value defaults to 4.05,
            and is lowered automatically towards 0 when the pI lies below it
            (strongly acidic sequences, e.g. composed exclusively of aspartate).
-         - max\_: the maximum of the the interval. Initial value defaults to 12,
+         - max\_: the maximum of the interval. Initial value defaults to 12,
            and is raised automatically towards 14 when the pI lies above it
            (strongly basic sequences, e.g. composed exclusively of arginine).
         """
