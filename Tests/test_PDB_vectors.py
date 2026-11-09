@@ -313,6 +313,38 @@ class VectorTests(unittest.TestCase):
                 # And the pair must still compose to the identity.
                 self.assertTrue(np.allclose(reverse[i].dot(forward[i]), np.identity(4)))
 
+    def test_multi_coord_space_near_axis(self):
+        """Confirm a2 lands on the Z axis when a1->a2 is nearly along it.
+
+        The polar angle from arccos(z / r) loses precision near either pole,
+        and is 0 or pi for any angle within about 1e-8 of them, so in these
+        hedra a2 kept an offset of 1e-8 from the axis after the transform.
+        arctan2(hypot(x, y), z) does not, and a2 lands on the axis to
+        rounding error.  np.allclose's default absolute tolerance of 1e-8
+        would not see the difference.
+        """
+        point_set = np.array(
+            [
+                # towards +Z, with a1 at the origin
+                [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0], [1e-8, 0.0, 1.5, 1.0]],
+                # towards -Z, with a1 at the origin
+                [[1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 0.0, 1.0], [1e-8, 0.0, -1.5, 1.0]],
+                # towards +Z, with a1 away from the origin
+                [
+                    [1.0, 0.0, 0.0, 1.0],
+                    [2.0, 3.0, 4.0, 1.0],
+                    [2.0 + 1e-8, 3.0, 5.5, 1.0],
+                ],
+            ]
+        )
+        forward = multi_coord_space(point_set, 3)
+        for i in range(3):
+            with self.subTest(hedron=i):
+                a2 = forward[i].dot(point_set[i][2])
+                self.assertTrue(
+                    np.allclose(a2, [0.0, 0.0, 1.5, 1.0], rtol=0, atol=1e-12), a2
+                )
+
     def test_vector_to_axis(self):
         """Test vector_to_axis function for correctness"""
         # Case 1: the line direction is along +x. The point (1,1,0) lies 1 unit above the line
