@@ -1365,6 +1365,16 @@ Root:  16
         with self.assertRaisesRegex(Trees.TreeError, r"Found \[& without matching \]"):
             Trees.Tree("(A[&p=1]:0.1[&l=2,B);")
 
+    def test_NexusComments_bracket_before_comment(self):
+        """Find a comment's ] after its [&, past a ] in a quoted label."""
+        # Searching for ] from the start of the text finds the label's ]
+        # first. The old code then lost the comment; the loop that removes
+        # every comment would never end.
+        tree = Trees.Tree("((A,B)'x]y'[&p]:0.1,C);")
+        data = tree.node(tree.node(tree.root).succ[0]).data
+        self.assertEqual(data.comment, "[&p]")
+        self.assertEqual(data.branchlength, 0.1)
+
 
 class TestSelf(unittest.TestCase):
     def test_repeated_names_no_taxa(self):
