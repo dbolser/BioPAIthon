@@ -40,6 +40,11 @@ def _kabsch_rotation(A):
     return rot
 
 
+def _fitted_rmsd(coords1, coords2, rot, natoms):
+    """Return the RMSD of coords2, rotated by rot, from coords1."""
+    return np.sqrt(np.sum((coords1 - np.dot(coords2, rot)) ** 2) / natoms)
+
+
 def qcp(coords1, coords2, natoms):
     """Implement the QCP code in Python.
 
@@ -47,9 +52,11 @@ def qcp(coords1, coords2, natoms):
     shape Nx3. They are converted to double precision.
 
     Returns the RMSD, the right-multiplying rotation matrix, and the
-    quaternion the rotation was built from. When no reliable quaternion
-    is found, the rotation comes from the Kabsch SVD instead, and the
-    quaternion returned is not that rotation's and should not be used.
+    quaternion the rotation was built from. The RMSD is that of coords2
+    rotated by the rotation returned, so the two always agree. When no
+    reliable quaternion is found, the rotation comes from the Kabsch SVD
+    instead, and the quaternion returned is not that rotation's and should
+    not be used.
 
     Variable names match (as much as possible) the C implementation.
     """
@@ -119,6 +126,16 @@ def qcp(coords1, coords2, natoms):
         * (negSxymSyx * (SyzpSzy) + (SxzmSzx) * (SxxpSyy - Szz))
     )
 
+    # The key matrix K, whose characteristic polynomial this is.
+    key = np.array(
+        [
+            [SxxpSyy_p_Szz, SyzmSzy, negSxzmSzx, SxymSyx],
+            [SyzmSzy, SxxmSyy - Szz, SxypSyx, SxzpSzx],
+            [negSxzmSzx, SxypSyx, Syy - Sxx - Szz, SyzpSzy],
+            [SxymSyx, SxzpSzx, SyzpSzy, Szz - SxxpSyy],
+        ]
+    )
+
     # Find largest root of the quaternion polynomial:
     #   f(x) = x ** 4 + c2 * x ** 2 + c1 * x + c0 = 0 (eq. 8 of Theobald et al.)
     #   f'(x) = 4 * x ** 3 + 2 * c2 * x + c1
@@ -145,19 +162,17 @@ def qcp(coords1, coords2, natoms):
             break  # convergence
     else:
         # Repeated roots can prevent Newton-Raphson convergence for collinear fits.
-        key = np.array(
-            [
-                [SxxpSyy + Szz, SyzmSzy, negSxzmSzx, SxymSyx],
-                [SyzmSzy, SxxmSyy - Szz, SxypSyx, SxzpSzx],
-                [negSxzmSzx, SxypSyx, Syy - Sxx - Szz, SyzpSzy],
-                [SxymSyx, SxzpSzx, SyzpSzy, Szz - SxxpSyy],
-            ]
-        )
         mxEigenV = np.linalg.eigvalsh(key)[-1]
 
-    # The original code has a guard if minScore > 0 and rmsd < minScore, although
-    # the default value of minScore is -1. For simplicity, we ignore that check.
-    rmsd = (2.0 * abs(E0 - mxEigenV) / natoms) ** 0.5
+    # The original code takes the RMSD from the eigenvalue here, as
+    # sqrt(2 * (E0 - mxEigenV) / natoms), and has a guard if minScore > 0 and
+    # rmsd < minScore, although the default value of minScore is -1. We
+    # ignore that check, and measure the RMSD on the rotated coordinates
+    # instead, on every path below. For two points, or points on a line, the
+    # largest root is double and Newton-Raphson finds it only to about the
+    # square root of the machine precision, so at protein scale the RMSD from
+    # the eigenvalue was out by up to a few hundredths of an angstrom, with
+    # the rotation right and no warning (biopython/biopython#5368).
 
     a11 = SxxpSyy + Szz - mxEigenV
     a12 = SyzmSzy
@@ -219,9 +234,7 @@ def qcp(coords1, coords2, natoms):
 
                 if qsqr < evecprec:
                     rot = _kabsch_rotation(A)
-                    rmsd = np.sqrt(
-                        np.sum((coords1 - np.dot(coords2, rot)) ** 2) / natoms
-                    )
+                    rmsd = _fitted_rmsd(coords1, coords2, rot, natoms)
                     return rmsd, rot, [q1, q2, q3, q4]
 
     normq = qsqr**0.5
@@ -234,23 +247,19 @@ def qcp(coords1, coords2, natoms):
     # evecprec is absolute while qsqr grows as the sixth power of the entries
     # of A. For a rotation of exactly 180 degrees (q1 = 0), which is also the
     # best fit to a mirror image, the first row should vanish, yet at protein
-    # scale its rounding noise passes that test and q is wrong; the RMSD, from
-    # mxEigenV alone, is still right. So check that q is an eigenvector of the
-    # key matrix K for mxEigenV, and if not use the Kabsch SVD as above
-    # (biopython/biopython#5346). The rotation from a unit q leaves a sum of
-    # squared deviations of G1 + G2 - 2 q.K.q, so passing the check keeps that
-    # within 2e-8 * ||K|| of the natoms * rmsd**2 reported.
-    key = np.array(
-        [
-            [SxxpSyy_p_Szz, SyzmSzy, negSxzmSzx, SxymSyx],
-            [SyzmSzy, SxxmSyy - Szz, SxypSyx, SxzpSzx],
-            [negSxzmSzx, SxypSyx, Syy - Sxx - Szz, SyzpSzy],
-            [SxymSyx, SxzpSzx, SyzpSzy, Szz - SxxpSyy],
-        ]
-    )
+    # scale its rounding noise passes that test and q is wrong, although
+    # mxEigenV is right. So check that q is an eigenvector of the key matrix K
+    # for mxEigenV, and if not use the Kabsch SVD as above
+    # (biopython/biopython#5346). The same check catches the rows that are
+    # mostly rounding noise when the largest root is double, as for collinear
+    # points. The rotation from a unit q leaves a sum of squared deviations of
+    # G1 + G2 - 2 q.K.q, so passing the check keeps that within 2e-8 * ||K||
+    # of G1 + G2 - 2 * mxEigenV, the least possible.
     quat = np.array([q1, q2, q3, q4])
     if np.linalg.norm(key @ quat - mxEigenV * quat) > 1e-8 * np.linalg.norm(key):
-        return rmsd, _kabsch_rotation(A), [q1, q2, q3, q4]
+        rot = _kabsch_rotation(A)
+        rmsd = _fitted_rmsd(coords1, coords2, rot, natoms)
+        return rmsd, rot, [q1, q2, q3, q4]
 
     a2 = q1 * q1
     x2 = q2 * q2
@@ -276,6 +285,7 @@ def qcp(coords1, coords2, natoms):
     rot[2][1] = 2 * (yz - ax)
     rot[2][2] = a2 - x2 - y2 + z2
 
+    rmsd = _fitted_rmsd(coords1, coords2, rot, natoms)
     return rmsd, rot, (q1, q2, q3, q4)
 
 

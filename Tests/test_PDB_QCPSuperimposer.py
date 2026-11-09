@@ -338,6 +338,44 @@ class QCPSuperimposerTest(unittest.TestCase):
         sup.run()
         self.assertAlmostEqual(sup.get_rms(), 0.0, places=6)
 
+    def test_wide_collinear_fits(self):
+        """Fit wide collinear point sets as well as SVD, and report that fit.
+
+        For two points, or points on a line, the largest root of the QCP
+        quartic is double, and Newton-Raphson finds it only roughly or not at
+        all. For most of these fits the RMSD reported from it was wrong, by up
+        to about 0.02 angstroms with no warning, or by far more with a "did
+        not converge" message (biopython/biopython#5368). The exact
+        eigenvalue alone does not make the rotations right: without the check
+        of the quaternion against the key matrix (biopython/biopython#5346),
+        a quarter of them were wrong by up to tens of angstroms, with no
+        warning.
+        """
+        rng = np.random.default_rng(1)
+        for i in range(60):
+            direction = rng.normal(size=3)
+            direction /= np.linalg.norm(direction)
+            n = 2 if i % 2 else rng.integers(3, 10)
+            ref = np.outer(rng.uniform(-150.0, 150.0, n), direction)
+            ref += rng.uniform(-150.0, 150.0, 3)
+            ax = rng.normal(size=3)
+            ax /= np.linalg.norm(ax)
+            k = np.array([[0, -ax[2], ax[1]], [ax[2], 0, -ax[0]], [-ax[1], ax[0], 0]])
+            theta = rng.uniform(0.0, np.pi)
+            rot = np.eye(3) + np.sin(theta) * k + (1 - np.cos(theta)) * (k @ k)
+            mob = ref @ rot.T + rng.uniform(-150.0, 150.0, 3)
+
+            sup = QCPSuperimposer()
+            sup.set(ref, mob)
+            sup.run()
+            rms_fitted = np.sqrt(((ref - sup.get_transformed()) ** 2).sum(1).mean())
+            svd_sup = SVDSuperimposer()
+            svd_sup.set(ref, mob)
+            svd_sup.run()
+            with self.subTest(case=i, points=n):
+                self.assertAlmostEqual(rms_fitted, svd_sup.get_rms(), places=4)
+                self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=9)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
