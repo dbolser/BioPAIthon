@@ -8,7 +8,7 @@
 
 RCSB PDB decommissioned the MMTF file format in July 2024 and switched off
 its download server, so MMTF files can no longer be downloaded. This module
-is deprecated and will be removed in a future release of BioPAIthon. Please
+is deprecated and will be removed in a future release of biop-ai. Please
 use BinaryCIF files with ``Bio.PDB.binary_cif``, or mmCIF files with
 ``Bio.PDB.MMCIFParser``, instead.
 """
@@ -32,7 +32,7 @@ from .mmtfio import MMTFIO
 
 warnings.warn(
     "Bio.PDB.mmtf has been deprecated, and we intend to remove it in a "
-    "future release of BioPAIthon. RCSB decommissioned the MMTF file format "
+    "future release of biop-ai. RCSB decommissioned the MMTF file format "
     "in July 2024 and switched off its download server, so MMTF files can "
     "no longer be downloaded. As an alternative, please use BinaryCIF files "
     "with Bio.PDB.binary_cif, or mmCIF files with Bio.PDB.MMCIFParser.",

@@ -1,6 +1,6 @@
 # Threat model
 
-BioPAIthon is a fork of Biopython. The importable package is still `Bio`
+biop-ai is a fork of Biopython. The importable package is still `Bio`
 (plus `BioSQL`). `AGENTS.md` has the project's own rules for changes.
 
 ## What this project does and where untrusted input enters

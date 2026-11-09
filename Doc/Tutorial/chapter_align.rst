@@ -6034,11 +6034,11 @@ A registration lasts until the Python process ends, as in ``Bio.SeqIO``
 level of a module.
 
 A package can instead declare the format as an entry point in the
-``biopaithon.align`` group of its ``pyproject.toml``, naming the module:
+``biop_ai.align`` group of its ``pyproject.toml``, naming the module:
 
 .. code:: toml
 
-   [project.entry-points."biopaithon.align"]
+   [project.entry-points."biop_ai.align"]
    star-aln = "mypackage.staraln"
 
 Then nobody needs to call ``register_format``. As in ``Bio.SeqIO``,

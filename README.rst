@@ -1,21 +1,21 @@
-.. image:: https://github.com/dbolser/BioPAIthon/actions/workflows/ci.yml/badge.svg?branch=main
+.. image:: https://github.com/BioAGI-org/biop-ai/actions/workflows/ci.yml/badge.svg?branch=main
    :alt: CI status
-   :target: https://github.com/dbolser/BioPAIthon/actions/workflows/ci.yml
+   :target: https://github.com/BioAGI-org/biop-ai/actions/workflows/ci.yml
 .. image:: https://img.shields.io/pypi/v/biopaithon.svg?logo=pypi&logoColor=white
-   :alt: BioPAIthon on the Python Package Index (PyPI)
+   :alt: biop-ai on the Python Package Index (PyPI)
    :target: https://pypi.org/project/biopaithon/
 .. image:: https://img.shields.io/pypi/pyversions/biopaithon.svg?logo=python&logoColor=white
    :alt: Supported Python versions
    :target: https://pypi.org/project/biopaithon/
 
-**BioPAIthon** is a fork of `Biopython <https://biopython.org>`_, the
+**biop-ai** is a fork of `Biopython <https://biopython.org>`_, the
 long-running international association of developers of freely available
 Python tools for computational molecular biology.
 
-The fork exists to try one thing differently. BioPAIthon accepts contributions
+The fork exists to try one thing differently. biop-ai accepts contributions
 from any capable contributor - human, computational intelligence, AI, or chimp
 - and judges each patch on its merits rather than on the nature of its author.
-See `AGENTS.md <https://github.com/dbolser/BioPAIthon/blob/main/AGENTS.md>`__ for
+See `AGENTS.md <https://github.com/BioAGI-org/biop-ai/blob/main/AGENTS.md>`__ for
 what that means in practice.
 
 Everything else is Biopython. ``import Bio`` works exactly as it did, the
@@ -24,12 +24,12 @@ below, and we intend to keep tracking upstream.
 
 Credit for essentially all of the code here belongs to the Biopython
 contributors; the original copyright notices and licence remain in place.
-BioPAIthon is not affiliated with or endorsed by the Biopython Project, so
+biop-ai is not affiliated with or endorsed by the Biopython Project, so
 please do not report problems with this fork to upstream.
 
 This README is intended primarily for people interested in working with the
 source code, from our repository on GitHub
-https://github.com/dbolser/BioPAIthon
+https://github.com/BioAGI-org/biop-ai
 
 Upstream's user-centric documentation, `The Biopython Tutorial and Cookbook,
 and API documentation <https://biopython.org/docs/latest/>`_, describes most
@@ -38,25 +38,25 @@ been removed, ``Bio.PDB.mmtf`` is deprecated, and a GenBank or EMBL record
 whose sequence does not match its declared length is an error rather than a
 warning.
 
-The `NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`_ file
+The `NEWS <https://github.com/BioAGI-org/biop-ai/blob/main/NEWS.rst>`_ file
 summarises the changes in each release, including where this fork differs from
 upstream, alongside the
-`DEPRECATED <https://github.com/dbolser/BioPAIthon/blob/main/DEPRECATED.rst>`_ file
+`DEPRECATED <https://github.com/BioAGI-org/biop-ai/blob/main/DEPRECATED.rst>`_ file
 which notes API breakages.
 
 This package is open source software made available under generous terms.
-Please see the `LICENSE <https://github.com/dbolser/BioPAIthon/blob/main/LICENSE.rst>`_
+Please see the `LICENSE <https://github.com/BioAGI-org/biop-ai/blob/main/LICENSE.rst>`_
 file for further details.
 
 
 Acknowledgements
 ================
 
-BioPAIthon exists because the Biopython Project spent more than twenty years
-building it. `CONTRIB.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIB.rst>`_
+biop-ai exists because the Biopython Project spent more than twenty years
+building it. `CONTRIB.rst <https://github.com/BioAGI-org/biop-ai/blob/main/CONTRIB.rst>`_
 keeps every name upstream has, with the fork's own contributors added, and
 the full release history in
-`NEWS <https://github.com/dbolser/BioPAIthon/blob/main/NEWS.rst>`__ and every
+`NEWS <https://github.com/BioAGI-org/biop-ai/blob/main/NEWS.rst>`__ and every
 copyright notice in the source are preserved.
 
 This fork changes a contribution policy. It does not change who wrote the
@@ -74,7 +74,7 @@ We track it, and we would be glad to see this fork become unnecessary.
 Citation
 ========
 
-If you use BioPAIthon in work contributing to a scientific publication, please
+If you use biop-ai in work contributing to a scientific publication, please
 cite **Biopython**. Essentially all of the code here was written by the
 Biopython contributors, and academic citation is how that work is credited:
 
@@ -85,7 +85,7 @@ https://doi.org/10.1093/bioinformatics/btp163 pmid:19304878
 Several Biopython modules have their own publications, listed at
 https://biopython.org - please cite those as well where they apply.
 
-Do not cite BioPAIthon instead of Biopython. If you need to record which fork
+Do not cite biop-ai instead of Biopython. If you need to record which fork
 you used, cite the paper above and mention the fork separately, as you would
 any other software version detail. Nothing about this fork changes who did the
 scientific work.
@@ -94,11 +94,12 @@ scientific work.
 For the impatient
 =================
 
-BioPAIthon is published on PyPI as ``biopaithon``::
+biop-ai is published on PyPI as ``biopaithon``, the name it had up to release
+1.88::
 
     pip install biopaithon
 
-Note that BioPAIthon installs the same ``Bio`` package that Biopython does, so
+Note that biop-ai installs the same ``Bio`` package that Biopython does, so
 the two conflict and cannot be used side by side in one environment. Use a
 virtual environment if you need both.
 
@@ -112,7 +113,7 @@ Upstream Biopython is on PyPI under its own name::
     pip install biopython
 
 As a developer or potential contributor, you may wish to download, build and
-install BioPAIthon yourself. This is described below.
+install biop-ai yourself. This is described below.
 
 
 Python Requirements
@@ -120,7 +121,7 @@ Python Requirements
 
 We currently recommend using Python 3.13 from https://www.python.org
 
-BioPAIthon is currently supported and tested on the following Python
+biop-ai is currently supported and tested on the following Python
 implementations:
 
 - Python 3.10, 3.11, 3.12, 3.13 and 3.14 -- see https://www.python.org. CI
@@ -188,7 +189,7 @@ Installation From Source
 ========================
 
 Most people should use the pre-compiled wheels described above. If you need to
-compile BioPAIthon yourself, the following are required at compile time:
+compile biop-ai yourself, the following are required at compile time:
 
 - Python including development header files like ``python.h``, which on Linux
   are often not installed by default (trying looking for and installing a
@@ -290,7 +291,7 @@ bug database and our mailing lists to see if it has already been reported
 (and hopefully fixed), and if not please do report the bug. We can't fix
 problems we don't know about ;)
 
-Issue tracker: https://github.com/dbolser/BioPAIthon/issues
+Issue tracker: https://github.com/BioAGI-org/biop-ai/issues
 
 Please report bugs in this fork there, not to upstream. If you can reproduce
 the problem against upstream Biopython as well, then it is an upstream bug and
@@ -321,16 +322,16 @@ And also ideally:
 Contributing, Bug Reports
 =========================
 
-BioPAIthon accepts contributions from anyone, and anything, able to write a
+biop-ai accepts contributions from anyone, and anything, able to write a
 good patch - human, computational intelligence, AI, or chimp. We are always
 looking for help with code development, documentation writing, technical
 administration, and whatever else comes up.
 
 If you wish to contribute, please first read
-`AGENTS.md <https://github.com/dbolser/BioPAIthon/blob/main/AGENTS.md>`__, which
+`AGENTS.md <https://github.com/BioAGI-org/biop-ai/blob/main/AGENTS.md>`__, which
 sets out the standard every contribution is held to regardless of its author,
 and then
-`CONTRIBUTING.rst <https://github.com/dbolser/BioPAIthon/blob/main/CONTRIBUTING.rst>`_
+`CONTRIBUTING.rst <https://github.com/BioAGI-org/biop-ai/blob/main/CONTRIBUTING.rst>`_
 for the practicalities.
 
 Upstream Biopython is run by volunteers from all over the world, with many

@@ -13,12 +13,12 @@ requires-python = ">=3.10"
 license = "LicenseRef-Biopython-License-Agreement"
 license-files = ["LICENSE.rst"]
 # Authorship stays with the Biopython contributors, who wrote essentially all
-# of this code. BioPAIthon is a downstream fork, not a new work.
+# of this code. biop-ai is a downstream fork, not a new work.
 authors = [
     {name = "The Biopython Contributors", email = "biopython@biopython.org"}
 ]
 maintainers = [
-    {name = "The BioPAIthon Contributors"}
+    {name = "The biop-ai Contributors"}
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -97,9 +97,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dbolser/BioPAIthon/"
-Source = "https://github.com/dbolser/BioPAIthon/"
-Tracker = "https://github.com/dbolser/BioPAIthon/issues"
+Homepage = "https://github.com/BioAGI-org/biop-ai/"
+Source = "https://github.com/BioAGI-org/biop-ai/"
+Tracker = "https://github.com/BioAGI-org/biop-ai/issues"
 "Upstream project" = "https://biopython.org/"
 "Upstream documentation" = "https://biopython.org/wiki/Documentation"
 

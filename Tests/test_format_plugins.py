@@ -5,9 +5,12 @@
 """Tests for file formats which installed distributions declare as entry points.
 
 Bio.SeqIO and Bio.Align look for entry points once per process, so each test
-runs its checks in a fresh interpreter.  That interpreter finds three fake
-distributions, fakeplugin, otherplugin and nameless, in a temporary directory
-on sys.path, along with the modules their entry points name.
+runs its checks in a fresh interpreter.  That interpreter finds five fake
+distributions, fakeplugin, otherplugin, nameless, oldplugin and bothplugin, in
+a temporary directory on sys.path, along with the modules their entry points
+name.  oldplugin uses only the groups named before the project was renamed
+biop-ai, and bothplugin declares one format in both the new and the old group,
+with different values, as a plugin supporting both releases might.
 """
 
 import os
@@ -28,7 +31,7 @@ CLUSTAL = str(support.DATA / "Clustalw" / "opuntia.aln")
 # of the distribution "nameless" gives no Name.
 DISTRIBUTIONS = {
     "fakeplugin": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 starfasta = fakeplugin_formats:StarFastaIterator
 fasta = fakeplugin_formats:StarFastaIterator
 BadName = fakeplugin_formats:StarFastaIterator
@@ -36,24 +39,43 @@ dup = fakeplugin_formats:StarFastaIterator
 same = fakeplugin_formats:StarFastaIterator
 broken = fakeplugin_broken:BrokenIterator
 
-[biopaithon.seqio.writers]
+[biop_ai.seqio.writers]
 starfasta = fakeplugin_formats:StarFastaWriter [extra]
 
-[biopaithon.align]
+[biop_ai.align]
 STAR-ALN = fakeplugin_aln
 GoodAln = fakeplugin_aln
 GOODALN = otherplugin_formats
 """,
     "otherplugin": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 dup = otherplugin_formats:OtherIterator
 same = fakeplugin_formats:StarFastaIterator
 weird = not a valid!!value
 """,
     "nameless": """\
-[biopaithon.seqio.iterators]
+[biop_ai.seqio.iterators]
 noname = fakeplugin_formats:StarFastaIterator
 NoName = fakeplugin_formats:StarFastaIterator
+""",
+    "oldplugin": """\
+[biopaithon.seqio.iterators]
+oldfasta = fakeplugin_formats:StarFastaIterator
+dup = fakeplugin_formats:StarFastaIterator
+OldBad = fakeplugin_formats:StarFastaIterator
+
+[biopaithon.seqio.writers]
+oldfasta = fakeplugin_formats:StarFastaWriter
+
+[biopaithon.align]
+oldaln = fakeplugin_aln
+""",
+    "bothplugin": """\
+[biop_ai.seqio.iterators]
+bothfasta = fakeplugin_formats:StarFastaIterator
+
+[biopaithon.seqio.iterators]
+bothfasta = otherplugin_formats:OtherIterator
 """,
 }
 
@@ -106,32 +128,55 @@ warnings.simplefilter("error")
 warnings.simplefilter("always", BiopythonWarning)
 """
 
-GROUP = "'biopaithon.seqio.iterators'"
+GROUP = "'biop_ai.seqio.iterators'"
+OLD_GROUP = "'biopaithon.seqio.iterators'"
 
 # The warnings given when Bio.SeqIO looks for its iterator plugins, sorted as
 # run_python returns them.  None is given for "same", which both distributions
 # name the same, nor for "noname".
-ITERATOR_WARNINGS = [
-    f"Ignoring entry point 'BadName' of fakeplugin in group {GROUP}:"
-    " Format string 'BadName' should be lower case",
-    f"Ignoring entry point 'NoName' of a distribution with no name in group"
-    f" {GROUP}: Format string 'NoName' should be lower case",
-    f"Ignoring entry point 'fasta' of fakeplugin in group {GROUP}:"
-    " 'fasta' is a built-in format",
-    f"Ignoring entry point 'weird' of otherplugin in group {GROUP}:"
-    " 'not a valid!!value' is not an object reference",
-    f"Ignoring entry points 'dup' of fakeplugin and 'dup' of otherplugin in group"
-    f" {GROUP}: they give format 'dup' different objects",
-]
+ITERATOR_WARNINGS = sorted(
+    [
+        f"Ignoring entry point 'OldBad' of oldplugin in group {OLD_GROUP}:"
+        " Format string 'OldBad' should be lower case",
+        f"Ignoring entry point 'BadName' of fakeplugin in group {GROUP}:"
+        " Format string 'BadName' should be lower case",
+        f"Ignoring entry point 'NoName' of a distribution with no name in group"
+        f" {GROUP}: Format string 'NoName' should be lower case",
+        f"Ignoring entry point 'fasta' of fakeplugin in group {GROUP}:"
+        " 'fasta' is a built-in format",
+        f"Ignoring entry point 'weird' of otherplugin in group {GROUP}:"
+        " 'not a valid!!value' is not an object reference",
+        f"Ignoring entry points 'dup' of fakeplugin in group {GROUP} and 'dup' of"
+        f" oldplugin in group {OLD_GROUP} and 'dup' of otherplugin in group {GROUP}:"
+        " they give format 'dup' different objects",
+    ]
+)
 
 # The warning given when Bio.Align looks for its plugins.  Its names are
 # case-insensitive, so the two entry points name the same format.
 ALIGN_WARNINGS = [
     "Ignoring entry points 'GOODALN' of fakeplugin and 'GoodAln' of fakeplugin"
-    " in group 'biopaithon.align': they give format 'goodaln' different objects"
+    " in group 'biop_ai.align': they give format 'goodaln' different objects"
 ]
 
 ALL_WARNINGS = sorted(ITERATOR_WARNINGS + ALIGN_WARNINGS)
+
+# The deprecation warnings for oldplugin's entry points, when Bio.SeqIO looks
+# for its iterator and writer plugins and Bio.Align for its plugins.  None is
+# given for bothplugin, which also declares its format in the new group.
+DEPRECATIONS = sorted(
+    [
+        f"Entry point '{name}' of oldplugin is in the deprecated group {OLD_GROUP};"
+        f" declare it in {GROUP} instead"
+        for name in ["oldfasta", "dup", "OldBad"]
+    ]
+    + [
+        "Entry point 'oldfasta' of oldplugin is in the deprecated group"
+        " 'biopaithon.seqio.writers'; declare it in 'biop_ai.seqio.writers' instead",
+        "Entry point 'oldaln' of oldplugin is in the deprecated group"
+        " 'biopaithon.align'; declare it in 'biop_ai.align' instead",
+    ]
+)
 
 
 def setUpModule():
@@ -157,8 +202,8 @@ def tearDownModule():
 class PluginTestCase(unittest.TestCase):
     """Run code in a fresh interpreter which can find the fake plugins."""
 
-    def run_python(self, code):
-        """Run the code, and return the BiopythonWarning messages it printed."""
+    def run_python(self, code, category="BiopythonWarning"):
+        """Run the code, and return the messages of that category it printed."""
         env = dict(os.environ)
         env.pop("PYTHONWARNINGS", None)
         result = subprocess.run(
@@ -169,7 +214,7 @@ class PluginTestCase(unittest.TestCase):
             env=env,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        return sorted(re.findall(r"BiopythonWarning: (.*)", result.stderr))
+        return sorted(re.findall(rf"\b{category}: (.*)", result.stderr))
 
 
 class SeqIOPlugin(PluginTestCase):
@@ -250,12 +295,35 @@ import fakeplugin_aln
 
 assert Align._registry["star-aln"] is fakeplugin_aln
 assert "STAR-ALN" not in dict.keys(Align._registry)
-assert Align._registry.plugins == {{"star-aln"}}
+assert Align._registry.plugins == {{"star-aln", "oldaln"}}
 assert "star-aln" not in Align.formats
 assert "goodaln" not in Align._registry
 """
         )
         self.assertEqual(warnings, ALIGN_WARNINGS)
+
+
+class DeprecatedGroups(PluginTestCase):
+    """The entry-point groups named before the rename to biop-ai still work."""
+
+    def test_old_groups(self):
+        deprecations = self.run_python(
+            f"""\
+records = list(SeqIO.parse({FASTA!r}, "oldfasta"))
+assert records[0].annotations["parsed by"] == "fakeplugin"
+assert SeqIO._FormatToWriter["oldfasta"].__name__ == "StarFastaWriter"
+assert format(records[0], "oldfasta") == format(records[0], "fasta")
+# bothplugin's declaration in the new group wins over its old one:
+assert SeqIO._FormatToIterator["bothfasta"].__name__ == "StarFastaIterator"
+assert "dup" not in SeqIO._FormatToIterator
+
+import fakeplugin_aln
+
+assert Align._registry["oldaln"] is fakeplugin_aln
+""",
+            category="BiopythonDeprecationWarning",
+        )
+        self.assertEqual(deprecations, DEPRECATIONS)
 
 
 class Precedence(PluginTestCase):
@@ -420,8 +488,7 @@ class Threads(PluginTestCase):
     """Threads missing at once scan once, and warn once."""
 
     def test_eight_threads(self):
-        warnings = self.run_python(
-            """\
+        code = """\
 import importlib.metadata
 import threading
 import time
@@ -459,8 +526,11 @@ for thread in threads:
 assert calls == [{}], calls
 assert found == [True] * 8, found
 """
-        )
+        warnings = self.run_python(code)
         self.assertEqual(warnings, ALL_WARNINGS)
+        # Each deprecation is given once too, not once per thread:
+        deprecations = self.run_python(code, category="BiopythonDeprecationWarning")
+        self.assertEqual(deprecations, DEPRECATIONS)
 
     def test_added_meanwhile(self):
         """A miss looks again if another thread added the plugins meanwhile."""

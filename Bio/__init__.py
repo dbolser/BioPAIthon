@@ -6,7 +6,7 @@
 # package.
 """Collection of modules for dealing with biological data in Python.
 
-This is BioPAIthon, a fork of Biopython that accepts contributions from
+This is biop-ai, a fork of Biopython that accepts contributions from
 every kind of contributor. The importable package is still ``Bio``, and the
 public API differs from upstream's only where noted in ``DEPRECATED.rst`` and
 ``NEWS.rst``.
@@ -15,7 +15,7 @@ The Biopython Project, from which this code comes, is an international
 association of developers of freely available Python tools for computational
 molecular biology.
 
-https://github.com/dbolser/BioPAIthon
+https://github.com/BioAGI-org/biop-ai
 https://biopython.org
 """
 
@@ -122,7 +122,7 @@ class BiopythonExperimentalWarning(BiopythonWarning):
 class _BiopythonDistributionFinder:
     """Answer ``importlib.metadata`` queries for "biopython" with this package.
 
-    The fork renamed the distribution to "biopaithon" and kept the ``Bio``
+    The fork's distribution is called "biopaithon", and it kept the ``Bio``
     package. Code that asks ``importlib.metadata.version("biopython")``, for
     example to choose a code path by version, would otherwise get
     ``PackageNotFoundError`` from a package it can import. This finder sits

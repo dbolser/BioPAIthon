@@ -1754,10 +1754,10 @@ package is installed, every Python process finds them.
 
 .. code:: toml
 
-   [project.entry-points."biopaithon.seqio.iterators"]
+   [project.entry-points."biop_ai.seqio.iterators"]
    myformat = "mypackage.myformat:MyFormatIterator"
 
-   [project.entry-points."biopaithon.seqio.writers"]
+   [project.entry-points."biop_ai.seqio.writers"]
    myformat = "mypackage.myformat:MyFormatWriter"
 
 ``Bio.SeqIO`` looks for these entry points once per Python process, the

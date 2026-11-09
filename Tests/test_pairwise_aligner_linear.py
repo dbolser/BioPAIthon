@@ -1,4 +1,4 @@
-# This code is part of the BioPAIthon distribution and governed by its
+# This code is part of the biop-ai distribution and governed by its
 # license.  Please see the LICENSE file that should have been included
 # as part of this package.
 """Tests for the linear-space traceback of PairwiseAligner.align().
@@ -7,7 +7,7 @@ Needleman-Wunsch, Smith-Waterman and Gotoh global and local alignments use
 it where their traceback matrix would be over 512 MiB; the private
 _set_traceback_limits changes that.
 It must give the full traceback matrix's score, number of paths, and paths in
-the same order. BIOPAITHON_SLOW_TESTS=1 adds a soak and alignments of over
+the same order. BIOP_AI_SLOW_TESTS=1 adds a soak and alignments of over
 INT_MAX cells.
 """
 
@@ -55,7 +55,11 @@ set_limits(*DEFAULT)
 ALWAYS = -1
 
 # No CI job sets it; run the gated tests by hand (about ten minutes).
-SLOW = os.environ.get("BIOPAITHON_SLOW_TESTS") == "1"
+# BIOPAITHON_SLOW_TESTS is the name from before the rename to biop-ai.
+SLOW = "1" in (
+    os.environ.get("BIOP_AI_SLOW_TESTS"),
+    os.environ.get("BIOPAITHON_SLOW_TESTS"),
+)
 
 NW = "Needleman-Wunsch"
 GOTOH = "Gotoh global alignment algorithm"
@@ -593,7 +597,7 @@ class TestDefaults(unittest.TestCase):
 
     def test_routing(self):
         # The smallest square alignment over the threshold, and one below it,
-        # with the default budgets: outside BIOPAITHON_SLOW_TESTS, the only
+        # with the default budgets: outside BIOP_AI_SLOW_TESTS, the only
         # check of the linear-space traceback's memory estimate against a
         # 512 MiB matrix.  A Needleman-Wunsch or Smith-Waterman matrix row
         # has a byte a cell and a row pointer, a Gotoh one two of each.  One
@@ -1400,7 +1404,7 @@ class TestDifferential(unittest.TestCase):
             self.assertEqual(count(aligner.align("A" * n, "C" * n)), alignments, n)
             self.assertFalse(forced._paths._materialized)
 
-    @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
+    @unittest.skipUnless(SLOW, "set BIOP_AI_SLOW_TESTS=1 to run")
     def test_soak(self):
         self.run_cases(seed=4589, count=50000, lengths=(1, 60))
         self.run_cases(seed=3407, count=300, lengths=(100, 1500))
@@ -1411,7 +1415,7 @@ class TestDifferential(unittest.TestCase):
         self.run_cases(seed=4592, count=50000, lengths=(1, 60), algorithm=GOTOH_LOCAL)
         self.run_cases(seed=3410, count=300, lengths=(100, 1500), algorithm=GOTOH_LOCAL)
 
-    @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
+    @unittest.skipUnless(SLOW, "set BIOP_AI_SLOW_TESTS=1 to run")
     def test_more_than_int_max_cells(self):
         # The full matrix would need over 2 GB, so check the path against
         # its own score instead.
@@ -1440,7 +1444,7 @@ class TestDifferential(unittest.TestCase):
                 end = alignment.coordinates[:, -1].tolist()
                 self.assertEqual(end, [len(seqA), len(seqB)])
 
-    @unittest.skipUnless(SLOW, "set BIOPAITHON_SLOW_TESTS=1 to run")
+    @unittest.skipUnless(SLOW, "set BIOP_AI_SLOW_TESTS=1 to run")
     def test_read_against_genome(self):
         # A 1,000-letter read against 2.2 million letters, with the default
         # limits: over INT_MAX cells, and a 2.2 GB full matrix (4.4 GB for

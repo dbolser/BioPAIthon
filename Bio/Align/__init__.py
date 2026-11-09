@@ -5269,7 +5269,8 @@ _registry = _FormatRegistry(
         )
         for fmt in formats
     },
-    group="biopaithon.align",
+    group="biop_ai.align",
+    deprecated_groups=("biopaithon.align",),
     name_rule=_plugin_format_name,
 )
 

@@ -6,7 +6,7 @@ name: Release
 #     git tag v1.88.0 && git push origin v1.88.0
 #
 # The PyPI Trusted Publisher for `biopaithon` must be configured with:
-#     Owner: dbolser | Repository: BioPAIthon
+#     Owner: BioAGI-org | Repository: biop-ai
 #     Workflow name: release.yml | Environment name: pypi
 #
 on:

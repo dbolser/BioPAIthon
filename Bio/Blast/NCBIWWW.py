@@ -14,7 +14,7 @@ This module provides code to work with the WWW version of BLAST
 provided by the NCBI. https://blast.ncbi.nlm.nih.gov/
 
 This module is deprecated and will be removed in a future release of
-BioPAIthon. Its replacement, the ``qblast`` function in ``Bio.Blast``,
+biop-ai. Its replacement, the ``qblast`` function in ``Bio.Blast``,
 accepts all the arguments of the ``qblast`` function in this module, but
 returns the results as a stream of ``bytes`` rather than text. See the
 "Migrating from the older BLAST modules" section of the Tutorial's BLAST
@@ -44,7 +44,7 @@ from Bio._utils import function_with_previous
 
 warnings.warn(
     "Bio.Blast.NCBIWWW has been deprecated, and we intend to remove it in a "
-    "future release of BioPAIthon. Please use Bio.Blast.qblast instead, which "
+    "future release of biop-ai. Please use Bio.Blast.qblast instead, which "
     "accepts all the arguments of Bio.Blast.NCBIWWW.qblast but returns the "
     "results as a stream of bytes rather than text. See the 'Migrating from "
     "the older BLAST modules' section of the Tutorial's BLAST chapter for "

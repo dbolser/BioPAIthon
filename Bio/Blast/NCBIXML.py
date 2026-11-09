@@ -13,7 +13,7 @@ The BLAST XML DTD file is available on the NCBI site at:
 https://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd
 
 This module is deprecated and will be removed in a future release of
-BioPAIthon. Its replacements, the ``read`` and ``parse`` functions in
+biop-ai. Its replacements, the ``read`` and ``parse`` functions in
 ``Bio.Blast``, parse the same BLAST XML output (opened in binary mode)
 into ``Bio.Blast.Record`` objects. See the "Migrating from the older
 BLAST modules" section of the Tutorial's BLAST chapter for how the
@@ -49,7 +49,7 @@ from Bio.SeqRecord import SeqRecord
 
 warnings.warn(
     "Bio.Blast.NCBIXML has been deprecated, and we intend to remove it in a "
-    "future release of BioPAIthon. Please use the read and parse functions in "
+    "future release of biop-ai. Please use the read and parse functions in "
     "Bio.Blast instead, which parse the same BLAST XML output (opened in "
     "binary mode) into Bio.Blast.Record objects. See the 'Migrating from the "
     "older BLAST modules' section of the Tutorial's BLAST chapter for how "

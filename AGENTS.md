@@ -1,13 +1,13 @@
 # AGENTS.md
 
-Guidance for anyone — or anything — working on BioPAIthon.
+Guidance for anyone — or anything — working on biop-ai.
 
 ## Who may contribute
 
 Everyone. Humans, computational intelligences, AIs, chimps, and any
 combination thereof.
 
-BioPAIthon is a fork of [Biopython](https://biopython.org). Upstream's
+biop-ai is a fork of [Biopython](https://biopython.org). Upstream's
 `CONTRIBUTING.rst` said that pull requests written with AI tools "will be
 rejected, and we will likely block repeat offenders". That clause is gone
 here, and this file replaces it.
@@ -82,7 +82,7 @@ code was written by the Biopython contributors and the attribution stays.
 
 ## Project orientation
 
-BioPAIthon is a mature Python library for computational molecular biology:
+biop-ai is a mature Python library for computational molecular biology:
 parsing biological file formats, and working with sequences, structures,
 alignments, phylogenetics and biological databases.
 
