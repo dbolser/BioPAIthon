@@ -55,6 +55,28 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.PDBMLParser`` now reads the resolution. The parser tested each
+element it looked up for the resolution with ``if element:``, which is false
+for an XML element with no children, so ``structure.header["resolution"]`` was
+``None`` for every PDBML file, and Python 3.12 and later warn about such a
+test. It now gives the value in the file: 2.0 for ``1GBT.xml`` and 2.201 for
+``3JQH.xml`` in the test suite, as ``MMCIFParser`` gives for the mmCIF files of
+those entries. Code that read the resolution of a PDBML structure now gets a
+number where it got ``None``. This is an upstream defect, also in Biopython
+1.88 and still in upstream's development code. The same pull request computes
+the polar angle in ``Bio.PDB.vectors.multi_coord_space``, which
+``Bio.PDB.internal_coords`` uses, with ``arctan2`` instead of ``arccos``. Near
+the Z axis ``arccos`` lost precision, and gave zero for any polar angle below
+about 1e-8 radians. Elsewhere the two differ only by rounding error, at most
+4.4e-13 radians on nine million random vectors, but that reaches the output:
+angles written by ``write_PIC`` change in their last digits, by up to 2.3e-12
+degrees on the test structures, while the coordinates rebuilt from them are
+unchanged. Where the third atom of a hedron sits on its second, the polar
+angle is still zero. Both fixes are Michiel de Hoon's, from the unmerged
+biopython/biopython#5389; keeping that angle zero when the third atom's z is
+``-0.0`` and the second's is ``0.0`` is this fork's addition. See
+``ADOPTED.md``.
+
 ``Bio.Phylo.TreeConstruction.DistanceCalculator`` with the ``identity``
 model and an explicit ``skip_letters``, such as
 ``DistanceCalculator("identity", skip_letters=("-", "*"))``, now divides the
