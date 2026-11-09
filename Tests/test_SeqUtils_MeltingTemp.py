@@ -854,6 +854,29 @@ class TmNNTests(unittest.TestCase):
                         places=8,
                     )
 
+    def test_sequences_that_do_not_overlap_are_rejected(self):
+        """A seq and c_seq with no base opposite each other have no duplex.
+
+        With strict=False this used to give warnings and -402.09 for every
+        shift here.
+        """
+        seq = "ACGTACGT"
+        c_seq = "TGCATGCA"
+        for strict in (True, False):
+            for shift in (8, 9, 12, -8, -9):
+                with self.subTest(strict=strict, shift=shift):
+                    with self.assertRaises(ValueError) as context:
+                        mt.Tm_NN(seq, c_seq=c_seq, shift=shift, strict=strict)
+                    self.assertIn("do not overlap", str(context.exception))
+        # One base opposite another is still a (poor) duplex.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonWarning)
+            for shift in (7, -7):
+                with self.subTest(shift=shift):
+                    self.assertIsInstance(
+                        mt.Tm_NN(seq, c_seq=c_seq, shift=shift, strict=False), float
+                    )
+
     def test_missing_dangling_end_data_is_reported(self):
         """A dangling end with no thermodynamic data is reported."""
         seq = "ACGTTGCAAG"

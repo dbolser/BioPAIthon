@@ -891,7 +891,8 @@ def Tm_NN(
         Template (c_seq):  3' TACG...    3' CTACG...    3'  ACG...
 
        The shift parameter is necessary to align seq and c_seq if they have
-       different lengths or if they should have dangling ends. Default=0
+       different lengths or if they should have dangling ends. A ValueError
+       is raised if seq and c_seq do not overlap at this shift. Default=0
      - table: Thermodynamic NN values, eight tables are implemented:
        For DNA/DNA hybridizations:
 
@@ -983,6 +984,13 @@ def Tm_NN(
             tmp_seq += (len(tmp_cseq) - len(tmp_seq)) * "."
         if len(tmp_cseq) < len(tmp_seq):
             tmp_cseq += (len(tmp_seq) - len(tmp_cseq)) * "."
+        # With no base opposite another there is no duplex, and trimming the
+        # ends below would leave nothing to take the initiation from.
+        if not any(a != "." and b != "." for a, b in zip(tmp_seq, tmp_cseq)):
+            raise ValueError(
+                f"seq and c_seq do not overlap at shift={shift}, so there is "
+                "no duplex to melt"
+            )
         # Remove 'over-dangling' ends
         while tmp_seq.startswith("..") or tmp_cseq.startswith(".."):
             tmp_seq = tmp_seq[1:]
