@@ -257,6 +257,50 @@ class QCPSuperimposerTest(unittest.TestCase):
         np.testing.assert_array_equal(sup.rot, sup64.rot)
         np.testing.assert_array_equal(sup.tran, sup64.tran)
 
+    def test_180_degree_rotation_of_wide_spread_coords(self):
+        """Fit a wide point set turned by exactly 180 degrees.
+
+        QCP reported an RMSD of 0 for this, but returned a rotation that did
+        not superimpose the points at all (biopython/biopython#5346).
+        """
+        rng = np.random.default_rng(0)
+        ref = rng.uniform(-100.0, 100.0, size=(30, 3))
+        axis = rng.normal(size=3)
+        axis = axis / np.linalg.norm(axis)
+        rot180 = 2.0 * np.outer(axis, axis) - np.eye(3)
+        mob = ref @ rot180
+
+        sup = QCPSuperimposer()
+        sup.set(ref, mob)
+        sup.run()
+        fitted = sup.get_transformed()
+        rms_fitted = np.sqrt(((ref - fitted) ** 2).sum(1).mean())
+        self.assertAlmostEqual(sup.get_rms(), 0.0, places=4)
+        self.assertAlmostEqual(rms_fitted, 0.0, places=9)
+        self.assertTrue(np.allclose(fitted, ref, atol=1e-9))
+
+    def test_mirror_image_of_protein(self):
+        """Fit a protein to its mirror image as well as SVD does.
+
+        The best rotation onto a point inversion is a 180 degree turn. For
+        all the atoms of 1A8O, QCP reported the right RMSD but returned a
+        rotation that fitted much worse (biopython/biopython#5346).
+        """
+        structure = PDBParser().get_structure("1A8O", support.DATA / "PDB" / "1A8O.pdb")
+        ref = np.array([atom.coord for atom in structure.get_atoms()], np.float64)
+        mob = -ref + np.array([1.0, 2.0, 3.0])
+
+        sup = QCPSuperimposer()
+        sup.set(ref, mob)
+        sup.run()
+        rms_fitted = np.sqrt(((ref - sup.get_transformed()) ** 2).sum(1).mean())
+
+        svd_sup = SVDSuperimposer()
+        svd_sup.set(ref, mob)
+        svd_sup.run()
+        self.assertAlmostEqual(rms_fitted, svd_sup.get_rms(), places=6)
+        self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=6)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

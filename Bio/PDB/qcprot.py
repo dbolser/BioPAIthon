@@ -26,11 +26,30 @@ import numpy as np
 from Bio.PDB.PDBExceptions import PDBException
 
 
+def _kabsch_rotation(A):
+    """Return the right-multiplying rotation that best fits, by Kabsch SVD.
+
+    A is the 3x3 correlation matrix of the centred mobile and reference
+    coordinates, as computed in qcp.
+    """
+    u, _s, vt = np.linalg.svd(A)
+    rot = np.dot(u, vt)
+    if np.linalg.det(rot) < 0.0:
+        u[:, -1] *= -1.0
+        rot = np.dot(u, vt)
+    return rot
+
+
 def qcp(coords1, coords2, natoms):
     """Implement the QCP code in Python.
 
     Input coordinate arrays must be centered at the origin and have
     shape Nx3. They are converted to double precision.
+
+    Returns the RMSD, the right-multiplying rotation matrix, and the
+    quaternion the rotation was built from. When no reliable quaternion
+    is found, the rotation comes from the Kabsch SVD instead, and the
+    quaternion returned is not that rotation's and should not be used.
 
     Variable names match (as much as possible) the C implementation.
     """
@@ -190,18 +209,35 @@ def qcp(coords1, coords2, natoms):
                 qsqr = q1 * q1 + q2 * q2 + q3 * q3 + q4 * q4
 
                 if qsqr < evecprec:
-                    u, _s, vt = np.linalg.svd(A)
-                    rot = np.dot(u, vt)
-                    if np.linalg.det(rot) < 0.0:
-                        u[:, -1] *= -1.0
-                        rot = np.dot(u, vt)
-                    return rmsd, rot, [q1, q2, q3, q4]
+                    return rmsd, _kabsch_rotation(A), [q1, q2, q3, q4]
 
     normq = qsqr**0.5
     q1 /= normq
     q2 /= normq
     q3 /= normq
     q4 /= normq
+
+    # The cascade above accepts a cofactor row once qsqr reaches evecprec, but
+    # evecprec is absolute while qsqr grows as the sixth power of the entries
+    # of A. For a rotation of exactly 180 degrees (q1 = 0), which is also the
+    # best fit to a mirror image, the first row should vanish, yet at protein
+    # scale its rounding noise passes that test and q is wrong; the RMSD, from
+    # mxEigenV alone, is still right. So check that q is an eigenvector of the
+    # key matrix K for mxEigenV, and if not use the Kabsch SVD as above
+    # (biopython/biopython#5346). The rotation from a unit q leaves a sum of
+    # squared deviations of G1 + G2 - 2 q.K.q, so passing the check keeps that
+    # within 2e-8 * ||K|| of the natoms * rmsd**2 reported.
+    key = np.array(
+        [
+            [SxxpSyy_p_Szz, SyzmSzy, negSxzmSzx, SxymSyx],
+            [SyzmSzy, SxxmSyy - Szz, SxypSyx, SxzpSzx],
+            [negSxzmSzx, SxypSyx, Syy - Sxx - Szz, SyzpSzy],
+            [SxymSyx, SxzpSzx, SyzpSzy, Szz - SxxpSyy],
+        ]
+    )
+    quat = np.array([q1, q2, q3, q4])
+    if np.linalg.norm(key @ quat - mxEigenV * quat) > 1e-8 * np.linalg.norm(key):
+        return rmsd, _kabsch_rotation(A), [q1, q2, q3, q4]
 
     a2 = q1 * q1
     x2 = q2 * q2
