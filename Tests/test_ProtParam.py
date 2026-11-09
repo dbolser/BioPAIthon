@@ -206,6 +206,34 @@ class ProtParamTest(unittest.TestCase):
         for f, r in zip(forward, reverse):
             self.assertAlmostEqual(f, r, places=7)
 
+    def test_protein_scale_even_window_values(self):
+        """An even window gives the mean weighted by each position once."""
+        cases = [
+            # Hopp and Woods average their scale over six residues
+            (ProtParamData.hw, 6, 1.0, [1.0] * 6),
+            (ProtParamData.kd, 2, 0.4, [0.4, 0.4]),
+            (ProtParamData.kd, 4, 0.4, [0.4, 0.8, 0.8, 0.4]),
+            (ProtParamData.kd, 6, 0.25, [0.25, 0.55, 0.85, 0.85, 0.55, 0.25]),
+        ]
+        for scale, window, edge, weights in cases:
+            expected = [
+                sum(w * scale[aa] for w, aa in zip(weights, self.text[i : i + window]))
+                / sum(weights)
+                for i in range(len(self.text) - window + 1)
+            ]
+            for analysis in self.analyses:
+                with self.subTest(window=window, edge=edge):
+                    result = analysis.protein_scale(scale, window, edge)
+                    self.assertEqual(len(result), len(expected))
+                    for r, e in zip(result, expected):
+                        self.assertAlmostEqual(r, e, places=10)
+
+    def test_protein_scale_zero_weights(self):
+        """A window of 2 with edge 0 gives every residue a weight of 0."""
+        analysis = ProtParam.ProteinAnalysis("ACDEFGHIK")
+        with self.assertRaises(ValueError):
+            analysis.protein_scale(ProtParamData.kd, 2, edge=0.0)
+
     def test_gravy(self):
         """Calculate gravy. Tests all pre-defined scales."""
         expected_values = {
