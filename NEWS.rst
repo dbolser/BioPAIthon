@@ -57,24 +57,31 @@ and the default branch is now ``main`` rather than ``master``.
 
 The ``LWL85`` method of ``Bio.Align.analysis.calculate_dn_ds`` and
 ``calculate_dn_ds_matrix``, and of ``Bio.codonalign.codonseq.cal_dn_ds`` and
-``CodonAlignment.get_dn_ds_matrix`` and ``get_dn_ds_tree``, now gives the
-right dN and dS. In Li, Wu and Luo's method (1985) the transitional and
-transversional distances at twofold degenerate sites are weighted by the
-number of twofold degenerate sites, as PAML's ``yn00`` does too, but both
-estimates weighted them by the number of fourfold degenerate sites instead.
-So dS was wrong for any pair of sequences that differ at a twofold degenerate
-site, unless they happen to have as many twofold as fourfold degenerate
-sites, and dN was wrong too when any of those differences is a transversion.
-The error grows with the gap between the two counts: in a test with four
-times as many twofold as fourfold degenerate sites, dS came out at a quarter
-of its value. For the E. coli and Shigella pair in the Tutorial, dS goes from
-0.183 to 0.225 (NG86 gives 0.228) and dN stays at 0.0845; for the first two
-sequences of the EGFR codon alignment in the test suite, dN goes from 0.0203
-to 0.0211 and dS from 0.0164 to 0.0170. Every result with ``LWL85`` may
-change, so earlier ``LWL85`` estimates are worth recomputing. The other
-methods, including the default ``NG86``, are unchanged. This is an upstream
-defect, also in Biopython 1.88 and still in upstream's development code. The
-fix is Zijian Zeng's, from the unmerged biopython/biopython#5392.
+``CodonAlignment.get_dn_ds_matrix`` and ``get_dn_ds_tree``, now weights the
+twofold degenerate sites correctly in dN and dS. In Li, Wu and Luo's method
+(1985) the transitional and transversional distances at twofold degenerate
+sites are weighted by the number of twofold degenerate sites, as PAML's
+``yn00`` does too, but both estimates weighted them by the number of fourfold
+degenerate sites instead. So dS was wrong for any pair of sequences that
+differ at a twofold degenerate site, unless they happen to have as many
+twofold as fourfold degenerate sites, and dN was wrong too when any of those
+differences is a transversion. The error grows with the gap between the two
+counts. With more twofold than fourfold degenerate sites, as in both examples
+below, dS came out too low: in a test with four times as many, at a quarter
+of its value. With fewer, it came out too high: in a test with three times as
+many fourfold as twofold degenerate sites, at three times its value. For the
+E. coli and Shigella pair in the Tutorial, dS goes from 0.183 to 0.225 (NG86
+gives 0.228) and dN stays at 0.0845; for the first two sequences of the EGFR
+codon alignment in the test suite, dN goes from 0.0203 to 0.0211 and dS from
+0.0164 to 0.0170. Every result with ``LWL85`` may change, so earlier
+``LWL85`` estimates are worth recomputing. One older difference from
+``yn00`` remains: each difference between two codons is classed by its
+degeneracy in the first sequence's codon only, where ``yn00`` counts half in
+each codon's class, so on real data ``LWL85`` can still disagree with
+``yn00`` and depends on the order of the two sequences. The other methods,
+including the default ``NG86``, are unchanged. This is an upstream defect,
+also in Biopython 1.88 and still in upstream's development code. The fix is
+Zijian Zeng's, from the unmerged biopython/biopython#5392.
 
 ``Bio.SeqUtils.IsoelectricPoint.IsoelectricPoint.pi``, and so
 ``Bio.SeqUtils.ProtParam.ProteinAnalysis.isoelectric_point``, now find the
