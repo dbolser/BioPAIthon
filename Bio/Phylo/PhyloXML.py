@@ -474,6 +474,18 @@ class Clade(PhyloElement, BaseTree.Clade):
 
     confidence = property(_get_confidence, _set_confidence, _del_confidence)
 
+    # Tree.root_with_outgroup moves support with the branch through this
+    # property (see BaseTree.Clade). Move the whole list, which may hold
+    # several values, rather than the confidence shortcut, which raises then.
+    @property
+    def _support(self):
+        """Confidences for the branch above this clade, or None (PRIVATE)."""
+        return self.confidences or None
+
+    @_support.setter
+    def _support(self, value):
+        self.confidences = value or []
+
     def _get_taxonomy(self):
         """Get taxonomy list for the clade (PRIVATE)."""
         if len(self.taxonomies) == 0:

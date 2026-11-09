@@ -892,6 +892,21 @@ class Tree(TreeElement, TreeMixin):
          - If the original root was bifurcating, drop it from the tree,
            preserving total branch lengths
 
+        A support value (``confidence``, or the ``confidences`` list of a
+        PhyloXML clade) describes the split made by the branch above a clade,
+        so it moves with that branch, as the branch length does:
+
+         - If a new root is created on the outgroup's branch, both halves of
+           that branch make the same split, and both carry its support.
+         - If the original root was bifurcating, its two branches become one
+           and make one split. The clade below the merged branch keeps its own
+           support, or takes the other branch's support if it has none. If
+           the new root is created on that merged branch (the outgroup was a
+           child of the original root), both halves carry the support kept.
+         - The new root has no branch above it in the tree, so it has no
+           support. A support value on the original root makes no split and
+           is discarded.
+
         :param outgroup_branch_length: length of the branch leading to the
             outgroup after rerooting. If not specified (None), then:
 
@@ -909,6 +924,9 @@ class Tree(TreeElement, TreeMixin):
             return
 
         prev_blen = outgroup.branch_length or 0.0
+        # Support belongs to the branch above a clade, like its length, so it
+        # is carried down the reversed path in step with prev_blen.
+        prev_support = outgroup._support
 
         if outgroup.is_terminal() or outgroup_branch_length is not None:
             # Create a new root with a 0-length branch to the outgroup
@@ -916,6 +934,10 @@ class Tree(TreeElement, TreeMixin):
             new_root = self.root.__class__(
                 branch_length=self.root.branch_length, clades=[outgroup]
             )
+            # The outgroup's branch is split in two at the new root. Both
+            # halves make the same split, so the outgroup keeps its support
+            # and the other half gets a copy (Czech et al. 2017, MBE 34:1535).
+            prev_support = copy.deepcopy(prev_support)
             # The first branch reversal (see the upcoming loop) is modified
             if len(outgroup_path) == 1:
                 # No nodes between the original root and outgroup to rearrange.
@@ -930,12 +952,15 @@ class Tree(TreeElement, TreeMixin):
                     parent.branch_length,
                     prev_blen - outgroup.branch_length,
                 )
+                prev_support, parent._support = parent._support, prev_support
                 new_root.clades.insert(0, parent)
                 new_parent = parent
         else:
             # Use the given outgroup node as the new (trifurcating) root
             new_root = outgroup
             new_root.branch_length = self.root.branch_length
+            # Its support moves down to the reversed branch; the root has none
+            new_root._support = None
             new_parent = new_root
 
         # Tracing the outgroup lineage backwards, reattach the subclades under a
@@ -944,6 +969,7 @@ class Tree(TreeElement, TreeMixin):
         for parent in outgroup_path[-2::-1]:
             parent.clades.pop(parent.clades.index(new_parent))
             prev_blen, parent.branch_length = parent.branch_length, prev_blen
+            prev_support, parent._support = parent._support, prev_support
             new_parent.clades.insert(0, parent)
             new_parent = parent
 
@@ -961,11 +987,24 @@ class Tree(TreeElement, TreeMixin):
                 ingroup.branch_length += prev_blen
             else:
                 ingroup.branch_length = prev_blen
+            # The old root's two branches, now merged, made the same split, so
+            # only one support can stay. Keep the ingroup's own, since its
+            # clade is not moved and so keeps the label it had; take the other
+            # branch's only if the ingroup has none. If both are set and
+            # differ, the input gave one split two values, and one is lost.
+            if ingroup._support is None:
+                ingroup._support = prev_support
+            if new_parent is new_root and new_root is not outgroup:
+                # The outgroup was a child of the old root and the new root
+                # sits on that same merged branch, so the outgroup's half
+                # carries the support just chosen for the ingroup's half.
+                outgroup._support = copy.deepcopy(ingroup._support)
             new_parent.clades.insert(0, ingroup)
             # ENH: If annotations are attached to old_root, do... something.
         else:
             # Keep the old trifurcating/polytomous root as an internal node
             old_root.branch_length = prev_blen
+            old_root._support = prev_support
             new_parent.clades.insert(0, old_root)
 
         self.root = new_root
@@ -1183,6 +1222,19 @@ class Clade(TreeElement, TreeMixin):
             raise ValueError(f"invalid color value {arg}")
 
     color = property(_get_color, _set_color, doc="Branch color.")
+
+    # Support values describe the split made by the branch above this clade,
+    # so Tree.root_with_outgroup moves them along with branch_length. It reads
+    # and writes them through this property, None meaning no support, so that
+    # a subclass which stores them elsewhere (PhyloXML) can override it.
+    @property
+    def _support(self):
+        """Support for the branch above this clade, or None (PRIVATE)."""
+        return self.confidence
+
+    @_support.setter
+    def _support(self, value):
+        self.confidence = value
 
 
 class BranchColor:
