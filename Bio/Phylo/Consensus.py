@@ -42,10 +42,10 @@ class _BitString(str):
 
     For both trees, a _BitString object '11111' will represent their
     root clade. Each '1' stands for the terminal clade in the list
-    [A, B, C, D, E](the order might not be the same, it's determined
-    by the ``get_terminal`` method of the first tree provided). For
-    the clade ((A, B), C) in tree1 and (A, (B, C)) in tree2, they both
-    can be represented by '11100'. Similarly, '11000' represents clade
+    [A, B, C, D, E], the terminal names in sorted order, not the order
+    a tree happens to list them in. For the clade ((A, B), C) in tree1
+    and (A, (B, C)) in tree2, they both can be represented by '11100'.
+    Similarly, '11000' represents clade
     (A, B) in tree1, '01100' represents clade (B, C) in tree2, and '00011'
     represents clade (D, E) in both trees.
 
@@ -63,8 +63,9 @@ class _BitString(str):
     code snippet::
 
         # suppose we are provided with a tree list, the first thing to do is
-        # to get all the terminal names in the first tree
-        term_names = [term.name for term in trees[0].get_terminals()]
+        # to get all the terminal names in the first tree, sorted (an
+        # unnamed terminal, None, first)
+        term_names = [term.name for term in _sorted_terminals(trees[0])]
         # for a specific clade in any of the tree, also get its terminal names
         clade_term_names = [term.name for term in clade.get_terminals()]
         # then create a boolean list
@@ -76,8 +77,8 @@ class _BitString(str):
 
     To convert back::
 
-        # get all the terminal clades of the first tree
-        terms = [term for term in trees[0].get_terminals()]
+        # get all the terminal clades of the first tree, in the same order
+        terms = _sorted_terminals(trees[0])
         # get the index of terminal clades in bitstr
         index_list = bitstr.index_one()
         # get all terminal clades by index
@@ -231,7 +232,8 @@ def strict_consensus(trees):
     trees_iter = iter(trees)
     first_tree = next(trees_iter)
 
-    terms = first_tree.get_terminals()
+    # _count_clades indexes every bitstring by the terminals in this order
+    terms = _sorted_terminals(first_tree)
     bitstr_counts, tree_count = _count_clades(itertools.chain([first_tree], trees_iter))
 
     # Store bitstrs for strict clades
@@ -289,10 +291,23 @@ def majority_consensus(trees, cutoff=0):
     tree_iter = iter(trees)
     first_tree = next(tree_iter)
 
-    terms = first_tree.get_terminals()
-    bitstr_counts, tree_count = _count_clades(itertools.chain([first_tree], tree_iter))
+    # _count_clades indexes every bitstring by the terminals in this order
+    terms = _sorted_terminals(first_tree)
+    # Unrooted trees, such as those from nj, are drawn with three clades at
+    # the root. Note how many each tree has, for when to stop (see below).
+    root_sizes = set()
 
-    # Sort bitstrs by descending #occurrences, then #tips, then tip order
+    def noting_root_sizes(trees):
+        for tree in trees:
+            root_sizes.add(len(tree.root.clades))
+            yield tree
+
+    bitstr_counts, tree_count = _count_clades(
+        noting_root_sizes(itertools.chain([first_tree], tree_iter))
+    )
+    three_way_roots = root_sizes == {3}
+
+    # Sort bitstrs by descending #occurrences, then #tips, then tip names
     bitstrs = sorted(
         bitstr_counts.keys(),
         key=lambda bitstr: (bitstr_counts[bitstr][0], bitstr.count("1"), str(bitstr)),
@@ -368,8 +383,17 @@ def majority_consensus(trees, cutoff=0):
             clade.clades = [c for c in clade.clades if c not in remove_terms]
         # put new clade
         bitstr_clades[bitstr] = clade
-        if (len(bitstr_clades) == len(terms) - 1) or (
-            len(bitstr_clades) == len(terms) - 2 and len(root.clades) == 3
+        # A fully resolved tree of n tips has n - 1 clades. A tree with n - 2
+        # and three clades at the root is fully resolved as an unrooted tree.
+        # Stop there only if every tree was drawn with three clades at the
+        # root: a clade joining two of the root's clades would then add no
+        # split, only a root, with support counting just the trees drawn
+        # with those tips as a clade. Rooted trees go on, as every tree may
+        # have that clade.
+        if len(bitstr_clades) == len(terms) - 1 or (
+            three_way_roots
+            and len(bitstr_clades) == len(terms) - 2
+            and len(root.clades) == 3
         ):
             break
     return BaseTree.Tree(root=root)
@@ -476,6 +500,11 @@ def _count_clades(trees):
     Return a tuple first a dict of bitstring (representing clade) and a tuple of its count of
     occurrences and sum of branch length for that clade, second the number of trees processed.
 
+    Every bitstring is indexed by the terminal names in sorted order (see
+    ``_sorted_terminals``), so a clade has the same bitstring in every tree
+    however the trees list their tips. Raise ValueError unless all the trees
+    have the same terminal names.
+
     :Parameters:
         trees : iterable
             An iterable that returns the trees to count
@@ -483,9 +512,15 @@ def _count_clades(trees):
     """
     bitstrs = {}
     tree_count = 0
+    term_names = None
     for tree in trees:
         tree_count += 1
-        clade_bitstrs = _tree_to_bitstrs(tree)
+        names = [term.name for term in _sorted_terminals(tree)]
+        if term_names is None:
+            term_names = names
+        elif names != term_names:
+            raise ValueError("Taxons in provided trees should be consistent")
+        clade_bitstrs = _tree_to_bitstrs(tree, term_names)
         for clade in tree.find_clades(terminal=False):
             bitstr = clade_bitstrs[clade]
             if bitstr in bitstrs:
@@ -614,30 +649,47 @@ def bootstrap_consensus(alignment, times, tree_constructor, consensus):
     return tree
 
 
+def _sorted_terminals(tree):
+    """Return a tree's terminals sorted by name, the order BitStrings use (PRIVATE).
+
+    An unnamed terminal (None) sorts first, so it never ties with a tip named
+    "None" and the order does not depend on how the tree lists its tips.
+    """
+    return sorted(
+        tree.find_clades(terminal=True),
+        key=lambda term: (term.name is not None, str(term.name)),
+    )
+
+
 def _clade_to_bitstr(clade, tree_term_names):
     """Create a BitString representing a clade, given ordered tree taxon names (PRIVATE)."""
     clade_term_names = {term.name for term in clade.find_clades(terminal=True)}
     return _BitString.from_bool((name in clade_term_names) for name in tree_term_names)
 
 
-def _tree_to_bitstrs(tree):
-    """Create a dict of a tree's clades to corresponding BitStrings (PRIVATE)."""
+def _tree_to_bitstrs(tree, term_names):
+    """Create a dict of a tree's clades to corresponding BitStrings (PRIVATE).
+
+    The BitStrings are indexed by ``term_names``. Trees whose BitStrings are
+    to be compared must share one list of names, not each use the order of
+    its own terminals, or one clade gets different BitStrings in different
+    trees and different clades get the same one.
+    """
     clades_bitstrs = {}
-    term_names = [term.name for term in tree.find_clades(terminal=True)]
     for clade in tree.find_clades(terminal=False):
         bitstr = _clade_to_bitstr(clade, term_names)
         clades_bitstrs[clade] = bitstr
     return clades_bitstrs
 
 
-def _bitstring_topology(tree):
+def _bitstring_topology(tree, term_names):
     """Generate a branch length dict for a tree, keyed by BitStrings (PRIVATE).
 
-    Create a dict of all clades' BitStrings to the corresponding branch
-    lengths (rounded to 5 decimal places).
+    Create a dict of all clades' BitStrings, indexed by ``term_names``, to
+    the corresponding branch lengths (rounded to 5 decimal places).
     """
     bitstrs = {}
-    for clade, bitstr in _tree_to_bitstrs(tree).items():
+    for clade, bitstr in _tree_to_bitstrs(tree, term_names).items():
         bitstrs[bitstr] = round(clade.branch_length or 0.0, 5)
     return bitstrs
 
@@ -649,6 +701,7 @@ def _equal_topology(tree1, tree2):
     """
     term_names1 = {term.name for term in tree1.find_clades(terminal=True)}
     term_names2 = {term.name for term in tree2.find_clades(terminal=True)}
+    term_names = [term.name for term in _sorted_terminals(tree1)]
     return (term_names1 == term_names2) and (
-        _bitstring_topology(tree1) == _bitstring_topology(tree2)
+        _bitstring_topology(tree1, term_names) == _bitstring_topology(tree2, term_names)
     )
