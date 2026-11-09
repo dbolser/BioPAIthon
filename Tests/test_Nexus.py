@@ -1342,6 +1342,29 @@ Root:  16
             ],
         )
 
+    def test_NexusComments_two_per_node(self):
+        """Strip both comments of a node and keep the first (issue 3456)."""
+        # MrBayes writes one comment before the branch length (the clade
+        # posterior) and one after it (the branch length statistics).
+        tree = Trees.Tree(
+            "((A[&p=1]:0.1[&l=2],B[&p=1]:0.2[&l=3])[&p=0.9]:0.3[&l=1],C:0.5);"
+        )
+        self.assertEqual(
+            self._get_flat_nodes(tree),
+            [
+                (None, 0.0, None, None),
+                (None, 0.3, None, "[&p=0.9]"),
+                ("C", 0.5, None, None),
+                ("A", 0.1, None, "[&p=1]"),
+                ("B", 0.2, None, "[&p=1]"),
+            ],
+        )
+
+    def test_NexusComments_second_unmatched(self):
+        """An unclosed second comment raises TreeError."""
+        with self.assertRaisesRegex(Trees.TreeError, r"Found \[& without matching \]"):
+            Trees.Tree("(A[&p=1]:0.1[&l=2,B);")
+
 
 class TestSelf(unittest.TestCase):
     def test_repeated_names_no_taxa(self):
