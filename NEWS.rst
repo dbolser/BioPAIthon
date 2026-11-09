@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Phylo.TreeConstruction.DistanceCalculator`` with the ``identity``
+model and an explicit ``skip_letters``, such as
+``DistanceCalculator("identity", skip_letters=("-", "*"))``, now divides the
+number of matches by the number of columns it compares. It left a column
+holding a skipped letter out of the matches but still counted it in the
+total, so every gap made the distance larger. In a ``MultipleSeqAlignment``,
+two identical rows ``AC--GT`` were 0.333 apart rather than 0, and ``AC--GT``
+against ``AC--GA`` gave 0.5 where ``ACGT`` against ``ACGA`` gives 0.25; the
+scoring-matrix models, such as ``trans``, already left skipped columns out of
+both. A ``Bio.Align.Alignment`` was affected too: ``AC--GT`` against
+``ACTTGT`` gave 0.333 in either kind of alignment, and now gives 0. Trees
+that ``DistanceTreeConstructor`` builds with such a calculator change as
+well, so distances and trees computed this way are worth recomputing. The
+default ``identity`` model skips no letters and is unchanged. This is an
+upstream defect, also in Biopython 1.88 and still in upstream's development
+code (biopython/biopython#5332). The fix is Angus Barlow's, from the unmerged
+biopython/biopython#5365.
+
 ``Bio.SeqUtils.ProtParam.ProteinAnalysis.protein_scale`` now works with a
 window of 1, and gives the right profile for an even window. A window of 1
 raised ``ZeroDivisionError``, and now gives the scale value of each residue.
