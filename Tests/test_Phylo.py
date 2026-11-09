@@ -440,6 +440,200 @@ class TreeTests(unittest.TestCase):
             self.assertEqual(len(output.splitlines()), count)
 
 
+def newick_support(clade):
+    """Return the support of a Newick clade."""
+    return clade.confidence
+
+
+def phyloxml_support(clade):
+    """Return the confidences of a PhyloXML clade as (value, type) pairs."""
+    return tuple((float(conf), conf.type) for conf in clade.confidences) or None
+
+
+class RerootSupportTests(unittest.TestCase):
+    """Rerooting moves support values with their branches.
+
+    A support value describes the split (bipartition) made by the branch
+    above a clade, so root_with_outgroup must move it with that branch, as it
+    moves the branch length. See upstream issue #745.
+    """
+
+    def split_supports(self, tree, get_support=newick_support):
+        """Map each split of the tree to the support of its branches.
+
+        A split is named by the taxa on the side of its branch away from the
+        first taxon by name. Both branches of a bifurcating root make the same
+        split, so where both carry a support value they must agree.
+        """
+        taxa = frozenset(leaf.name for leaf in tree.get_terminals())
+        first = min(taxa)
+        supports = {}
+        for clade in tree.find_clades():
+            if clade is tree.root:
+                continue
+            side = frozenset(leaf.name for leaf in clade.get_terminals())
+            if first in side:
+                side = taxa - side
+            value = get_support(clade)
+            if value is not None:
+                self.assertEqual(supports.setdefault(side, value), value, side)
+        return supports
+
+    def assert_reroots_keep_splits(self, tree, get_support=newick_support):
+        """Reroot at every clade in turn, checking each split keeps its support."""
+        before = self.split_supports(tree, get_support)
+        self.assertTrue(before)
+        for outgroup_branch_length in (None, 0.25):
+            for clade in list(tree.find_clades()):
+                tree.root_with_outgroup(
+                    clade, outgroup_branch_length=outgroup_branch_length
+                )
+                self.assertEqual(self.split_supports(tree, get_support), before)
+                self.assertIsNone(get_support(tree.root))
+
+    def test_report_tree(self):
+        """Support moves off the outgroup's path onto the reversed branches."""
+        # The second tree from upstream issue #745
+        tree = Phylo.read(StringIO("(((A,B)90:1,(C,D)80:1):1,E:1);"), "newick")
+        before = self.split_supports(tree)
+        self.assertEqual(before, {frozenset("CDE"): 90, frozenset("CD"): 80})
+        tree.root_with_outgroup("A")
+        self.assertEqual(self.split_supports(tree), before)
+        # The 90 used to stay on (A,B), whose branch now splits A from the rest
+        self.assertIsNone(tree.common_ancestor("B", "C").confidence)
+        self.assertEqual(tree.common_ancestor("C", "E").confidence, 90)
+        self.assertIsNone(tree.root.confidence)
+
+    def test_published_test_tree(self):
+        """Rerooting the test tree of Czech et al. 2017 on X labels every split."""
+        # From https://github.com/jhcepas/test_branch_support_after_tree_rerooting
+        tree = Phylo.read(
+            StringIO(
+                "((C:1.0,D:1.0)10:0.001,(A:1.0,(B:1.0,X:1.0)30:0.01)20:0.1,E:1.0)0:0.0;"
+            ),
+            "newick",
+        )
+        before = self.split_supports(tree)
+        self.assertEqual(
+            before, {frozenset("CD"): 10, frozenset("CDE"): 20, frozenset("BX"): 30}
+        )
+        tree.root_with_outgroup("X")
+        self.assertEqual(self.split_supports(tree), before)
+        # The root's own label, 0, used to land on the {C,D,E} branch
+        self.assertEqual(tree.common_ancestor("C", "E").confidence, 20)
+        self.assertIsNone(tree.root.confidence)
+
+    def test_old_root_branches_merge(self):
+        """The old bifurcating root's two branches merge into one."""
+        # The first tree from upstream issue #745 gives the split {A,B}|{C,D}
+        # two values. The clade below the merged branch keeps its own value,
+        # whichever side the outgroup is on.
+        for outgroup, ingroup, kept in (("A", ("C", "D"), 80), ("C", ("A", "B"), 90)):
+            tree = Phylo.read(StringIO("((A,B)90:1,(C,D)80:1);"), "newick")
+            tree.root_with_outgroup(outgroup)
+            self.assertEqual(tree.common_ancestor(*ingroup).confidence, kept)
+            self.assertEqual(len(self.split_supports(tree)), 1)
+            # The root's branches split the outgroup from the rest: no support
+            for clade in tree.root:
+                self.assertIsNone(clade.confidence)
+        # With a value on only one of the two branches, it is kept, even 0
+        for value in (90, 0):
+            tree = Phylo.read(StringIO(f"((A,B){value}:1,(C,D):1);"), "newick")
+            tree.root_with_outgroup("A")
+            self.assertEqual(tree.common_ancestor("C", "D").confidence, value)
+            self.assertIsNone(tree.common_ancestor("B", "C").confidence)
+
+    def test_internal_outgroup_becomes_root(self):
+        """An internal outgroup's support moves to the branch below it."""
+        tree = Phylo.read(StringIO("((A,B)90:1,(C,D)80:1,E:1)100;"), "newick")
+        before = self.split_supports(tree)
+        tree.root_with_outgroup("A", "B")
+        self.assertIs(tree.root, tree.common_ancestor("A", "B"))
+        self.assertIsNone(tree.root.confidence)
+        self.assertEqual(tree.common_ancestor("C", "E").confidence, 90)
+        self.assertEqual(self.split_supports(tree), before)
+
+    def test_outgroup_branch_length(self):
+        """Both halves of the branch holding the new root carry its support."""
+        tree = Phylo.read(StringIO("(((A,B)90:1,(C,D)80:1)70:1,E:1,F:1);"), "newick")
+        before = self.split_supports(tree)
+        tree.root_with_outgroup("A", "B", outgroup_branch_length=0.5)
+        self.assertEqual([clade.confidence for clade in tree.root], [90, 90])
+        self.assertEqual(tree.common_ancestor("E", "F").confidence, 70)
+        self.assertIsNone(tree.root.confidence)
+        self.assertEqual(self.split_supports(tree), before)
+
+    def test_root_at_midpoint(self):
+        """Tree.root_at_midpoint moves support values too."""
+        tree = Phylo.read(StringIO("((A:1,B:1)90:4,(C:1,D:1)80:1,E:1);"), "newick")
+        before = self.split_supports(tree)
+        tree.root_at_midpoint()
+        # The midpoint is on the branch of (A,B)
+        self.assertEqual([clade.confidence for clade in tree.root], [90, 90])
+        self.assertEqual(tree.common_ancestor("C", "D").confidence, 80)
+        self.assertIsNone(tree.root.confidence)
+        self.assertEqual(self.split_supports(tree), before)
+
+    def test_reroot_everywhere(self):
+        """Each split keeps its support through repeated rerooting."""
+        for newick in (
+            "((A,B)1,((C,D)2,(E,F)3)4,(G,H)5);",
+            "(((A,B)1,((C,D)2,(E,F)3)4)6,(G,H));",
+            "((A,B,C),(D,(E,F)2)3);",
+        ):
+            for rooted in (False, True):
+                tree = Phylo.read(StringIO(newick), "newick", rooted=rooted)
+                self.assert_reroots_keep_splits(tree)
+                self.assertTrue(tree.rooted)
+
+    def test_phyloxml_confidences(self):
+        """A PhyloXML clade's whole list of confidences moves with its branch."""
+        xml = """\
+<phyloxml xmlns="http://www.phyloxml.org">
+  <phylogeny rooted="false">
+    <clade>
+      <clade>
+        <branch_length>1</branch_length>
+        <confidence type="bootstrap">90</confidence>
+        <confidence type="probability">0.95</confidence>
+        <clade><name>A</name></clade>
+        <clade><name>B</name></clade>
+      </clade>
+      <clade>
+        <branch_length>1</branch_length>
+        <confidence type="bootstrap">80</confidence>
+        <clade><name>C</name></clade>
+        <clade><name>D</name></clade>
+      </clade>
+      <clade><name>E</name></clade>
+    </clade>
+  </phylogeny>
+</phyloxml>
+"""
+        tree = Phylo.read(StringIO(xml), "phyloxml")
+        tree.root_with_outgroup("A")
+        moved = tree.common_ancestor("C", "E")
+        self.assertEqual(
+            phyloxml_support(moved), ((90, "bootstrap"), (0.95, "probability"))
+        )
+        self.assertEqual(tree.common_ancestor("B", "C").confidences, [])
+        self.assertTrue(tree.rooted)
+        # Both halves of the outgroup's branch get the values, in separate lists
+        tree = Phylo.read(StringIO(xml), "phyloxml")
+        tree.root_with_outgroup("A", "B", outgroup_branch_length=0.5)
+        first, second = tree.root.clades
+        self.assertEqual(phyloxml_support(first), phyloxml_support(second))
+        self.assertEqual(len(first.confidences), 2)
+        self.assertIsNot(first.confidences, second.confidences)
+        self.assertIsNot(first.confidences[0], second.confidences[0])
+        self.assertEqual(tree.root.confidences, [])
+
+    def test_phyloxml_file(self):
+        """Each split of a PhyloXML file keeps its support through rerooting."""
+        tree = Phylo.read(EX_APAF, "phyloxml")
+        self.assert_reroots_keep_splits(tree, phyloxml_support)
+
+
 class MixinTests(unittest.TestCase):
     """Tests for TreeMixin methods."""
 
