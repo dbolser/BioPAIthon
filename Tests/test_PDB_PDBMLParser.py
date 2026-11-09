@@ -54,6 +54,50 @@ class TestPDBMLParser(unittest.TestCase):
                     pdbml_structure = pdbml_parser.get_structure(pdbml_file)
                 self.assertEqual(mmcif_structure, pdbml_structure)
 
+    def test_resolution(self):
+        """The header gives the resolution recorded in the file."""
+        pdbml_parser = PDBMLParser()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            for entry, resolution in [("1GBT", 2.0), ("3JQH", 2.201)]:
+                with self.subTest(entry=entry):
+                    structure = pdbml_parser.get_structure(
+                        support.DATA / "PDB" / f"{entry}.xml"
+                    )
+                    self.assertEqual(structure.header["resolution"], resolution)
+
+    def test_resolution_fallbacks(self):
+        """Without refine's resolution, refine_hist's is read, then EM's."""
+        with open(support.DATA / "PDB" / "3JQH.xml") as handle:
+            data = handle.read()
+        refine = "<PDBx:ls_d_res_high>2.201</PDBx:ls_d_res_high>"
+        refine_hist = "<PDBx:d_res_high>2.201</PDBx:d_res_high>"
+        category = "<PDBx:refine_histCategory>"
+        for text in (refine, refine_hist, category):
+            self.assertEqual(data.count(text), 1)
+        nil = '<PDBx:ls_d_res_high xsi:nil="true" />'
+        em = (
+            "<PDBx:em_3d_reconstructionCategory>"
+            '<PDBx:em_3d_reconstruction entry_id="3JQH" id="1">'
+            "<PDBx:resolution>3.1</PDBx:resolution>"
+            "</PDBx:em_3d_reconstruction>"
+            "</PDBx:em_3d_reconstructionCategory>"
+        )
+        no_refine = data.replace(refine, "")
+        neither = no_refine.replace(refine_hist, "")
+        cases = [
+            ("no refine", no_refine, 2.201),
+            ("nil refine", data.replace(refine, nil), 2.201),
+            ("em_3d_reconstruction", neither.replace(category, em + category), 3.1),
+            ("none", neither, None),
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            for case, text, resolution in cases:
+                with self.subTest(case=case):
+                    structure = PDBMLParser().get_structure(StringIO(text))
+                    self.assertEqual(structure.header["resolution"], resolution)
+
     def test_unexpected_atom_site_child(self):
         """A child of atom_siteCategory other than atom_site raises ValueError."""
         with open(support.DATA / "PDB" / "3JQH.xml") as handle:
