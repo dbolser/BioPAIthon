@@ -25,6 +25,7 @@ __all__ = [
 ]
 
 import re
+from collections import Counter
 from math import cos
 from math import exp
 from math import log
@@ -703,8 +704,22 @@ class CodonAdaptationIndex(dict):
 
         The sequence may be a plain string, a Seq object, a MutableSeq object,
         or a SeqRecord object.
+
+        As in Sharp & Li, a codon that is the only one for its amino acid is
+        left out, as its relative adaptiveness is always one. Which codons
+        these are depends on the genetic code the index was made with: ATG
+        (Met) and TGG (Trp) in the standard code, but only ATG in the mold
+        mitochondrial code (table 4), where TGA is Trp too.
         """
         cai_value, cai_length = 0, 0
+
+        forward_table = self._table.forward_table
+        synonyms = Counter(forward_table.values())
+        single_codons = {
+            codon
+            for codon, aminoacid in forward_table.items()
+            if synonyms[aminoacid] == 1
+        }
 
         try:
             sequence = sequence.seq  # SeqRecord
@@ -716,8 +731,8 @@ class CodonAdaptationIndex(dict):
 
         for i in range(0, len(sequence), 3):
             codon = sequence[i : i + 3]
-            if codon in ["ATG", "TGG"]:
-                # Exclude these two codons as their index is always one.
+            if codon in single_codons:
+                # The only codon for its amino acid, so its index is always one.
                 continue
             try:
                 cai_value += log(self[codon])
