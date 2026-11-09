@@ -60,13 +60,14 @@ character names like ``HNZ1`` the same way as ``HE21``, giving hydrogen rather
 than the unknown element ``X``. The guess is made only when the element column
 is missing or not a known element. A name that starts with a letter and ends
 in a digit now takes the element of that first letter. Before, it did so only
-if all its characters after the second were digits; any other such name was
-looked up whole as an element symbol, and as no symbol ends in a digit, it gave
-``X``. So mmCIF files without ``_atom_site.type_symbol``, whose atom names are
-not padded, now give carbon for ``C1`` and oxygen for ``O2``. It is still a
-guess from the first letter, as it already was for ``CL12`` (carbon): ``CLA1``
-now gives carbon, ``FEB2`` fluorine and ``BRC1`` boron, where they gave ``X``.
-No name that gave an element before gives a different one now. Adopted from
+if the name had more than two characters and all of those after the second
+were digits; any other such name was looked up whole as an element symbol, and
+as no symbol ends in a digit, it gave ``X``. So mmCIF files without
+``_atom_site.type_symbol``, whose atom names are not padded, now give carbon
+for ``C1`` and oxygen for ``O2``. It is still a guess from the first letter, as
+it already was for ``CL12`` (carbon): ``CLA1`` now gives carbon, ``FEB2``
+fluorine and ``BRC1`` boron, where they gave ``X``. No name that gave an
+element before gives a different one now. Adopted from
 upstream pull request
 `#5366 <https://github.com/biopython/biopython/pull/5366>`_ by popcoder565,
 which fixes upstream issue
