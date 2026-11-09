@@ -880,7 +880,9 @@ def Tm_NN(
      - c_seq: Complementary sequence. The sequence of the template/target in
        3'->5' direction. c_seq is necessary for mismatch correction and
        dangling-ends correction. Both corrections will automatically be
-       applied if mismatches or dangling ends are present. Default=None.
+       applied if mismatches or dangling ends are present. The initiation
+       terms are then taken from the base pairs that close the duplex,
+       inside any terminal mismatch or dangling end. Default=None.
      - shift: Shift of the primer/probe sequence on the template/target
        sequence, e.g.::
 
@@ -889,7 +891,8 @@ def Tm_NN(
         Template (c_seq):  3' TACG...    3' CTACG...    3'  ACG...
 
        The shift parameter is necessary to align seq and c_seq if they have
-       different lengths or if they should have dangling ends. Default=0
+       different lengths or if they should have dangling ends. A ValueError
+       is raised if seq and c_seq do not overlap at this shift. Default=0
      - table: Thermodynamic NN values, eight tables are implemented:
        For DNA/DNA hybridizations:
 
@@ -981,6 +984,13 @@ def Tm_NN(
             tmp_seq += (len(tmp_cseq) - len(tmp_seq)) * "."
         if len(tmp_cseq) < len(tmp_seq):
             tmp_cseq += (len(tmp_seq) - len(tmp_cseq)) * "."
+        # With no base opposite another there is no duplex, and trimming the
+        # ends below would leave nothing to take the initiation from.
+        if not any(a != "." and b != "." for a, b in zip(tmp_seq, tmp_cseq)):
+            raise ValueError(
+                f"seq and c_seq do not overlap at shift={shift}, so there is "
+                "no duplex to melt"
+            )
         # Remove 'over-dangling' ends
         while tmp_seq.startswith("..") or tmp_cseq.startswith(".."):
             tmp_seq = tmp_seq[1:]
@@ -1024,6 +1034,10 @@ def Tm_NN(
 
     # Now everything 'unusual' at the ends is handled and removed and we can
     # look at the initiation.
+    # The initiation belongs to the paired duplex that is left, tmp_seq, not
+    # to seq: a mismatched or unpaired end base is no terminal base pair and
+    # has had its own term from tmm_table or de_table. Using seq made Tm
+    # depend on which strand was passed (biopython/biopython#1277).
     # One or several of the following initiation types may apply:
 
     # Type: General initiation value
@@ -1031,7 +1045,7 @@ def Tm_NN(
     delta_s += nn_table["init"][d_s]
 
     # Type: Duplex with no (allA/T) or at least one (oneG/C) GC pair
-    if SeqUtils.gc_fraction(seq, "ignore") == 0:
+    if SeqUtils.gc_fraction(tmp_seq, "ignore") == 0:
         delta_h += nn_table["init_allA/T"][d_h]
         delta_s += nn_table["init_allA/T"][d_s]
     else:
@@ -1039,15 +1053,15 @@ def Tm_NN(
         delta_s += nn_table["init_oneG/C"][d_s]
 
     # Type: Penalty if 5' end is T
-    if seq.startswith("T"):
+    if tmp_seq.startswith("T"):
         delta_h += nn_table["init_5T/A"][d_h]
         delta_s += nn_table["init_5T/A"][d_s]
-    if seq.endswith("A"):
+    if tmp_seq.endswith("A"):
         delta_h += nn_table["init_5T/A"][d_h]
         delta_s += nn_table["init_5T/A"][d_s]
 
     # Type: Different values for G/C or A/T terminal basepairs
-    ends = seq[0] + seq[-1]
+    ends = tmp_seq[0] + tmp_seq[-1]
     AT = ends.count("A") + ends.count("T")
     GC = ends.count("G") + ends.count("C")
     delta_h += nn_table["init_A/T"][d_h] * AT

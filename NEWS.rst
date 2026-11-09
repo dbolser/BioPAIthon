@@ -55,6 +55,58 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.MeltingTemp.Tm_NN`` no longer charges a terminal mismatch, or a
+dangling end on ``seq``, as if it were a terminal base pair. Such an end base
+has its own term from ``tmm_table`` or ``de_table`` and is then set aside, but
+the initiation terms (A/T or G/C terminal pair, 5' T and 3' A penalties, and
+whether the duplex is all A/T) were still read from the whole of ``seq``. So
+the same duplex gave a different melting temperature depending on which strand
+was passed as ``seq``. For example, with
+``nn_table=DNA_NN4, dnac1=250, dnac2=0, saltcorr=0``,
+``Tm_NN("AGCGCGCGCA", c_seq="CCGCGCGCGT")`` gave 64.23 °C and the same duplex
+read from its other strand, ``Tm_NN("TGCGCGCGCC", c_seq="ACGCGCGCGA")``, gave
+63.69 °C; both now give 63.69 °C. The initiation now comes from the base pairs
+that close the duplex. That is the reference state of the default dangling
+end table: Bommarito, Peyret and SantaLucia (2000), Nucleic Acids Research
+28:1929-1934, https://doi.org/10.1093/nar/28.9.1929, derived its values by
+subtracting the core duplex. This is an upstream defect
+(biopython/biopython#1277, raised by Lars-Gustav Snipen; the strand
+dependence was shown by Junhui Li and Harald Niederstätter), also in
+Biopython 1.88.
+
+The two strands now agree with no salt correction or with methods 1 to 4, and
+with method 5 (the default) for a terminal mismatch. They can still disagree
+with method 5 for a dangling end on ``seq``, and with methods 6 and 7 for
+either, because ``salt_correction`` is unchanged and still takes the length
+(methods 5 and 7) and GC content (methods 6 and 7) of the whole of ``seq``.
+The misplaced initiation used to offset this in part, so the remaining
+difference can now be larger than before; with methods 6 and 7 it is larger
+on average for terminal mismatches. For example, with default settings,
+``Tm_NN("GGGGGGCCCCGGGGGGA", c_seq="CCCCCCGGGGCCCCCC")``, which has an
+unpaired 3' A, and the same duplex read from its other strand used to differ
+by 0.64 °C and now differ by 1.01 °C.
+
+This is a deliberate change of results, for calls whose ``c_seq`` leaves a
+terminal mismatch, or a dangling end on ``seq``. Fully paired duplexes
+(including every call with neither ``c_seq`` nor ``shift``) and dangling ends
+on ``c_seq`` give exactly the same values as before, as do ``DNA_NN2``,
+``RNA_NN1`` and ``R_DNA_NN1``, which have no initiation terms that depend on
+the ends. For 4000 random 10- to 30-mers melting at 30 °C or more, ``DNA_NN3``
+(the default) and ``DNA_NN4`` changed by up to 0.6 °C with an unpaired base at
+one end and 1.0 °C with one at each end, and ``RNA_NN2`` and ``RNA_NN3`` by up
+to 2.5 and 4.4 °C. Short duplexes that melt at lower temperatures change
+more: by up to 2.5 °C with ``DNA_NN3`` and ``DNA_NN4``, and 5.9 °C with
+``RNA_NN2``, in the same sample. ``DNA_NN1`` changes only when the unpaired
+end bases held all of the G and C in ``seq``, and then by more: with
+``nn_table=DNA_NN1, dnac1=250, dnac2=0, saltcorr=0``, a C·C mismatch on an
+otherwise all-A/T 16-mer goes from 36.30 to 33.25 °C.
+
+A ``seq`` and ``c_seq`` that do not overlap at the given ``shift`` now raise
+a ``ValueError`` whatever the value of ``strict``. With ``strict=False`` they
+used to give warnings and a meaningless value, as Biopython 1.88 still does,
+such as -402.09 °C for
+``Tm_NN("ACGTACGT", c_seq="TGCATGCA", shift=8, strict=False)``.
+
 ``DistanceTreeConstructor.upgma`` in ``Bio.Phylo.TreeConstruction`` now builds
 a UPGMA tree, as its name and docstring say. It used to build a WPGMA tree:
 after joining two clusters it took the plain mean of their distances to each
