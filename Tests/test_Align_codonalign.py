@@ -8766,8 +8766,9 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
             from scipy.linalg import expm
 
             dN, dS = calculate_dn_ds(pairwise_alignment, method="YN00")
-            self.assertAlmostEqual(dN, 0.0198, places=4)
-            self.assertAlmostEqual(dS, 0.0222, places=4)
+            # as PAML's yn00
+            self.assertAlmostEqual(dN, 0.0201, places=4)
+            self.assertAlmostEqual(dS, 0.0208, places=4)
 
             try:
                 # New in scipy v0.11
@@ -8899,6 +8900,29 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
                 ds_list.extend(i)
             for ds_cal, ds_corr in zip(ds_list, ds_correct):
                 self.assertAlmostEqual(ds_cal, ds_corr, places=4)
+            # YN00 method: the values are those of the yn00 program of PAML
+            # 4.10.10, run with weighting = 1 on each pair. yn00 prints four decimal
+            # places and stops iterating at a coarser tolerance, so they agree to
+            # within 1e-4. This raised "ValueError: math domain error".
+            dn_yn00 = [
+                [0.0201],
+                [0.5653, 0.5633],
+                [0.5554, 0.5443, 0.0389],
+                [0.5616, 0.5480, 0.0653, 0.0589],
+                [0.5733, 0.5591, 0.0718, 0.0712, 0.0513],
+            ]
+            ds_yn00 = [
+                [0.0208],
+                [4.9068, 4.9042],
+                [4.8692, 4.8612, 0.6970],
+                [4.9004, 4.8908, 0.6427, 0.8678],
+                [4.9226, 4.9138, 0.9766, 2.6007, 0.8877],
+            ]
+            dn, ds = calculate_dn_ds_matrix(alignment, method="YN00")
+            for i, (dn_row, ds_row) in enumerate(zip(dn_yn00, ds_yn00), 1):
+                for j, (dn_corr, ds_corr) in enumerate(zip(dn_row, ds_row)):
+                    self.assertAlmostEqual(dn[i, j], dn_corr, delta=1e-4)
+                    self.assertAlmostEqual(ds[i, j], ds_corr, delta=1e-4)
         finally:
             nucleotide_records.close()
 

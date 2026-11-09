@@ -10,13 +10,17 @@ The numeric expectations here are worked out by hand from Nei and Gojobori
 
 import math
 import unittest
+import warnings
 
+from Bio import BiopythonWarning
 from Bio.Align import Alignment
 from Bio.Align.analysis import _count_diff_NG86
 from Bio.Align.analysis import _count_replacement
 from Bio.Align.analysis import _count_site_NG86
+from Bio.Align.analysis import _distance_f84
 from Bio.Align.analysis import _G_test
 from Bio.Align.analysis import _get_codon2codon_matrix
+from Bio.Align.analysis import _get_kappa_YN00
 from Bio.Align.analysis import _get_pi
 from Bio.Align.analysis import _get_Q
 from Bio.Align.analysis import _q
@@ -25,6 +29,11 @@ from Bio.Align.analysis import mktest
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+
+try:
+    import scipy
+except ImportError:
+    scipy = None
 
 CODON_TABLE = CodonTable.generic_by_id[1]
 
@@ -215,6 +224,241 @@ class NG86Tests(unittest.TestCase):
             for other in (reference, one, two)
         ]
         self.assertEqual(distances, sorted(distances))
+
+
+class DistanceF84Tests(unittest.TestCase):
+    """The F84 distance, with PAML's fallbacks to K80 and to JC69."""
+
+    equal = {"T": 0.25, "C": 0.25, "A": 0.25, "G": 0.25}
+
+    def k80(self, P, Q):
+        """Return kappa and the distance under K80 (Kimura 1980)."""
+        a = -math.log(1 - 2 * P - Q)
+        b = -math.log(1 - 2 * Q)
+        return (a / 2 - b / 4) / (b / 4), a / 2 + b / 4
+
+    def test_equal_base_frequencies_reduce_to_k80(self):
+        """With equal base frequencies F84 is K80."""
+        kappa, t = _distance_f84(100, 0.1, 0.05, self.equal)
+        expected_kappa, expected_t = self.k80(0.1, 0.05)
+        self.assertAlmostEqual(kappa, expected_kappa, places=12)
+        self.assertAlmostEqual(t, expected_t, places=12)
+
+    def test_k80_when_f84_fails(self):
+        """With no pyrimidines F84 is undefined, so K80 is used."""
+        pi = {"T": 0, "C": 0, "A": 0.5, "G": 0.5}
+        self.assertEqual(_distance_f84(100, 0.1, 0.05, pi), self.k80(0.1, 0.05))
+
+    def test_jc69_when_there_are_no_transversions(self):
+        """Without transversions neither F84 nor K80 gives a kappa."""
+        kappa, t = _distance_f84(100, 0.1, 0, self.equal)
+        self.assertEqual(kappa, -1)
+        self.assertAlmostEqual(t, -0.75 * math.log(1 - 4 / 3 * 0.1), places=12)
+        # yn00.c counts a proportion below 1e-10 as no transversions
+        kappa, t = _distance_f84(100, 0.1, 1e-11, self.equal)
+        self.assertEqual(kappa, -1)
+        self.assertAlmostEqual(t, -0.75 * math.log(1 - 4 / 3 * 0.1), places=10)
+
+    def test_maximum_kappa(self):
+        """Kappa is at most 999."""
+        kappa, t = _distance_f84(100, 0.1, 1e-8, self.equal)
+        self.assertEqual(kappa, 999)
+
+    def test_no_differences(self):
+        """No differences means a distance of zero, and not of -0.0."""
+        kappa, t = _distance_f84(100, 0, 0, self.equal)
+        self.assertEqual(kappa, -1)
+        self.assertEqual(t, 0)
+        self.assertEqual(math.copysign(1, t), 1)
+
+    def test_saturated(self):
+        """Beyond what JC69 can correct, the distance is 3/4 log(n), at most 99."""
+        # JC69 needs P + Q < 3/4
+        kappa, t = _distance_f84(10, 0.8, 0, self.equal)
+        self.assertEqual(kappa, -1)
+        self.assertAlmostEqual(t, 0.75 * math.log(10), places=12)
+        # yn00.c would give a distance of zero or less for one site or fewer
+        self.assertEqual(_distance_f84(0.5, 0.8, 0, self.equal), (-1, 99))
+        # 3/4 log(n) is more than 99 for n above about 2e57
+        self.assertEqual(_distance_f84(1e60, 0.8, 0, self.equal), (-1, 99))
+        # more differences than sites
+        self.assertEqual(_distance_f84(0.5, 0.6, 0.6, self.equal), (1, 99))
+
+
+@unittest.skipIf(scipy is None, "the YN00 method needs scipy")
+class YN00Tests(unittest.TestCase):
+    """The Yang and Nielsen (2000) method.
+
+    Unless a test says otherwise, the expected values are those of the yn00
+    program of PAML 4.10.10, run with weighting = 1, to the four decimal
+    places it prints. yn00 gives the same values with the two sequences in
+    either order.
+    """
+
+    def yn00(self, first, second, codon_table=CODON_TABLE):
+        """Return dN and dS by YN00 with the sequences both ways round.
+
+        Fails on any warning, and if the order of the sequences matters.
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            dn, ds = calculate_dn_ds(
+                alignment(first, second), method="YN00", codon_table=codon_table
+            )
+            reverse = calculate_dn_ds(
+                alignment(second, first), method="YN00", codon_table=codon_table
+            )
+        self.assertAlmostEqual(reverse[0], dn, places=12)
+        self.assertAlmostEqual(reverse[1], ds, places=12)
+        return dn, ds
+
+    def test_tutorial_alignment(self):
+        """The E. coli and Shigella codon alignment of the Tutorial.
+
+        This returned None. The base frequencies at the 0-fold sites were not
+        all normalised, giving a kappa of -35, and every path between TAT and
+        ATC went through a codon absent from both sequences, which had a
+        frequency of zero, so its probability was 0/0.
+        """
+        dn, ds = self.yn00(
+            "TCCGACGTTCTTAGGGGGTATCTTGACTACGACGCCAAGAAAGAGCGT",
+            "TCCGACGTTCTTAGGGGTATCTTTGACTACGACGCCAAGAAAGAGCGT",
+        )
+        self.assertAlmostEqual(dn, 0.0785, places=4)
+        self.assertAlmostEqual(ds, 0.3384, places=4)
+
+    def test_issue_1611(self):
+        """The pair from biopython/biopython#1611 raised ZeroDivisionError."""
+        dn, ds = self.yn00("ATGGGTACCGTGTTGTAT", "ATGGCTACCGTGTTAGTA")
+        self.assertAlmostEqual(dn, 0.3123, places=4)
+        self.assertAlmostEqual(ds, 0.5449, places=4)
+
+    def test_order_of_the_sequences(self):
+        """Paths with two or three differences are counted step by step.
+
+        The step to the second sequence's codon was counted as a second copy
+        of the first step, and on three-difference paths it was classed at
+        the position of the middle step, so the result depended on which
+        sequence came first.
+        """
+        dn, ds = self.yn00("GATGATCGTACGGCC", "GTTTATGGTGTTACT")
+        self.assertAlmostEqual(dn, 0.8158, places=4)
+        self.assertAlmostEqual(ds, 0.6176, places=4)
+
+    def test_identical_sequences(self):
+        """Identical sequences raised "dictionary changed size"."""
+        dn, ds = self.yn00("ATGAAATTTGGG", "ATGAAATTTGGG")
+        self.assertEqual((dn, ds), (0, 0))
+        self.assertEqual((math.copysign(1, dn), math.copysign(1, ds)), (1, 1))
+
+    def test_synonymous_differences_only(self):
+        """Only synonymous differences: dN is zero."""
+        dn, ds = self.yn00("ATGAAATTTGGGCTG", "ATGAAGTTCGGACTG")
+        self.assertEqual(dn, 0)
+        self.assertAlmostEqual(ds, 2.3933, places=4)
+
+    def test_nonsynonymous_differences_only(self):
+        """Only nonsynonymous differences: dS is zero.
+
+        dN was 0.3236 when the base frequencies at the nonsynonymous sites
+        counted the base of each neighbouring codon, not the codon's own.
+        """
+        dn, ds = self.yn00("ATGAAATTTGGG", "ATGAACTTAGGG")
+        self.assertAlmostEqual(dn, 0.3255, places=4)
+        self.assertEqual(ds, 0)
+
+    def test_every_path_through_a_stop_codon(self):
+        """Where every path passes through a stop codon, count as yn00 does.
+
+        In the vertebrate mitochondrial code AGA, AGG and TAG are stop
+        codons, so every path from TGG to AAA passes through one. yn00
+        counts the three differences as nonsynonymous, half a transition
+        and two and a half transversions.
+        """
+        table = CodonTable.generic_by_id[2]
+        dn, ds = self.yn00("ATGTGGCTGAAACCC", "ATGAAACTGAAACCC", table)
+        self.assertAlmostEqual(dn, 0.5398, places=4)
+        self.assertEqual(ds, 0)
+
+    def test_codons_that_are_both_stop_and_sense(self):
+        """A codon that is both a stop codon and a sense codon is sense.
+
+        In tables 27, 28 and 31 some codons are stop codons or code for an
+        amino acid, depending on context. As a stop codon in the substitution
+        matrix but a sense codon in the sequences, such a codon gave nan with
+        the sequences one way round, and with them the other way round a
+        synonymous change to it counted as nonsynonymous. yn00 has none of
+        these tables, so this checks only that dN is 0 either way round.
+        """
+        for table_id, first, second in (
+            (27, "ATGAAATTTGGGCTGCCCTGA", "ATGAAGTTTGGGCTGCCCTGG"),  # TGA is W
+            (28, "ATGAAATTTGGGCTGCCCTAA", "ATGAAGTTTGGGCTGCCCCAA"),  # TAA is Q
+            (31, "ATGAAATTTGGGCTGCCCTAG", "ATGAAGTTTGGGCTGCCCGAG"),  # TAG is E
+        ):
+            with self.subTest(table_id=table_id):
+                table = CodonTable.generic_by_id[table_id]
+                dn, ds = self.yn00(first, second, table)
+                self.assertEqual(dn, 0)
+                self.assertGreater(ds, 0)
+                self.assertLess(ds, 99)
+
+    def test_kappa_where_k80_fails(self):
+        """A class of sites whose K80 distance is undefined gives no kappa.
+
+        At the three fourfold degenerate third positions here, 1 - 2P - Q is
+        exactly 0, so only the non-degenerate sites give an estimate. P and
+        Q have to be computed as yn00 computes them: as differences over
+        sites, 1 - 2P - Q rounds to just above 0, and kappa comes out at 13.3.
+        """
+        codons1 = "TCT AGC AAG CTT GGG CAA AAG GTT TCA CAC".split()
+        codons2 = "TCC GGT AAG GTT ACG CAG GGC GTT TCT CAC".split()
+        kappa = _get_kappa_YN00(codons1, codons2, CODON_TABLE)
+        self.assertAlmostEqual(kappa, 5.1727, places=4)
+
+    def test_one_sequence_without_synonymous_sites(self):
+        """The base frequencies at synonymous sites come from the other.
+
+        Methionine and tryptophan have one codon each, so ATG and TGG have no
+        synonymous sites. yn00 averages the base frequencies at the
+        synonymous sites of the two sequences, and as those of the second
+        are 0/0, it gives nan. These values are this implementation's own.
+        """
+        dn, ds = self.yn00("TGCCTGCGTATAAGG", "TGGATGTGGATGTGG")
+        self.assertAlmostEqual(dn, 0.8334, places=4)
+        self.assertAlmostEqual(ds, 0.0634, places=4)
+
+    def test_no_synonymous_or_no_nonsynonymous_sites(self):
+        """Without both kinds of sites, dN and dS are nan, with a warning.
+
+        These raised ZeroDivisionError. yn00 gives nan for omega and for at
+        least one of dN and dS.
+        """
+        for first, second in (
+            ("ATGTGGATG", "ATGTGGTGG"),  # no synonymous sites
+            ("CAGCAGCAGCAG", "CAGCAACAGCAG"),  # no nonsynonymous sites
+            ("AAAAAAAAA", "AAAAAAAAA"),  # no sites
+        ):
+            with self.subTest(first=first, second=second):
+                pair = alignment(first, second)
+                with self.assertWarnsRegex(
+                    BiopythonWarning, "needs synonymous and nonsynonymous sites"
+                ):
+                    dn, ds = calculate_dn_ds(pair, method="YN00")
+                self.assertTrue(math.isnan(dn))
+                self.assertTrue(math.isnan(ds))
+
+    def test_saturated_and_not_converging(self):
+        """A saturated pair gives yn00's maximum dS, and a warning.
+
+        The estimates of dN alternate between 1.6102 and 2.8260, as they do
+        in yn00, and the last ones are returned, as yn00 returns them, with a
+        warning.
+        """
+        pair = alignment("TTTTTTTTT", "CCACCACCA")
+        with self.assertWarnsRegex(BiopythonWarning, "did not converge"):
+            dn, ds = calculate_dn_ds(pair, method="YN00")
+        self.assertAlmostEqual(dn, 2.8260, places=4)
+        self.assertEqual(ds, 99)
 
 
 class GetPiTests(unittest.TestCase):
