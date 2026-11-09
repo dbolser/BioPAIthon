@@ -55,6 +55,28 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.ProtParam.ProteinAnalysis.protein_scale`` now works with a
+window of 1, and gives the right profile for an even window. A window of 1
+raised ``ZeroDivisionError``, and now gives the scale value of each residue.
+An even window has no central residue, but the later of its two middle
+residues was counted a second time, as if it were the centre, so the profile
+was not the weighted mean of the window and depended on the direction of the
+sequence. Hopp and Woods' hydrophilicity scale, ``ProtParamData.hw``, is
+averaged over six residues: ``WWWKKK`` gave 0.26 and ``KKKWWW`` gave -0.66,
+where both now give -0.20, the mean of their six values, and along the
+152-residue protein in the test suite the old profile was out by up to 0.56.
+An even window now counts each residue once, with weights rising from
+``edge`` at both ends towards 1 at the point between the two middle residues,
+such as 0.4, 0.8, 0.8, 0.4 for a window of 4 with an edge of 0.4, so with
+the default edge of 1 it gives the plain mean. Every profile computed with
+an even window changes; odd windows give exactly the same values as before.
+A window of 2 with an edge of 0, which gives both residues a weight of 0,
+now raises ``ValueError``, where it returned the second residue's value, and
+a window of 0 raises the same ``ValueError`` rather than ``IndexError``. This
+is an upstream defect (biopython/biopython#5340, reported by Ziqi (Adam)
+Chen), also in Biopython 1.88 and still in upstream's development code. The
+fix is Angus Barlow's, from the unmerged biopython/biopython#5363.
+
 The ``YN00`` method of ``calculate_dn_ds`` and ``calculate_dn_ds_matrix`` in
 ``Bio.Align.analysis``, which ``Bio.codonalign`` also uses for ``cal_dn_ds``
 and ``get_dn_ds_matrix``, now gives the estimates of ``yn00``, the
