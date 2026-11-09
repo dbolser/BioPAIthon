@@ -329,7 +329,10 @@ of those checks vanishes, so a malformed file produces silently wrong output
 rather than an error — the same defect `IMPROVEMENTS.md` §0.8 describes across
 343 sites. Four commits, all taken, tests included.
 
-Approved by mdehoon on 2026-03-18 and peterjc on 2026-04-27 ("The changes look
-good, thank you"). The requested `assertRaises` tests were added on 2026-05-01.
-The thread then stopped at "is something funny about your recent comments - are
-you using a coding agent LLM AI tool?" and has not moved since.
+Approved by mdehoon on 2026-03-18. peterjc's formal review the same day
+requested changes (run black, follow the pull request template); on 2026-04-27
+he commented "The changes look good, thank you" and asked for `assertRaises`
+tests, which were added on 2026-05-01. The same day he asked "are you using a
+coding agent LLM AI tool?", and on 2026-09-01 asked again, noting that any AI
+use should at least be declared. That question has not been answered, and the
+pull request is still open.
