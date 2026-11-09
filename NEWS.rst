@@ -55,6 +55,25 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``Bio.PDB.internal_coords`` string keys that name an atom of the previous
+or next residue, such as ``"N:CA:C:1N"``, ``"-1C:N:CA:C"``,
+``"-1CA:-1C:N:CA"`` and ``"0C:1N"``, now find that atom when it has
+alternative locations or an occupancy other than 1. They used to miss it, so
+``IC_Residue.get_angle`` and ``pick_angle`` returned ``None`` where the
+documented equivalents ``"psi"``, ``"phi"`` and ``"omg"`` gave a value,
+``get_length("0C:1N")`` returned ``None`` for a peptide bond that has a
+length, and ``set_angle``, ``bond_rotate``, ``bond_set`` and ``set_length``
+with such a key silently changed nothing. For example, in the 3JQH test
+structure, residue 14 of chain A has a psi of -49.28 degrees but
+``get_angle("N:CA:C:1N")`` gave ``None``, and ``set_angle("-1C:N:CA:C", ...)``
+on residue 2 left its phi unchanged. A string key now uses the same
+alternative location of the atom as ``"psi"``, ``"phi"`` and ``"omg"`` do; to
+reach the others, pass a tuple of ``AtomKey`` objects as before. Keys whose
+atoms all have no alternative locations and an occupancy of 1, and everything
+under ``IC_Residue.no_altloc = True``, give the same results as before. This
+is an upstream defect (biopython/biopython#5113, reported by Håkon and
+explained there by Rob Miller), also in Biopython 1.88.
+
 The GenBank, EMBL and IMGT parsers no longer insert a space where an
 ``/anticodon`` or ``/transl_except`` value is wrapped onto a second line. The
 NCBI wraps a long ``/anticodon`` after a comma, so a tRNA on the reverse
