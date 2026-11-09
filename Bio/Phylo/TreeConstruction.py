@@ -512,7 +512,8 @@ class DistanceCalculator:
         score = 0
         max_score = 0
         if self.scoring_matrix is None:
-            # Score by character identity, not skipping any special letters
+            # Score by character identity over the columns where neither
+            # letter is in skip_letters (by default, none are skipped)
             for l1, l2 in zip(seq1, seq2):
                 if l1 in self.skip_letters or l2 in self.skip_letters:
                     continue
