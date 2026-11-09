@@ -85,7 +85,13 @@ atoms in two chains raises where it used to be written. Left as before: a
 81 columns, rather than raising.
 
 JoaoRodrigues approved the pull request on 2026-11-06 and asked whether it
-was written with AI; there is no reply on the thread as of 2026-11-09.
+was written with AI; there is no reply on the thread as of 2026-11-09. His
+one inline comment, on the `preserve_atom_numbering` docstring, reads: "This
+will cause the next atom after the TER to have the same atom number as the
+TER. I think this is OK, weird, but OK." That happens with
+`preserve_atom_numbering=True` when the stored serials leave no room for the
+`TER`, as in the fixtures above; it is what the second correction documents.
+The default numbering no longer does it.
 
 **Related, not taken here:**
 [#5381](https://github.com/biopython/biopython/pull/5381) by Shubhodeep
