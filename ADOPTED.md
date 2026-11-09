@@ -47,11 +47,12 @@ Fixes upstream issue
 [#4644](https://github.com/biopython/biopython/issues/4644). When a PDB
 record's element column is missing or not a known element,
 `Atom._assign_element` guesses the element from the atom name. A name
-starting with a letter took the element of that letter only if all its
-characters after the second were digits (`HE21`); any other was looked up
-whole as an element symbol. So four character hydrogen names such as `HNZ1`
-and `HNE2`, which some force fields write for lysine, came out as `X`. The fix
-tests only the last character, since no element symbol ends in a digit.
+starting with a letter took the element of that letter only if it had more
+than two characters and all of those after the second were digits (`HE21`);
+any other was looked up whole as an element symbol. So four character
+hydrogen names such as `HNZ1` and `HNE2`, which some force fields write for
+lysine, came out as `X`. The fix tests only the last character, since no
+element symbol ends in a digit.
 
 **The single commit taken** (`bb836bd8da`, authored as "berth"), with its
 `NEWS.rst` paragraph moved out of upstream's in-progress Biopython 1.89
@@ -64,16 +65,18 @@ being listed already or not wishing to be, so is not added.
 
 One correction sits on top, in `NEWS.rst` and the tests. The pull request
 describes only the hydrogen case, and says no guessed element changes for any
-file under `Tests/PDB`. That holds for the files as parsed, since every
-fixture has its element column. With the element ignored, 25 of the 305
-distinct fixture names change, all unpadded mmCIF names such as `C1`, which go
-from `X` to the right element. Some exotic names go from `X` to a
-first-letter guess: `CLA1` carbon, `FEB2` fluorine, `BRC1` boron. The old rule
-already guessed that way for `CL12`, but it is not strictly an improvement. No
-name that gave an element before gives a different one or `X` now, checked
-over all 1,823,580 names of one to four characters from A–Z and 0–9, padded
-and unpadded. The fork's NEWS paragraph says so, and a new test pins the
-unpadded case.
+file under `Tests/PDB`. That holds for the files as parsed. Only atoms whose
+element column is missing or holds something that is not an element, such as
+`X`, are guessed at all; in the fixtures that is four atoms, in
+`a_structure.pdb` and `occupancy.pdb`, whose `CA` and `N` names give the same
+element either way. With the element ignored, 25 of the 305 distinct fixture
+names change, all unpadded mmCIF names such as `C1`, which go from `X` to the
+right element. Some exotic names go from `X` to a first-letter guess: `CLA1`
+carbon, `FEB2` fluorine, `BRC1` boron. The old rule already guessed that way
+for `CL12`, but it is not strictly an improvement. No name that gave an element
+before gives a different one or `X` now, checked over all 1,823,580 names of
+one to four characters from A–Z and 0–9, padded and unpadded. The fork's NEWS
+paragraph says so, and a new test pins the unpadded case.
 
 ### [#4390](https://github.com/biopython/biopython/pull/4390) — Thomas Holder
 
