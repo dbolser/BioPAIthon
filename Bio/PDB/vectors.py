@@ -683,7 +683,10 @@ def multi_coord_space(a3: np.ndarray, dLen: int, rev: bool = False) -> np.ndarra
     # get spherical coords of translated a2 (p)
     rxy = np.linalg.norm(p[:, :2], axis=1)
     azimuth = np.arctan2(p[:, 1], p[:, 0])
-    polar_angle = np.arctan2(rxy, p[:, 2])
+    # Adding 0.0 turns a z of -0.0 into +0.0. Where p has zero length, as
+    # when a2 sits on a1, the polar angle is then 0, as get_spherical_coordinates
+    # gives, rather than pi.
+    polar_angle = np.arctan2(rxy, p[:, 2] + 0.0)
 
     # build rz rotation matrix: translated a2 -azimuth around Z
     # (enables next step rotating around Y to align with Z)
