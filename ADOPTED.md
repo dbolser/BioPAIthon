@@ -48,31 +48,37 @@ Fixes upstream issue
 `DistanceCalculator` with the `identity` model counted matches only over the
 columns where neither letter is in `skip_letters`, but divided by
 `len(seq1)`, every column. So with an explicit `skip_letters` each skipped
-column made the distance larger: in a `MultipleSeqAlignment`, identical rows
-`AC--GT` were 0.333 apart, and `AC--GT` against `AC--GA` gave 0.5 where `ACGT`
-against `ACGA` gives 0.25. The scoring-matrix branch already left skipped
-columns out of its total. The fix counts the total over the same columns as
-the matches. `skip_letters` came in with commit `f25c05203` in 2017, for
-upstream issue [#491](https://github.com/biopython/biopython/issues/491), so
-that `identity` could skip gaps as the other models do; that commit rewrote
-the match count and left the total alone, so the mismatch is an oversight,
-not a choice. The default `identity` model skips
-nothing and gives the same numbers as before.
+column made the distance larger: in an alignment of the rows `AC--GT`,
+`AC--GT` and `ACTTGT`, every pair was 0.333 apart rather than 0, with either
+`MultipleSeqAlignment` or `Bio.Align.Alignment`, and `AC--GT` against `AC--GA`
+gave 0.5 where `ACGT` against `ACGA` gives 0.25. An `Alignment` was spared
+only the columns that are gaps in every row, which `Align.read` drops. The
+scoring-matrix branch already left skipped columns out of its total. The fix
+counts the total over the same columns as the matches. `skip_letters` came in
+with commit `f25c05203` in 2017, for upstream issue
+[#491](https://github.com/biopython/biopython/issues/491), so that `identity`
+could skip gaps as the other models do; that commit rewrote the match count
+and left the total alone, so the mismatch is an oversight, not a choice. The
+default `identity` model skips nothing and gives the same numbers as before.
 
 **Both commits taken**: `4e894b440b` (the fix, its test, and the author's
 line in `CONTRIB.rst`) and `69921cb009` (that line moved into alphabetical
-order). The first conflicted only in `NEWS.rst`. Its hunk was a contributor
-list for upstream's in-progress Biopython 1.89 section, which in this tree is
-preserved upstream history, so the conflict was resolved by leaving that
-section as it was, as for #5391; the fork's own section has a new paragraph
-instead. That hunk is all that was left behind. There was no review
-discussion. The commit message credits Devin, an AI tool.
+order). The adoption of #5363 had already put the same line in the same place,
+so together the two leave `CONTRIB.rst` unchanged. The first conflicted only
+in `NEWS.rst`. Its hunk was a contributor list for upstream's in-progress
+Biopython 1.89 section, which in this tree is preserved upstream history, so
+the conflict was resolved by leaving that section as it was, as for #5391; the
+fork's own section has a new paragraph instead. That hunk is all that was left
+behind. There was no review discussion. The commit message credits Devin, an
+AI tool.
 
-One correction sits on top. The pull request's test uses identical gapped
-rows, and `Align.read` drops the columns that are gaps in every row, so it
-never exercised skipping with a `Bio.Align.Alignment`, which was affected
-too: `AC--GT` against `ACTTGT` gave 0.333 with either kind of alignment. A
-new test checks that pair and `AC--GA` against `ACTTGT` with both. With only
+One correction sits on top. The pull request's test reads its alignments only
+with `AlignIO`, so it never passes a `Bio.Align.Alignment`, which was affected
+too: `AC--GT` against `ACTTGT` gave 0.333 with either kind of alignment. Its
+identical gapped rows would not help there, because `Align.read` drops the
+columns that are gaps in every row, which is why #5401's `Alignment` test
+passed without the fix (below). A new test checks `AC--GT` and `AC--GA`
+against `ACTTGT`, each in both kinds of alignment. With only
 `TreeConstruction.py` reverted, it and the pull request's test fail, and
 nothing else in `test_TreeConstruction.py` or `test_Consensus.py` does. The
 comment above the identity loop, which said no letters were skipped and had
