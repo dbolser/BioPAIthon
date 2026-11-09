@@ -279,13 +279,15 @@ class VectorTests(unittest.TestCase):
             self.assertTrue(np.array_equal(rslt, test_set[m]))
 
     def test_multi_coord_space_zero_radius(self):
-        """Confirm a hedron whose second atom sits on its first is handled.
+        """Confirm a hedron whose third atom sits on its second is handled.
 
-        The polar angle comes from arccos(z / r), which is undefined when
-        r is zero.  get_spherical_coordinates, the scalar sibling of this
-        function, returns (0, 0, 0) for that case, so the polar angle is
+        The polar angle of the a1->a2 vector has no meaning when the vector
+        has zero length.  get_spherical_coordinates, the scalar sibling of
+        this function, returns (0, 0, 0) for that case, so the polar angle is
         zero and the transform's rotation must leave the Z axis alone --
-        there is no direction to rotate towards.
+        there is no direction to rotate towards.  That must hold whatever the
+        sign of the zero: a z of -0.0, as read from "-0.000", minus a z of
+        0.0 is -0.0, and arctan2(0, -0.0) is pi.
         """
         point_set = np.array(
             [
@@ -293,19 +295,23 @@ class VectorTests(unittest.TestCase):
                 [[2.0, 0.0, 2.0, 1.0], [0.0, 0.0, 0.0, 1.0], [0.0, 0.0, 2.0, 1.0]],
                 # a2 exactly on a1, so the a1->a2 vector has zero length
                 [[1.0, 0.0, 0.0, 1.0], [3.0, 4.0, 5.0, 1.0], [3.0, 4.0, 5.0, 1.0]],
+                # the same, but with a z difference of -0.0
+                [[1.0, 0.0, 0.0, 1.0], [3.0, 4.0, 0.0, 1.0], [3.0, 4.0, -0.0, 1.0]],
             ]
         )
-        forward, reverse = multi_coord_space(point_set, 2, True)
+        forward, reverse = multi_coord_space(point_set, 3, True)
         self.assertTrue(np.isfinite(forward).all())
 
-        # The rotation about Z that remains must fix the Z axis: its third
-        # row and column are those of the identity.
-        rotation = forward[1][:3, :3]
-        self.assertTrue(np.allclose(rotation[2], [0.0, 0.0, 1.0]))
-        self.assertTrue(np.allclose(rotation[:, 2], [0.0, 0.0, 1.0]))
+        for i in (1, 2):
+            with self.subTest(hedron=i):
+                # The rotation about Z that remains must fix the Z axis: its
+                # third row and column are those of the identity.
+                rotation = forward[i][:3, :3]
+                self.assertTrue(np.allclose(rotation[2], [0.0, 0.0, 1.0]))
+                self.assertTrue(np.allclose(rotation[:, 2], [0.0, 0.0, 1.0]))
 
-        # And the pair must still compose to the identity.
-        self.assertTrue(np.allclose(reverse[1].dot(forward[1]), np.identity(4)))
+                # And the pair must still compose to the identity.
+                self.assertTrue(np.allclose(reverse[i].dot(forward[i]), np.identity(4)))
 
     def test_vector_to_axis(self):
         """Test vector_to_axis function for correctness"""
