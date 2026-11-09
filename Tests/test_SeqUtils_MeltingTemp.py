@@ -146,7 +146,6 @@ def reference_tm_nn(
     c_seq=None,
     nn_table=None,
     imm_table=None,
-    init_seq=None,
     extra=(0.0, 0.0),
     dnac1=25,
     dnac2=25,
@@ -159,15 +158,17 @@ def reference_tm_nn(
     dnac1 for a self-complementary one, which additionally carries the
     symmetry term of the table.  ``extra`` allows the caller to add the
     dangling end or terminal mismatch contributions of a duplex whose
-    stacking region is shorter than the full oligonucleotide.
+    stacking region is shorter than the full oligonucleotide.  The
+    initiation is that of ``seq``, the paired core duplex: Bommarito et al.
+    (2000), Nucleic Acids Res 28: 1929-1934, derived the dangling end values
+    by subtracting the core duplex from the duplex with dangling ends, so a
+    base outside the core carries no initiation term of its own.
     """
     if nn_table is None:
         nn_table = mt.DNA_NN3
     if c_seq is None:
         c_seq = str(Seq(seq).complement())
-    if init_seq is None:
-        init_seq = seq
-    delta_h, delta_s = reference_initiation(init_seq, nn_table)
+    delta_h, delta_s = reference_initiation(seq, nn_table)
     stack_h, stack_s = reference_stacking(seq, c_seq, nn_table, imm_table)
     delta_h += stack_h + extra[0]
     delta_s += stack_s + extra[1]
@@ -664,7 +665,6 @@ class TmNNTests(unittest.TestCase):
         expected = reference_tm_nn(
             seq[1:],
             c_seq[1:],
-            init_seq=seq,
             extra=mt.DNA_TMM1["AA/TA"],
         )
         self.assertAlmostEqual(
@@ -678,7 +678,6 @@ class TmNNTests(unittest.TestCase):
         expected = reference_tm_nn(
             seq[:-1],
             c_seq[:-1],
-            init_seq=seq,
             extra=mt.DNA_TMM1["AA/TA"],
         )
         self.assertAlmostEqual(
@@ -693,7 +692,7 @@ class TmNNTests(unittest.TestCase):
             mt.DNA_DE1[".A/GT"][0] + mt.DNA_DE1["CT/.A"][0],
             mt.DNA_DE1[".A/GT"][1] + mt.DNA_DE1["CT/.A"][1],
         )
-        expected = reference_tm_nn(seq, "TGCAACGT", init_seq=seq, extra=extra)
+        expected = reference_tm_nn(seq, "TGCAACGT", extra=extra)
         self.assertAlmostEqual(
             mt.Tm_NN(seq, c_seq=c_seq, shift=1, saltcorr=0), expected, places=8
         )
@@ -706,7 +705,7 @@ class TmNNTests(unittest.TestCase):
             mt.DNA_DE1["GA/.T"][0] + mt.DNA_DE1[".T/CA"][0],
             mt.DNA_DE1["GA/.T"][1] + mt.DNA_DE1[".T/CA"][1],
         )
-        expected = reference_tm_nn("ACGTTGCA", "TGCAACGT", init_seq=seq, extra=extra)
+        expected = reference_tm_nn("ACGTTGCA", "TGCAACGT", extra=extra)
         self.assertAlmostEqual(
             mt.Tm_NN(seq, c_seq=c_seq, shift=-1, saltcorr=0), expected, places=8
         )
@@ -715,9 +714,7 @@ class TmNNTests(unittest.TestCase):
         """A template shorter at the 3' end leaves one dangling base."""
         seq = "ACGTTGCAAG"
         c_seq = "TGCAACGT"  # complement of seq[:8] only
-        expected = reference_tm_nn(
-            "ACGTTGCA", "TGCAACGT", init_seq=seq, extra=mt.DNA_DE1[".T/AA"]
-        )
+        expected = reference_tm_nn("ACGTTGCA", "TGCAACGT", extra=mt.DNA_DE1[".T/AA"])
         self.assertAlmostEqual(
             mt.Tm_NN(seq, c_seq=c_seq, saltcorr=0), expected, places=8
         )
@@ -726,12 +723,136 @@ class TmNNTests(unittest.TestCase):
         """Only one dangling base per end is kept."""
         seq = "ACGTTGCA"
         c_seq = "GT" + "TGCAACGT"  # two extra bases, of which one is dropped
-        expected = reference_tm_nn(
-            seq, "TGCAACGT", init_seq=seq, extra=mt.DNA_DE1[".A/TT"]
-        )
+        expected = reference_tm_nn(seq, "TGCAACGT", extra=mt.DNA_DE1[".A/TT"])
         self.assertAlmostEqual(
             mt.Tm_NN(seq, c_seq=c_seq, shift=2, saltcorr=0), expected, places=8
         )
+
+    # Duplexes whose seq strand has an end base that is not paired, as
+    # (seq, c_seq, shift, paired core of seq, of c_seq, the end's own term).
+    # See biopython/biopython#1277.
+    unpaired_ends = [
+        # A.C terminal mismatch at the 5' end of seq
+        (
+            "AGCGCGCGCA",
+            "CCGCGCGCGT",
+            0,
+            "GCGCGCGCA",
+            "CGCGCGCGT",
+            mt.DNA_TMM1["CC/GA"],
+        ),
+        # the same duplex read from its other strand, so at the 3' end
+        (
+            "TGCGCGCGCC",
+            "ACGCGCGCGA",
+            0,
+            "TGCGCGCGC",
+            "ACGCGCGCG",
+            mt.DNA_TMM1["CC/GA"],
+        ),
+        # a C.C mismatch holds the only G or C, so the core is all A/T
+        (
+            "CTTATATATATATATA",
+            "CAATATATATATATAT",
+            0,
+            "TTATATATATATATA",
+            "AATATATATATATAT",
+            mt.DNA_TMM1["AC/TC"],
+        ),
+        # a T.T mismatch puts a T at the 5' end of seq
+        (
+            "TCGCGCGCGC",
+            "TGCGCGCGCG",
+            0,
+            "CGCGCGCGC",
+            "GCGCGCGCG",
+            mt.DNA_TMM1["GT/CT"],
+        ),
+        # an unpaired A dangling from the 3' end of seq
+        (
+            "GGGGGGCCCCGGGGGGA",
+            "CCCCCCGGGGCCCCCC",
+            0,
+            "GGGGGGCCCCGGGGGG",
+            "CCCCCCGGGGCCCCCC",
+            mt.DNA_DE1[".C/AG"],
+        ),
+        # an unpaired T dangling from the 5' end of seq
+        (
+            "TGGGGGGCCCCGGGGGG",
+            "CCCCCCGGGGCCCCCC",
+            -1,
+            "GGGGGGCCCCGGGGGG",
+            "CCCCCCGGGGCCCCCC",
+            mt.DNA_DE1["TG/.C"],
+        ),
+    ]
+
+    # DNA_NN1 is the only table whose all-A/T initiation differs from the
+    # one-G/C one, and no table charges for a 5' T, so add a table that does.
+    unpaired_end_tables = {
+        "DNA_NN1": mt.DNA_NN1,
+        "DNA_NN3": mt.DNA_NN3,
+        "DNA_NN4": mt.DNA_NN4,
+        "5' T penalty": mt.make_table(
+            oldtable=mt.DNA_NN4, values={"init_5T/A": (0.4, 0.0)}
+        ),
+    }
+
+    def test_unpaired_ends_carry_no_initiation(self):
+        """The initiation is that of the paired core, not of seq's ends.
+
+        A terminal mismatch or dangling end has its own table entry, which
+        was measured against the core duplex.  Charging the initiation on
+        the unpaired base as well gave, with DNA_NN4, dnac1=250 and dnac2=0,
+        64.23 rather than 63.69 for the first duplex here and 88.44 rather
+        than 87.60 for the 3' dangling A; and with DNA_NN1 it gave 36.30
+        rather than 33.25 for the C.C mismatch.
+        """
+        for name, table in self.unpaired_end_tables.items():
+            for seq, c_seq, shift, core, c_core, extra in self.unpaired_ends:
+                with self.subTest(table=name, seq=seq, c_seq=c_seq):
+                    self.assertAlmostEqual(
+                        mt.Tm_NN(
+                            seq,
+                            c_seq=c_seq,
+                            shift=shift,
+                            nn_table=table,
+                            dnac1=250,
+                            dnac2=0,
+                            saltcorr=0,
+                        ),
+                        reference_tm_nn(
+                            core,
+                            c_core,
+                            nn_table=table,
+                            extra=extra,
+                            dnac1=250,
+                            dnac2=0,
+                        ),
+                        places=8,
+                    )
+
+    def test_strand_symmetry_with_unpaired_ends(self):
+        """A duplex with unpaired ends melts the same from either strand."""
+        for name, table in self.unpaired_end_tables.items():
+            for seq, c_seq, shift, *_ in self.unpaired_ends:
+                with self.subTest(table=name, seq=seq, c_seq=c_seq):
+                    # Read from the other strand, c_seq becomes seq and the
+                    # shift is measured from the other end.
+                    self.assertAlmostEqual(
+                        mt.Tm_NN(
+                            seq, c_seq=c_seq, shift=shift, nn_table=table, saltcorr=0
+                        ),
+                        mt.Tm_NN(
+                            c_seq[::-1],
+                            c_seq=seq[::-1],
+                            shift=shift + len(seq) - len(c_seq),
+                            nn_table=table,
+                            saltcorr=0,
+                        ),
+                        places=8,
+                    )
 
     def test_missing_dangling_end_data_is_reported(self):
         """A dangling end with no thermodynamic data is reported."""
