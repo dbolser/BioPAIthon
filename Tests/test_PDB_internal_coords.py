@@ -132,6 +132,85 @@ class Rebuild(unittest.TestCase):
         self.assertTrue(r["pass"], msg="no_altloc fail")
         IC_Residue.no_altloc = False
 
+    def test_relative_string_keys_disordered_neighbour(self):
+        """String keys reaching into a neighbour residue find its altloc atoms.
+
+        The documented string forms of psi, phi and omega name an atom of the
+        next or previous residue ('1N', '-1C', '-1CA').  They returned None
+        where that atom has altlocs, as for 3JQH chain A residues 2, 4, 14 and
+        16, and string-keyed writes there were silently dropped
+        (biopython/biopython#5113).
+        """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            structure = self.CIF_parser.get_structure(
+                "3JQH", support.DATA / "PDB" / "3JQH.cif"
+            )
+        chain = structure[0]["A"]
+        chain.atom_to_internal_coordinates()
+
+        # A14 psi ends on residue 15's N, which has altlocs; check the fixture
+        # still exercises that, then that the string key reaches it.
+        ric14 = chain[14].internal_coord
+        nN = ric14.pick_angle("psi").atomkeys[3]
+        self.assertEqual(nN.akl[AtomKey.fields.altloc], "A")
+        self.assertIsNotNone(ric14.get_angle("N:CA:C:1N"))
+        self.assertIsNotNone(chain[16].internal_coord.get_angle("-1C:N:CA:C"))
+        self.assertIsNotNone(chain[16].internal_coord.get_angle("-1CA:-1C:N:CA"))
+
+        self.assert_string_keys_match_named_angles(chain)
+
+        # the same lookup serves bond lengths
+        peptide_bond = ric14.get_length((ric14.rak("C"), ric14.rnext[0].rak("N")))
+        self.assertIsNotNone(peptide_bond)
+        self.assertEqual(ric14.get_length("0C:1N"), peptide_bond)
+
+        # and writes: A2 phi starts on residue 1's C, which has altlocs
+        ric2 = chain[2].internal_coord
+        pC = ric2.pick_angle("phi").atomkeys[0]
+        self.assertEqual(pC.akl[AtomKey.fields.altloc], "A")
+        phi = ric2.get_angle("phi")
+        ric2.set_angle("-1C:N:CA:C", phi + 10.0)
+        self.assertAlmostEqual(ric2.get_angle("phi"), phi + 10.0)
+
+    def test_relative_string_keys_partial_occupancy_neighbour(self):
+        """String keys reaching into a neighbour residue find low-occupancy atoms.
+
+        An atom's key carries its occupancy when that is not 1, even with no
+        altloc, so the '1'/'-1' string keys missed those atoms too.  1E6G has
+        no altlocs, but chain A residue 5 has occupancy 0, and residue 4's
+        'N:CA:C:1N' returned None while its psi had a value.
+        """
+        structure = self.CIF_parser.get_structure(
+            "1E6G", support.DATA / "PDB" / "1E6G.cif"
+        )
+        chain = structure[0]["A"]
+        chain.atom_to_internal_coordinates()
+
+        # A4 psi ends on residue 5's N: no altloc, occupancy 0
+        ric4 = chain[4].internal_coord
+        nN = ric4.pick_angle("psi").atomkeys[3]
+        self.assertIsNone(nN.akl[AtomKey.fields.altloc])
+        self.assertEqual(nN.akl[AtomKey.fields.occ], "0.0")
+
+        self.assert_string_keys_match_named_angles(chain)
+
+        psi = ric4.get_angle("psi")
+        ric4.set_angle("N:CA:C:1N", psi + 10.0)
+        self.assertAlmostEqual(ric4.get_angle("psi"), psi + 10.0)
+
+    def assert_string_keys_match_named_angles(self, chain):
+        """Check each residue's psi, phi and omg against their string forms."""
+        equivalents = {
+            "psi": "N:CA:C:1N",
+            "phi": "-1C:N:CA:C",
+            "omg": "-1CA:-1C:N:CA",
+        }
+        for ric in chain.internal_coord.ordered_aa_ic_list:
+            for name, key in equivalents.items():
+                with self.subTest(residue=ric.rbase, angle=name):
+                    self.assertEqual(ric.get_angle(key), ric.get_angle(name))
+
     def test_no_crosstalk(self):
         """Deep copy, change few internal coords, test nothing else changes."""
         # IC_Chain.ParallelAssembleResidues = False

@@ -3547,7 +3547,6 @@ class IC_Residue:
             Optional position specifier relative to self,
             e.g. '-1C:N' for preceding peptide bond.
         """
-        AK = AtomKey
         S = self
         angle_key2 = []
         akstr_list = ak_str.split(":")
@@ -3557,10 +3556,10 @@ class IC_Residue:
             if m:
                 if m.group(1) == "-1":
                     if 0 < len(S.rprev):
-                        angle_key2.append(AK(S.rprev[0], m.group(2)))
+                        angle_key2.append(S.rprev[0].rak(m.group(2)))
                 elif m.group(1) == "1":
                     if 0 < len(S.rnext):
-                        angle_key2.append(AK(S.rnext[0], m.group(2)))
+                        angle_key2.append(S.rnext[0].rak(m.group(2)))
                 elif m.group(1) == "0":
                     angle_key2.append(self.rak(m.group(2)))
             else:
