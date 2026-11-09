@@ -41,6 +41,57 @@ request.
 
 Newest first.
 
+### [#5389](https://github.com/biopython/biopython/pull/5389) — Michiel de Hoon
+
+Titled "PDB deprecation warnings", but one of its two lines fixes a silent
+defect. `PDBMLParser`'s `_parse_resolution_from` tested each element it looked
+up with `if element:`. An `Element` is true only if it has children, and
+`ls_d_res_high`, `d_res_high` and `resolution` are leaves, so the test failed
+for every one: `header["resolution"]` was `None` for every PDBML file, in
+Biopython 1.88 and in upstream master, with a `DeprecationWarning` for each
+lookup on Python 3.12 and later. The fix is `is not None`. 1GBT, 3JQH and
+6WG6 now give 2.0, 2.201 and 3.54, as `MMCIFParser` gives from their mmCIF
+files.
+
+The other line replaces the polar angle in `vectors.multi_coord_space`,
+`arccos(z / r)`, with `arctan2(hypot(x, y), z)`. That supersedes the fork's
+own fix from #5127 below, which gave `np.divide` an `out=` array so that a
+hedron whose third atom sits on its second gets a polar angle of 0 rather than
+whatever `np.empty` held. Upstream closed #5127 unmerged on 2026-10-23, 33
+minutes before the same author opened this pull request. The `arctan2` form
+was taken over the fork's line because it is the better formula and drops the
+`where=`/`out=` masking: `arccos` is ill-conditioned near 1, and for
+`p = (1e-8, 0, 1.5)` it returned 0 where the angle is 6.7e-9. Elsewhere the
+two differ by rounding error, at most 4.4e-13 radians on a million random
+vectors at each of nine scales from 1e-3 to 1e4. That still shows in the 13
+decimals `write_PIC` prints: on nine test structures (1A7G, 1A8O, 1GBT, 1LCD,
+2XHE, 3JQH, 4CUP, 4ZHL, 6WG6) every PIC file changes, by at most 2.3e-12
+degrees, while the coordinates rebuilt from them are bit-identical.
+
+**The single commit taken** (`6bf45f584`). `PDBMLParser.py` merged cleanly;
+`vectors.py` conflicted on the line #5127 had changed here, and the
+conflict was resolved by taking this pull request's line. Nothing was left
+behind.
+
+Corrections on top, in separate commits. The pull request has no test, so
+`test_PDB_PDBMLParser` gains two. One asserts the resolutions of 1GBT and
+3JQH; against main it fails with `None != 2.0` and `None != 2.201`. All three
+fixtures are X-ray and stop at the first place looked, `refine`, so the other
+edits 3JQH: without `refine`'s value, or with it nil, the resolution comes
+from `refine_hist`; without that too, from an added `em_3d_reconstruction`,
+where cryo-EM entries record it; and with none, it is `None`. And the
+`arctan2` form changes one case the `arccos` form got right: for a
+zero-length vector, `arctan2(0, -0.0)` is pi, not 0, and a z of -0.0, as
+`float("-0.000")` gives, minus a z of 0.0 is -0.0. The rotation for such a
+hedron then maps Z onto -Z, where `get_spherical_coordinates` and the #5127
+`NEWS.rst` entry say the polar angle is 0. Adding `0.0` to z turns -0.0 into
++0.0; the zero-radius test gains that hedron, which fails with the bare
+upstream line and passes on main and here.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with no reviews and only a codecov comment; its CI passes. The licence
+box is ticked. The author is already in `CONTRIB.rst`.
+
 ### [#5365](https://github.com/biopython/biopython/pull/5365) — Angus Barlow
 
 Fixes upstream issue
@@ -683,6 +734,11 @@ upstream `master` at `e136be720` has the same flat-array test and the same
 They already know: peterjc posted mypy's output on the pull request on
 2025-12-27, naming the same lines, and the thread has not moved since. See
 `UPSTREAM.md` for the two details it does not have.
+
+Upstream closed this pull request unmerged on 2026-10-23, and 33 minutes
+later the same author opened #5389, which changes the same line another way.
+Its `out=` line has since been replaced here by #5389's `arctan2` form; see
+that entry above.
 
 ### [#4866](https://github.com/biopython/biopython/pull/4866) — Manuel Lera-Ramirez
 
