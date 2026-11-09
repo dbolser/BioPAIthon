@@ -57,7 +57,16 @@ and the default branch is now ``main`` rather than ``master``.
 
 ``Bio.PDB.PDBIO`` now writes ``TER`` records within the 80 columns of the PDB
 format (they were padded to 81) and with their own serial number, which was
-reused for the first atom of the next chain.
+reused for the first atom of the next chain. With the default numbering, an
+atom after the first ``TER`` of a model is now numbered one higher for each
+``TER`` before it, as in wwPDB files. With ``preserve_atom_numbering=True``
+only the ``TER`` width changes. In the default numbering, a model whose atoms
+fit the format's 99,999 serial numbers only by sharing them with ``TER``
+records now raises ``PDBIOException``, as a larger model already did. Fixes
+upstream issue `#1383 <https://github.com/biopython/biopython/issues/1383>`_,
+open since 2017 and also present in Biopython 1.88. Adopted from upstream pull
+request `#5391 <https://github.com/biopython/biopython/pull/5391>`_ by Rubén
+Chaves; see ``ADOPTED.md``.
 
 When guessing an element from a PDB atom name, ``Bio.PDB`` now treats four
 character names like ``HNZ1`` the same way as ``HE21``, giving hydrogen rather
