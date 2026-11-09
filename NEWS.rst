@@ -63,10 +63,11 @@ consensus tree puts two comments on a node, one before the branch length and
 one after it, as in ``A[&prob=1]:0.1[&length_mean=0.1]``. The second was
 left in the text, so the branch length or support came out as a string such
 as ``'0.1[&length_mean=0.1]'``, with no error. It is now the float ``0.1``.
-Only an internal node with a non-numeric label, such as
+An internal node with a non-numeric label, such as
 ``(A,B)x[&p=1]:0.1[&l=2]``, raised ``TreeError`` instead. It is now read,
-but the label goes to ``support`` rather than ``taxon``, as it always has
-for a labelled node with one comment. ``node.data.comment`` still holds the
+and the label goes to ``taxon``, as it does for a node with no comment. A
+labelled node with one comment used to put its label in ``support`` as a
+string, which then broke ``to_string``; that is fixed too. ``node.data.comment`` still holds the
 first comment, which in a MrBayes consensus tree carries the clade
 posterior. An unclosed ``[&`` after the first comment now raises
 ``TreeError``, as an unclosed first one did. A comment's closing ``]`` is

@@ -170,8 +170,9 @@ class Tree(Nodes.Chain):
         """Add data to the node parsed from the comments, taxon and support (PRIVATE)."""
         if isinstance(st[1][-1], str) and st[1][-1].startswith(NODECOMMENT_START):
             nd.comment = st[1].pop(-1)
-        # if the first element is a string, it's the subtree node taxon
-        elif isinstance(st[1][0], str):
+        # if the first element is a string, it's the subtree node taxon,
+        # whether or not the node also had a comment
+        if st[1] and isinstance(st[1][0], str):
             nd.taxon = st[1][0]
             st[1] = st[1][1:]
         if len(st) > 1:

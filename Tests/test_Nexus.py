@@ -1360,6 +1360,19 @@ Root:  16
             ],
         )
 
+    def test_NexusComments_labelled_node(self):
+        """Keep an internal node's label as its taxon when it has comments."""
+        for text in ("((A,B)x[&p=1]:0.1[&l=2],C);", "((A,B)x[&p=1]:0.1,C);"):
+            with self.subTest(text=text):
+                tree = Trees.Tree(text)
+                data = tree.node(tree.node(tree.root).succ[0]).data
+                self.assertEqual(data.taxon, "x")
+                self.assertIsNone(data.support)
+                self.assertEqual(data.branchlength, 0.1)
+                self.assertEqual(data.comment, "[&p=1]")
+                # a string support made this raise ValueError
+                tree.to_string(plain=False)
+
     def test_NexusComments_second_unmatched(self):
         """An unclosed second comment raises TreeError."""
         with self.assertRaisesRegex(Trees.TreeError, r"Found \[& without matching \]"):
