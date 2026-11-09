@@ -41,6 +41,44 @@ request.
 
 Newest first.
 
+### [#5392](https://github.com/biopython/biopython/pull/5392) — Zijian Zeng
+
+The `LWL85` method of `calculate_dn_ds` weighted the transitional and
+transversional distances at twofold degenerate sites, `A[1]` and `B[1]`, by
+the fourfold site count `L[2]` instead of the twofold count `L[1]`, so dS was
+wrong whenever a pair differs at a twofold site and dN whenever one of those
+differences is a transversion, unless the two counts happen to be equal. The
+lines had been that way since the method was written in 2013, for what was
+then `Bio.CodonAlign`. The fix swaps
+`L[2]` for `L[1]` in those two terms. Checked here against Li, Wu and Luo's
+formula worked by hand for the pull request's three fixtures, and against
+the LWL85 sums in PAML's `yn00.c` (read, not run), which use `L[1] * A[1]`
+and `L[1] * B[1]` with the same site-class order.
+
+**The single commit taken** (`d30e7e844`), with the analysis fix, its new
+test module `test_Align_analysis_lwl85.py`, the updated LWL85 expectations in
+`test_Align_codonalign.py` and `test_codonalign.py`, and the Tutorial's
+E. coli/Shigella dS, which goes from 0.183 to 0.225 on top of the block this
+fork rewrote in #270. With only `analysis.py` reverted, 11 of these tests
+fail, including all 8 new subtests but not the equal-counts control, and the
+Tutorial doctest fails on that line.
+
+Left behind: the `Bio/codonalign/codonseq.py` hunk. Upstream still has a
+second copy of `_lwl85` there; in this fork `codonseq.py` imports it from
+`Bio.Align.analysis` (#154), so the hunk had nothing to apply to and the
+conflict was resolved by keeping the fork's file. The new tests go through
+`cal_dn_ds` as well as `calculate_dn_ds`, so both APIs are covered.
+
+One correction on top: the old draft chapter `Doc/doc.rst`, which Sphinx
+excludes and nothing doctests, showed the old LWL85 values for the EGFR
+example, and they still reproduced exactly, so it now shows the corrected
+ones.
+
+As of 2026-11-09 the pull request is open, with no comments or reviews. The
+author ticked the box for not wishing to be added to the contributor
+listings, so is not added to `CONTRIB.rst`, and declared substantial AI
+assistance in the description.
+
 ### [#5356](https://github.com/biopython/biopython/pull/5356) — Zehao Wang
 
 Fixes upstream issue
