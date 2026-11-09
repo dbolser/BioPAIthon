@@ -524,7 +524,9 @@ class WriteTest(unittest.TestCase):
 
     def test_pdbio_write_ter(self):
         """Test TER records fit in 80 columns and take their own serial."""
-        structure = self.parser.get_structure("1ssu_mod", "PDB/1SSU_mod.pdb")
+        structure = self.parser.get_structure(
+            "1ssu_mod", support.DATA / "PDB" / "1SSU_mod.pdb"
+        )
         self.io.set_structure(structure)
         filenumber, filename = tempfile.mkstemp()
         os.close(filenumber)
