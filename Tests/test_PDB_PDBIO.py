@@ -554,6 +554,42 @@ class WriteTest(unittest.TestCase):
         self.assertEqual(records, model * 2)
         self.assertEqual(ter_lines[1].rstrip(), "TER       4      ASP B   1")
 
+    def test_pdbio_ter_serial_limit(self):
+        """Test a TER serial past 99,999 raises instead of widening the line."""
+        structure = self.parser.get_structure(
+            "1ssu_mod", support.DATA / "PDB" / "1SSU_mod.pdb"
+        )
+        model = structure[0]
+        # Default numbering: two chains of one atom each fill serials 1-4,
+        # so pad chain B until its TER would need serial 100,000
+        chain_b = model["B"]
+        template = next(chain_b.get_atoms())
+        filler = Residue.Residue((" ", 2, " "), "ALA", "    ")
+        digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        for i in range(99999 - 4 + 1):
+            # unique four-character atom names, written in base 36
+            name = "".join(digits[(i // 36**k) % 36] for k in range(4))
+            filler.add(Atom.Atom(name, template.coord, 1.0, 1.0, " ", name, i, "C"))
+        chain_b.add(filler)
+        self.io.set_structure(model)
+        handle = StringIO()
+        with self.assertRaisesRegex(
+            PDBIOException, "TER serial number \\('100000'\\) exceeds PDB format limit"
+        ):
+            self.io.save(handle)
+        self.assertEqual(handle.getvalue(), "")
+
+        # Preserved numbering: the TER after an atom numbered 99,999
+        atom = next(model["A"].get_atoms())
+        atom.serial_number = 99999
+        self.io.set_structure(model["A"])
+        handle = StringIO()
+        with self.assertRaisesRegex(
+            PDBIOException, "TER serial number \\('100000'\\) exceeds PDB format limit"
+        ):
+            self.io.save(handle, preserve_atom_numbering=True)
+        self.assertEqual(handle.getvalue(), "")
+
     def test_pdbio_write_formatting(self):
         structure = self.parser.get_structure(
             "format_test", support.DATA / "PDB" / "1A8O.pdb"
