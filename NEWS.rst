@@ -71,7 +71,8 @@ branch separating A and B from C, D and E unlabelled; that branch now carries
 the 90. Czech, Huerta-Cepas and Stamatakis, "A critical review on the use of
 support values in tree viewers and bioinformatics toolkits", Molecular Biology
 and Evolution 34:1535-1542 (2017), https://doi.org/10.1093/molbev/msx055,
-found this error in Biopython, among other tools.
+found this error in Biopython, among other tools. This is an upstream defect,
+also in Biopython 1.88.
 
 When the new root is placed on a branch (a terminal outgroup, an
 ``outgroup_branch_length``, or ``root_at_midpoint``), both halves of that
@@ -82,8 +83,11 @@ branch's if it has none, so if the two held different values the other is
 dropped. The new root has no branch above it and so has no support, and a
 value on the old root, which makes no split, is discarded. Numeric internal
 labels that are not support values also move, as the Newick reader cannot
-tell them apart from support. Branch colours, widths and other clade
-attributes do not move. This is an upstream defect, also in Biopython 1.88.
+tell them apart from support. Branch colours, widths, comments and other
+clade attributes do not move. So for a Newick tree read with
+``comments_are_confidence=True``, the support value moves but the comment it
+was read from does not, and a tree written after rerooting shows the value on
+two branches.
 
 ``Bio.SwissProt`` no longer inserts a space when it joins a comment (``CC``)
 line that UniProt wrapped after a hyphen. ``record.comments`` now reads
