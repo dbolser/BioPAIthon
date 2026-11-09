@@ -65,8 +65,8 @@ qualifiers whose value format is "none" in the INSDC Feature Table Definition
 ``/rearranged``, ``/ribosomal_slippage``, ``/trans_splicing`` and
 ``/transgenic``. Parsing is unchanged, so ``qualifiers["pseudo"]`` is still
 ``[""]``, and an empty value for any other qualifier, such as ``/note=""``,
-is written as before. This is an upstream defect (biopython/biopython#902),
-also in Biopython 1.88.
+is written as before. This is an upstream defect (biopython/biopython#902,
+reported again as biopython/biopython#4205), also in Biopython 1.88.
 
 BioPAIthon is renamed biop-ai (pronounced "bio pie"), and the repository is now
 https://github.com/BioAGI-org/biop-ai. It is still published on PyPI as
