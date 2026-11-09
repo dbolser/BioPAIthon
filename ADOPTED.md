@@ -48,12 +48,29 @@ transversional distances at twofold degenerate sites, `A[1]` and `B[1]`, by
 the fourfold site count `L[2]` instead of the twofold count `L[1]`, so dS was
 wrong whenever a pair differs at a twofold site and dN whenever one of those
 differences is a transversion, unless the two counts happen to be equal. The
-lines had been that way since the method was written in 2013, for what was
-then `Bio.CodonAlign`. The fix swaps
-`L[2]` for `L[1]` in those two terms. Checked here against Li, Wu and Luo's
-formula worked by hand for the pull request's three fixtures, and against
-the LWL85 sums in PAML's `yn00.c` (read, not run), which use `L[1] * A[1]`
-and `L[1] * B[1]` with the same site-class order.
+first version of the method, written in 2013 for what was then
+`Bio.CodonAlign` (`61946aaff`), had the right weights; a tidying commit
+fourteen minutes later (`8ed3c799f`) moved the counts into lists and wrote
+`L[2]` where the first version had the twofold count. The fix swaps `L[2]`
+for `L[1]` in those two terms. Checked here against Li, Wu and Luo's formula
+worked by hand for the pull request's three fixtures, against the LWL85 sums
+in PAML's `yn00.c`, which use `L[1] * A[1]` and `L[1] * B[1]` with the same
+site-class order, and by running `yn00` built from PAML commit `4c7902fe` on
+the codons Biopython passes to `_lwl85`: it agrees to within 6e-16 on the
+three fixtures, on one with three times as many fourfold as twofold sites
+(where the old dS was three times too high), and on the Tutorial pair.
+
+**Not fixed here:** on the test suite's EGFR pair `yn00` does not agree (dN
+0.020491, dS 0.019260, against 0.021132 and 0.016980 here), for an older
+reason this pull request does not touch. `_diff_codon` classes each
+differing position by its degeneracy in the first sequence's codon only,
+where `yn00` counts half in each codon's class. So LWL85 depends on the order
+of the two sequences (EGFR reversed gives dN 0.019854, dS 0.021552), as it
+did before the fix, while NG86 does not. The site counts agree with `yn00`;
+averaging the forward and reversed difference counts gives `yn00`'s counts
+exactly, and the corrected formula on those reproduces its dN and dS to all
+15 printed digits, so the weight fix itself is right. No upstream issue
+covers this (searched on 2026-11-09).
 
 **The single commit taken** (`d30e7e844`), with the analysis fix, its new
 test module `test_Align_analysis_lwl85.py`, the updated LWL85 expectations in
