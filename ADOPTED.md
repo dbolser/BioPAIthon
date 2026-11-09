@@ -41,6 +41,56 @@ request.
 
 Newest first.
 
+### [#5356](https://github.com/biopython/biopython/pull/5356) — Zehao Wang
+
+Fixes upstream issue
+[#5312](https://github.com/biopython/biopython/issues/5312), reported by
+Ziqi (Adam) Chen. `IsoelectricPoint.pi()` bisected inside a fixed interval
+of pH 4.05 to 12, so a sequence whose pI lies outside it got the end of the
+interval, where the net charge is far from zero: ten aspartates gave 4.05
+with a charge of -4.24, ten arginines 12.00 with +4.00, and `DD` and `ED`
+4.05. `ProtParam.ProteinAnalysis.isoelectric_point()` goes through the same
+code. The fix widens the interval in steps of 1 pH unit, not below 0 or
+above 14, until the charge changes sign across it, then bisects as before
+in a new private `_pi_bisect`. Measured here on 5000 random sequences of 1
+to 200 residues: 95 changed, all of them old answers at the end of the
+interval, and the other 4905 give the same float as before.
+
+**One of the four commits taken** (`159aa6795a`, the `pi()` fix and its
+tests), with the one-line conflict in the import block of
+`Tests/test_SeqUtils.py` resolved by keeping both lines. The other three
+were carried over from the author's branch for the `QCPSuperimposer` fix in
+[#5351](https://github.com/biopython/biopython/pull/5351) and belong with
+that pull request, not under a `SeqUtils` title: `4c1273ece9` (an `eigh`
+fallback in `Bio/PDB/qcprot.py`), `a3d9759eb6` (a collinear
+`QCPSuperimposer` test) and `6f4c68839e` (adding the author to
+`CONTRIB.rst`). The author ticked the box for being listed already, through
+#5351, which was closed unmerged, so this fork adds the line from
+`6f4c68839e` to `CONTRIB.rst` by hand.
+
+One correction sits on top. The `pi()` docstring no longer calls it
+recursive and says that the search stops at pH 0 and 14, and two tests pin
+the changes users can see beyond the bug itself: an explicit `min_` and
+`max_` that miss the pI are widened too, so
+`IsoelectricPoint("INGAR").pi(5.5, 5, 6)` gave 6.0 and now gives 9.75; and
+1000 arginines, whose pI under this model is above 14, get 14.
+
+**Upstream status:** closed unmerged on 2026-10-12, withdrawn by its author
+pending the outcome of upstream's draft policy on AI-assisted contributions
+([#5241](https://github.com/biopython/biopython/pull/5241), still open on
+2026-11-09). The withdrawal says the fix is sound; it is not a technical
+objection. The licence box is ticked. Issue #5312 is still open and
+upstream master has no fix.
+
+**Related, not taken here:**
+[#5324](https://github.com/biopython/biopython/pull/5324) by rollroyces
+(licence box ticked) fixes the same issue by changing the default interval
+to 0 to 14. Its author closed it on 2026-09-19 at a maintainer's request,
+pending the same policy. It is not taken because it moves almost every pI:
+measured on the same 5000 sequences, 4902 of the 4905 whose pI lies inside
+the old interval would change, by up to 0.00008, since the bisection visits
+different midpoints. #5356 leaves them all as they were.
+
 ### [#5405](https://github.com/biopython/biopython/pull/5405) — Muneer Alam
 
 Fixes upstream issue
