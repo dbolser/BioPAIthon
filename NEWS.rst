@@ -55,6 +55,25 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The GenBank, EMBL and IMGT parsers no longer insert a space where an
+``/anticodon`` or ``/transl_except`` value is wrapped onto a second line. The
+NCBI wraps a long ``/anticodon`` after a comma, so a tRNA on the reverse
+strand of a genome with seven-digit coordinates, such as one in NC_018080,
+read as ``(pos:complement(6180084..6180086),aa:Ile, seq:gat)`` and now reads
+as ``(pos:complement(6180084..6180086),aa:Ile,seq:gat)``. The NCBI's RefSeq
+team stated that a parser must append the next line of an ``/anticodon`` with
+no space, and ``/transl_except`` has the same unquoted layout. This covers
+``Bio.SeqIO`` (including the ``genbank-cds`` and ``embl-cds`` formats) and
+``Bio.GenBank``, quoted or not. The ``Bio.SeqIO`` writers broke such a value
+at column 80, whatever the character there, for example before the closing
+bracket or inside a coordinate, so it read back as ``...seq:tag )`` or
+``...123457 0)),aa:Sec)``; files written that way now read back correctly.
+These writers, and ``Bio.GenBank.Record``, now break these two qualifiers
+after the last comma that fits, as the NCBI does. Other qualifiers are
+unchanged, so a wrapped ``/note`` is still joined with a space. This is an
+upstream defect (biopython/biopython#2112, reported by Nolan Woods, who also
+obtained the NCBI's statement), also in Biopython 1.88.
+
 ``Bio.SeqUtils.CodonAdaptationIndex.calculate`` now leaves out the codons
 that are the only one for their amino acid in the genetic code the index was
 made with, as Sharp and Li's codon adaptation index does, since their

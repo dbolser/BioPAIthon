@@ -14,6 +14,7 @@ from test_SeqIO import SeqIOConverterTestBaseClass
 
 from Bio import BiopythonParserWarning
 from Bio import BiopythonWarning
+from Bio import GenBank
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
@@ -160,6 +161,196 @@ class TestValuelessQualifiers(unittest.TestCase):
                 lines = record.format(fmt).splitlines()
                 self.assertIn(f'{indent}/note=""', lines)
                 self.assertNotIn(f"{indent}/note", lines)
+
+
+class TestNoSpaceQualifiers(unittest.TestCase):
+    """Wrapped /anticodon and /transl_except values are joined with no space.
+
+    The NCBI breaks these unquoted values after a comma and said that a
+    parser must append the next line with no space (upstream issue #2112).
+    The parsers used to join the lines with a space, and the writers broke
+    a long value before its closing bracket, which then read back with a
+    space too.
+    """
+
+    anticodon = "(pos:complement(6180084..6180086),aa:Ile,seq:gat)"
+    transl_except = "(pos:complement(1123552..1123554),aa:Sec)"
+
+    # The /anticodon lines are copied from NC_018080. The /transl_except wrap
+    # is made up: the NCBI said a break anywhere is legal, but the one
+    # /transl_except in each of NC_018080 and NC_008463 fits on one line.
+    genbank = """\
+LOCUS       TEST                     100 bp    DNA              UNK 01-JAN-2000
+DEFINITION  Wrapped qualifiers.
+ACCESSION   TEST
+VERSION     TEST.1
+FEATURES             Location/Qualifiers
+     source          1..100
+     tRNA            complement(10..80)
+                     /anticodon=(pos:complement(6180084..6180086),aa:Ile,
+                     seq:gat)
+                     /note="a wrapped
+                     note"
+     CDS             complement(1..99)
+                     /transl_except=(pos:complement(1123552..1123554),
+                     aa:Sec)
+                     /protein_id="XP_000001.1"
+                     /translation="MU"
+ORIGIN
+        1 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+       61 aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa
+//
+"""
+
+    embl = """\
+ID   TEST; SV 1; linear; DNA; STD; UNC; 100 BP.
+XX
+AC   TEST;
+XX
+DE   Wrapped qualifiers
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..100
+FT   tRNA            complement(10..80)
+FT                   /anticodon=(pos:complement(6180084..6180086),aa:Ile,
+FT                   seq:gat)
+FT                   /note="a wrapped
+FT                   note"
+FT   CDS             complement(1..99)
+FT                   /transl_except=(pos:complement(1123552..1123554),
+FT                   aa:Sec)
+FT                   /protein_id="XP_000001.1"
+FT                   /translation="MU"
+XX
+SQ   Sequence 100 BP; 100 A; 0 C; 0 G; 0 T; 0 other;
+     aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa        60
+     aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa aaaaaaaaaa                             100
+//
+"""
+
+    def test_read(self):
+        for fmt in ("genbank", "embl"):
+            with self.subTest(fmt=fmt):
+                record = SeqIO.read(StringIO(getattr(self, fmt)), fmt)
+                trna, cds = record.features[1:]
+                self.assertEqual(trna.qualifiers["anticodon"], [self.anticodon])
+                self.assertEqual(cds.qualifiers["transl_except"], [self.transl_except])
+                # Other wrapped values are still joined with a space:
+                self.assertEqual(trna.qualifiers["note"], ["a wrapped note"])
+
+    def test_read_cds(self):
+        for fmt in ("genbank", "embl"):
+            with self.subTest(fmt=fmt):
+                text = getattr(self, fmt)
+                record = SeqIO.read(StringIO(text), f"{fmt}-cds")
+                self.assertEqual(
+                    record.annotations["transl_except"], self.transl_except
+                )
+
+    def test_read_quoted(self):
+        """A quoted wrapped value, as BioPerl once wrote, is joined the same way."""
+        text = self.genbank.replace("/anticodon=(", '/anticodon="(')
+        text = text.replace("seq:gat)", 'seq:gat)"')
+        record = SeqIO.read(StringIO(text), "genbank")
+        self.assertEqual(record.features[1].qualifiers["anticodon"], [self.anticodon])
+
+    def test_read_old_writer_output(self):
+        """A value the old writers broke inside a number reads back whole."""
+        indent = " " * 21
+        # As Biopython 1.88 wrote it, broken at column 80:
+        text = self.genbank.replace(
+            f"{indent}/transl_except=(pos:complement(1123552..1123554),\n{indent}aa:Sec)\n",
+            f"{indent}/transl_except=(pos:complement(join(1234567..1234568,123457\n"
+            f"{indent}0)),aa:Sec)\n",
+        )
+        record = SeqIO.read(StringIO(text), "genbank")
+        self.assertEqual(
+            record.features[2].qualifiers["transl_except"],
+            ["(pos:complement(join(1234567..1234568,1234570)),aa:Sec)"],
+        )
+
+    def test_write(self):
+        """Long values break after a comma and read back unchanged."""
+        anticodon = "(pos:complement(1234567..1234569),aa:Leu,seq:tag)"
+        transl_except = "(pos:complement(join(1234567..1234568,1234570)),aa:Sec)"
+        record = SeqRecord(Seq("A" * 100), "dummy")
+        record.annotations["molecule_type"] = "DNA"
+        record.features = [
+            SeqFeature(
+                SimpleLocation(9, 80, strand=-1),
+                type="tRNA",
+                qualifiers={"anticodon": [anticodon]},
+            ),
+            SeqFeature(
+                SimpleLocation(0, 99, strand=-1),
+                type="CDS",
+                qualifiers={"transl_except": [transl_except]},
+            ),
+        ]
+        indents = {"gb": " " * 21, "embl": "FT" + " " * 19, "imgt": "FT" + " " * 23}
+        for fmt, indent in indents.items():
+            with self.subTest(fmt=fmt):
+                text = record.format(fmt)
+                lines = text.splitlines()
+                self.assertLessEqual(max(len(line) for line in lines), 80)
+                self.assertIn(
+                    f"{indent}/anticodon=(pos:complement(1234567..1234569),aa:Leu,",
+                    lines,
+                )
+                self.assertIn(f"{indent}seq:tag)", lines)
+                new = SeqIO.read(StringIO(text), fmt)
+                self.assertEqual(new.features[0].qualifiers["anticodon"], [anticodon])
+                self.assertEqual(
+                    new.features[1].qualifiers["transl_except"], [transl_except]
+                )
+
+    def test_write_comma_at_width_limit(self):
+        """A comma up to column 80 can end the line; one in column 81 cannot."""
+        indent = " " * 21
+        start = f"{indent}/transl_except=(pos:join("  # 46 columns
+        for column in (79, 80, 81):
+            n = column - 50  # puts the first comma in this column
+            value = f"(pos:join({'1' * n}..2,3..4),aa:Sec)"
+            with self.subTest(column=column):
+                record = SeqRecord(Seq("A" * 100), "dummy")
+                record.annotations["molecule_type"] = "DNA"
+                record.features = [
+                    SeqFeature(
+                        SimpleLocation(0, 99),
+                        type="CDS",
+                        qualifiers={"transl_except": [value]},
+                    )
+                ]
+                text = record.format("gb")
+                lines = text.splitlines()
+                if column <= 80:
+                    expected = [f"{start}{'1' * n}..2,", f"{indent}3..4),aa:Sec)"]
+                else:  # no comma fits, so break at the width limit
+                    expected = [f"{start}{'1' * n}..2", f"{indent},3..4),aa:Sec)"]
+                i = next(i for i, line in enumerate(lines) if line.startswith(start))
+                self.assertEqual(lines[i : i + 2], expected)
+                self.assertEqual(len(lines[i]), min(column, 80))
+                new = SeqIO.read(StringIO(text), "gb")
+                self.assertEqual(new.features[0].qualifiers["transl_except"], [value])
+
+    def test_record_parser_and_writer(self):
+        """Bio.GenBank's record parser and its writer agree."""
+        record = GenBank.read(StringIO(self.genbank))
+        trna, cds = record.features[1:]
+        self.assertEqual(trna.qualifiers[0].value, self.anticodon)
+        self.assertEqual(cds.qualifiers[0].value, self.transl_except)
+        lines = str(record).splitlines()
+        # Same layout as the NCBI's, with the comma ending the first line:
+        self.assertIn(
+            "                     /anticodon=(pos:complement(6180084..6180086),aa:Ile,",
+            lines,
+        )
+        self.assertIn("                     seq:gat)", lines)
+        self.assertLessEqual(max(len(line) for line in lines), 80)
+        new = GenBank.read(StringIO(str(record)))
+        self.assertEqual(new.features[1].qualifiers[0].value, self.anticodon)
+        self.assertEqual(new.features[2].qualifiers[0].value, self.transl_except)
 
 
 class TestWriterErrors(unittest.TestCase):

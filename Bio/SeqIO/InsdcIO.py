@@ -40,6 +40,7 @@ from Bio import BiopythonWarning
 from Bio import SeqFeature
 from Bio import SeqIO
 from Bio.GenBank.Scanner import _ImgtScanner
+from Bio.GenBank.Scanner import _NO_SPACE_QUALIFIERS
 from Bio.GenBank.Scanner import EmblScanner
 from Bio.GenBank.Scanner import GenBankScanner
 from Bio.Seq import UndefinedSequenceError
@@ -478,14 +479,24 @@ class _InsdcWriter(SequenceWriter):
                 self.handle.write(line + "\n")
                 return
             # Insert line break...
-            for index in range(
-                min(len(line) - 1, self.MAX_WIDTH), self.QUALIFIER_INDENT + 1, -1
-            ):
-                if line[index] == " ":
-                    break
-            if line[index] != " ":
-                # No nice place to break...
-                index = self.MAX_WIDTH
+            if key in _NO_SPACE_QUALIFIERS:
+                # The parsers join these lines with no space, so break
+                # after the last comma that fits, as the NCBI does, or
+                # failing that at the width limit (a break at a space
+                # would lose the space):
+                index = (
+                    line.rfind(",", self.QUALIFIER_INDENT, self.MAX_WIDTH) + 1
+                    or self.MAX_WIDTH
+                )
+            else:
+                for index in range(
+                    min(len(line) - 1, self.MAX_WIDTH), self.QUALIFIER_INDENT + 1, -1
+                ):
+                    if line[index] == " ":
+                        break
+                if line[index] != " ":
+                    # No nice place to break...
+                    index = self.MAX_WIDTH
             assert index <= self.MAX_WIDTH  # noqa: S101
             self.handle.write(line[:index] + "\n")
             line = self.QUALIFIER_INDENT_STR + line[index:].lstrip()

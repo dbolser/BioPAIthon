@@ -38,6 +38,13 @@ from Bio.File import as_handle
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+# Qualifiers whose wrapped values are joined with no space. The NCBI
+# stated in 2019 that a wrapped /anticodon may be broken at any point and
+# that a parser must append the next line with no space (upstream issue
+# #2112); /transl_except has the same layout. The GenBank and EMBL writers
+# break these values after a comma, as the NCBI does.
+_NO_SPACE_QUALIFIERS = ("anticodon", "transl_except")
+
 
 class InsdcScanner:
     """Basic functions for breaking up a GenBank/EMBL file into sub sections.
@@ -421,10 +428,10 @@ class InsdcScanner:
             consumer.feature_key(feature_key)
             consumer.location(location_string)
             for q_key, q_value in qualifiers:
-                if q_value is None:
-                    consumer.feature_qualifier(q_key, q_value)
-                else:
-                    consumer.feature_qualifier(q_key, q_value.replace("\n", " "))
+                if q_value is not None:
+                    join = "" if q_key in _NO_SPACE_QUALIFIERS else " "
+                    q_value = q_value.replace("\n", join)
+                consumer.feature_qualifier(q_key, q_value)
 
     def _feed_misc_lines(self, consumer, lines):
         """Handle any lines between features and sequence (list of strings), passing data to the consumer (PRIVATE).
@@ -601,8 +608,13 @@ class InsdcScanner:
                                 record.dbxrefs.append(qualifier_data)
                             else:
                                 if qualifier_data is not None:
+                                    join = (
+                                        ""
+                                        if qualifier_name in _NO_SPACE_QUALIFIERS
+                                        else " "
+                                    )
                                     qualifier_data = qualifier_data.replace(
-                                        "\n", " "
+                                        "\n", join
                                     ).replace("  ", " ")
                                 try:
                                     annotations[qualifier_name] += " " + qualifier_data

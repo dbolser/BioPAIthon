@@ -14,6 +14,7 @@ Classes:
 """
 
 import Bio.GenBank
+from Bio.GenBank.Scanner import _NO_SPACE_QUALIFIERS
 
 
 def _wrapped_genbank(information, indent, wrap_space=1, split_char=" "):
@@ -679,7 +680,9 @@ class Qualifier:
         for no_space_key in Bio.GenBank._BaseGenBankConsumer.remove_space_keys:
             if no_space_key in self.key:
                 space_wrap = 0
+        # the parser joins these lines with no space, so wrap after commas
+        split_char = "," if self.key.strip("/=") in _NO_SPACE_QUALIFIERS else " "
         # return double quotes as-is, leave it to the user to escape them
         return output + _wrapped_genbank(
-            self.key + self.value, Record.GB_FEATURE_INDENT, space_wrap
+            self.key + self.value, Record.GB_FEATURE_INDENT, space_wrap, split_char
         )
