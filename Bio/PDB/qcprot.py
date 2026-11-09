@@ -30,10 +30,15 @@ def qcp(coords1, coords2, natoms):
     """Implement the QCP code in Python.
 
     Input coordinate arrays must be centered at the origin and have
-    shape Nx3.
+    shape Nx3. They are converted to double precision.
 
     Variable names match (as much as possible) the C implementation.
     """
+    # The tolerances below assume double precision, and in single precision
+    # the cofactors overflow for a few thousand atoms.
+    coords1 = np.asarray(coords1, dtype=np.float64)
+    coords2 = np.asarray(coords2, dtype=np.float64)
+
     # Original code has coords1 be the mobile. I think it makes more sense
     # for it to be the reference, so I swapped here.
     G1 = np.trace(np.dot(coords2, coords2.T))
@@ -323,8 +328,9 @@ class QCPSuperimposer:
         if self.coords is None or self.reference_coords is None:
             raise PDBException("No coordinates set.")
 
-        coords = self.coords.copy()
-        coords_ref = self.reference_coords.copy()
+        # Fit in double precision, as set_atoms does; Atom.coord is float32.
+        coords = np.array(self.coords, dtype=np.float64, order="C")
+        coords_ref = np.array(self.reference_coords, dtype=np.float64, order="C")
 
         # Center Coordinates
         com_coords = np.mean(coords, axis=0)

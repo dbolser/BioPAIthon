@@ -206,6 +206,57 @@ class QCPSuperimposerTest(unittest.TestCase):
         rms_fitted = np.sqrt(((ref - mob_fitted) ** 2).sum() / ref.shape[0])
         self.assertAlmostEqual(rms, rms_fitted, places=6)
 
+    def test_single_precision_coords(self):
+        """Fit float32 coordinates in double precision, as set_atoms does.
+
+        Atom.coord is float32. Fitted in single precision, the quaternion for
+        a structure of more than about 3000 atoms overflowed: the RMSD
+        reported was about right, but the rotation returned was all zeros.
+        """
+        structure = PDBParser(QUIET=True).get_structure(
+            "2XHE", support.DATA / "PDB" / "2XHE.pdb"
+        )
+        ref = np.array([atom.coord for atom in structure.get_atoms()])
+        self.assertEqual(ref.dtype, np.float32)
+        angle = 0.3
+        turn = np.array(
+            [
+                [np.cos(angle), -np.sin(angle), 0.0],
+                [np.sin(angle), np.cos(angle), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        rng = np.random.default_rng(0)
+        mob = (ref @ turn + rng.normal(size=ref.shape)).astype(np.float32)
+
+        sup = QCPSuperimposer()
+        sup.set(ref, mob)
+        sup.run()
+        rms_fitted = np.sqrt(((ref - sup.get_transformed()) ** 2).sum(1).mean())
+        self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=6)
+
+        sup64 = QCPSuperimposer()
+        sup64.set(ref.astype(np.float64), mob.astype(np.float64))
+        sup64.run()
+        self.assertEqual(sup.get_rms(), sup64.get_rms())
+        np.testing.assert_array_equal(sup.rot, sup64.rot)
+        np.testing.assert_array_equal(sup.tran, sup64.tran)
+
+    def test_integer_coords(self):
+        """Fit integer coordinates, which raised a casting error."""
+        ref = np.rint(self.x).astype(np.int64)
+        mob = np.rint(self.y).astype(np.int64)
+        sup = QCPSuperimposer()
+        sup.set(ref, mob)
+        sup.run()
+
+        sup64 = QCPSuperimposer()
+        sup64.set(ref.astype(np.float64), mob.astype(np.float64))
+        sup64.run()
+        self.assertEqual(sup.get_rms(), sup64.get_rms())
+        np.testing.assert_array_equal(sup.rot, sup64.rot)
+        np.testing.assert_array_equal(sup.tran, sup64.tran)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
