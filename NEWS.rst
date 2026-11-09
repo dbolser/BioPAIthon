@@ -55,6 +55,19 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The GenBank, EMBL and IMGT writers now write a qualifier that takes no value,
+such as ``/pseudo``, without one when its value is an empty string. The
+parsers read a bare ``/pseudo`` as ``[""]``, which was then written back as
+``/pseudo=""``, and ENA's validator rejects that. This covers the twelve
+qualifiers whose value format is "none" in the INSDC Feature Table Definition
+(version 11.4): ``/circular_RNA``, ``/environmental_sample``, ``/focus``,
+``/germline``, ``/macronuclear``, ``/partial``, ``/proviral``, ``/pseudo``,
+``/rearranged``, ``/ribosomal_slippage``, ``/trans_splicing`` and
+``/transgenic``. Parsing is unchanged, so ``qualifiers["pseudo"]`` is still
+``[""]``, and an empty value for any other qualifier, such as ``/note=""``,
+is written as before. This is an upstream defect (biopython/biopython#902),
+also in Biopython 1.88.
+
 BioPAIthon is renamed biop-ai (pronounced "bio pie"), and the repository is now
 https://github.com/BioAGI-org/biop-ai. It is still published on PyPI as
 ``biopaithon``. ``import Bio`` is unchanged. The entry-point groups for format plugins are now
