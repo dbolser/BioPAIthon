@@ -41,6 +41,55 @@ request.
 
 Newest first.
 
+### [#5391](https://github.com/biopython/biopython/pull/5391) — Rubén Chaves
+
+Fixes upstream issue
+[#1383](https://github.com/biopython/biopython/issues/1383), open since 2017.
+`PDBIO.save` wrote every `TER` record 81 columns wide, one more than a PDB
+record, and in its default numbering gave the `TER` the serial number that
+the first atom of the next chain then reused: `ATOM 371`, `TER 372`,
+`ATOM 372` for `Tests/PDB/2BEG.pdb`. The fix pads `TER` to 80 columns and
+advances the counter after it, the second patch proposed in the 2017 thread.
+Measured here, writing 2BEG back out now reproduces the deposited serials of
+all 1860 `ATOM` and `TER` records, where 1488 differed before. The pull
+request also documents `preserve_atom_numbering` in the `save` docstring.
+
+**The single commit taken, plus one correction on top.** Its `NEWS.rst`
+paragraph was written for upstream's in-progress 1.89 section, which in this
+tree is preserved upstream history, so the cherry-pick moves it into the
+fork's own section and leaves upstream's contributor list alone; the author
+is in `CONTRIB.rst`. The correction makes the new test read its fixture
+through `support.DATA`: it opened `PDB/1SSU_mod.pdb` relative to the current
+directory, which fails when pytest starts outside `Tests/`, as CI does.
+
+What changes for users, checked by writing 1SSU_mod, 2BEG and 1LCD with and
+without the patch: every `TER` line is one trailing space shorter. With
+`preserve_atom_numbering=True` nothing else differs. In the default
+numbering, every serial after a model's first `TER` also moves up by one per
+`TER` before it, and nothing else differs. One consequence: in the default
+numbering, a model whose atoms fit in the five-column serial field only
+because `TER` shared their numbers now raises `PDBIOException`, as a model
+with more than 99,999 atoms already did. A synthetic structure of 99,999
+atoms in two chains raises where it used to be written. Left as before: a
+`TER` whose own serial passes 99,999 is still written six digits wide, so
+81 columns, rather than raising.
+
+JoaoRodrigues approved the pull request on 2026-11-06 and asked whether it
+was written with AI; there is no reply on the thread as of 2026-11-09.
+
+**Related, not taken here:**
+[#5381](https://github.com/biopython/biopython/pull/5381) by Shubhodeep
+Chatterjee adds a `write_ter` keyword to `PDBIO.save` (upstream issue
+[#4661](https://github.com/biopython/biopython/issues/4661)). It edits the
+same `TER` block and is a separate decision. Whoever takes it should know
+that it no longer applies as its author tested it. Its test is also named
+`test_pdbio_write_ter`, so one of the two needs renaming. Its test also
+asserts that omitting `TER` leaves every other line unchanged, which was
+true only while `TER` did not advance the serial. With this adoption,
+dropping the `TER` either closes the gaps in the numbering, changing the
+other lines, or leaves gaps where no `TER` is, and that choice has to be
+made.
+
 ### [#5366](https://github.com/biopython/biopython/pull/5366) — popcoder565
 
 Fixes upstream issue
