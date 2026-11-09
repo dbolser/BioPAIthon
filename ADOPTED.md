@@ -41,6 +41,61 @@ request.
 
 Newest first.
 
+### [#5365](https://github.com/biopython/biopython/pull/5365) — Angus Barlow
+
+Fixes upstream issue
+[#5332](https://github.com/biopython/biopython/issues/5332).
+`DistanceCalculator` with the `identity` model counted matches only over the
+columns where neither letter is in `skip_letters`, but divided by
+`len(seq1)`, every column. So with an explicit `skip_letters` each skipped
+column made the distance larger: in a `MultipleSeqAlignment`, identical rows
+`AC--GT` were 0.333 apart, and `AC--GT` against `AC--GA` gave 0.5 where `ACGT`
+against `ACGA` gives 0.25. The scoring-matrix branch already left skipped
+columns out of its total. The fix counts the total over the same columns as
+the matches. `skip_letters` came in with commit `f25c05203` in 2017, for
+upstream issue [#491](https://github.com/biopython/biopython/issues/491), so
+that `identity` could skip gaps as the other models do; that commit rewrote
+the match count and left the total alone, so the mismatch is an oversight,
+not a choice. The default `identity` model skips
+nothing and gives the same numbers as before.
+
+**Both commits taken**: `4e894b440b` (the fix, its test, and the author's
+line in `CONTRIB.rst`) and `69921cb009` (that line moved into alphabetical
+order). The first conflicted only in `NEWS.rst`. Its hunk was a contributor
+list for upstream's in-progress Biopython 1.89 section, which in this tree is
+preserved upstream history, so the conflict was resolved by leaving that
+section as it was, as for #5391; the fork's own section has a new paragraph
+instead. That hunk is all that was left behind. There was no review
+discussion. The commit message credits Devin, an AI tool.
+
+One correction sits on top. The pull request's test uses identical gapped
+rows, and `Align.read` drops the columns that are gaps in every row, so it
+never exercised skipping with a `Bio.Align.Alignment`, which was affected
+too: `AC--GT` against `ACTTGT` gave 0.333 with either kind of alignment. A
+new test checks that pair and `AC--GA` against `ACTTGT` with both. With only
+`TreeConstruction.py` reverted, it and the pull request's test fail, and
+nothing else in `test_TreeConstruction.py` or `test_Consensus.py` does. The
+comment above the identity loop, which said no letters were skipped and had
+been wrong since 2017, now says what the loop does, and the test cites the
+issue as `biopython/biopython#5332`. One side effect, checked: when every
+column is skipped, the identity branch now returns the int `1` from the
+existing guard, where it returned `1.0`. The scoring-matrix branch already
+did, and `DistanceMatrix` prints and writes both the same.
+
+As of 2026-11-09 the pull request is open, with no comments or reviews, and
+the licence box is ticked. Issue #5332 is open and upstream master has no
+fix.
+
+**Related, not taken:**
+[#5401](https://github.com/biopython/biopython/pull/5401) by simplyshree is
+the same fix, opened and closed unmerged by its author on 2026-11-03, after
+peterjc asked for the licence box to be ticked and whether AI was used. Its
+`Alignment` test used the identical gapped rows, which `Align.read` reduces
+to ungapped ones, so it passed before the fix as well.
+[#5333](https://github.com/biopython/biopython/pull/5333) by the issue's
+author, aniruddhaadak80, was closed on 2026-10-03 without the licence box,
+and is not eligible.
+
 ### [#5363](https://github.com/biopython/biopython/pull/5363) — Angus Barlow
 
 Fixes upstream issue
