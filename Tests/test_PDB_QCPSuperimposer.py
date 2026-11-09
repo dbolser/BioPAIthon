@@ -355,7 +355,7 @@ class QCPSuperimposerTest(unittest.TestCase):
         for i in range(60):
             direction = rng.normal(size=3)
             direction /= np.linalg.norm(direction)
-            n = 2 if i % 2 else rng.integers(3, 10)
+            n = 2 if i % 2 else int(rng.integers(3, 10))
             ref = np.outer(rng.uniform(-150.0, 150.0, n), direction)
             ref += rng.uniform(-150.0, 150.0, 3)
             ax = rng.normal(size=3)
@@ -365,14 +365,14 @@ class QCPSuperimposerTest(unittest.TestCase):
             rot = np.eye(3) + np.sin(theta) * k + (1 - np.cos(theta)) * (k @ k)
             mob = ref @ rot.T + rng.uniform(-150.0, 150.0, 3)
 
-            sup = QCPSuperimposer()
-            sup.set(ref, mob)
-            sup.run()
-            rms_fitted = np.sqrt(((ref - sup.get_transformed()) ** 2).sum(1).mean())
-            svd_sup = SVDSuperimposer()
-            svd_sup.set(ref, mob)
-            svd_sup.run()
             with self.subTest(case=i, points=n):
+                sup = QCPSuperimposer()
+                sup.set(ref, mob)
+                sup.run()
+                rms_fitted = np.sqrt(((ref - sup.get_transformed()) ** 2).sum(1).mean())
+                svd_sup = SVDSuperimposer()
+                svd_sup.set(ref, mob)
+                svd_sup.run()
                 self.assertAlmostEqual(rms_fitted, svd_sup.get_rms(), places=4)
                 self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=9)
 
