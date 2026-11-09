@@ -54,13 +54,23 @@ Measured here, writing 2BEG back out now reproduces the deposited serials of
 all 1860 `ATOM` and `TER` records, where 1488 differed before. The pull
 request also documents `preserve_atom_numbering` in the `save` docstring.
 
-**The single commit taken, plus one correction on top.** Its `NEWS.rst`
+**The single commit taken, plus two corrections on top.** Its `NEWS.rst`
 paragraph was written for upstream's in-progress 1.89 section, which in this
 tree is preserved upstream history, so the cherry-pick moves it into the
 fork's own section and leaves upstream's contributor list alone; the author
-is in `CONTRIB.rst`. The correction makes the new test read its fixture
+is in `CONTRIB.rst`. The first correction makes the new test read its fixture
 through `support.DATA`: it opened `PDB/1SSU_mod.pdb` relative to the current
 directory, which fails when pytest starts outside `Tests/`, as CI does.
+
+The second correction rewords the end of the new `preserve_atom_numbering`
+docstring. Upstream's text said that the stored serials of files read with
+`PDBParser` leave room for each `TER`. Files from the PDB leave that room
+after each chain's polymer, but `PDBIO` writes the chain's waters and ligands
+before its `TER`, so the `TER` can take a serial that the file gave to a
+later atom. Of the test fixtures, 1LCD, 2XHE and 7DDO do this: 1LCD has
+`TER 1030` after the last water of chain B and `HETATM 1030` for the first
+water of chain C. Biopython 1.88 and this fork's main write the same serials;
+only the documentation claimed more.
 
 What changes for users, checked by writing 1SSU_mod, 2BEG and 1LCD with and
 without the patch: every `TER` line is one trailing space shorter. With
