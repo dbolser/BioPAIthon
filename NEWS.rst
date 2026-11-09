@@ -70,7 +70,11 @@ worked out from that eigenvalue. For other fits this changes the RMSD only at
 the level of rounding: in 2000 random fits with noise the rotation was
 unchanged and the RMSD moved by less than 1e-11 Å, and exact fits of points
 spread over ±100 Å now report at most 2e-11 Å where they reported up to
-1e-5 Å. Coordinates containing NaN or infinity now raise
+1e-5 Å. The exception is points spread over only a few thousandths of an Å or
+less, where the iteration fails as well: in 500 random fits of points spread
+±0.001 Å, the RMSD reported was too small in 348, often by most of its value,
+and at ±0.0001 Å most such errors came with no message. These RMSDs are now
+right, and the rotations are unchanged. Coordinates containing NaN or infinity now raise
 ``numpy.linalg.LinAlgError``, as ``SVDSuperimposer`` does, where they used to
 give a NaN RMSD. One limit remains: points close to a line but not on it, such
 as points within 0.01 Å of a line 300 Å long, can still get a rotation

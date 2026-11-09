@@ -376,6 +376,42 @@ class QCPSuperimposerTest(unittest.TestCase):
                 self.assertAlmostEqual(rms_fitted, svd_sup.get_rms(), places=4)
                 self.assertAlmostEqual(sup.get_rms(), rms_fitted, places=9)
 
+    def test_tiny_coordinates_rmsd(self):
+        """Report the right RMSD for points a few thousandths of an angstrom apart.
+
+        Newton-Raphson divides by f' + 1e-11, and f' scales as the sixth power
+        of the coordinates, so for such small sets it ran out of iterations or
+        stopped at its starting guess, and the RMSD reported from it was too
+        small: here by a factor of six, and then almost zero.
+        """
+        ref = np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [0.0, 2.0, 0.0],
+                [0.0, 0.0, 3.0],
+                [2.0, 1.0, 1.0],
+            ]
+        )
+        mob = np.array(
+            [
+                [1.1, 1.0, 1.0],
+                [1.0, 2.0, 1.0],
+                [-1.0, 1.0, 1.0],
+                [1.0, 1.0, 4.0],
+                [0.0, 3.0, 2.0],
+            ]
+        )
+        for scale in (1e-3, 1e-4):
+            with self.subTest(scale=scale):
+                sup = QCPSuperimposer()
+                sup.set(ref * scale, mob * scale)
+                sup.run()
+                svd_sup = SVDSuperimposer()
+                svd_sup.set(ref * scale, mob * scale)
+                svd_sup.run()
+                self.assertAlmostEqual(sup.get_rms() / svd_sup.get_rms(), 1.0, places=6)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

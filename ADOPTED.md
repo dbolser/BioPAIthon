@@ -79,7 +79,13 @@ precision, so the RMSD reported was still silently out by up to 0.025 Å in
 22 to 117 of each 300 collinear sets. The RMSD is now measured on the fit
 on every path, so `get_rms()` always agrees with `get_transformed()`; for
 other fits the rotation is unchanged and the RMSD moves only at the level of
-rounding. A new test fits 60 wide collinear sets and fails on the previous
+rounding, except for points spread over only a few thousandths of an Å or
+less. There Newton-Raphson fails too, because it divides by f' + 1e-11 and
+f' scales as the sixth power of the coordinates: it runs out of iterations,
+or stops at once on its starting guess E0. The RMSD from the eigenvalue was
+too small in 348 of 500 random fits spread ±0.001 Å, often by most of its
+value, and most of those at ±0.0001 Å had no message; it is now right, with
+the rotation bit-identical. A new test fits 60 wide collinear sets and fails on the previous
 main, on this commit alone, and on the commit as upstream has it.
 
 **Not fixed: points close to a line but not on it.** These can still get a
