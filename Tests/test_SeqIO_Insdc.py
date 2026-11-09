@@ -104,13 +104,13 @@ class TestValuelessQualifiers(unittest.TestCase):
     """Qualifiers that take no value, like /pseudo, are written bare.
 
     The parsers store a bare /pseudo as [""], which the writers used to
-    write as /pseudo="", invalid INSDC (upstream issue #902).
+    write as /pseudo="", invalid INSDC (upstream issues #902 and #4205).
     """
 
-    indent = {"gb": " " * 21, "embl": "FT" + " " * 19}
+    indent = {"gb": " " * 21, "embl": "FT" + " " * 19, "imgt": "FT" + " " * 23}
 
     def check_round_trip(self, record, key, count):
-        """Write record in both formats; check key is bare and survives."""
+        """Write record in each format; check key is bare and survives."""
         for fmt, indent in self.indent.items():
             with self.subTest(fmt=fmt):
                 text = record.format(fmt)
