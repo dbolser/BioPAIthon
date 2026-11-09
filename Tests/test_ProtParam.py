@@ -221,8 +221,9 @@ class ProtParamTest(unittest.TestCase):
                 / sum(weights)
                 for i in range(len(self.text) - window + 1)
             ]
-            for analysis in self.analyses:
-                with self.subTest(window=window, edge=edge):
+            for sequence, analysis in zip(self.sequences, self.analyses):
+                kind = type(sequence).__name__
+                with self.subTest(window=window, edge=edge, input=kind):
                     result = analysis.protein_scale(scale, window, edge)
                     self.assertEqual(len(result), len(expected))
                     for r, e in zip(result, expected):
@@ -233,6 +234,14 @@ class ProtParamTest(unittest.TestCase):
         analysis = ProtParam.ProteinAnalysis("ACDEFGHIK")
         with self.assertRaises(ValueError):
             analysis.protein_scale(ProtParamData.kd, 2, edge=0.0)
+
+    def test_protein_scale_window_below_one(self):
+        """A window smaller than 1 raises ValueError."""
+        analysis = ProtParam.ProteinAnalysis("ACDEFGHIK")
+        for window in (0, -1, -2):
+            with self.subTest(window=window):
+                with self.assertRaisesRegex(ValueError, "window must be at least 1"):
+                    analysis.protein_scale(ProtParamData.kd, window)
 
     def test_gravy(self):
         """Calculate gravy. Tests all pre-defined scales."""
