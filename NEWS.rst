@@ -55,6 +55,34 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.qcprot.QCPSuperimposer`` now returns the right rotation for
+coordinates turned by exactly 180 degrees, such as a copy made in memory with
+a two-fold symmetry operator, and for a mirror image made by negating the
+coordinates, whose best fit is such a turn. At the scale of a protein
+structure it reported the right RMSD but returned a rotation that did not
+superimpose the coordinates: fitting all the atoms of PDB entry 1A8O to a copy
+turned 180 degrees about the axis (1, 2, 3) left an RMSD of about 19 Å where 0
+was reported, and fitting its mirror image left 23.6 Å where 10.2 Å, the best
+possible, was reported. The quaternion behind the rotation is now checked (it
+must be an eigenvector of QCP's 4×4 key matrix), and when the check fails the
+Kabsch SVD is used, as it already was when no quaternion could be found.
+Other fits pass the check by a wide margin, so it does not change them. The
+same check also corrects the rotation for some collinear point sets. This is
+an upstream defect (biopython/biopython#5346, reported by Ziqi (Adam) Chen),
+also in Biopython 1.88; the diagnosis and the check are Zehao Wang's, from
+the withdrawn biopython/biopython#5351.
+
+``QCPSuperimposer`` now fits in double precision whatever the type of the
+coordinates passed to ``set``, as ``set_atoms`` already did. ``Atom.coord`` is
+single precision, so an array built from it was fitted in single precision,
+where for more than about 3000 atoms (as in PDB entries 2XHE and 7DDO) the
+quaternion overflowed: the RMSD reported was about right, but the rotation
+returned was all zeros. Smaller single-precision fits reported RMSDs out by
+up to about 0.02 Å for the closest fits and 2e-4 Å for others, and some
+printed a spurious "did not converge" message; they now give the same result
+as ``set_atoms``. Integer coordinates, which raised a casting error, now work
+too. This is an upstream defect, also in Biopython 1.88.
+
 ``Bio.PDB.PDBIO`` now writes ``TER`` records within the 80 columns of the PDB
 format (they were padded to 81) and with their own serial number, which was
 reused for the first atom of the next chain. With the default numbering, an
