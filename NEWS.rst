@@ -55,6 +55,37 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.MeltingTemp.Tm_NN`` now gives the same melting temperature for
+a duplex with a terminal mismatch or a dangling end whichever strand is passed
+as ``seq``. Such an end base has its own term from ``tmm_table`` or
+``de_table`` and is then set aside, but the initiation terms (A/T or G/C
+terminal pair, 5' T and 3' A penalties, and whether the duplex is all A/T)
+were still read from the whole of ``seq``. So a mismatched or unpaired base
+was also charged as if it were a terminal base pair. For example, with
+``nn_table=DNA_NN4, dnac1=250, dnac2=0, saltcorr=0``,
+``Tm_NN("AGCGCGCGCA", c_seq="CCGCGCGCGT")`` gave 64.23 °C and the same duplex
+read from its other strand, ``Tm_NN("TGCGCGCGCC", c_seq="ACGCGCGCGA")``, gave
+63.69 °C; both now give 63.69 °C. The initiation now comes from the base pairs
+that close the duplex. That is the reference state of the default dangling
+end table: Bommarito, Peyret and SantaLucia (2000), Nucleic Acids Research
+28:1929-1934, https://doi.org/10.1093/nar/28.9.1929, derived its values by
+subtracting the core duplex.
+
+This is a deliberate change of results, for calls whose ``c_seq`` leaves a
+terminal mismatch, or a dangling end on ``seq``. Fully paired duplexes
+(including every call with neither ``c_seq`` nor ``shift``) and dangling ends
+on ``c_seq`` give exactly the same values as before. With ``DNA_NN3`` (the
+default) and ``DNA_NN4`` the change was at most 0.7 °C for the 10- to 30-mers
+we tried. ``DNA_NN1`` changes only when the end base held the duplex's only G
+or C, and then by more: with the settings above, a C·C mismatch on an
+otherwise all-A/T 16-mer goes from 36.30 to 33.25 °C. Salt correction
+methods 5 to 7 (5 is the default) still use the length and GC content of the
+whole of ``seq``, so with a dangling end the two strands can still give
+different values under them. This is an upstream defect
+(biopython/biopython#1277, raised by Lars-Gustav Snipen; the strand
+dependence was shown by Junhui Li and Harald Niederstätter), also in
+Biopython 1.88.
+
 ``DistanceTreeConstructor.upgma`` in ``Bio.Phylo.TreeConstruction`` now builds
 a UPGMA tree, as its name and docstring say. It used to build a WPGMA tree:
 after joining two clusters it took the plain mean of their distances to each
