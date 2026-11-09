@@ -41,6 +41,56 @@ request.
 
 Newest first.
 
+### [#5363](https://github.com/biopython/biopython/pull/5363) — Angus Barlow
+
+Fixes upstream issue
+[#5340](https://github.com/biopython/biopython/issues/5340), reported by
+Ziqi (Adam) Chen. `ProteinAnalysis.protein_scale` raised
+`ZeroDivisionError` for a window of 1, because `_weight_list` divides by
+`window - 1`. For an even window it counted `subsequence[window // 2]`
+twice, once in the innermost mirrored pair and again as the "middle", so
+the later of the two middle residues carried an extra weight of 1, and the
+profile was not the weighted mean of the window and depended on the
+sequence's direction. The code dates from 2003 (`19f997e2f`) and was
+written for odd windows only; nothing in its history deals with even
+windows. The reporter's case
+is a real one: Hopp and Woods' scale, `ProtParamData.hw`, is averaged over
+six residues, and the test suite's 152-residue protein came out up to 0.56
+away from that mean. The fix gives a window of 1 a weight unit of 0, skips
+the middle term for even windows, and divides by the two-sided weight sum.
+Checked here against a weighted mean written independently, a linear ramp
+from `edge` at both ends to 1 at the window centre: windows 2, 4, 6 and 10
+agree to 1e-15, a reversed sequence gives exactly the reversed profile, and
+windows 3, 5, 9 and 21 give the same floats as before, bit for bit.
+
+**One of the two commits taken** (`7f4d775969`, the fix and its two
+regression tests), which applied with no conflicts. Left behind:
+`5fe8afa5e7`, which adds the author to `CONTRIB.rst` and to a "Many thanks"
+contributor list in upstream's in-progress 1.89 section of `NEWS.rst`. That
+section is upstream history in this tree, so the fork writes its own `NEWS.rst`
+paragraph instead; the `CONTRIB.rst` line is added by hand, as the author
+ticked the box for adding his name.
+
+Corrections on top. The upstream direction test passes for any symmetric
+weighting, so a new test pins the values of even windows against the
+weighted mean written out by hand, the Hopp and Woods six-residue mean
+among them. The docstring now describes a window of 1 and even windows,
+whose weights rise towards 1 at the point between the two middle residues
+(0.4, 0.8, 0.8, 0.4 for a window of 4 with an edge of 0.4). And the fix
+turned a window of 2 with an edge of 0, where both residues have a weight
+of 0, from a wrong answer (the second residue's value) into a new
+`ZeroDivisionError`; it now raises `ValueError` naming the window and edge,
+as does a window of 0, which raised `IndexError`. With these four new tests
+and only `ProtParam.py` reverted, all four fail.
+
+**Upstream status:** as of 2026-11-09 the pull request is open, with no
+reviews or comments since it was opened on 2026-10-08, and its CI passes.
+On the issue, peterjc first suggested documenting and limiting the window
+size instead, accepted the Hopp and Woods case as a real use, and asked
+the reporter whether #5363 worked for them; the reporter replied "LGTM".
+The licence box is ticked. Issue #5340 is still open and upstream master
+has no fix.
+
 ### [#5392](https://github.com/biopython/biopython/pull/5392) — Zijian Zeng
 
 The `LWL85` method of `calculate_dn_ds` weighted the transitional and
