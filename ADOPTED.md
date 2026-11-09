@@ -80,9 +80,11 @@ numbering, every serial after a model's first `TER` also moves up by one per
 numbering, a model whose atoms fit in the five-column serial field only
 because `TER` shared their numbers now raises `PDBIOException`, as a model
 with more than 99,999 atoms already did. A synthetic structure of 99,999
-atoms in two chains raises where it used to be written. Left as before: a
-`TER` whose own serial passes 99,999 is still written six digits wide, so
-81 columns, rather than raising.
+atoms in two chains raises where it used to be written. A fork commit on top
+also makes a `TER` whose own serial would pass 99,999 raise
+`PDBIOException`, instead of writing it six digits wide and so 81 columns
+(the Codex review on #275 found that the extra `TER` serials could push the
+last one over the limit).
 
 JoaoRodrigues approved the pull request on 2026-11-06 and asked whether it
 was written with AI; there is no reply on the thread as of 2026-11-09. His

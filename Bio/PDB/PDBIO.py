@@ -492,6 +492,14 @@ class PDBIO(StructureIO):
                             atom_number += 1
 
                 if chain_residues_written:
+                    if atom_number > 99999:
+                        if isinstance(file, str):
+                            self._revert_write(fhandle, delete_file=True)
+                        else:
+                            self._revert_write(fhandle, truncate_to=fd_position)
+                        raise PDBIOException(
+                            f"TER serial number ('{atom_number}') exceeds PDB format limit."
+                        )
                     fhandle.write(
                         _TER_FORMAT_STRING
                         % (atom_number, resname, chain_id, resseq, icode)
