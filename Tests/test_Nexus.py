@@ -1342,6 +1342,52 @@ Root:  16
             ],
         )
 
+    def test_NexusComments_two_per_node(self):
+        """Strip both comments of a node and keep the first (issue 3456)."""
+        # MrBayes writes one comment before the branch length (the clade
+        # posterior) and one after it (the branch length statistics).
+        tree = Trees.Tree(
+            "((A[&p=1]:0.1[&l=2],B[&p=1]:0.2[&l=3])[&p=0.9]:0.3[&l=1],C:0.5);"
+        )
+        self.assertEqual(
+            self._get_flat_nodes(tree),
+            [
+                (None, 0.0, None, None),
+                (None, 0.3, None, "[&p=0.9]"),
+                ("C", 0.5, None, None),
+                ("A", 0.1, None, "[&p=1]"),
+                ("B", 0.2, None, "[&p=1]"),
+            ],
+        )
+
+    def test_NexusComments_labelled_node(self):
+        """Keep an internal node's label as its taxon when it has comments."""
+        for text in ("((A,B)x[&p=1]:0.1[&l=2],C);", "((A,B)x[&p=1]:0.1,C);"):
+            with self.subTest(text=text):
+                tree = Trees.Tree(text)
+                data = tree.node(tree.node(tree.root).succ[0]).data
+                self.assertEqual(data.taxon, "x")
+                self.assertIsNone(data.support)
+                self.assertEqual(data.branchlength, 0.1)
+                self.assertEqual(data.comment, "[&p=1]")
+                # a string support made this raise ValueError
+                tree.to_string(plain=False)
+
+    def test_NexusComments_second_unmatched(self):
+        """An unclosed second comment raises TreeError."""
+        with self.assertRaisesRegex(Trees.TreeError, r"Found \[& without matching \]"):
+            Trees.Tree("(A[&p=1]:0.1[&l=2,B);")
+
+    def test_NexusComments_bracket_before_comment(self):
+        """Find a comment's ] after its [&, past a ] in a quoted label."""
+        # Searching for ] from the start of the text finds the label's ]
+        # first. The old code then lost the comment; the loop that removes
+        # every comment would never end.
+        tree = Trees.Tree("((A,B)'x]y'[&p]:0.1,C);")
+        data = tree.node(tree.node(tree.root).succ[0]).data
+        self.assertEqual(data.comment, "[&p]")
+        self.assertEqual(data.branchlength, 0.1)
+
 
 class TestSelf(unittest.TestCase):
     def test_repeated_names_no_taxa(self):

@@ -170,8 +170,9 @@ class Tree(Nodes.Chain):
         """Add data to the node parsed from the comments, taxon and support (PRIVATE)."""
         if isinstance(st[1][-1], str) and st[1][-1].startswith(NODECOMMENT_START):
             nd.comment = st[1].pop(-1)
-        # if the first element is a string, it's the subtree node taxon
-        elif isinstance(st[1][0], str):
+        # if the first element is a string, it's the subtree node taxon,
+        # whether or not the node also had a comment
+        if st[1] and isinstance(st[1][0], str):
             nd.taxon = st[1][0]
             st[1] = st[1][1:]
         if len(st) > 1:
@@ -195,17 +196,22 @@ class Tree(Nodes.Chain):
         """Extract values (support/branchlength) from xx[:yyy], xx (PRIVATE)."""
         if text == "":
             return None
+        # Cut out every [&....] comment, and keep the first one. A MrBayes
+        # consensus tree has two per node: the clade posterior before the
+        # branch length, and the branch length statistics after it.
         nodecomment = None
-        if NODECOMMENT_START in text:  # if there's a [&....] comment, cut it out
-            nc_start = text.find(NODECOMMENT_START)
-            nc_end = text.find(NODECOMMENT_END)
+        nc_start = text.find(NODECOMMENT_START)
+        while nc_start != -1:
+            nc_end = text.find(NODECOMMENT_END, nc_start)
             if nc_end == -1:
                 raise TreeError(
                     "Error in tree description: Found %s without matching %s"
                     % (NODECOMMENT_START, NODECOMMENT_END)
                 )
-            nodecomment = text[nc_start : nc_end + 1]
+            if nodecomment is None:
+                nodecomment = text[nc_start : nc_end + 1]
             text = text[:nc_start] + text[nc_end + 1 :]
+            nc_start = text.find(NODECOMMENT_START)
 
         # parse out supports and branchlengths, with internal node taxa info
         values = []
