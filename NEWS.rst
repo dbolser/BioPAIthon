@@ -72,10 +72,12 @@ the default edge of 1 it gives the plain mean. Every profile computed with
 an even window changes; odd windows give exactly the same values as before.
 A window of 2 with an edge of 0, which gives both residues a weight of 0,
 now raises ``ValueError``, where it returned the second residue's value, and
-a window of 0 raises the same ``ValueError`` rather than ``IndexError``. This
-is an upstream defect (biopython/biopython#5340, reported by Ziqi (Adam)
+a window smaller than 1 raises ``ValueError`` rather than ``IndexError``.
+This is an upstream defect (biopython/biopython#5340, reported by Ziqi (Adam)
 Chen), also in Biopython 1.88 and still in upstream's development code. The
-fix is Angus Barlow's, from the unmerged biopython/biopython#5363.
+fix for windows of 1 and even windows is Angus Barlow's, from the unmerged
+biopython/biopython#5363; the two ``ValueError`` cases are this fork's
+addition.
 
 The ``YN00`` method of ``calculate_dn_ds`` and ``calculate_dn_ds_matrix`` in
 ``Bio.Align.analysis``, which ``Bio.codonalign`` also uses for ``cal_dn_ds``
