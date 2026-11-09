@@ -709,7 +709,9 @@ class CodonAdaptationIndex(dict):
         left out, as its relative adaptiveness is always one. Which codons
         these are depends on the genetic code the index was made with: ATG
         (Met) and TGG (Trp) in the standard code, but only ATG in the mold
-        mitochondrial code (table 4), where TGA is Trp too.
+        mitochondrial and Mycoplasma code (table 4), where TGA is Trp too.
+        A stop codon of that genetic code is skipped if it is missing from
+        the index; any other codon missing from the index is an error.
         """
         cai_value, cai_length = 0, 0
 
@@ -737,7 +739,7 @@ class CodonAdaptationIndex(dict):
             try:
                 cai_value += log(self[codon])
             except KeyError:
-                if codon in ["TGA", "TAA", "TAG"]:
+                if codon in self._table.stop_codons:
                     # Stop codon, which is valid but may be missing from the index.
                     continue
                 raise TypeError(f"illegal codon in sequence: {codon}") from None

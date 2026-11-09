@@ -1043,6 +1043,22 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
         self.assertAlmostEqual(index["AAT"], 0.5)
         self.assertAlmostEqual(index.calculate("AAGAAT"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("ATGAAGAAT"), 0.5, places=10)
+        # Both codons are left out, so there is nothing to average.
+        with self.assertRaises(ZeroDivisionError):
+            index.calculate("AAG")
+
+    def test_calculate_counts_atg_but_skips_aag_in_trematode_code(self):
+        """ATG counts and AAG is left out in the trematode mitochondrial code.
+
+        In table 21 ATA is Met and AAA is Asn, so ATG has a synonym and AAG
+        is the only Lys codon. The reference gives ATA 2 and ATG 1, so ATG
+        has w = 1/2, and the CAI of ATG AAG is that of ATG alone.
+        """
+        table = unambiguous_dna_by_id[21]
+        index = CodonAdaptationIndex(["ATAATAATGTAA"], table=table)
+        self.assertAlmostEqual(index["ATG"], 0.5)
+        self.assertAlmostEqual(index["AAG"], 1.0)
+        self.assertAlmostEqual(index.calculate("ATGAAG"), 0.5, places=10)
 
     def test_calculate_rejects_illegal_codons(self):
         """An illegal or incomplete codon is a TypeError, whatever the code."""
@@ -1110,6 +1126,24 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
         self.assertAlmostEqual(index.calculate("AAGTAA"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("AAGTAG"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("AAGTGA"), 0.5, places=10)
+
+    def test_calculate_skips_missing_stop_codons_of_the_genetic_code(self):
+        """The stop codons skipped when missing are those of the index's table.
+
+        In the vertebrate mitochondrial code (table 2) AGA and AGG are stop
+        codons and TGA is Trp. A missing AGA or AGG is skipped like any stop
+        codon, but a missing TGA is a sense codon missing from the index.
+        """
+        table = unambiguous_dna_by_id[2]
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"], table=table)
+        for codon in ("AGA", "AGG", "TAA", "TAG", "TGA"):
+            del index[codon]
+        for codon in ("AGA", "AGG", "TAA", "TAG"):
+            with self.subTest(codon=codon):
+                self.assertAlmostEqual(index.calculate("AAG" + codon), 0.5, places=10)
+        with self.assertRaises(TypeError) as context:
+            index.calculate("AAGTGA")
+        self.assertEqual(str(context.exception), "illegal codon in sequence: TGA")
 
     def test_calculate_rejects_missing_sense_codon(self):
         """A sense codon missing from the index is an error."""
