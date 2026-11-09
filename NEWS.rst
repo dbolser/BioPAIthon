@@ -55,6 +55,18 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SwissProt`` no longer inserts a space when it joins a comment (``CC``)
+line that UniProt wrapped after a hyphen. ``record.comments`` now reads
+``Lipid-anchor, GPI-anchor`` rather than ``GPI- anchor``, and evidence tags
+and cross-references such as ``{ECO:0000255|HAMAP-Rule:MF_01317}`` and
+``Rhea:RHEA-COMP:9566`` are no longer split. The ``comment`` annotation that
+``Bio.SeqIO`` gives for format ``"swiss"`` changes the same way. A space is
+still added after a dash that stands alone (preceded by a space), and after a
+hyphen when the next line starts with "and", "or" or "to", as in "N- and
+C-terminal". No other comment text changes. The parser already joined wrapped
+reference titles and feature descriptions this way. Upstream issue
+`#4521 <https://github.com/biopython/biopython/issues/4521>`_.
+
 The GenBank, EMBL and IMGT writers now write a qualifier that takes no value,
 such as ``/pseudo``, without one when its value is an empty string. The
 parsers read a bare ``/pseudo`` as ``[""]``, which was then written back as
