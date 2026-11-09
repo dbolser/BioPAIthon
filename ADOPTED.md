@@ -61,8 +61,10 @@ fit.
 tree had already moved that Kabsch block into `_kabsch_rotation`, for the
 check of the quaternion against the key matrix
 ([#5346](https://github.com/biopython/biopython/issues/5346)); the
-resolution keeps the same code. The author left the contributor-listing box
-unticked and did not add himself to `CONTRIB.rst`, so is not added.
+resolution keeps the same code. He is added to `CONTRIB.rst`, as Abdel ATIA
+was for #5175. Both left the optional contributor-listing box unticked, but
+that box covers "added my name, am listed already, or do not wish to be
+listed", so a blank box declines nothing.
 
 That check is what makes the pull request safe here. As upstream has it,
 without the check, the eigenvalue alone leaves the rotations of many wide

@@ -294,6 +294,7 @@ https://biopython.org
 - Milind Luthra <https://github.com/milindl>
 - Mohit Arvind Khakharia <https://github.com/Mohit-Ak>
 - morrme <https://github.com/morrme>
+- Muneer Alam <https://github.com/Muneer320>
 - Mustafa Anil Tuncel <https://github.com/anilbey>
 - Nader Morshed <https://github.com/naderm>
 - Nate Sutton <https://github.com/nmsutton>
