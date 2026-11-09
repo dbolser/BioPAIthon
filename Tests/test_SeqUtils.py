@@ -13,6 +13,7 @@ import support
 
 from Bio import SeqIO
 from Bio.Data import IUPACData
+from Bio.Data.CodonTable import unambiguous_dna_by_id
 from Bio.Seq import complement
 from Bio.Seq import complement_rna
 from Bio.Seq import MutableSeq
@@ -1000,6 +1001,78 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
         self.assertAlmostEqual(index.calculate("ATGAAG"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("AAGTGG"), 0.5, places=10)
 
+    def test_calculate_counts_tgg_when_trp_has_two_codons(self):
+        """TGG counts under a genetic code where TGA is Trp too.
+
+        In the mold mitochondrial code (table 4) Trp has two codons, TGA and
+        TGG, so the w of TGG need not be one and must not be left out. With
+        this reference (from biopython/biopython#5345) TGG has w = 1/8, and
+        in ATG AAA TGG TAA the ATG is left out (the only Met codon), AAA has
+        w = 1 (Lys never seen) and TAA has w = 1, so CAI = (1/8)**(1/3).
+        """
+        table = unambiguous_dna_by_id[4]
+        index = CodonAdaptationIndex(["ATG" + "TGA" * 8 + "TGG" + "TAA"], table=table)
+        self.assertAlmostEqual(index["TGA"], 1.0)
+        self.assertAlmostEqual(index["TGG"], 0.125)
+        self.assertAlmostEqual(index.calculate("ATGAAATGGTAA"), 0.5, places=10)
+        self.assertAlmostEqual(index.calculate("AAATGG"), 0.125**0.5, places=10)
+
+    def test_calculate_counts_atg_and_tgg_when_they_have_synonyms(self):
+        """ATG and TGG both count in the vertebrate mitochondrial code.
+
+        In table 2 ATA is Met and TGA is Trp, so no amino acid has a single
+        codon. The reference gives ATA 2, ATG 1, TGA 2 and TGG 1, so ATG and
+        TGG each have w = 1/2.
+        """
+        table = unambiguous_dna_by_id[2]
+        index = CodonAdaptationIndex(["ATAATAATGTGATGATGG"], table=table)
+        self.assertAlmostEqual(index["ATG"], 0.5)
+        self.assertAlmostEqual(index["TGG"], 0.5)
+        self.assertAlmostEqual(index.calculate("ATGTGG"), 0.5, places=10)
+
+    def test_calculate_skips_single_codons_of_the_genetic_code(self):
+        """AAG is left out in the echinoderm mitochondrial code.
+
+        In table 9 AAA is Asn, so AAG is the only Lys codon and its w is
+        always one. The reference gives AAA 2 and AAT 1, so AAT has w = 1/2
+        and AAG, left out, does not pull the CAI of AAG AAT towards one.
+        """
+        table = unambiguous_dna_by_id[9]
+        index = CodonAdaptationIndex(["AAAAAAAATTAA"], table=table)
+        self.assertAlmostEqual(index["AAG"], 1.0)
+        self.assertAlmostEqual(index["AAT"], 0.5)
+        self.assertAlmostEqual(index.calculate("AAGAAT"), 0.5, places=10)
+        self.assertAlmostEqual(index.calculate("ATGAAGAAT"), 0.5, places=10)
+        # Both codons are left out, so there is nothing to average.
+        with self.assertRaises(ZeroDivisionError):
+            index.calculate("AAG")
+
+    def test_calculate_counts_atg_but_skips_aag_in_trematode_code(self):
+        """ATG counts and AAG is left out in the trematode mitochondrial code.
+
+        In table 21 ATA is Met and AAA is Asn, so ATG has a synonym and AAG
+        is the only Lys codon. The reference gives ATA 2 and ATG 1, so ATG
+        has w = 1/2, and the CAI of ATG AAG is that of ATG alone.
+        """
+        table = unambiguous_dna_by_id[21]
+        index = CodonAdaptationIndex(["ATAATAATGTAA"], table=table)
+        self.assertAlmostEqual(index["ATG"], 0.5)
+        self.assertAlmostEqual(index["AAG"], 1.0)
+        self.assertAlmostEqual(index.calculate("ATGAAG"), 0.5, places=10)
+
+    def test_calculate_rejects_illegal_codons(self):
+        """An illegal or incomplete codon is a TypeError, whatever the code."""
+        for table_id in (1, 4, 9):
+            table = unambiguous_dna_by_id[table_id]
+            index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"], table=table)
+            for sequence, codon in (("GCTNNN", "NNN"), ("GCTGC", "GC")):
+                with self.subTest(table=table_id, sequence=sequence):
+                    with self.assertRaises(TypeError) as context:
+                        index.calculate(sequence)
+                    self.assertEqual(
+                        str(context.exception), f"illegal codon in sequence: {codon}"
+                    )
+
     def test_illegal_codon_without_gene_name(self):
         """A bad codon in a bare sequence is reported without a gene name."""
         for sequence in ("ATGAANAAA", Seq("ATGAANAAA"), MutableSeq("ATGAANAAA")):
@@ -1053,6 +1126,24 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
         self.assertAlmostEqual(index.calculate("AAGTAA"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("AAGTAG"), 0.5, places=10)
         self.assertAlmostEqual(index.calculate("AAGTGA"), 0.5, places=10)
+
+    def test_calculate_skips_missing_stop_codons_of_the_genetic_code(self):
+        """The stop codons skipped when missing are those of the index's table.
+
+        In the vertebrate mitochondrial code (table 2) AGA and AGG are stop
+        codons and TGA is Trp. A missing AGA or AGG is skipped like any stop
+        codon, but a missing TGA is a sense codon missing from the index.
+        """
+        table = unambiguous_dna_by_id[2]
+        index = CodonAdaptationIndex(["ATGAAAAAGAAATAA"], table=table)
+        for codon in ("AGA", "AGG", "TAA", "TAG", "TGA"):
+            del index[codon]
+        for codon in ("AGA", "AGG", "TAA", "TAG"):
+            with self.subTest(codon=codon):
+                self.assertAlmostEqual(index.calculate("AAG" + codon), 0.5, places=10)
+        with self.assertRaises(TypeError) as context:
+            index.calculate("AAGTGA")
+        self.assertEqual(str(context.exception), "illegal codon in sequence: TGA")
 
     def test_calculate_rejects_missing_sense_codon(self):
         """A sense codon missing from the index is an error."""
