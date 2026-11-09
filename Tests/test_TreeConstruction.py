@@ -220,6 +220,11 @@ class DistanceTreeConstructorTest(unittest.TestCase):
         calculator = DistanceCalculator("blosum62")
         self.dm = calculator.get_distance(self.alignment)
         self.constructor = DistanceTreeConstructor(calculator)
+        # UPGMA and WPGMA give different trees for this matrix
+        self.dm_abcde = DistanceMatrix(
+            ["A", "B", "C", "D", "E"],
+            [[0], [2, 0], [4, 4, 0], [5, 5, 11, 0], [10, 10, 10, 7.5, 0]],
+        )
 
     def test_upgma_msa(self):
         tree = self.constructor.upgma(self.dm_msa)
@@ -244,6 +249,74 @@ class DistanceTreeConstructorTest(unittest.TestCase):
             2,
         ):
             self.assertAlmostEqual(len1, len2)
+
+    def check_tree_distances(self, tree, expected):
+        """Check the path length between each pair of terminals, given as "AB"."""
+        for pair, distance in expected.items():
+            with self.subTest(pair=pair):
+                self.assertAlmostEqual(tree.distance(*pair), distance)
+
+    def test_upgma_weights_by_cluster_size(self):
+        # biopython/biopython#1208: upgma() used to average the distances of
+        # the two clusters it merged, which is WPGMA, so that D joined E at
+        # 7.5 here instead of joining ABC at 7.
+        tree = self.constructor.upgma(self.dm_abcde)
+        # A and B join at 2, and C joins them at 4. The mean distance from D to
+        # A, B and C is (5 + 5 + 11) / 3 = 7, less than D to E (7.5), so D joins
+        # them next, and E joins all four at (10 + 10 + 10 + 7.5) / 4 = 9.375.
+        self.check_tree_distances(
+            tree,
+            {
+                "AB": 2,
+                "AC": 4,
+                "BC": 4,
+                "AD": 7,
+                "BD": 7,
+                "CD": 7,
+                "AE": 9.375,
+                "BE": 9.375,
+                "CE": 9.375,
+                "DE": 9.375,
+            },
+        )
+
+    def test_wpgma(self):
+        tree = self.constructor.wpgma(self.dm_abcde)
+        # WPGMA puts D at (5 + 11) / 2 = 8 from the AB-C cluster, whatever the
+        # cluster sizes, so D joins E at 7.5 first, and the two clusters join
+        # at (10 + 8) / 2 = 9.
+        self.check_tree_distances(
+            tree,
+            {
+                "AB": 2,
+                "AC": 4,
+                "BC": 4,
+                "DE": 7.5,
+                "AD": 9,
+                "BD": 9,
+                "CD": 9,
+                "AE": 9,
+                "BE": 9,
+                "CE": 9,
+            },
+        )
+        for dm in (self.dm_msa, self.dm):
+            tree = self.constructor.wpgma(dm)
+            ref_tree = Phylo.read(
+                support.DATA / "TreeConstruction" / "wpgma.tre", "newick"
+            )
+            self.assertTrue(Consensus._equal_topology(tree, ref_tree))
+
+    def test_build_tree_upgma_wpgma(self):
+        calculator = DistanceCalculator("blosum62")
+        for method in ("upgma", "wpgma"):
+            with self.subTest(method=method):
+                constructor = DistanceTreeConstructor(calculator, method)
+                tree = constructor.build_tree(self.alignment)
+                ref_tree = Phylo.read(
+                    support.DATA / "TreeConstruction" / f"{method}.tre", "newick"
+                )
+                self.assertTrue(Consensus._equal_topology(tree, ref_tree))
 
     def test_nj_msa(self):
         tree = self.constructor.nj(self.dm_msa)
