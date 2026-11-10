@@ -355,7 +355,7 @@ class Entity(Generic[_Parent, _Child]):
         Recursively walks the entity hierarchy until only atom-level children
         remain, unpacking disordered residues/atoms so every alternative is
         represented.  Shared by :meth:`center_of_mass` and
-        :meth:`radius_of_gyration`.
+        :meth:`radius_of_gyration`.  Raises ValueError if there are no atoms.
         """
         maybe_disordered = {"R", "C"}  # to know when to use get_unpacked_list
         only_atom_level = {"A"}
@@ -368,6 +368,8 @@ class Entity(Generic[_Parent, _Child]):
             else:
                 entities += e.child_list
 
+            if not entities:  # e.g. a Structure holding only an empty Model
+                raise ValueError(f"{self} does not have any atoms")
             if {e.level for e in entities} == only_atom_level:
                 break  # nothing else to unpack
         return entities
@@ -376,6 +378,7 @@ class Entity(Generic[_Parent, _Child]):
         """Return the center of mass of the Entity as a numpy array.
 
         If geometric is True, returns the center of geometry instead.
+        Raises ValueError if the Entity holds no atoms.
         """
         if not len(self):
             raise ValueError(f"{self} does not have children")
@@ -395,6 +398,7 @@ class Entity(Generic[_Parent, _Child]):
         The radius of gyration (Rg) is the root-mean-square distance of the
         atoms from their center of mass, weighted by atomic mass.  If
         geometric is True, all atoms are weighted equally instead.
+        Raises ValueError if the Entity holds no atoms.
 
         Examples
         --------
