@@ -50,10 +50,10 @@ graphics = [
     "pillow",
 ]
 # BioSQL's default driver is "MySQLdb", provided by mysqlclient, which
-# Bio.motifs.jaspar.db also uses. mysql-connector-python, psycopg2 and pgdb
-# are supported alternatives (pass driver= to open_database); sqlite3 is in
-# the standard library. An extra cannot offer a choice, so it installs the
-# default.
+# Bio.motifs.jaspar.db also uses. mysql-connector-python, pymysql, psycopg2
+# and pgdb are supported alternatives (pass driver= to open_database); sqlite3
+# is in the standard library. An extra cannot offer a choice, so it installs
+# the default.
 biosql = [
     "mysqlclient",
 ]
