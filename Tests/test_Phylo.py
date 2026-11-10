@@ -7,6 +7,7 @@
 
 import math
 import os
+import random
 import tempfile
 import unittest
 import warnings
@@ -19,6 +20,8 @@ from Bio import Phylo
 from Bio.Nexus.Nexus import NexusError
 from Bio.Phylo import Newick
 from Bio.Phylo import PhyloXML
+from Bio.Phylo.TreeConstruction import DistanceMatrix
+from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
 
 # Example Newick and Nexus files
 EX_NEWICK = support.DATA / "Nexus" / "int_node_labels.nwk"
@@ -596,6 +599,109 @@ class TreeTests(unittest.TestCase):
             tree = Phylo.read(source, "phyloxml")
             output = str(tree)
             self.assertEqual(len(output.splitlines()), count)
+
+
+class RerootDistanceTests(unittest.TestCase):
+    """Rerooting must not change any distance between two tips.
+
+    Rerooting only moves the root, so the total branch length and the path
+    length between every pair of tips must be what they were before.
+    """
+
+    def random_tree(self, rng, n_tips):
+        """Return a random unrooted-style Newick tree with n_tips tips.
+
+        Clades are joined at random, and the last three are put under a
+        trifurcating root half of the time, as tree builders often do.
+        """
+        clades = [
+            Newick.Clade(name=f"t{i}", branch_length=rng.choice([0.0, rng.random()]))
+            for i in range(n_tips)
+        ]
+        stop = rng.choice([2, 3])
+        while len(clades) > stop:
+            rng.shuffle(clades)
+            clades.append(
+                Newick.Clade(
+                    clades=[clades.pop(), clades.pop()],
+                    branch_length=rng.choice([0.0, rng.random()]),
+                )
+            )
+        return Newick.Tree(root=Newick.Clade(clades=clades), rooted=False)
+
+    def tip_distances(self, tree):
+        """Return the distance between each pair of tips, keyed by name."""
+        tips = sorted(tree.get_terminals(), key=lambda tip: tip.name)
+        return {
+            (a.name, b.name): tree.distance(a, b)
+            for i, a in enumerate(tips)
+            for b in tips[i + 1 :]
+        }
+
+    def assertDistancesKept(self, tree, total, distances, msg):
+        """Check the total branch length and every pairwise tip distance."""
+        self.assertAlmostEqual(tree.total_branch_length(), total, msg=msg)
+        for pair, value in self.tip_distances(tree).items():
+            self.assertAlmostEqual(value, distances[pair], msg=f"{msg} {pair}")
+
+    def test_random_root_with_outgroup(self):
+        """Tree.root_with_outgroup keeps tip distances on random trees."""
+        rng = random.Random(5390)
+        for _ in range(100):
+            tree = self.random_tree(rng, rng.randint(4, 10))
+            total = tree.total_branch_length()
+            distances = self.tip_distances(tree)
+            newick = tree.format("newick").strip()
+            # Reroot repeatedly on a random clade, putting the new root at a
+            # random point along the branch above it or giving no length.
+            for _ in range(10):
+                clade = rng.choice(list(tree.find_clades()))
+                blen = clade.branch_length or 0.0
+                tree.root_with_outgroup(
+                    clade,
+                    outgroup_branch_length=rng.choice([None, rng.random() * blen]),
+                )
+                self.assertDistancesKept(tree, total, distances, newick)
+
+    def test_random_root_at_midpoint(self):
+        """Tree.root_at_midpoint keeps tip distances on random trees."""
+        rng = random.Random(5390)
+        for _ in range(300):
+            tree = self.random_tree(rng, rng.randint(4, 10))
+            total = tree.total_branch_length()
+            distances = self.tip_distances(tree)
+            longest = max(distances.values())
+            if not longest:
+                # All tips coincide, so there is no midpoint to find
+                continue
+            newick = tree.format("newick").strip()
+            tree.root_at_midpoint()
+            self.assertDistancesKept(tree, total, distances, newick)
+            # The root is at the midpoint of the longest path between tips
+            self.assertEqual(len(tree.root.clades), 2, msg=newick)
+            for child in tree.root.clades:
+                # depths() counts the child's own branch from the root
+                depth = max(child.depths().values())
+                self.assertAlmostEqual(depth, longest / 2, msg=newick)
+
+    def test_distance_tree_root_at_midpoint(self):
+        """Midpoint rooting an NJ or UPGMA tree keeps its tip distances."""
+        rng = random.Random(5390)
+        names = [f"s{i}" for i in range(6)]
+        constructor = DistanceTreeConstructor()
+        for method in (constructor.nj, constructor.upgma):
+            for _ in range(60):
+                points = [[rng.random() for _ in range(3)] for _ in names]
+                matrix = [
+                    [math.dist(points[i], points[j]) for j in range(i + 1)]
+                    for i in range(len(names))
+                ]
+                tree = method(DistanceMatrix(names, matrix))
+                total = tree.total_branch_length()
+                distances = self.tip_distances(tree)
+                newick = tree.format("newick").strip()
+                tree.root_at_midpoint()
+                self.assertDistancesKept(tree, total, distances, newick)
 
 
 def newick_support(clade):
