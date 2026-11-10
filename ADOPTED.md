@@ -63,7 +63,11 @@ applied without conflicts, including the author's own `CONTRIB.rst` line.
 a fork commit adds `"S"` (structure), which `search` returns. (`search_all`
 also accepts `"S"`, but on a single structure it always returns no pairs,
 since both atoms of every pair share the one structure; the Tutorial text
-only describes `search`.)
+only describes `search`.) A second fork commit, after review, says that
+the CA-centred search finds the residues near that one atom, not near the
+whole residue, and adds a doctested search around every atom of the
+residue. On 1A8O that adds ARG 154, whose N atom is 3.34 Å from the O of
+ASP 152 but more than 5 Å from its CA.
 
 **Checked:** the example's outputs (ASP 152; residues 151, 152, 153 and
 the waters 1001, 1027, 1035 and 1054; 525 pairs) are the same on this
