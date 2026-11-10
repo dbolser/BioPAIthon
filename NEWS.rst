@@ -62,7 +62,7 @@ background frequencies, so the record and each motif get a background of 0.25
 for every letter. Before, ``motifs.parse(handle, "minimal")`` raised
 ``ValueError: Improper input file. File should contain a line starting
 background frequencies.`` A file that ends right after its ``ALPHABET`` line
-now gives an empty record, as a file with a header but no motifs already did.
+now gives an empty record, as any file with no motifs now does.
 Files with the section before their first motif, which is where the format
 puts it, are read exactly as before. One malformed case changes: a
 background section placed after a motif used to make the parser skip every

@@ -68,8 +68,8 @@ not in the commit taken.
 **Added by the fork:** with the commit alone, a file that ends right after
 its `ALPHABET` line raised `UnboundLocalError`, because the `for` loop in
 `_read_background` never ran and `line` was never set. A fork commit sets
-`line = ""` before the loop, so that file gives an empty record, like any
-other file without motifs, with a test. Also checked, not changed: a
+`line = ""` before the loop, so that file gives an empty record, as any
+file without motifs now does, with a test. Also checked, not changed: a
 background section placed after a motif (outside the format) used to make
 the parser skip the motifs before it, silently; with this change all motifs
 are kept and that late section is ignored, giving a uniform background.
