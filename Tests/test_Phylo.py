@@ -278,12 +278,28 @@ class IOTests(unittest.TestCase):
             warnings.simplefilter("error")
             newick = tree.format("newick").strip()
         self.assertEqual(newick, "(A:0,B:0)E:0.1[50];")
-        # A comment that reads as another number is an old support value
+        # A comment that reads as another number may be data, so it is kept
         root.comment = "40"
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'E' has a comment"):
             newick = tree.format("newick").strip()
-        self.assertEqual(newick, "(A:0,B:0)E:0.1[50.00];")
+        self.assertEqual(newick, "(A:0,B:0)E:0.1[40];")
+
+    def test_newick_write_named_clade_numeric_comment(self):
+        """Keep a numeric comment that the confidence was not read from."""
+        # The confidence is read from the value after the colon, not [2024]
+        newick = "(A:1,B:1)N1:0.9[2024];"
+        tree = Phylo.read(StringIO(newick), "newick", values_are_confidence=True)
+        self.assertEqual([tree.root.confidence, tree.root.comment], [0.9, "2024"])
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'N1' has a comment"):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:0,B:0)N1:0[2024];")
+        # Read with the defaults, a comment is not a confidence, so one set
+        # later does not replace it
+        tree = Phylo.read(StringIO("(A:1,B:1)N1:0.9[12.5];"), "newick")
+        tree.root.confidence = 0.75
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'N1' has a comment"):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:1,B:1)N1:0.9[12.5];")
 
     def test_newick_read_scinot(self):
         """Parse Newick branch lengths in scientific notation."""

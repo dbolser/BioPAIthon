@@ -69,21 +69,22 @@ branch-labels output, which ``comments_are_confidence=True`` reads:
 ``N1:0.5[0.90]``. If the clade already has a comment that reads as its
 confidence, as one read with ``comments_are_confidence=True`` does, that
 comment is written as it is, so the named clades of such a tree keep their
-names and support values when written back. A comment that reads as a
-different number is taken for an old support value, left behind when the
-confidence was rescaled or moved by rerooting, and the confidence replaces
-it. Any other comment is written in place of the confidence, and a
-``BiopythonWarning`` says the confidence was not written. The output changes
-only for named clades with a confidence, whose old output could not be read
-back correctly. An unnamed clade is written as before, with its confidence
-as its label, as in ``(C,D)98.00:0.46``, followed by any comment; a reader
-with ``comments_are_confidence=True`` takes that label for a name. The
+names and support values when written back. If the confidence was read from
+the comment and has changed since, as rescaling or rerooting the tree does,
+the comment is an old support value and the confidence replaces it. Any other
+comment, such as a number that the confidence was not read from, or an old
+support value in a copy of the tree, is written in place of the confidence,
+and a ``BiopythonWarning`` says the confidence was not written. The output
+changes only for named clades with a confidence, whose old output could not be
+read back correctly. An unnamed clade is written as before, with its
+confidence as its label, as in ``(C,D)98.00:0.46``, followed by any comment; a
+reader with ``comments_are_confidence=True`` takes that label for a name. The
 ``"nexus"`` writer uses the same tree text, but NEXUS treats a plain comment
 as a comment, not data, so in a NEXUS file a named clade keeps its name and
 its confidence is not read back. This is an upstream defect, also in Biopython
 1.88 and still in upstream's development code, reported by Katherine Eaton in
-the unmerged biopython/biopython#3016; its fix also changed how unnamed
-clades are written, so this fork wrote its own.
+the unmerged biopython/biopython#3016; its fix also changed how unnamed clades
+are written, so this fork wrote its own.
 
 The GenBank and EMBL parsers now read an insertion that Ensembl writes as a
 descending pair, such as ``7..6`` for an insertion between bases 6 and 7,

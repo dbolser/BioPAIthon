@@ -14,10 +14,20 @@ See: http://evolution.genetics.washington.edu/phylip/newick_doc.html
 
 import re
 import warnings
+import weakref
 from io import StringIO
 
 from Bio import BiopythonWarning
 from Bio.Phylo import Newick
+
+# The comment that each clade's confidence was read from, when the parser was
+# given comments_are_confidence=True. If the confidence has changed since, as
+# rescaling or rerooting does, the writer knows the comment is an old support
+# value and not other data. Kept here, not on the clade, so it adds nothing to
+# what a clade shows or copies; a copy of a tree has no entries.
+_support_comments: weakref.WeakKeyDictionary[Newick.Clade, str] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 class NewickError(ValueError):
@@ -103,17 +113,16 @@ def _get_confidence_comment(clade, format_confidence):
 
     If the clade already has a comment that reads as its confidence, as one
     read with ``comments_are_confidence=True`` does, that comment is written
-    as it is. A comment that reads as a different number is an old support
-    value, left behind when the confidence was changed, as rescaling or
-    rerooting does, so the confidence replaces it. Any other comment is other
-    data: it is kept, and a warning says the confidence was not written.
+    as it is. If the confidence was read from the comment and has changed
+    since, as rescaling or rerooting does, the comment is an old support value
+    and the confidence replaces it. Any other comment, numeric or not, is
+    other data: it is kept, and a warning says the confidence was not written.
     """
     comment = _get_comment(clade)
     if comment:
-        value = _parse_confidence(str(clade.comment))
-        if value == clade.confidence:
+        if _parse_confidence(str(clade.comment)) == clade.confidence:
             return comment
-        if value is None:
+        if _support_comments.get(clade) != clade.comment:
             warnings.warn(
                 f"Clade {clade.name!r} has a comment, so its confidence "
                 f"{clade.confidence} was not written",
@@ -190,6 +199,8 @@ class Parser:
                 if self.comments_are_confidence:
                     # Try to use this comment as a numeric support value
                     current_clade.confidence = _parse_confidence(current_clade.comment)
+                    if current_clade.confidence is not None:
+                        _support_comments[current_clade] = current_clade.comment
 
             elif token == "(":
                 # start a new clade, which is a child of the current clade
@@ -322,8 +333,9 @@ class Writer:
         comment after the branch length, as in ``(A,B)E:0.46[98.00]``, which
         is read back with ``comments_are_confidence=True``. If that clade
         already has a comment, the comment is written as it is when it reads
-        as the same number, and replaced by the confidence when it reads as a
-        different number. Any other comment is written in place of the
+        as the same number. It is replaced by the confidence when the
+        confidence was read from it, with ``comments_are_confidence=True``,
+        and has changed since. Any other comment is written in place of the
         confidence, with a ``BiopythonWarning``.
         """
         # If there's a conflict in the arguments, we override plain=True
