@@ -55,6 +55,17 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The PHD reader, ``Bio.Sequencing.Phd`` and ``Bio.SeqIO`` format ``"phd"``,
+now reads a ``TRIM:`` comment line whose probability is written in scientific
+notation with a space where the exponent's sign should be, such as
+``TRIM: -1 -1 -1.000000e 000``. Such files have been seen in practice; the
+value is read as ``-1.0`` (phred's "no trimming" probability) and a
+``BiopythonParserWarning`` is issued, the workaround the Biopython
+maintainers suggested. Previously this failed with a bare
+``ValueError: too many values to unpack``. Any other ``TRIM:`` line without
+exactly three values now raises a ``ValueError`` that quotes the line,
+instead of an unpacking error (biopython/biopython#2839).
+
 Ordering a ``Seq`` or ``MutableSeq`` (``<``, ``<=``, ``>``, ``>=``) against a
 type it does not support now follows Python's comparison protocol. Before, the
 sequence handed its internal ``bytes`` (or ``bytearray``) to the comparison,
