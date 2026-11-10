@@ -41,6 +41,50 @@ request.
 
 Newest first.
 
+### [#5194](https://github.com/biopython/biopython/pull/5194) — Gert Hulselmans (ghuls)
+
+`Bio.motifs.minimal.read` required a "Background letter frequencies" section
+and raised `ValueError` without one, although the MEME format calls it
+recommended, not required, and says the MEME Suite assumes uniform
+frequencies when it is missing. Files from factorbook.org leave it out. The
+pull request makes `_read_background` default to 0.25 for each letter, stop at
+the first `MOTIF` line if it finds no background section, and hand that line
+back to the main loop, so the motif is not lost. It reads the handle only by
+iteration, so it works on non-seekable streams.
+
+**The single commit taken** (`56951256b`, cherry-picked with `-x`). It adds
+`Tests/motifs/minimal_test_no_background.meme` (the existing
+`minimal_test.meme` without its background section) and a test of it. One
+conflict, in `Tests/test_motifs.py`: the commit deletes a redundant second
+`open` of `minimal_test.meme`, which this fork had already moved to
+`support.DATA`; resolved by deleting it, and the new test's `open` was
+pointed at `support.DATA` too, as this fork's tests do. The PR body still
+describes its first revision, which rewound the handle with `tell` and
+`seek`; that was dropped under review (a handle may be `sys.stdin`) and is
+not in the commit taken.
+
+**Left behind:** nothing.
+
+**Added by the fork:** with the commit alone, a file that ends right after
+its `ALPHABET` line raised `UnboundLocalError`, because the `for` loop in
+`_read_background` never ran and `line` was never set. A fork commit sets
+`line = ""` before the loop, so that file gives an empty record, like any
+other file without motifs, with a test. Also checked, not changed: a
+background section placed after a motif (outside the format) used to make
+the parser skip the motifs before it, silently; with this change all motifs
+are kept and that late section is ignored, giving a uniform background.
+`NEWS.rst` says so.
+
+**Checked:** on this fork's main the new no-background test fails with the
+`ValueError` and the end-after-`ALPHABET` test fails too; with the branch
+all of `Tests/test_motifs.py` passes and the `Bio.motifs.minimal` doctest
+passes. Gert Hulselmans is already in `CONTRIB.rst`.
+
+**Upstream status:** as of 2026-11-10 the pull request is open and not a
+draft, with one commit and no approving review; the last activity was on
+2026-04-16, when peterjc asked mdehoon to look again. The licence box is
+ticked.
+
 ### [#5255](https://github.com/biopython/biopython/pull/5255) — Arata Synqa Bando
 
 Fixes upstream issue
