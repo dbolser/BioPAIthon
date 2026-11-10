@@ -45,6 +45,64 @@ request.
 
 Newest first.
 
+### [#5352](https://github.com/biopython/biopython/pull/5352) — Yuxuan Luo (Oblivionis028)
+
+Closes upstream issue
+[#5342](https://github.com/biopython/biopython/issues/5342). An undefined
+angle in `Bio.PDB.vectors` came back as a number: `Vector.angle` with a
+zero-length vector divided by zero, and the roundoff clamp turned the NaN
+into -1, so `calc_angle` on coincident points gave pi and `calc_dihedral`
+on collinear points gave -pi, with at most one `RuntimeWarning`. An exactly
+planar trans dihedral also came back as -pi, outside the documented
+]-pi, pi]. The pull request makes `Vector.angle` raise `ValueError` for a
+zero-length vector, clamps with `np.clip` so NaN stays NaN, takes the
+dihedral's sign from the scalar triple product (so trans is +pi), and
+rewrites `vector_to_axis` as a dot-product projection so the origin no
+longer warns.
+
+**One of the two commits taken** (`ef70c9a50`, cherry-picked with `-x` and
+`-Xrenormalize`, because it was uploaded through the web with CRLF line
+endings). Its `NEWS.rst` paragraph landed in upstream's 1.89 section and
+was moved into the fork's during conflict resolution; `vectors.py` and the
+tests applied cleanly.
+
+**Left behind:** `c86277680`, "Normalize line endings for web upload",
+which only undoes the CRLF damage and is not needed after `-Xrenormalize`.
+
+**Chosen over [#5357](https://github.com/biopython/biopython/pull/5357)**
+(JingHao-Leon, withdrawn 2026-10-12), which rewrites the same lines of
+`calc_dihedral` to return NaN instead. That fixes only the dihedral:
+`calc_angle` and `Vector.angle` still return pi. Dan decided on
+2026-11-10 to raise, as the fork does elsewhere for unusable input.
+
+**Added by the fork:** the callers in `Bio.PDB` that used to get pi now
+handle the error. `Polypeptide.get_tau_list` and `get_theta_list` put
+`None` in a window whose angle is undefined (such as two C-alpha atoms on
+the same spot), as `get_phi_psi_list` already did and as the fork's
+missing-CA fix does (fork PR
+[#320](https://github.com/BioAGI-org/biop-ai/pull/320), upstream
+[#969](https://github.com/biopython/biopython/issues/969)); with the pull
+request alone, one such window raised and lost the whole list. `HSExposureCB` and `HSExposureCA` leave
+out a residue whose CA-CB or pseudo-CB direction has zero length, as for
+missing atoms (before, every neighbour was counted as down), and skip a
+neighbouring CA exactly on the residue's own CA (before, counted as down);
+`HSExposureCA` gives `None` for the CB to pseudo-CB angle when the CB sits
+on the CA. `internal_coords`, `DSSP`, `Superimposer`, `SCADIO` and the rest
+of `Bio.PDB` do not call `Vector.angle`, `calc_angle`, `calc_dihedral` or
+`vector_to_axis`, so nothing else changes. Regression tests for each, and
+a longer `NEWS.rst` entry arguing the change.
+
+**Checked:** the pull request's tests fail on fork main and pass here. The
+fork's new Polypeptide and HSExposure tests fail both on fork main (where
+they get pi) and with only the upstream commit applied (where they raise).
+
+**Upstream status:** as of 2026-11-10 the pull request is open, not a
+draft, and on hold: on 2026-10-05 peterjc thanked the author for declaring
+AI assistance and held it pending upstream's AI policy
+([#5241](https://github.com/biopython/biopython/pull/5241), still open).
+No technical review. The licence box is ticked. Issue #5342 is open. The
+author is already in `CONTRIB.rst`.
+
 ### [#5390](https://github.com/biopython/biopython/pull/5390) — Donncha O'Toole
 
 `Tree.root_with_outgroup(outgroup, outgroup_branch_length=X)` puts the new
