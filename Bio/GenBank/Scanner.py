@@ -986,7 +986,19 @@ class EmblScanner(InsdcScanner):
             elif line_type == "KW":
                 consumer.keywords(data.rstrip(";"))
             elif line_type == "DT":
-                consumer.date(data.split()[0])
+                # Date line, format:
+                # DT   15-MAY-1995 (Rel. 44, Created)
+                # DT   20-APR-1999 (Rel. 59, Last updated, Version 2)
+                #
+                # Keep only the date. A later DT line replaces an earlier
+                # one, so the "Last updated" date wins, matching the date on
+                # a GenBank LOCUS line.
+                if data.strip():
+                    consumer.date(data.split()[0])
+                else:
+                    warnings.warn(
+                        "Malformed DT line in EMBL file.", BiopythonParserWarning
+                    )
             elif line_type in consumer_dict:
                 # Its a semi-automatic entry!
                 getattr(consumer, consumer_dict[line_type])(data)

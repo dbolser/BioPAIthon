@@ -3739,6 +3739,24 @@ SQ   Sequence 4 BP; 1 A; 1 C; 1 G; 1 T; 0 other;
         record = SeqIO.read(StringIO(text), "embl")
         self.assertEqual(record.annotations["date"], "20-APR-1999")
 
+    def test_embl_empty_date(self):
+        """Test an EMBL DT line with no date warns and is skipped."""
+        # See biopython/biopython#5318; an empty DT line was once ignored.
+        text = """ID   TEST; SV 1; linear; DNA; STD; PLN; 4 BP.
+XX
+AC   TEST;
+XX
+DT   15-MAY-1995 (Rel. 44, Created)
+DT
+XX
+SQ   Sequence 4 BP; 1 A; 1 C; 1 G; 1 T; 0 other;
+     acgt        4
+//
+"""
+        with self.assertWarnsRegex(BiopythonParserWarning, "Malformed DT line"):
+            record = SeqIO.read(StringIO(text), "embl")
+        self.assertEqual(record.annotations["date"], "15-MAY-1995")
+
     def test_imgt1(self):
         """Test parsing file with features over-indented for EMBL."""
         sequences = ["GATTGATCAATGCAGGCTGTTATGACTCAGGAATCTGCAC...CACATCA"]
