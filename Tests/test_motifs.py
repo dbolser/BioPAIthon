@@ -284,10 +284,37 @@ class TestDegenerateConsensus(unittest.TestCase):
         motif = motifs.Motif("ACGT", counts=counts)
         self.assertEqual(motif.degenerate_consensus, "AN")
 
-    def test_all_zero_column_three_letter_alphabet(self):
+    def test_all_zero_column_short_alphabet(self):
+        """With fewer than four letters, an empty column names the alphabet.
+
+        That is also the code for a column in which every letter is equally
+        common, so a scoring-matrix column of zeros (letters at background
+        frequency) agrees with the counts it came from.
+        """
         counts = {"A": [3, 0], "C": [0, 0], "G": [0, 0]}
         motif = motifs.Motif("ACG", counts=counts)
-        self.assertEqual(motif.degenerate_consensus, "AN")
+        self.assertEqual(motif.degenerate_consensus, "AV")
+        motif = motifs.create([Seq("AA"), Seq("CA"), Seq("GA")], alphabet="ACG")
+        self.assertEqual(motif.degenerate_consensus, "VA")
+        self.assertEqual(motif.pssm.degenerate_consensus, "VA")
+        motif = motifs.create([Seq("AA"), Seq("CA")], alphabet="AC")
+        self.assertEqual(motif.pssm.degenerate_consensus, "MA")
+        motif = motifs.create([Seq("AA")], alphabet="A")
+        self.assertEqual(motif.pssm.degenerate_consensus, "AA")
+
+    def test_all_zero_column_in_alphabet_order(self):
+        """The old answer for an empty column depended on the alphabet order."""
+        counts = {"G": [5, 0], "A": [0, 0], "T": [0, 0], "C": [0, 0]}
+        motif = motifs.Motif("GATC", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "GN")
+
+    def test_pssm_column_at_background_frequency(self):
+        """Equal counts score zero under a uniform background, so give N."""
+        motif = motifs.create(["AACGT", "CACGT", "GACGT", "TACGT"])
+        self.assertEqual(motif.degenerate_consensus, "NACGT")
+        self.assertEqual(motif.pssm.degenerate_consensus, "NACGT")
+        motif.pseudocounts = 0.5
+        self.assertEqual(motif.pssm.degenerate_consensus, "NACGT")
 
     def test_scores_summing_to_zero_are_not_an_empty_column(self):
         """Only a column of zeros is empty; log-odds may sum to zero."""
@@ -2415,6 +2442,8 @@ class TestJASPAR(unittest.TestCase):
         self.assertAlmostEqual(motif.counts["C", 14], 0.583333333)
         self.assertEqual(motif.consensus, "AGCGGGGGGGGGAGC")
         self.assertEqual(motif.degenerate_consensus, "MGCNNNNNNNNNMGC")
+        # Columns 3-11 are at background frequency, so every score is zero.
+        self.assertEqual(motif.pssm.degenerate_consensus, "MGCNNNNNNNNNMGC")
         self.assertTrue(
             np.allclose(
                 motif.relative_entropy,
