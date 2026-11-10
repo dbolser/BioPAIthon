@@ -206,6 +206,84 @@ class URLConstructionTests(unittest.TestCase):
         self.assertIn("'xml' is not supported", str(context.exception))
 
 
+class ServerPathTests(unittest.TestCase):
+    """The server may be a bare host or a URL naming the archive itself."""
+
+    def requested_urls(self, server, call):
+        """Run call on PDBList(server) with downloads faked; return the URLs."""
+        requested = []
+
+        def fake_urlopen(url):
+            requested.append(url)
+            return io.BytesIO(b"")
+
+        def fake_urlretrieve(url, filename):
+            requested.append(url)
+            with gzip.open(filename, "wb") as handle:
+                handle.write(b"payload")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            pdblist = PDBList(server=server, pdb=tmp, verbose=False)
+            with mock.patch.object(pdb_list_module, "urlopen", fake_urlopen):
+                with mock.patch.object(
+                    pdb_list_module, "urlretrieve", fake_urlretrieve
+                ):
+                    with mock.patch.object(pdb_list_module, "urlcleanup"):
+                        call(pdblist)
+        return requested
+
+    def test_ebi_mirror(self):
+        """EBI keeps the archive under /pub/databases/pdb, not /pub/pdb."""
+        ebi = "https://ftp.ebi.ac.uk/pub/databases/pdb"
+        for server in (ebi, ebi + "/"):
+            with self.subTest(server=server):
+                urls = self.requested_urls(
+                    server,
+                    lambda pdblist: (
+                        pdblist.get_all_obsolete(),
+                        pdblist.get_all_entries(),
+                        pdblist.retrieve_pdb_file("127d", file_format="mmCif"),
+                    ),
+                )
+                self.assertEqual(
+                    urls,
+                    [
+                        f"{ebi}/data/status/obsolete.dat",
+                        f"{ebi}/derived_data/index/entries.idx",
+                        f"{ebi}/data/structures/divided/mmCIF/27/127d.cif.gz",
+                    ],
+                )
+
+    def test_bare_host_keeps_pub_pdb(self):
+        """A bare host, as callers have always passed, still gets /pub/pdb."""
+        for server in ("https://ftp.pdbj.org", "https://ftp.pdbj.org/"):
+            with self.subTest(server=server):
+                urls = self.requested_urls(
+                    server,
+                    lambda pdblist: (
+                        pdblist.get_all_obsolete(),
+                        pdblist.retrieve_assembly_file("127d", 1, file_format="pdb"),
+                    ),
+                )
+                self.assertEqual(
+                    urls,
+                    [
+                        "https://ftp.pdbj.org/pub/pdb/data/status/obsolete.dat",
+                        "https://ftp.pdbj.org/pub/pdb/data/biounit/PDB/all/127d.pdb1.gz",
+                    ],
+                )
+
+    def test_archive_path_given_in_full(self):
+        """Naming the wwPDB archive in full no longer doubles /pub/pdb."""
+        urls = self.requested_urls(
+            "https://files.wwpdb.org/pub/pdb",
+            lambda pdblist: pdblist.get_all_obsolete(),
+        )
+        self.assertEqual(
+            urls, ["https://files.wwpdb.org/pub/pdb/data/status/obsolete.dat"]
+        )
+
+
 class MalformedInputTests(unittest.TestCase):
     """Bad status files and directories raise ValueError, not assert."""
 

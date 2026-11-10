@@ -192,6 +192,21 @@ reading it as an attribute of ``Bio.PDB.internal_coords``, now gives a
 no longer provides the name. An ``except MissingAtomError`` clause never runs,
 so it can simply be deleted.
 
+Bio.PDB.PDBList server argument
+-------------------------------
+**This change is biop-ai's own; Biopython adds /pub/pdb to every server.**
+Changed in biop-ai 1.89 without a deprecation period. A ``server`` given
+with a path is now taken to be the PDB archive itself, so ``/pub/pdb`` is no
+longer added after it; a bare host, such as the default
+``"https://files.wwpdb.org"``, still has ``/pub/pdb`` added. This is what
+lets ``PDBList`` use mirrors that keep the archive elsewhere, such as
+``"https://ftp.ebi.ac.uk/pub/databases/pdb"``, which could not work at all
+before; a warning period would have kept those failing. Code that named a
+mirror whose archive sits in ``/pub/pdb`` below its path must now name the
+archive in full: ``server="http://host/mirror"`` becomes
+``server="http://host/mirror/pub/pdb"``, and ``server="file:///data/wwpdb"``
+becomes ``server="file:///data/wwpdb/pub/pdb"``.
+
 Bio.SeqIO.PdbIO
 ---------------
 **This deprecation is biop-ai's own; Biopython has not deprecated this.**

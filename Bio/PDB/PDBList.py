@@ -47,6 +47,7 @@ import zlib
 from concurrent.futures import ThreadPoolExecutor
 from http.client import HTTPException
 from typing import Optional
+from urllib.parse import urlsplit
 from urllib.request import Request
 from urllib.request import urlcleanup
 from urllib.request import urlopen
@@ -97,6 +98,13 @@ class PDBList:
     ):
         """Initialize the class with the default server or a custom one.
 
+        Argument server is the base URL of the PDB archive to download from.
+        A bare host, such as the default ``"https://files.wwpdb.org"`` or
+        ``"https://ftp.pdbj.org"``, is taken to keep the archive under
+        ``/pub/pdb``, as the wwPDB sites do. A URL with a path is taken to
+        be the archive itself, which lets you use a mirror that keeps it
+        elsewhere, such as ``"https://ftp.ebi.ac.uk/pub/databases/pdb"``.
+
         Argument pdb is the local path to use, defaulting to the current
         directory at the moment of initialisation.
         """
@@ -118,6 +126,17 @@ class PDBList:
 
         # variable for command-line option
         self.flat_tree = False
+
+    def _archive_url(self, path):
+        """Return the URL of path within the server's PDB archive (PRIVATE).
+
+        A server given as a bare host keeps the archive under ``/pub/pdb``;
+        a server given with a path is the archive itself.
+        """
+        server = self.pdb_server.rstrip("/")
+        if not urlsplit(server).path:
+            server += "/pub/pdb"
+        return server + path
 
     @staticmethod
     def _print_default_format_warning(file_format):
@@ -164,7 +183,7 @@ class PDBList:
             drwxrwxr-x   2 1002     sysadmin     512 Oct 14 02:14 20031013
             -rw-r--r--   1 1002     sysadmin    1327 Mar 12  2001 README
         """
-        path = self.pdb_server + "/pub/pdb/data/status/latest/"
+        path = self._archive_url("/data/status/latest/")
 
         # Retrieve the lists
         added = self.get_status_list(path + "added.pdb")
@@ -177,7 +196,7 @@ class PDBList:
 
         Returns a list of PDB codes in the index file.
         """
-        url = self.pdb_server + "/pub/pdb/derived_data/index/entries.idx"
+        url = self._archive_url("/derived_data/index/entries.idx")
         if self._verbose:
             print("Retrieving index file. Takes about 27 MB.")
         with contextlib.closing(urlopen(url)) as handle:
@@ -209,7 +228,7 @@ class PDBList:
             ...
 
         """
-        url = self.pdb_server + "/pub/pdb/data/status/obsolete.dat"
+        url = self._archive_url("/data/status/obsolete.dat")
         with contextlib.closing(urlopen(url)) as handle:
             # Extract pdb codes. Could use a list comprehension, but I want
             # to include an assert to check for mis-reading the data.
@@ -300,14 +319,12 @@ class PDBList:
                 if file_format == "pdb"
                 else "mmCIF" if file_format == "mmCif" else "XML"
             )
-            url = (
-                self.pdb_server
-                + f"/pub/pdb/data/structures/{pdb_dir}/{file_type}/{pdb_code[1:3]}/{archive}"
+            url = self._archive_url(
+                f"/data/structures/{pdb_dir}/{file_type}/{pdb_code[1:3]}/{archive}"
             )
         elif file_format == "bundle":
-            url = (
-                self.pdb_server
-                + f"/pub/pdb/compatible/pdb_bundle/{pdb_code[1:3]}/{pdb_code}/{archive}"
+            url = self._archive_url(
+                f"/compatible/pdb_bundle/{pdb_code[1:3]}/{pdb_code}/{archive}"
             )
         else:
             # The format check above leaves only "bcif" here.
@@ -565,9 +582,9 @@ class PDBList:
         archive_fn = archive[file_format]
 
         if file_format == "mmcif":
-            url = self.pdb_server + f"/pub/pdb/data/assemblies/mmCIF/all/{archive_fn}"
+            url = self._archive_url(f"/data/assemblies/mmCIF/all/{archive_fn}")
         elif file_format == "pdb":
-            url = self.pdb_server + f"/pub/pdb/data/biounit/PDB/all/{archive_fn}"
+            url = self._archive_url(f"/data/biounit/PDB/all/{archive_fn}")
         else:  # better safe than sorry
             raise ValueError(f"file_format '{file_format}' not supported")
 
@@ -714,7 +731,7 @@ class PDBList:
         """Retrieve and save a (big) file containing all the sequences of PDB entries."""
         if self._verbose:
             print("Retrieving sequence file (takes over 110 MB).")
-        url = self.pdb_server + "/pub/pdb/derived_data/pdb_seqres.txt"
+        url = self._archive_url("/derived_data/pdb_seqres.txt")
         urlretrieve(url, savefile)
 
 

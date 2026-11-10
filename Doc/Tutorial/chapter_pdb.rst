@@ -2153,10 +2153,14 @@ directory in which to store the downloaded PDB files.
 The ``retrieve_pdb_file`` method also has some options to specify the
 compression format used for the download, and the program used for local
 decompression (default ``.Z`` format and ``gunzip``). In addition, the
-PDB ftp site can be specified upon creation of the ``PDBList`` object.
-By default, the server of the Worldwide Protein Data Bank
-(ftp://ftp.wwpdb.org/pub/pdb/data/structures/divided/pdb/) is used. See
-the API documentation for more details. Thanks again to Kristian Rother
+server can be specified upon creation of the ``PDBList`` object. By
+default, the server of the Worldwide Protein Data Bank
+(https://files.wwpdb.org) is used. A server given as a bare host, such as
+``"https://ftp.pdbj.org"``, is taken to keep the archive under
+``/pub/pdb``; a server given with a path is taken to be the archive
+itself, so a mirror such as the EBI's can be used with
+``PDBList(server="https://ftp.ebi.ac.uk/pub/databases/pdb")``. See the
+API documentation for more details. Thanks again to Kristian Rother
 for donating this module.
 
 Downloading the entire PDB
