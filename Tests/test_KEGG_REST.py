@@ -110,8 +110,18 @@ class KEGGRESTURLs(unittest.TestCase):
             "find/compound/C7H10O5/formula",
         )
         self.assertURL(kegg_find("compound", "(+)", "nop"), "find/compound/(+)/nop")
+        # nop is not a chemical field: KEGG takes it for any keyword search
+        self.assertURL(kegg_find("genes", "shiga", "nop"), "find/genes/shiga/nop")
+        self.assertURL(
+            kegg_find("pathway", "glycolysis", "nop"), "find/pathway/glycolysis/nop"
+        )
+        self.assertURL(
+            kegg_find("genes", ["shiga", "toxin"], "nop"),
+            "find/genes/shiga+toxin/nop",
+        )
+        # but the chemical fields only for compound and drug (HTTP 400)
         with self.assertRaises(ValueError):
-            kegg_find("genes", "shiga", "nop")
+            kegg_find("genes", "shiga", "formula")
 
     def test_get(self):
         self.assertURL(
@@ -194,6 +204,8 @@ class KEGGRESTURLs(unittest.TestCase):
             "link/genome/taxid:562/species",
         )
         self.assertURL(kegg_link("atc", "D01441", "turtle"), "link/atc/D01441/turtle")
+        # dr is KEGG's abbreviation of drug
+        self.assertURL(kegg_link("dr", "atc", "turtle"), "link/dr/atc/turtle")
         # KEGG offers RDF output of link only for drug, atc and jtc
         with self.assertRaises(ValueError):
             kegg_link("pathway", "hsa:10458", "turtle")

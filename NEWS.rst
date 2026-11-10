@@ -63,7 +63,8 @@ these raised ``ValueError`` before, as did ``kegg_conv("compound", "chebi")``,
 because of a typo. ``kegg_list`` takes a new ``option`` argument for the
 database subsets KEGG now offers, as in ``kegg_list("genome",
 option="animals")`` or ``kegg_list("genome", option="562")`` for a taxonomy
-ID; ``kegg_find`` accepts the ``"nop"`` option, ``kegg_get`` the ``"conf"``
+ID; ``kegg_find`` accepts the ``"nop"`` option for any database,
+``kegg_get`` the ``"conf"``
 option, and ``kegg_link`` the taxonomy options ``"species"`` to
 ``"phylum"``. Some calls KEGG no longer
 answers now raise ``ValueError`` before any request is sent, instead of an
@@ -72,7 +73,7 @@ any ``option`` of ``kegg_conv`` (KEGG withdrew its RDF output), ``ncbi-gi`` in
 ``kegg_conv``, as a database or in entries such as ``"ncbi-gi:4507949"`` (use
 ``ncbi-proteinid``), ``kegg_conv`` between a gene and a chemical database,
 such as ``kegg_conv("pubchem", "hsa")``, and RDF options of ``kegg_link`` for
-targets other than ``drug``, ``atc`` and ``jtc``. ``kegg_list`` now also
+targets other than ``drug`` (or ``dr``), ``atc`` and ``jtc``. ``kegg_list`` now also
 refuses more than 100 entries joined with ``"+"`` in a string, as it already
 did for a list: KEGG silently returns only the first 100. This is a
 long-standing upstream defect (biopython/biopython#729), also in Biopython
