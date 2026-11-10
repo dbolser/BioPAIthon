@@ -59,8 +59,8 @@ Rerooting a ``Bio.Phylo`` tree no longer lengthens it. When the outgroup
 given to ``root_with_outgroup`` was a child of the old root and
 ``outgroup_branch_length`` was not zero, the new root was put on the
 outgroup's branch without shortening the rest of that branch, so the total
-branch length and the distance between every pair of tips grew by
-``outgroup_branch_length``. For ``(A:1,B:2)``, rerooting on ``A`` with
+branch length, and the distance from every tip in the outgroup to every tip
+outside it, grew by ``outgroup_branch_length``. For ``(A:1,B:2)``, rerooting on ``A`` with
 ``outgroup_branch_length=0.5`` gave a distance of 3.5 between ``A`` and ``B``
 instead of 3. ``root_at_midpoint`` uses the same code, so it gave wrong
 distances whenever the midpoint fell on a branch next to the old root:

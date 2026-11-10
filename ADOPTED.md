@@ -50,8 +50,8 @@ Newest first.
 `Tree.root_with_outgroup(outgroup, outgroup_branch_length=X)` puts the new
 root on the branch above the outgroup. When the outgroup was a child of the
 old root, the branch was given the new length `X` but the rest of it was not
-shortened, so the total branch length and every tip-to-tip distance grew by
-`X`. `root_at_midpoint` goes through the same code, so midpoint rooting
+shortened, so the total branch length, and the distance from every outgroup
+tip to every other tip, grew by `X`. `root_at_midpoint` goes through the same code, so midpoint rooting
 `(A:1,B:2)` gave a distance of 4.5 between A and B instead of 3. The pull
 request subtracts `X` in that case, as the code already did when the
 outgroup was further from the root.
