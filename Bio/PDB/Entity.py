@@ -378,6 +378,10 @@ class Entity(Generic[_Parent, _Child]):
         """Return the center of mass of the Entity as a numpy array.
 
         If geometric is True, returns the center of geometry instead.
+        Every alternative location of a disordered atom or residue counts at
+        full mass, not only the selected one that ``get_atoms()`` gives. An
+        atom of unknown element has a mass of NaN, which makes the
+        mass-weighted result NaN; the center of geometry is unaffected.
         Raises ValueError if the Entity holds no atoms.
         """
         if not len(self):
@@ -398,6 +402,12 @@ class Entity(Generic[_Parent, _Child]):
         The radius of gyration (Rg) is the root-mean-square distance of the
         atoms from their center of mass, weighted by atomic mass.  If
         geometric is True, all atoms are weighted equally instead.
+        It uses the same atoms as ``center_of_mass()``: every alternative
+        location of a disordered atom or residue counts at full mass, not
+        only the selected one that ``get_atoms()`` gives, and occupancy is
+        not used as a weight. An atom of unknown element has a mass of NaN,
+        which makes the mass-weighted result NaN; ``geometric=True`` is
+        unaffected.
         Raises ValueError if the Entity holds no atoms.
 
         Examples
