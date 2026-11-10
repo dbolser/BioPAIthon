@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``BioSQL`` now works with the pure-Python MySQL driver PyMySQL, through
+``BioSeqDatabase.open_database(driver="pymysql", ...)``. It could connect
+before, but could not load the BioSQL schema (``load_database_sql`` raised
+``ValueError: Module pymysql not supported by the loader.``), and loading
+records into an existing schema failed with MySQL error 1064 on the
+double-quoted ``"rank"`` column, because the ``ANSI_QUOTES`` SQL mode was set
+only for ``MySQLdb`` and ``mysql.connector``. PyMySQL is now treated like
+those two drivers, except that it is given the DB-API keywords ``database``
+and ``password``: it deprecates the ``db`` and ``passwd`` aliases that
+``MySQLdb`` uses. As before, ``open_database`` accepts either spelling and
+passes on the one the driver wants. Other drivers are unchanged. This is an
+upstream defect (biopython/biopython#4291, reported by jmzhuzhonghua), also
+in Biopython 1.88 and still in upstream's development code; the fix is
+Xinxiang Wang's, from the unmerged biopython/biopython#5233, less its change
+to the keywords. See ``ADOPTED.md``.
+
 ``Seq({}, length=N)``, a sequence of known length built from an empty
 dictionary of defined regions, now behaves exactly like ``Seq(None,
 length=N)``: a sequence whose content is entirely undefined. It was built as a
