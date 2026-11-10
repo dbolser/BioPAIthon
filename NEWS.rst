@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.motifs`` now reads minimal MEME files that have no "Background letter
+frequencies" section, such as those offered by factorbook.org. The MEME
+format makes that section optional, and says a missing one means uniform
+background frequencies, so the record and each motif get a background of 0.25
+for every letter. Before, ``motifs.parse(handle, "minimal")`` raised
+``ValueError: Improper input file. File should contain a line starting
+background frequencies.`` A file that ends right after its ``ALPHABET`` line
+now gives an empty record, as a file with a header but no motifs already did.
+Files with the section before their first motif, which is where the format
+puts it, are read exactly as before. One malformed case changes: a
+background section placed after a motif used to make the parser skip every
+motif before it, silently; now all motifs are kept, and that late section is
+ignored, so the background is uniform. This is an upstream defect, also in
+Biopython 1.88 and still in upstream's development code; the fix is Gert
+Hulselmans', from the unmerged biopython/biopython#5194. See ``ADOPTED.md``.
+
 ``Bio.KEGG.REST`` now matches the current KEGG REST API. ``kegg_conv``
 converts given entries to any database, including an organism, as in
 ``kegg_conv("eco", "ncbi-geneid:948364")`` or ``kegg_conv("genes",
