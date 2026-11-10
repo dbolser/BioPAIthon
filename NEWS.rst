@@ -55,6 +55,23 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+More parsers now accept a handle from ``tempfile.NamedTemporaryFile``:
+``Bio.SeqIO`` in ``"ig"`` format, ``Bio.Compass``, ``Bio.Affy.CelFile``
+(version 3 files), ``Bio.motifs`` in ``"alignace"`` and ``"sites"`` format,
+``Bio.Sequencing.Ace``, ``Bio.Sequencing.Phd.read``, ``Bio.SwissProt``,
+``Bio.PopGen.GenePop.read`` and ``Bio.Emboss.Primer3``. On CPython such a
+handle can be looped over but is not itself an iterator, and these parsers
+failed on it with ``TypeError: '_TemporaryFileWrapper' object is not an
+iterator`` (``Ace.read`` with ``AttributeError: 'generator' object has no
+attribute 'read'``), although the same file opened with ``open()`` parsed
+fine. Results from an ordinary file are unchanged. One error changes: a
+version 3 CEL file that ends inside its ``[CEL]`` header now raises
+``ValueError`` rather than a bare ``StopIteration``. Upstream fixed the
+FASTA, FASTQ, QUAL, PIR, MAF and ``Bio.Align`` parsers in
+biopython/biopython#3031, but these were still affected in Biopython 1.88;
+the issue is biopython/biopython#4926. The deprecated
+``Bio.PopGen.GenePop.LargeFileParser`` is not changed.
+
 ``Bio.Affy.CelFile.read`` now raises ``CelFile.ParserError`` with the message
 "Expected 12 subfields in DatHeader, found N" when the DatHeader line of a
 version 3 CEL file does not hold exactly 12 subfields. The check was meant to
