@@ -2072,8 +2072,9 @@ tree, not just read about.
 > #4450, #3812, #5127 (first commit only), #5181 (the `matrix.py` half only,
 > as planned), #5175, and now #4390, #3911, #4938, #5121, #5244, #4918 and
 > #4634. Rows are marked **adopted** below; `ADOPTED.md` records what was
-> taken and what was left behind on each. The one remaining candidate is
-> #5157 (PDBList mirror support).
+> taken and what was left behind on each. The fifteenth, #5157 (PDBList
+> mirror support), could not be adopted, as it carries no licence statement;
+> the fork fixed the defect with its own code instead (see `NEWS.rst`).
 
 | | upstream | defect | effort |
 |---|---|---|---|
@@ -2090,7 +2091,7 @@ tree, not just read about.
 | 11 | [#5121](https://github.com/biopython/biopython/pull/5121) **adopted** | mmCIF parsing is ~50% slower than it needs to be for want of a six-line fast path | S |
 | 12 | [#5244](https://github.com/biopython/biopython/pull/5244) **adopted** | every SAM file written has `TLEN` 0 on every record | M |
 | 13 | [#4918](https://github.com/biopython/biopython/pull/4918) **adopted** | GenBank `LOCUS` lines with molecule type `NA` are rejected outright | S |
-| 14 | [#5157](https://github.com/biopython/biopython/pull/5157) | `PDBList` hardcodes wwPDB paths, so EBI and other mirrors cannot be used | S |
+| 14 | [#5157](https://github.com/biopython/biopython/pull/5157) **superseded by the fork's own fix** | `PDBList` hardcodes wwPDB paths, so EBI and other mirrors cannot be used | S |
 | 15 | [#4634](https://github.com/biopython/biopython/pull/4634) **adopted** | no way to resolve polytomies in `Bio.Phylo`, which many downstream tools require | S |
 
 Two defects were found while surveying and belong to no pull request:

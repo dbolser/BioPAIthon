@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.PDBList`` can now download from mirrors that do not keep the PDB
+archive under ``/pub/pdb``, such as the EBI's, with
+``PDBList(server="https://ftp.ebi.ac.uk/pub/databases/pdb")``. Before, every
+URL got ``/pub/pdb`` added after the server, so this gave "404 Not Found"
+for everything. A server given as a bare host, such as the default
+``"https://files.wwpdb.org"`` or ``"https://ftp.pdbj.org"``, still has
+``/pub/pdb`` added, so existing code keeps working. A server given with a
+path is now taken to be the archive itself: this is the behaviour change.
+It only affects a server whose path is followed by ``/pub/pdb``, such as a
+local copy of the wwPDB tree served below ``http://host/mirror``; pass
+``"http://host/mirror/pub/pdb"`` instead. We judged that rarer than wanting
+the EBI mirror, which could not work at all, and naming the archive in full,
+as in ``"https://files.wwpdb.org/pub/pdb"``, now also works rather than
+doubling the path. This is an upstream defect, also in Biopython 1.88 and
+still in upstream's development code, reported as biopython/biopython#3987;
+the fix is our own, as the earlier attempts biopython/biopython#5157 and
+biopython/biopython#5268 carry no licence statement.
+
 ``Bio.PDB.MMCIFParser`` and ``FastMMCIFParser`` now raise
 ``PDBConstructionException`` when a residue number is not an integer, such as
 ``20A`` in ``_atom_site.auth_seq_id``, which the mmCIF dictionary allows and
