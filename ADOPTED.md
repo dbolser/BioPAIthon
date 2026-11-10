@@ -41,6 +41,43 @@ request.
 
 Newest first.
 
+### [#5362](https://github.com/biopython/biopython/pull/5362) — Zehao Wang
+
+Fixes upstream issue
+[#5329](https://github.com/biopython/biopython/issues/5329), reported by
+Aniruddha Adak. `Seq({}, length=N)` with `N > 0` built a
+`_PartiallyDefinedSequenceData` with no segments at all, breaking that
+class's assumption that at least one region is defined: adding it to a
+sequence on either side raised `IndexError`, `* 2` raised
+`UnboundLocalError`, and printing it said "only partially defined". An
+empty dictionary carries the same information as `None`, so `Seq.__init__`
+now gives it `_UndefinedSequenceData(length)`, and it behaves exactly like
+`Seq(None, length=N)`, `repr` included. `Seq({}, length=0)` takes the
+earlier `length == 0` branch and is still `Seq('')`. The pull request adds a
+doctest to `Seq.__init__` and three regression tests to `Tests/test_seq.py`,
+which all fail on this fork's main before the fix.
+
+**The single commit taken** (`e3d686082d`, cherry-picked with `-x`), which
+applied cleanly with line offsets only. Nothing was left behind and there
+are no corrections on top. The `if not data:` check sits after the loop over
+the segments, which never runs for an empty dictionary, rather than before
+it; that is harmless and is kept as upstream wrote it. The author ticked the
+box for being listed already, through #5351, and is in `CONTRIB.rst` from
+the adoption of #5356.
+
+**Upstream status:** closed unmerged on 2026-10-12, withdrawn by its author
+pending the outcome of upstream's draft policy on AI-assisted contributions
+([#5241](https://github.com/biopython/biopython/pull/5241), still open on
+2026-11-09). Michiel de Hoon approved it on 2026-10-10; the withdrawal is
+not a technical objection. The licence box is ticked. Issue #5329 is still
+open and upstream master has no fix.
+
+**Related, not taken here:**
+[#5330](https://github.com/biopython/biopython/pull/5330) by Aniruddha Adak,
+the reporter, makes the same change, but its description dropped the
+template's checklist, so there is no licence box ticked and it is not
+eligible.
+
 ### [#5278](https://github.com/biopython/biopython/pull/5278) — yiyabo
 
 Fixes upstream issue
