@@ -1594,6 +1594,23 @@ class ComparisonTests(unittest.TestCase):
                 with self.assertRaises(TypeError):
                     Seq("AC") < other  # noqa: B015
 
+    @unittest.skipIf(np is None, "NumPy not installed")
+    def test_ordering_seq_numpy_bytes_array(self):
+        """Seq ordering against a NumPy byte-string array is a TypeError."""
+        arr = np.array([b"ATG", b"TTT"])
+        for symbol, op, _ in self.ordering:
+            with self.subTest(op=symbol, order="seq first"):
+                with self.assertRaises(TypeError):
+                    op(Seq("ATG"), arr)
+            with self.subTest(op=symbol, order="array first"):
+                with self.assertRaises(TypeError):
+                    op(arr, Seq("ATG"))
+        # bytes(seq) keeps the old element-by-element result
+        self.assertEqual((bytes(Seq("ATG")) < arr).tolist(), [False, True])
+        # Equality is not affected and still compares element by element
+        self.assertEqual((Seq("ATG") == arr).tolist(), [True, False])
+        self.assertEqual((arr == Seq("ATG")).tolist(), [True, False])
+
     def test_ordering_undefined_against_unsupported_type(self):
         """An undefined sequence against an unsupported type is a TypeError."""
         for symbol, op, _ in self.ordering:
