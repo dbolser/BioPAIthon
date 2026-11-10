@@ -90,6 +90,20 @@ class IOTests(unittest.TestCase):
         self.assertEqual(clade.clades, [])
         self.assertEqual(clade.name, "t1")
 
+    def test_newick_write_deep_tree(self):
+        """Write a Newick tree nested deeper than the recursion limit."""
+        depth = 5000
+        newick = "t1:1"
+        for i in range(2, depth + 1):
+            newick = f"({newick},t{i}:1):1"
+        tree = Phylo.read(StringIO(newick + ";"), "newick")
+        handle = StringIO()
+        Phylo.write(tree, handle, "newick")
+        self.assertEqual(handle.getvalue(), newick + ";\n")
+        handle = StringIO()
+        Phylo.write(tree, handle, "newick", plain=True)
+        self.assertEqual(handle.getvalue(), newick.replace(":1", "") + ";\n")
+
     def test_nexus_read_values(self):
         """Nexus trees keep the values Bio.Nexus.Trees gave them."""
         handle = StringIO(
