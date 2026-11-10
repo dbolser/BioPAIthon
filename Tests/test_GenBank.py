@@ -8027,27 +8027,69 @@ KEYWORDS    """,
             "COMPLETENESS: full length.",
         )
 
+    @staticmethod
+    def comment_lines(text):
+        """Return the non-blank COMMENT lines of a GenBank record, stripped."""
+        block = text.split("\nCOMMENT     ", 1)[1].split("\nFEATURES ", 1)[0]
+        return [line.strip() for line in block.split("\n") if line.strip()]
+
     def test_structured_comment_written_after_free_text(self):
         """Write the free-text comment before the structured comment."""
         # In tsa_acropora.gb, as in NCBI records generally, the COMMENT
         # opens with free text and ends with an ##Assembly-Data-START##
         # table. The writer used to put the table first (upstream issue
         # #2477). Blank lines are compared away, as the parser drops them.
-
-        def comment_lines(text):
-            block = text.split("\nCOMMENT     ", 1)[1].split("\nFEATURES ", 1)[0]
-            return [line.strip() for line in block.split("\n") if line.strip()]
-
         path = support.DATA / "GenBank" / "tsa_acropora.gb"
         with open(path) as handle:
             original = handle.read()
         record = SeqIO.read(path, "genbank")
-        written = comment_lines(record.format("gb"))
+        written = self.comment_lines(record.format("gb"))
         self.assertEqual(
             written[0],
             "The Acropora millepora transcriptome shotgun assembly (TSA) project",
         )
-        self.assertEqual(written, comment_lines(original))
+        self.assertEqual(written, self.comment_lines(original))
+
+    def test_trailing_free_text_written_before_structured_comment(self):
+        """Free text after the structured comment is written before it."""
+        # Many RefSeq records, such as NM_000518.5, end the COMMENT with a
+        # line of free text after the tables, e.g. "COMPLETENESS: full
+        # length.". The parser does not record where the free text was,
+        # so all of it is written first and this line moves up, ahead of
+        # the tables. This test pins that trade-off; nothing is lost.
+        table = [
+            "##RefSeq-Attributes-START##",
+            "MANE Ensembl match     :: ENST00000335295.4/ ENSP00000333994.3",
+            "RefSeq Select criteria :: based on single protein-coding transcript",
+            "##RefSeq-Attributes-END##",
+        ]
+        # As in NM_000518.5: free text, a blank line, the table, then the
+        # trailing line of free text.
+        added = ["", *table, "COMPLETENESS: full length."]
+        handle = self.read_noref_modified(
+            "AF035812.1.\n",
+            "AF035812.1.\n" + "".join(f"{'':12}{line}\n" for line in added),
+        )
+        original = self.comment_lines(handle.getvalue())
+        self.assertEqual(original[2:], [*table, "COMPLETENESS: full length."])
+        record = SeqIO.read(handle, "genbank")
+        self.assertEqual(
+            record.annotations["comment"].split("\n")[-1],
+            "COMPLETENESS: full length.",
+        )
+        written = record.format("gb")
+        self.assertEqual(
+            self.comment_lines(written),
+            [
+                "PROVISIONAL REFSEQ: This record has not yet been subject to final",
+                "NCBI review. The reference sequence was derived from AF035812.1.",
+                "COMPLETENESS: full length.",
+                *table,
+            ],
+        )
+        again = SeqIO.read(StringIO(written), "genbank")
+        for key in ("comment", "structured_comment"):
+            self.assertEqual(again.annotations[key], record.annotations[key])
 
     def test_multiline_structured_comment_parsing(self):
         """Multiline structured comment parsing."""
