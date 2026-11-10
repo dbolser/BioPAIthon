@@ -100,7 +100,13 @@ organism, and applies its 100-entry limit to a `+`-joined string as well
 as to a list: the server accepts 150 entries but silently returns only the
 first 100. The `kegg_info` docstring pointed at `/list/organism` and now points
 at `/list/genome`. The online tests use `ncbi-proteinid` in place of
-`ncbi-gi`, and gain tests of the conv calls above.
+`ncbi-gi`, and gain tests of the conv calls above. The find commit allowed
+`"nop"` only for `compound` and `drug`, as if it were a chemical field; it
+turns off keyword splitting for any keyword search (`find/genes/shiga/nop`
+and `find/pathway/glycolysis/nop` answer), so the fork allows it for any
+database. The link commit's RDF allowlist left out `dr`, KEGG's
+abbreviation of `drug`, which `kegg_link("dr", "atc", "turtle")` used and
+the server still answers; the fork adds it.
 
 **Checked.** Every URL the new offline `Tests/test_KEGG_REST.py` accepts,
 and the 400s it guards against, were requested from rest.kegg.jp on

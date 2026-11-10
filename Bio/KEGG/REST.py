@@ -187,11 +187,15 @@ def kegg_find(database, query, option=None):
     option - search option (string), see below.
 
     For the compound and drug database, set option to the string 'formula',
-    'exact_mass', 'mol_weight' or 'nop' to search on that field only. The
+    'exact_mass' or 'mol_weight' to search on that field only. The
     chemical formula search is a partial match irrespective of the order
     of atoms given. The exact mass (or molecular weight) is checked by
     rounding off to the same decimal place as the query data. A range of
     values may also be specified with the minus(-) sign.
+
+    For a keyword search in any database, set option to 'nop' to search
+    for the query as given, without splitting it into keywords: for
+    example, 'shiga toxin' then matches only that phrase.
 
     """
     # TODO - return list of tuples?
@@ -199,13 +203,18 @@ def kegg_find(database, query, option=None):
     # https://rest.kegg.jp/find/<database>/<query>/<option>
     #
     # <database> = compound | drug
-    # <option> = formula | exact_mass | mol_weight | nop
-    if database in ["compound", "drug"] and option in [
-        "formula",
-        "exact_mass",
-        "mol_weight",
-        "nop",
-    ]:
+    # <option> = formula | exact_mass | mol_weight
+    #
+    # https://rest.kegg.jp/find/<database>/<query>/nop
+    #
+    # <database> = any database of the keyword search below; nop turns off
+    # the splitting of the query into keywords.
+    if (
+        database in ["compound", "drug"]
+        and option in ["formula", "exact_mass", "mol_weight"]
+    ) or option == "nop":
+        if isinstance(query, list):
+            query = "+".join(query)
         resp = _q("find", database, query, option)
     elif option:
         raise ValueError("Invalid option arg for kegg find request.")
@@ -389,7 +398,8 @@ def kegg_link(target_db, source_db, option=None):
     # <database> = drug | atc | jtc
     #
     # <option> = turtle | n-triple
-    if option in ["turtle", "n-triple"] and target_db in ["drug", "atc", "jtc"]:
+    # "dr" is KEGG's own abbreviation of "drug", and the server accepts it.
+    if option in ["turtle", "n-triple"] and target_db in ["drug", "dr", "atc", "jtc"]:
         return _q("link", target_db, source_db, option)
 
     # https://rest.kegg.jp/link/<target_db>/<source_db>[/<option>]
