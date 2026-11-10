@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``dist_pearson`` method of a ``Bio.motifs`` PSSM now raises
+``ValueError`` when either matrix has an infinite or NaN value, with a message
+that points to pseudocounts. A log-odds matrix computed without pseudocounts,
+as ``motif.pssm`` is by default, has ``-inf`` wherever a count is zero, and
+the Pearson correlation of such a matrix is undefined. The method raised
+``UnboundLocalError`` when every alignment of the two motifs overlapped such a
+value, and otherwise gave the best distance and offset among the alignments
+that missed it, with no warning. That answer is wrong: the Tutorial's motif
+``m``, with one log-odds value in its second column set to ``-inf``, gave a
+distance of 1.13 at offset 4 against itself, instead of 0 at offset 0. Only
+calls that raised an error or gave such a result are affected; matrices with
+finite values give the same distances and offsets as before. Set the motif's
+``pseudocounts`` before computing its PSSM, as the Tutorial does. This is an
+upstream defect (biopython/biopython#555, reported by Gert Hulselmans), also
+in Biopython 1.88 and still in upstream's development code.
+
 ``Motif.degenerate_consensus`` now gives ``N`` for a column in which no
 letter of the alphabet was counted, such as an alignment column holding only
 ``N``, gaps or ``Y``, which are outside the default ``ACGT`` alphabet, or an
