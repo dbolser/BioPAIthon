@@ -55,6 +55,21 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Seq({}, length=N)``, a sequence of known length built from an empty
+dictionary of defined regions, now behaves exactly like ``Seq(None,
+length=N)``: a sequence whose content is entirely undefined. It was built as a
+partially defined sequence with no defined regions, which nothing else in
+``Bio.Seq`` expects, so adding it to another sequence raised ``IndexError``,
+multiplying it raised ``UnboundLocalError``, and printing it said the content
+was "only partially defined". Now ``Seq({}, length=4) + Seq("ACGT")`` gives
+``Seq({4: 'ACGT'}, length=8)``, multiplying or printing it raises
+``UndefinedSequenceError`` as for ``Seq(None, length=4)``, and its ``repr`` is
+``Seq(None, length=4)`` rather than ``Seq({}, length=4)``. ``Seq({},
+length=0)`` is still the empty sequence ``Seq('')``. This is an upstream
+defect (biopython/biopython#5329, reported by Aniruddha Adak), also in
+Biopython 1.88 and still in upstream's development code; the fix is Zehao
+Wang's, from the unmerged biopython/biopython#5362. See ``ADOPTED.md``.
+
 ``Bio.Nexus`` and ``Bio.Phylo`` now read a NEXUS ``TRANSLATE`` table whose
 taxon names contain a hyphen without quotes, such as ``1 dog-cat,``, as
 TreeAnnotator writes them. The parser split such a name at the hyphen and
