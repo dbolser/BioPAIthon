@@ -60,7 +60,7 @@ through `_get_atoms()` gives the same array as before.
 **The single commit taken** (`5462b2c78`, cherry-picked with `-x`), which
 applied cleanly. Nothing was left behind.
 
-**Corrections on top**, in three fork commits:
+**Corrections on top**, in four fork commits:
 
 - The empty-structure test opened `"PDB/disordered.pdb"` relative to the
   working directory, which raises `FileNotFoundError` when pytest starts
@@ -86,6 +86,13 @@ applied cleanly. Nothing was left behind.
   atom of unknown element has a mass of NaN, which makes the mass-weighted
   result NaN. The two empty-entity tests check the error message, so they
   tell "no children" from "no atoms".
+- `radius_of_gyration()` summed in float32, so the result changed when the
+  entity was moved: 1LCD translated by 100,000 Angstrom along each axis
+  gave 14.000 instead of 13.944, and 30 copies of its models (33,840 atoms)
+  translated by 10,000 gave 14.001. It now works in float64, which matches
+  the independent computation to six places in both cases. A new test
+  checks that translation leaves the result unchanged. `center_of_mass()`
+  still averages in float32, as it does upstream.
 
 Copilot's other comment, that `geometric=True` could pass `weights=None`
 rather than an array of ones, is not taken: it is cosmetic.
