@@ -699,6 +699,20 @@ class CenterOfMassTests(unittest.TestCase):
             rog = chain.radius_of_gyration(geometric=True)
             self.assertAlmostEqual(rog, expected[chain.id], places=3)
 
+    def test_rog_translation_invariant(self):
+        """Radius of gyration does not change when the entity is translated."""
+        before = self.structure.radius_of_gyration()
+        before_geometric = self.structure.radius_of_gyration(geometric=True)
+
+        moved = self.structure.copy()
+        # With float32 sums this moved the result by 0.057 Angstrom.
+        moved.transform(np.eye(3), np.array([1e5, 1e5, 1e5]))
+
+        self.assertAlmostEqual(moved.radius_of_gyration(), before, places=6)
+        self.assertAlmostEqual(
+            moved.radius_of_gyration(geometric=True), before_geometric, places=6
+        )
+
     def test_rog_empty_structure(self):
         """Radius of gyration of empty structure raises ValueError."""
         with warnings.catch_warnings():

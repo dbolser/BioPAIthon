@@ -423,11 +423,13 @@ class Entity(Generic[_Parent, _Child]):
             raise ValueError(f"{self} does not have children")
 
         entities = self._get_atoms()
-        coords = np.asarray([a.coord for a in entities], dtype=np.float32)
+        # float64 throughout: float32 sums drift on large or far-from-origin
+        # entities, so the result would change under a rigid translation.
+        coords = np.asarray([a.coord for a in entities], dtype=np.float64)
         if geometric:
-            masses = np.ones(len(coords), dtype=np.float32)
+            masses = np.ones(len(coords), dtype=np.float64)
         else:
-            masses = np.asarray([a.mass for a in entities], dtype=np.float32)
+            masses = np.asarray([a.mass for a in entities], dtype=np.float64)
 
         center = np.average(coords, axis=0, weights=masses)
         sq_dist = ((coords - center) ** 2).sum(axis=1)
