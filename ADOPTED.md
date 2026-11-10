@@ -45,6 +45,47 @@ request.
 
 Newest first.
 
+### [#5328](https://github.com/biopython/biopython/pull/5328) — Lucio Montero (Lucioric2000)
+
+For upstream issue
+[#5327](https://github.com/biopython/biopython/issues/5327). `PDBParser`
+crashed with a bare `IndexError`, naming no line, on an `ATOM` or `HETATM`
+line with a blank residue number, as AutoDock writes for ligands. The pull
+request catches the `IndexError`, uses residue number 0 and warns.
+
+**Two of the three commits taken** (`0404298c7` and `c00e365ae`,
+cherry-picked with `-x`; both applied cleanly). The first also adds the
+author to `CONTRIB.rst`, as the template's box says.
+
+**Left behind:** `eb729c9ef`, the head since 2026-10-31. It routes the
+residue fallback through `_handle_PDB_exception`, which the fork wants and
+redid itself, but it also routes the atom serial number fallback the same
+way. Fork main reads a blank or `*****` serial number as 0 silently; in a
+test before adoption, with that commit a 20,000-atom file with `*****` serials gave 20,000 warnings,
+and strict mode refused it. That is a separate change nobody asked for. Its
+test edits `a_structure.pdb` and a hunk of `test_PDB_PDBParser.py` that
+conflicts with the fork's `support.DATA` paths.
+
+**Added by the fork:** a blank number goes through `_handle_PDB_exception`,
+so it warns with the line number in the default mode and raises
+`PDBConstructionException` with the line number when `PERMISSIVE=False`.
+A non-blank number that is not an integer (`1X`, hybrid-36 `A000`), which
+the pull request still let crash with a bare `ValueError`, raises
+`PDBConstructionException` naming the field and the line in both modes;
+defaulting those to 0 would collapse whole runs of hybrid-36 residues onto
+one. This was the fork owner's decision of 2026-11-10. Regression tests and
+a `NEWS.rst` entry, which notes that several same-name residues with blank
+numbers in one chain merge into one residue 0.
+
+**Checked:** the new tests fail on fork main (bare `IndexError` and
+`ValueError`) and pass here; the `Bio.PDB` test modules pass.
+
+**Upstream status:** as of 2026-11-10 the pull request is open and not
+merged. The licence box is ticked (`[ x]`). Upstream's `Bio.PDB`
+maintainer (JoaoRodrigues) prefers making users renumber over defaulting to
+0, and the author offered to drop the fallback; the last comment, a
+question to the author on 2026-11-06, is unanswered. Issue #5327 is open.
+
 ### [#5352](https://github.com/biopython/biopython/pull/5352) — Yuxuan Luo (Oblivionis028)
 
 Closes upstream issue
