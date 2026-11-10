@@ -55,6 +55,25 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Nexus`` and ``Bio.Phylo`` now read a NEXUS ``TRANSLATE`` table whose
+taxon names contain a hyphen without quotes, such as ``1 dog-cat,``, as
+TreeAnnotator writes them. The parser split such a name at the hyphen and
+failed with ``NexusError: Missing ','``, so ``Phylo.read`` and
+``Phylo.parse`` with format ``"nexus"`` could not read the trees in the file
+at all. A hyphen is now part of an unquoted name in the table. Names without
+one, quoted names, and the hyphen in a range such as ``charset r = 2-4;`` are
+read as before. Through ``Bio.Phylo`` such a name comes back quoted, as
+``'dog-cat'``, just as a quoted name with a hyphen always has. The
+``next_word`` method of ``Bio.Nexus.Nexus.CharBuffer`` gains an optional
+``extra_chars`` argument, punctuation to keep inside a word, which defaults to
+none. A name with an unquoted hyphen in a ``MATRIX`` row is still split at
+the hyphen: reading either fails with ``Matrix Nchar ... does not match data
+length`` or, when the lengths happen to agree, silently gives the taxon
+``dog`` with ``-cat`` prepended to its data. This is an
+upstream defect (biopython/biopython#1022, reported by Tyghe Vallard), also in
+Biopython 1.88 and still in upstream's development code. The fix is yiyabo's,
+from the unmerged biopython/biopython#5278; see ``ADOPTED.md``.
+
 ``Bio.PDB`` structures, models, chains and residues have a new
 ``radius_of_gyration`` method. It gives the radius of gyration in Angstroms:
 the root-mean-square distance of the atoms from their center of mass, each
