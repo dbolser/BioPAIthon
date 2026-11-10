@@ -68,7 +68,7 @@ def NexusIterator(
         annotations = None
     records = (
         SeqRecord(
-            n.matrix[new_name],
+            Nexus._row_as_seq(new_name, n.matrix[new_name]),
             id=new_name,
             name=old_name,
             description="",

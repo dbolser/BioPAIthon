@@ -55,6 +55,38 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Nexus`` now reads a ``SYMBOLS`` list with spaces in it, such as
+``SYMBOLS = "0 1 2"``, the form Mesquite writes and which the NEXUS standard
+treats as the same as ``SYMBOLS="012"``. It split the quoted list at each
+space, so reading a ``datatype=standard`` matrix written that way failed with
+``NexusError: Illegal character 1``, or with ``Symbols must be defined`` when
+a space followed the opening quote, and ``Bio.Phylo``, which reads the whole
+file through ``Bio.Nexus``, could not read the trees in such a file either.
+More generally, a quoted value in any of the commands that ``Bio.Nexus``
+splits into options, such as ``FORMAT`` and ``DIMENSIONS``, is now kept whole,
+quotes included, where a space or ``=`` inside the quotes broke it into
+pieces: ``EQUATE="R=(02) Y=(1)"`` now sets ``Nexus.equate`` to the whole
+quoted string, where it set it to ``"R`` and added the stray options ``"r``
+and ``y``. Unquoted values, and quoted values with no space or ``=`` in them,
+are unchanged.
+
+``Bio.AlignIO``, ``Bio.SeqIO`` and ``Bio.Align`` can now read a
+``datatype=standard`` matrix in the ``"nexus"`` format, such as a matrix of
+morphological characters, as one letter per character. Even when ``Bio.Nexus``
+could read the file, they failed with a ``TypeError``, because its rows are
+``StandardData`` objects. A polymorphic coding such as ``(01)``, or an
+uncertain one such as ``{01}``, cannot be one letter, and replacing it by the
+missing symbol or by one of its states would silently lose data, so a matrix
+holding one now raises ``ValueError`` naming the taxon and the character; a
+coding of one state, such as ``(1)``, is read as that state. ``Bio.Nexus``
+still reads such a matrix and keeps every coding. These are upstream defects,
+also in Biopython 1.88 and still in upstream's development code
+(biopython/biopython#2814, reported by Balduin Landolt). Two limits remain: an
+interleaved ``datatype=standard`` matrix still fails with a ``TypeError``, in
+``Bio.Nexus`` as in these readers, and an alignment read from a standard
+matrix cannot be written in the ``"nexus"`` format, which needs a DNA, RNA or
+protein molecule type, though it can be written as FASTA or PHYLIP.
+
 ``Bio.PDB.PDBMLParser`` now reads the resolution. The parser tested each
 element it looked up for the resolution with ``if element:``, which is false
 for an XML element with no children, so ``structure.header["resolution"]`` was
