@@ -9,12 +9,15 @@ import math
 import os
 import tempfile
 import unittest
+import warnings
 from io import StringIO
 
 import support
 
+from Bio import BiopythonWarning
 from Bio import Phylo
 from Bio.Nexus.Nexus import NexusError
+from Bio.Phylo import Newick
 from Bio.Phylo import PhyloXML
 
 # Example Newick and Nexus files
@@ -193,6 +196,111 @@ class IOTests(unittest.TestCase):
         internal_names = {c.name for c in tree2.get_nonterminals() if c is not None}
         self.assertEqual(internal_names, {"E", "F"})
 
+    def test_newick_write_unnamed_clade_confidence(self):
+        """Write the confidence of an unnamed clade as its label."""
+        tree = Phylo.read(StringIO("((C:0.16,D:0.14)98:0.46,A:0.11);"), "newick")
+        newick = tree.format("newick").strip()
+        self.assertEqual(newick, "((C:0.16,D:0.14)98.00:0.46,A:0.11):0;")
+        inner = Phylo.read(StringIO(newick), "newick").root.clades[0]
+        self.assertEqual([inner.name, inner.confidence], [None, 98.0])
+
+    def test_newick_write_named_clade_confidence(self):
+        """Write the confidence of a named clade in a comment, not its label."""
+        # Written after the name, as for an unnamed clade, the confidence gave
+        # (A:1,B:1)N10.90:0.5, which reads back as a clade named N10.90.
+        tree = Phylo.read(StringIO("(A:1,B:1)N1:0.5;"), "newick")
+        tree.root.confidence = 0.9
+        newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:1,B:1)N1:0.5[0.90];")
+        root = Phylo.read(StringIO(newick), "newick").root
+        self.assertEqual(
+            [root.name, root.confidence, root.comment], ["N1", None, "0.90"]
+        )
+        tree = Phylo.read(StringIO(newick), "newick", comments_are_confidence=True)
+        self.assertEqual([tree.root.name, tree.root.confidence], ["N1", 0.9])
+        # NEXUS ignores a plain comment, so only the name is read back
+        handle = StringIO()
+        Phylo.write(tree, handle, "nexus")
+        handle.seek(0)
+        root = Phylo.read(handle, "nexus").root
+        self.assertEqual([root.name, root.confidence], ["N1", None])
+
+    def test_newick_write_comments_are_confidence(self):
+        """Write named clades read with comments_are_confidence=True as read."""
+        newick = "(A:0.22,(B:0.12,(C:0.02,D:0.02)E:0.1[99])F:0.1[98]):0;"
+        tree = Phylo.read(StringIO(newick), "newick", comments_are_confidence=True)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            self.assertEqual(tree.format("newick").strip(), newick)
+
+    def test_newick_write_changed_confidence(self):
+        """Write the new confidence of a named clade, not its old comment."""
+        # Read with comments_are_confidence=True, a clade keeps its support
+        # value in its comment too, which goes stale if the confidence changes
+        newick = "(A:0.22,(B:0.12,(C:0.02,D:0.02)E:0.1[99])F:0.1[98]):0;"
+        tree = Phylo.read(StringIO(newick), "newick", comments_are_confidence=True)
+        for clade in tree.get_nonterminals():
+            if clade.confidence is not None:
+                clade.confidence /= 100
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            newick = tree.format("newick").strip()
+        self.assertEqual(
+            newick, "(A:0.22,(B:0.12,(C:0.02,D:0.02)E:0.1[0.99])F:0.1[0.98]):0;"
+        )
+        # Rerooting moves the support values of Q and R, but not their comments
+        newick = "((((A:0.1,B:0.1)P:0.1[91],C:0.1)Q:0.1[82],D:0.1)R:0.1[73],G:0.1);"
+        tree = Phylo.read(StringIO(newick), "newick", comments_are_confidence=True)
+        tree.root_with_outgroup("A")
+        newick = tree.format("newick").strip()
+        tree = Phylo.read(StringIO(newick), "newick", comments_are_confidence=True)
+        support = {c.name: c.confidence for c in tree.get_nonterminals() if c.name}
+        self.assertEqual([support["Q"], support["R"]], [91, 82])
+
+    def test_newick_write_named_clade_confidence_and_comment(self):
+        """Write a named clade that has both a confidence and a comment."""
+        root = Newick.Clade(
+            branch_length=0.1,
+            name="E",
+            clades=[Newick.Clade(name="A"), Newick.Clade(name="B")],
+            confidence=50,
+            comment="note",
+        )
+        tree = Newick.Tree(root=root)
+        with self.assertWarnsRegex(
+            BiopythonWarning, "^Clade 'E' has a comment, so its confidence 50 was"
+        ):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:0,B:0)E:0.1[note];")
+        # A comment that reads as the confidence holds it, so nothing is lost
+        root.comment = "50"
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:0,B:0)E:0.1[50];")
+        # A comment that reads as another number may be data, so it is kept
+        root.comment = "40"
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'E' has a comment"):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:0,B:0)E:0.1[40];")
+
+    def test_newick_write_named_clade_numeric_comment(self):
+        """Keep a numeric comment that the confidence was not read from."""
+        # The confidence is read from the value after the colon, not [2024]
+        newick = "(A:1,B:1)N1:0.9[2024];"
+        tree = Phylo.read(StringIO(newick), "newick", values_are_confidence=True)
+        self.assertEqual([tree.root.confidence, tree.root.comment], [0.9, "2024"])
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'N1' has a comment"):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:0,B:0)N1:0[2024];")
+        # Read with the defaults, a comment is not a confidence, so one set
+        # later does not replace it
+        tree = Phylo.read(StringIO("(A:1,B:1)N1:0.9[12.5];"), "newick")
+        tree.root.confidence = 0.75
+        with self.assertWarnsRegex(BiopythonWarning, "^Clade 'N1' has a comment"):
+            newick = tree.format("newick").strip()
+        self.assertEqual(newick, "(A:1,B:1)N1:0.9[12.5];")
+
     def test_newick_read_scinot(self):
         """Parse Newick branch lengths in scientific notation."""
         tree = Phylo.read(StringIO("(foo:1e-1,bar:0.1)"), "newick")
@@ -336,6 +444,16 @@ class IOTests(unittest.TestCase):
             Phylo.write(trees, tmp_filename, "newick", branch_length_only=True)
         finally:
             os.remove(tmp_filename)
+
+    def test_convert_phyloxml_to_newick_named_clade_confidence(self):
+        """Keep the name and support of a PhyloXML clade written as Newick."""
+        tree = list(Phylo.parse(EX_PHYLO, "phyloxml"))[2]
+        self.assertEqual([tree.clade[0].name, tree.clade[0].confidence], ["AB", 89])
+        handle = StringIO()
+        Phylo.write(tree, handle, "newick")
+        handle.seek(0)
+        tree = Phylo.read(handle, "newick", comments_are_confidence=True)
+        self.assertEqual([tree.clade[0].name, tree.clade[0].confidence], ["AB", 89])
 
     def test_int_labels(self):
         """Read newick formatted tree with numeric labels."""

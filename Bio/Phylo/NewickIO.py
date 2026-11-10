@@ -13,9 +13,21 @@ See: http://evolution.genetics.washington.edu/phylip/newick_doc.html
 """
 
 import re
+import warnings
+import weakref
 from io import StringIO
 
+from Bio import BiopythonWarning
 from Bio.Phylo import Newick
+
+# The comment that each clade's confidence was read from, when the parser was
+# given comments_are_confidence=True. If the confidence has changed since, as
+# rescaling or rerooting does, the writer knows the comment is an old support
+# value and not other data. Kept here, not on the clade, so it adds nothing to
+# what a clade shows or copies; a copy of a tree has no entries.
+_support_comments: weakref.WeakKeyDictionary[Newick.Clade, str] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 class NewickError(ValueError):
@@ -91,6 +103,35 @@ def _get_comment(clade):
     return ""
 
 
+def _get_confidence_comment(clade, format_confidence):
+    """Return the comment of a named clade, holding its confidence (PRIVATE).
+
+    The name of a clade is its label, so its confidence cannot be the label
+    too: "E" then "98.00" reads back as one name, "E98.00". The confidence
+    goes in a comment after the branch length instead, the form of RAxML's
+    branch-labels output, which ``comments_are_confidence=True`` reads back.
+
+    If the clade already has a comment that reads as its confidence, as one
+    read with ``comments_are_confidence=True`` does, that comment is written
+    as it is. If the confidence was read from the comment and has changed
+    since, as rescaling or rerooting does, the comment is an old support value
+    and the confidence replaces it. Any other comment, numeric or not, is
+    other data: it is kept, and a warning says the confidence was not written.
+    """
+    comment = _get_comment(clade)
+    if comment:
+        if _parse_confidence(str(clade.comment)) == clade.confidence:
+            return comment
+        if _support_comments.get(clade) != clade.comment:
+            warnings.warn(
+                f"Clade {clade.name!r} has a comment, so its confidence "
+                f"{clade.confidence} was not written",
+                BiopythonWarning,
+            )
+            return comment
+    return _format_comment(format_confidence % clade.confidence)
+
+
 class Parser:
     """Parse a Newick tree given a file handle.
 
@@ -158,6 +199,8 @@ class Parser:
                 if self.comments_are_confidence:
                     # Try to use this comment as a numeric support value
                     current_clade.confidence = _parse_confidence(current_clade.comment)
+                    if current_clade.confidence is not None:
+                        _support_comments[current_clade] = current_clade.comment
 
             elif token == "(":
                 # start a new clade, which is a child of the current clade
@@ -282,7 +325,19 @@ class Writer:
         format_confidence="%1.2f",
         format_branch_length="%1.8g",
     ):
-        """Return an iterable of PAUP-compatible tree lines."""
+        """Return an iterable of PAUP-compatible tree lines.
+
+        By default the confidence of an internal clade is written as its
+        label, before the branch length, as in ``(A,B)98.00:0.46``. A clade
+        with a name keeps the name as its label, and its confidence goes in a
+        comment after the branch length, as in ``(A,B)E:0.46[98.00]``, which
+        is read back with ``comments_are_confidence=True``. If that clade
+        already has a comment, the comment is written as it is when it reads
+        as the same number. It is replaced by the confidence when the
+        confidence was read from it, with ``comments_are_confidence=True``,
+        and has changed since. Any other comment is written in place of the
+        confidence, with a ``BiopythonWarning``.
+        """
         # If there's a conflict in the arguments, we override plain=True
         if confidence_as_branch_length or branch_length_only:
             plain = False
@@ -373,6 +428,11 @@ class Writer:
                     return (":" + format_branch_length) % (
                         clade.branch_length or 0.0
                     ) + _get_comment(clade)
+                elif clade.name:
+                    # The name is the label, so the confidence goes elsewhere
+                    return (":" + format_branch_length) % (
+                        clade.branch_length or 0.0
+                    ) + _get_confidence_comment(clade, format_confidence)
                 else:
                     return (format_confidence + ":" + format_branch_length) % (
                         clade.confidence,

@@ -55,6 +55,37 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Phylo`` no longer renames an internal clade that has both a name and a
+confidence when it writes a Newick tree. The writer put the confidence
+straight after the name, so a clade named ``N1`` with a confidence of 0.9 was
+written as ``N10.90:0.5``, which reads back, with no error, as a clade named
+``N10.90`` with no confidence. In a tree read with
+``comments_are_confidence=True``, each named clade with a support value was
+renamed this way, ``E:0.1[99]`` being written as ``E99.00:0.1[99]``, and
+converting the PhyloXML examples in the test suite to Newick renamed the clade
+``AB`` to ``AB89.00``. Such a clade now keeps its name as its label, and its
+confidence goes in a comment after the branch length, the form of RAxML's
+branch-labels output, which ``comments_are_confidence=True`` reads:
+``N1:0.5[0.90]``. If the clade already has a comment that reads as its
+confidence, as one read with ``comments_are_confidence=True`` does, that
+comment is written as it is, so the named clades of such a tree keep their
+names and support values when written back. If the confidence was read from
+the comment and has changed since, as rescaling or rerooting the tree does,
+the comment is an old support value and the confidence replaces it. Any other
+comment, such as a number that the confidence was not read from, or an old
+support value in a copy of the tree, is written in place of the confidence,
+and a ``BiopythonWarning`` says the confidence was not written. The output
+changes only for named clades with a confidence, whose old output could not be
+read back correctly. An unnamed clade is written as before, with its
+confidence as its label, as in ``(C,D)98.00:0.46``, followed by any comment; a
+reader with ``comments_are_confidence=True`` takes that label for a name. The
+``"nexus"`` writer uses the same tree text, but NEXUS treats a plain comment
+as a comment, not data, so in a NEXUS file a named clade keeps its name and
+its confidence is not read back. This is an upstream defect, also in Biopython
+1.88 and still in upstream's development code, reported by Katherine Eaton in
+the unmerged biopython/biopython#3016; its fix also changed how unnamed clades
+are written, so this fork wrote its own.
+
 The GenBank and EMBL parsers now read an insertion that Ensembl writes as a
 descending pair, such as ``7..6`` for an insertion between bases 6 and 7,
 as the zero-length location ``[6:6]``, which is written back as the INSDC
