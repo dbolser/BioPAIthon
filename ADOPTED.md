@@ -60,8 +60,10 @@ applied without conflicts, including the author's own `CONTRIB.rst` line.
 **Left behind:** nothing.
 
 **Added by the fork:** the text listed `"C"` and `"M"` as the other levels;
-a fork commit adds `"S"` (structure), which `search` and `search_all` also
-accept.
+a fork commit adds `"S"` (structure), which `search` returns. (`search_all`
+also accepts `"S"`, but on a single structure it always returns no pairs,
+since both atoms of every pair share the one structure; the Tutorial text
+only describes `search`.)
 
 **Checked:** the example's outputs (ASP 152; residues 151, 152, 153 and
 the waters 1001, 1027, 1035 and 1054; 525 pairs) are the same on this
