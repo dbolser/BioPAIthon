@@ -61,8 +61,9 @@ author to `CONTRIB.rst`, as the template's box says.
 residue fallback through `_handle_PDB_exception`, which the fork wants and
 redid itself, but it also routes the atom serial number fallback the same
 way. Fork main reads a blank or `*****` serial number as 0 silently; in a
-test before adoption, with that commit a 20,000-atom file with `*****` serials gave 20,000 warnings,
-and strict mode refused it. That is a separate change nobody asked for. Its
+test before adoption, with that commit a 20,000-atom file with `*****`
+serials gave 20,000 warnings, and strict mode refused it. That is a
+separate change nobody asked for. Its
 test edits `a_structure.pdb` and a hunk of `test_PDB_PDBParser.py` that
 conflicts with the fork's `support.DATA` paths.
 
@@ -73,9 +74,8 @@ A non-blank number that is not an integer (`1X`, hybrid-36 `A000`), which
 the pull request still let crash with a bare `ValueError`, raises
 `PDBConstructionException` naming the field and the line in both modes;
 defaulting those to 0 would collapse whole runs of hybrid-36 residues onto
-one. This was the fork owner's decision of 2026-11-10. Regression tests and
-a `NEWS.rst` entry, which notes that several same-name residues with blank
-numbers in one chain merge into one residue 0.
+one. Regression tests and a `NEWS.rst` entry, which notes that several
+same-name residues with blank numbers in one chain merge into one residue 0.
 
 **Checked:** the new tests fail on fork main (bare `IndexError` and
 `ValueError`) and pass here; the `Bio.PDB` test modules pass.
