@@ -61,12 +61,11 @@ def read(source):
     handle = _open(source)
     try:
         record = _read(handle)
-        try:
-            next(handle)
-        except StopIteration:
-            return record
-        else:
+        # readline, not next, as some file-like objects such as
+        # tempfile.NamedTemporaryFile are not iterators (issue #4926).
+        if handle.readline():
             raise ValueError("More than one PHD record found")
+        return record
     finally:
         if handle is not source:
             handle.close()

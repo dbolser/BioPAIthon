@@ -156,9 +156,8 @@ def parse(handle):
                 primer.internal_seq = words[6]
             except IndexError:  # eprimer3 reports oligo without sequence
                 primer.internal_seq = ""
-        try:
-            line = next(handle)
-        except StopIteration:
+        line = handle.readline()
+        if not line:
             break
     if record:
         yield record

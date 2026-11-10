@@ -262,12 +262,12 @@ def read(source):
         if not record:
             raise ValueError("No SwissProt record found")
         # We should have reached the end of the record by now.
-        # Try to read one more line to be sure:
-        try:
-            next(handle)
-        except StopIteration:
-            return record
-        raise ValueError("More than one SwissProt record found")
+        # Try to read one more line to be sure. Use readline, not next, as
+        # some file-like objects such as tempfile.NamedTemporaryFile are not
+        # iterators (issue #4926).
+        if handle.readline():
+            raise ValueError("More than one SwissProt record found")
+        return record
     finally:
         if handle is not source:
             handle.close()
@@ -292,9 +292,8 @@ def _open(source):
 def _read(handle):
     record = None
     unread = ""
-    try:
-        line = next(handle)
-    except StopIteration:
+    line = handle.readline()
+    if not line:
         return record
     key, value = line[:2], line[5:].rstrip()
     if key != "ID":

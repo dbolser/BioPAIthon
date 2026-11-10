@@ -61,6 +61,9 @@ def read(handle):
 
     handle is a file-like object that contains a GenePop record.
     """
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    handle = iter(handle)
     record = Record()
     record.comment_line = next(handle).rstrip()
     # We can now have one loci per line or all loci in a single line
