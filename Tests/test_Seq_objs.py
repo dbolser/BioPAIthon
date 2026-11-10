@@ -5,6 +5,7 @@
 """Unittests for the Seq objects."""
 
 import array
+import operator
 import subprocess
 import sys
 import unittest
@@ -1516,6 +1517,106 @@ class ComparisonTests(unittest.TestCase):
                 self.assertGreaterEqual(Seq("TT"), seq2[3:5], msg=msg)
                 self.assertGreaterEqual(MutableSeq("TT"), seq1[2:4], msg=msg)
                 self.assertGreaterEqual(MutableSeq("TT"), seq2[3:5], msg=msg)
+
+    ordering = (
+        ("<", operator.lt, ">"),
+        ("<=", operator.le, ">="),
+        (">", operator.gt, "<"),
+        (">=", operator.ge, "<="),
+    )
+
+    def test_ordering_unsupported_type(self):
+        """Ordering against an unsupported type names the sequence class."""
+        for cls in (Seq, MutableSeq):
+            for symbol, op, _ in self.ordering:
+                for other in (5, None, 1.5, ["ACGT"]):
+                    with self.subTest(cls=cls, op=symbol, other=other):
+                        message = (
+                            f"'{symbol}' not supported between instances of "
+                            f"'{cls.__name__}' and '{type(other).__name__}'"
+                        )
+                        with self.assertRaises(TypeError) as cm:
+                            op(cls("ACGT"), other)
+                        self.assertEqual(str(cm.exception), message)
+
+    def test_ordering_reflected_operand(self):
+        """The other operand's reflected method receives the sequence itself."""
+
+        class Probe:
+            def __lt__(self, other):
+                return ("<", other)
+
+            def __le__(self, other):
+                return ("<=", other)
+
+            def __gt__(self, other):
+                return (">", other)
+
+            def __ge__(self, other):
+                return (">=", other)
+
+        for cls in (Seq, MutableSeq):
+            for symbol, op, reflected in self.ordering:
+                with self.subTest(cls=cls, op=symbol):
+                    seq = cls("ACGT")
+                    called, received = op(seq, Probe())
+                    self.assertEqual(called, reflected)
+                    self.assertIs(received, seq)
+
+    def test_ordering_bytes_like(self):
+        """Both classes order against bytes, bytearray and their subclasses."""
+        for cls in (Seq, MutableSeq):
+            with self.subTest(cls=cls):
+                self.assertLess(cls("AC"), bytearray(b"AT"))
+                self.assertGreater(bytearray(b"AT"), cls("AC"))
+                self.assertGreaterEqual(cls("AT"), bytearray(b"AC"))
+                self.assertLessEqual(bytearray(b"AC"), cls("AT"))
+                if np is not None:
+                    self.assertLess(cls("AC"), np.bytes_(b"AT"))
+                    self.assertGreater(np.bytes_(b"AT"), cls("AC"))
+
+    def test_ordering_mutableseq_buffer(self):
+        """MutableSeq orders against other buffer objects, as bytearray does."""
+        others = [memoryview(b"AT"), array.array("B", b"AT")]
+        if np is not None:
+            others.append(np.frombuffer(b"AT", dtype=np.uint8))
+        for other in others:
+            with self.subTest(other=type(other).__name__):
+                self.assertIs(MutableSeq("AC") < other, True)
+                self.assertIs(MutableSeq("AC") <= other, True)
+                self.assertIs(MutableSeq("AC") > other, False)
+                self.assertIs(MutableSeq("AC") >= other, False)
+                self.assertIs(other > MutableSeq("AC"), True)
+                self.assertIs(other <= MutableSeq("AC"), False)
+        # Seq is backed by bytes, which does not order against these
+        for other in others[:2]:
+            with self.subTest(cls=Seq, other=type(other).__name__):
+                with self.assertRaises(TypeError):
+                    Seq("AC") < other  # noqa: B015
+
+    @unittest.skipIf(np is None, "NumPy not installed")
+    def test_ordering_seq_numpy_bytes_array(self):
+        """Seq ordering against a NumPy byte-string array is a TypeError."""
+        arr = np.array([b"ATG", b"TTT"])
+        for symbol, op, _ in self.ordering:
+            with self.subTest(op=symbol, order="seq first"):
+                with self.assertRaises(TypeError):
+                    op(Seq("ATG"), arr)
+            with self.subTest(op=symbol, order="array first"):
+                with self.assertRaises(TypeError):
+                    op(arr, Seq("ATG"))
+        # bytes(seq) keeps the old element-by-element result
+        self.assertEqual((bytes(Seq("ATG")) < arr).tolist(), [False, True])
+        # Equality is not affected and still compares element by element
+        self.assertEqual((Seq("ATG") == arr).tolist(), [True, False])
+        self.assertEqual((arr == Seq("ATG")).tolist(), [True, False])
+
+    def test_ordering_undefined_against_unsupported_type(self):
+        """An undefined sequence against an unsupported type is a TypeError."""
+        for symbol, op, _ in self.ordering:
+            with self.subTest(op=symbol):
+                with self.assertRaises(TypeError):
+                    op(Seq(None, length=4), 5)
 
 
 class PartialSequenceTests(unittest.TestCase):
