@@ -1077,6 +1077,25 @@ AlignmentCounts object with
         with self.assertRaises(ValueError):
             Align.parse(stream, "clustal")
 
+    def test_blank_first_line(self):
+        """A blank or whitespace-only first line names no CLUSTAL program."""
+        data = (
+            "CLUSTALW\n"
+            "\n"
+            "Test1seq             GCTGGGGATGGAGAGGGAACAGAGTT-\n"
+            "AT3G20900.1-SEQ      GCTGGGGATGGAGAGGGAACAGAGTAG\n"
+            "\n"
+        )
+        for text in ("\n" + data, "   \n" + data, " \t \n"):
+            with self.subTest(text=text[:10]):
+                with self.assertRaises(ValueError) as cm:
+                    Align.parse(StringIO(text), "clustal")
+                self.assertIn(
+                    "blank first line does not name a program known to generate "
+                    "CLUSTAL files",
+                    str(cm.exception),
+                )
+
     def test_clustalw_header(self):
         """Make sure we can parse a header using CLUSTALW as one word."""
         stream = StringIO(

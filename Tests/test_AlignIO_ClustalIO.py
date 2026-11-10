@@ -251,6 +251,17 @@ class TestClustalIO(unittest.TestCase):
         """Checking empty file."""
         self.assertEqual(0, len(list(ClustalIterator(StringIO("")))))
 
+    def test_blank_first_line(self):
+        """A blank or whitespace-only first line is not a CLUSTAL header."""
+        for data in ("\n" + aln_example1, "   \n" + aln_example1, " \t \n"):
+            with self.subTest(data=data[:10]):
+                with self.assertRaises(ValueError) as cm:
+                    list(ClustalIterator(StringIO(data)))
+                self.assertIn(
+                    "blank first line is not a known CLUSTAL header",
+                    str(cm.exception),
+                )
+
     def test_write_read(self):
         """Checking write/read."""
         alignments = (
