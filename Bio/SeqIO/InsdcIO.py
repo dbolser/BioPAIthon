@@ -39,6 +39,7 @@ from string import digits
 from Bio import BiopythonWarning
 from Bio import SeqFeature
 from Bio import SeqIO
+from Bio.GenBank.Record import _wgs_range
 from Bio.GenBank.Scanner import _ImgtScanner
 from Bio.GenBank.Scanner import _NO_SPACE_QUALIFIERS
 from Bio.GenBank.Scanner import EmblScanner
@@ -906,6 +907,10 @@ class GenBankWriter(_InsdcWriter):
 
         if mol_type == "":
             units = "aa"
+        elif not record.seq.defined and self._get_master_ranges(record):
+            # A WGS, TSA or TLS project master record has no sequence, and its
+            # length is the number of records in the project ("rc")
+            units = "rc"
         else:
             units = "bp"
 
@@ -941,7 +946,7 @@ class GenBankWriter(_InsdcWriter):
         # Extra long header
         if len(line) > 80:
             splitline = line.split()
-            if splitline[3] not in ["bp", "aa"]:
+            if splitline[3] not in ["bp", "aa", "rc"]:
                 raise ValueError(
                     "LOCUS line does not contain size units at "
                     "expected position:\n" + line
@@ -978,7 +983,7 @@ class GenBankWriter(_InsdcWriter):
                 )
 
             # Tests copied from Bio.GenBank.Scanner
-            if line[40:44] not in [" bp ", " aa "]:
+            if line[40:44] not in [" bp ", " aa ", " rc "]:
                 raise ValueError(
                     "LOCUS line does not contain size units at "
                     "expected position:\n" + line
@@ -1113,18 +1118,51 @@ class GenBankWriter(_InsdcWriter):
         for text in lines[1:]:
             self._write_single_line("", text)
 
+    @staticmethod
+    def _get_master_ranges(record):
+        """Return the WGS, WGS_SCAFLD, TSA and TLS lines of a record (PRIVATE).
+
+        A WGS, TSA or TLS project master record has no sequence, and lists
+        the accession ranges of the records in the project instead. The
+        parser stores each range as the list of its endpoints, and
+        WGS_SCAFLD as a list of such ranges; a range given as an already
+        formatted string is used unchanged. Returns (tag, range) pairs in
+        the order they are written.
+        """
+        lines = []
+        for key, tag in (
+            ("wgs", "WGS"),
+            ("wgs_scafld", "WGS_SCAFLD"),
+            ("tsa", "TSA"),
+            ("tls", "TLS"),
+        ):
+            ranges = record.annotations.get(key)
+            if not ranges:
+                continue
+            if key != "wgs_scafld" or isinstance(ranges, str):
+                ranges = [ranges]
+            lines.extend((tag, _wgs_range(endpoints)) for endpoints in ranges)
+        return lines
+
     def _write_sequence(self, record):
         # Loosely based on code from Howard Salis
         # TODO - Force lower case?
+
+        # These lines go before any sequence, as the parser reads them along
+        # with the ORIGIN and CONTIG lines.
+        master_ranges = self._get_master_ranges(record)
+        for tag, text in master_ranges:
+            self._write_single_line(tag, text)
 
         try:
             data = _get_seq_string(record)
         except UndefinedSequenceError:
             # We have already recorded the length, and there is no need
             # to record a long sequence of NNNNNNN...NNN or whatever.
+            # A master record ends at its ranges, with no ORIGIN line.
             if "contig" in record.annotations:
                 self._write_contig(record)
-            else:
+            elif not master_ranges:
                 self.handle.write("ORIGIN\n")
             return
 

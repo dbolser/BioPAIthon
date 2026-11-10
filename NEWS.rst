@@ -55,6 +55,25 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``Bio.SeqIO`` GenBank writer now writes WGS, TSA and TLS project master
+records back as they were read. A master record has no sequence: its LOCUS
+line gives the number of records in the project, in units of ``rc``, and it
+ends with the range of their accessions on a ``WGS``, ``WGS_SCAFLD``, ``TSA``
+or ``TLS`` line, with no ``ORIGIN`` line. The parser keeps the ranges in
+``record.annotations`` under ``"wgs"``, ``"wgs_scafld"``, ``"tsa"`` and
+``"tls"``, but the writer wrote the unit as ``bp`` and a bare ``ORIGIN`` in
+place of the ranges, so reading its output back lost them and turned the record
+count into a length in bases. The writer now writes ``rc`` when the sequence is
+undefined and one of these annotations is set, and writes the range lines
+whenever they are set, before any ``ORIGIN`` or ``CONTIG`` line. NCBI's master
+records use ``rc``, as do all three in the test suite, and the parser has
+accepted it since it first read WGS master records in 2009. A record with a
+sequence keeps ``bp``; if it also carries one of these annotations, its range
+lines are now written rather than dropped. This is an upstream defect
+(biopython/biopython#2449, reported by Kai Blin), also in Biopython 1.88 and
+still in upstream's development code. ``Bio.GenBank.Record`` is unchanged, and
+still writes ``bp`` and no ``TSA`` or ``TLS`` line.
+
 ``Bio.Nexus`` now reads a ``SYMBOLS`` list with spaces in it, such as
 ``SYMBOLS = "0 1 2"``, the form Mesquite writes and which the NEXUS standard
 treats as the same as ``SYMBOLS="012"``. It split the quoted list at each

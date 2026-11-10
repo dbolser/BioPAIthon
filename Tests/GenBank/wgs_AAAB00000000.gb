@@ -1,0 +1,98 @@
+LOCUS       AAAB01000000           69724 rc    DNA     linear   INV 05-AUG-2014
+DEFINITION  Anopheles gambiae str. PEST whole genome shotgun sequencing
+            project.
+ACCESSION   AAAB00000000
+VERSION     AAAB00000000.1
+DBLINK      BioProject: PRJNA1438
+            BioSample: SAMN02952903
+KEYWORDS    WGS.
+SOURCE      Anopheles gambiae str. PEST
+  ORGANISM  Anopheles gambiae str. PEST
+            Eukaryota; Metazoa; Ecdysozoa; Arthropoda; Altocrustacea;
+            Allotriocarida; Hexapoda; Insecta; Pterygota; Neoptera; Eumetabola;
+            Endopterygota; Aparaglossata; Panorpida; Diptera; Nematocera;
+            Culicoidea; Culicidae; Anophelinae; Anopheles.
+REFERENCE   1  (bases 1 to 69724)
+  AUTHORS   Holt,R.A., Subramanian,G.M., Halpern,A., Sutton,G.G., Charlab,R.,
+            Nusskern,D.R., Wincker,P., Clark,A.G., Ribeiro,J.M., Wides,R.,
+            Salzberg,S.L., Loftus,B., Yandell,M., Majoros,W.H., Rusch,D.B.,
+            Lai,Z., Kraft,C.L., Abril,J.F., Anthouard,V., Arensburger,P.,
+            Atkinson,P.W., Baden,H., de Berardinis,V., Baldwin,D., Benes,V.,
+            Biedler,J., Blass,C., Bolanos,R., Boscus,D., Barnstead,M., Cai,S.,
+            Center,A., Chaturverdi,K., Christophides,G.K., Chrystal,M.A.,
+            Clamp,M., Cravchik,A., Curwen,V., Dana,A., Delcher,A., Dew,I.,
+            Evans,C.A., Flanigan,M., Grundschober-Freimoser,A., Friedli,L.,
+            Gu,Z., Guan,P., Guigo,R., Hillenmeyer,M.E., Hladun,S.L.,
+            Hogan,J.R., Hong,Y.S., Hoover,J., Jaillon,O., Ke,Z., Kodira,C.,
+            Kokoza,E., Koutsos,A., Letunic,I., Levitsky,A., Liang,Y., Lin,J.J.,
+            Lobo,N.F., Lopez,J.R., Malek,J.A., McIntosh,T.C., Meister,S.,
+            Miller,J., Mobarry,C., Mongin,E., Murphy,S.D., O'Brochta,D.A.,
+            Pfannkoch,C., Qi,R., Regier,M.A., Remington,K., Shao,H.,
+            Sharakhova,M.V., Sitter,C.D., Shetty,J., Smith,T.J., Strong,R.,
+            Sun,J., Thomasova,D., Ton,L.Q., Topalis,P., Tu,Z., Unger,M.F.,
+            Walenz,B., Wang,A., Wang,J., Wang,M., Wang,X., Woodford,K.J.,
+            Wortman,J.R., Wu,M., Yao,A., Zdobnov,E.M., Zhang,H., Zhao,Q.,
+            Zhao,S., Zhu,S.C., Zhimulev,I., Coluzzi,M., della Torre,A.,
+            Roth,C.W., Louis,C., Kalush,F., Mural,R.J., Myers,E.W., Adams,M.D.,
+            Smith,H.O., Broder,S., Gardner,M.J., Fraser,C.M., Birney,E.,
+            Bork,P., Brey,P.T., Venter,J.C., Weissenbach,J., Kafatos,F.C.,
+            Collins,F.H. and Hoffman,S.L.
+  TITLE     The genome sequence of the malaria mosquito Anopheles gambiae
+  JOURNAL   Science 298 (5591), 129-149 (2002)
+   PUBMED   12364791
+REFERENCE   2  (bases 1 to 69724)
+  AUTHORS   Mongin,E., Louis,C., Holt,R.A., Birney,E. and Collins,F.H.
+  TITLE     The Anopheles gambiae genome: an update
+  JOURNAL   Trends Parasitol. 20 (2), 49-52 (2004)
+   PUBMED   14747013
+REFERENCE   3  (bases 1 to 69724)
+  AUTHORS   Sharakhova,M.V., Hammond,M.P., Lobo,N.F., Krzywinski,J.,
+            Unger,M.F., Hillenmeyer,M.E., Bruggner,R.V., Birney,E. and
+            Collins,F.H.
+  TITLE     Update of the Anopheles gambiae PEST genome assembly
+  JOURNAL   Genome Biol. 8 (1), R5 (2007)
+   PUBMED   17210077
+REFERENCE   4  (bases 1 to 69724)
+  CONSRTM   The Anopheles Genome Sequencing Consortium
+  TITLE     Direct Submission
+  JOURNAL   Submitted (14-MAR-2002) Celera Genomics, 45 W. Gude Dr., Rockville,
+            MD 20850, USA
+REFERENCE   5  (bases 1 to 69724)
+  CONSRTM   VectorBase
+  TITLE     Direct Submission
+  JOURNAL   Submitted (19-MAY-2011) VectorBase, European Bioinformatics
+            Institute, Hinxton, Cambridge CB10 1SA, UK
+COMMENT     The Anopheles gambiae str. PEST whole genome shotgun (WGS) project
+            has the project accession AAAB00000000.  This version of the
+            project (01) has the accession number AAAB01000000, and consists of
+            sequences AAAB01000001-AAAB01069724.
+            Accessions AAAB01000001-AAAB01008987 constitute the genome
+            assembly.
+            Some scaffolds are now marked in the Definition line as probably
+            representing either contaminating bacterial DNA or alternative
+            assemblies of a region also present in another larger scaffold;
+            they have no annotation of gene features.
+            Accessions AAB01008988-AAAB01069724 are additional short contigs
+            that we were unwilling to designate as unique in the genome and are
+            unable to place within a larger scaffold in the assembly process.
+            This happens because they may be repetitive, and we are very
+            cautious about placing them incorrectly; and/or because they have
+            very few Celera mate pairs to allow us to place them with
+            confidence.
+            Strings of n's in a record represent gaps between contigs within a
+            scaffold, and the length of each string corresponds to the
+            approximate length of the gap.
+            VectorBase (www.vectorbase.org), a NIAID Bioinformatics Resource
+            Center, is responsible for the assembled genome sequence and its
+            annotation.  For more information, contact info@vectorbase.org.
+            
+            Annotation was updated on the contigs in May 2011.
+FEATURES             Location/Qualifiers
+     source          1..69724
+                     /organism="Anopheles gambiae str. PEST"
+                     /mol_type="genomic DNA"
+                     /strain="PEST"
+                     /db_xref="taxon:180454"
+WGS         AAAB01000001-AAAB01069724
+WGS_SCAFLD  CM000356-CM000360
+//
