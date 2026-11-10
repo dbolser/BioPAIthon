@@ -56,13 +56,14 @@ and the default branch is now ``main`` rather than ``master``.
 =============================================
 
 ``Bio.SeqIO`` now reads GenBank files whose DEFINITION line is literally
-``<unknown description>.``, which Geneious writes for a sequence with no
-description, and EMBL files whose DE line is ``<unknown description>``. Both
-used to fail with ``ValueError: Failed to parse the record's description``,
-because the parser mistook that text for ``SeqRecord``'s default description.
-The check could never catch a real parse failure, as the parser starts every
-record with an empty description, so it is gone; the record's description is
-now ``"<unknown description>"``. Writing such a record back out still gives a
+``<unknown description>.`` (which Geneious writes for a sequence with no
+description) or ``<unknown description>``, and EMBL and IMGT files whose DE
+line is ``<unknown description>``. All of these used to fail with
+``ValueError: Failed to parse the record's description``, because the parser
+mistook that text for ``SeqRecord``'s default description. The check could
+never catch a real parse failure, as the parser starts every record with an
+empty description, so it is gone; the record's description is now
+``"<unknown description>"``. Writing such a record back out still gives a
 DEFINITION or DE line holding only ``.``, as before, because the writers treat
 that string as "no description". This is a long-standing upstream defect
 (biopython/biopython#1663), also in Biopython 1.88.
