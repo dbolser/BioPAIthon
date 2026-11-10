@@ -4423,6 +4423,17 @@ class TestMEME(unittest.TestCase):
         )
         self.assertEqual(motif[2:9].consensus, "CTGTATA")
 
+    def test_minimal_meme_ends_after_alphabet(self):
+        """Parse a minimal MEME file that ends right after the ALPHABET line."""
+        stream = StringIO("MEME version 4\n\nALPHABET= ACGT\n")
+        record = motifs.parse(stream, "minimal")
+        self.assertEqual(record.version, "4")
+        self.assertEqual(record.alphabet, "ACGT")
+        self.assertEqual(len(record), 0)
+        self.assertEqual(
+            record.background, {"A": 0.25, "C": 0.25, "G": 0.25, "T": 0.25}
+        )
+
     def test_meme_parser_rna(self):
         """Test if Bio.motifs can parse MEME output files using RNA."""
         with open(support.DATA / "motifs" / "minimal_test_rna.meme") as stream:
