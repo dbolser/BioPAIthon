@@ -55,6 +55,12 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+For contributors: the ruff linter settings now live in ``pyproject.toml``
+rather than only in the pre-commit hook's arguments, so running ``ruff check``
+directly gives the same result as the pre-commit check. Nothing changes for
+users of the library. Adopted from biopython/biopython#5386, which addresses
+biopython/biopython#2828.
+
 The "Determining atom-atom contacts" section of the Tutorial's ``Bio.PDB``
 chapter now has a worked, doctested example of ``NeighborSearch``. It builds
 one from all the atoms of a structure, finds the residues near one atom of a
