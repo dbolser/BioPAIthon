@@ -354,8 +354,8 @@ jobs:
     # In one pytest session the tests these modules share from
     # Tests/common_BioSQL.py run with the driver of the BioSQL module imported
     # last (sqlite3), because each check_config overwrites that module's
-    # globals; so here only the two connection tests in
-    # Tests/test_BioSQL_pymysql.py reach the server through pymysql.
+    # globals; so here only the connection and loading tests of
+    # Tests/test_BioSQL_pymysql.py's own reach the server through pymysql.
     # It was originally disabled for all jobs due to upstream #3834, a
     # runner-image bug (actions/virtual-environments#4799, static TLS
     # exhaustion importing MySQLdb) fixed in the images in early 2022.

@@ -75,10 +75,12 @@ comment there says why.
 
 **Added by the fork:** `Tests/test_BioSQL_pymysql.py`, the common BioSQL tests
 with `DBDRIVER = "pymysql"`, mirroring `test_BioSQL_MySQLdb.py`, with its
-`expected_skips.txt` line. The module also has two tests of its own, which
+`expected_skips.txt` line. The module also has three tests of its own, which
 use its own settings rather than `common_BioSQL`'s, so they reach MySQL
 through PyMySQL even in a full run (see the caveat below): one checks the
-adaptor and the `_dbutils` entry, the other that `ANSI_QUOTES` is set.
+adaptor and the `_dbutils` entry, one that `ANSI_QUOTES` is set, and one
+loads the schema and GenBank records into a database of its own and reads
+them back. Each fails when the hunk it covers is reverted.
 `pymysql` is installed next to `mysqlclient` in the CI job that runs a MySQL
 server, and listed among the alternative BioSQL drivers in `pyproject.toml`.
 The pull request had no test.
@@ -98,7 +100,7 @@ module's globals, and each module's `check_config` overwrites them at import,
 so every module's tests run with whichever driver was imported last,
 `sqlite3`. Locally all nine BioSQL modules together pass 289 tests in about
 ten seconds, while `test_BioSQL_pymysql.py` alone takes nearly two minutes
-against MySQL. So until that is fixed, in CI only the module's two own tests
+against MySQL. So until that is fixed, in CI only the module's three own tests
 reach MySQL through PyMySQL; the shared tests do not, and neither do
 MySQLdb's.
 
