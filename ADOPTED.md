@@ -44,7 +44,7 @@ Newest first.
 ### [#5386](https://github.com/biopython/biopython/pull/5386) — Peter Cock (peterjc)
 
 The ruff settings lived only in the arguments of the pre-commit hook, so a
-bare `ruff check` used ruff's defaults and disagreed with CI (321 errors
+bare `ruff check` used ruff's defaults and disagreed with CI (322 errors
 against none). The pull request moves them into `[tool.ruff.lint]` in
 `pyproject.toml`, and with them upstream issue
 [#2828](https://github.com/biopython/biopython/issues/2828)'s isort settings
@@ -66,8 +66,8 @@ does not apply here, because the fork has changed several of those files,
 including `Bio/pairwise2.py` and `Bio/Restriction/__init__.py`, and
 `Scripts/xbbtools/nextorf.py` no longer exists. Much of it is comment
 shuffling of no value, such as moving "Import these explicitly to avoid
-flake8 F405 below" above the `import *` line it explains. The hook does not select ruff's
-import-order rules (`I`); if the fork wants them, it can run
+flake8 F405 below" above the `import *` line it explains. The hook does not
+select ruff's import-order rules (`I`); if the fork wants them, it can run
 `ruff check --select I` itself and check each hit for intent.
 
 **Added by the fork:** `AGENTS.md` no longer lists the ruff options and
@@ -82,9 +82,10 @@ only S101, as `--show-settings` shows, and passes. Peter Cock is already in
 `CONTRIB.rst`.
 
 **Upstream status:** as of 2026-11-10 the pull request is open, not a draft,
-with no reviews; peterjc rebased it on 2026-11-02. Issue #2828 is open. The
-licence box is ticked. If upstream merges a different shape, expect a small
-conflict in `pyproject.toml` at the next sync.
+with no reviews from others (peterjc left two comment reviews on his own
+pull request on 2026-10-21); he rebased it on 2026-11-02. Issue #2828 is
+open. The licence box is ticked. If upstream merges a different shape, expect
+a small conflict in `pyproject.toml` at the next sync.
 
 ### [#5380](https://github.com/biopython/biopython/pull/5380) — Shubhodeep Chatterjee (shubhodeepcx)
 
