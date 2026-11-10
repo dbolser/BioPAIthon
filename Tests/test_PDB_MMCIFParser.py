@@ -13,6 +13,7 @@
 import tempfile
 import unittest
 import warnings
+from io import StringIO
 
 try:
     import numpy as np
@@ -37,6 +38,7 @@ from Bio.PDB import PDBParser
 from Bio.PDB import PPBuilder
 from Bio.PDB.MMCIFParser import FastMMCIFParser
 from Bio.PDB.MMCIFParser import MMCIFParser
+from Bio.PDB.PDBExceptions import PDBConstructionException
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 from Bio.PDB.PDBExceptions import PDBIOException
 from Bio.Seq import Seq
@@ -407,6 +409,88 @@ class ParseReal(unittest.TestCase):
         )
         # self.assertIsNone(structure.header["resolution"])
         self.assertEqual(4.1, structure.header["resolution"])
+
+
+class NonIntegerResidueNumber(unittest.TestCase):
+    """Non-integer residue numbers raise PDBConstructionException.
+
+    The mmCIF dictionary allows any text in _atom_site.auth_seq_id, so files
+    from non-wwPDB tools may hold values such as 20A (biopython/biopython#2259).
+    """
+
+    cif = """\
+data_test
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_asym_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+ATOM 7 N N . GLY A 1 %s A 1.000 2.000 3.000 1.00 10.00 20A GLY B N 1
+"""
+
+    def parse(self, parser, label_seq_id="20"):
+        return parser.get_structure("test", StringIO(self.cif % label_seq_id))
+
+    def test_auth_seq_id(self):
+        """A residue number of 20A in auth_seq_id names the value and atom."""
+        for parser in (MMCIFParser(QUIET=True), FastMMCIFParser(QUIET=True)):
+            with self.subTest(parser=type(parser).__name__):
+                with self.assertRaises(PDBConstructionException) as cm:
+                    self.parse(parser)
+                message = str(cm.exception)
+                self.assertIn("'20A'", message)
+                self.assertIn("_atom_site.auth_seq_id", message)
+                self.assertIn("chain 'B'", message)
+                self.assertIn("atom 7)", message)
+                self.assertIn("auth_residues=False", message)
+                # Callers catching ValueError, as before, still catch it.
+                self.assertIsInstance(cm.exception, ValueError)
+
+    def test_permissive(self):
+        """PERMISSIVE does not turn the error into a warning."""
+        with self.assertRaises(PDBConstructionException):
+            self.parse(MMCIFParser(QUIET=True, PERMISSIVE=True))
+
+    def test_auth_residues_false(self):
+        """With auth_residues=False the residue is numbered by label_seq_id."""
+        for parser in (
+            MMCIFParser(auth_residues=False, QUIET=True),
+            FastMMCIFParser(auth_residues=False, QUIET=True),
+        ):
+            with self.subTest(parser=type(parser).__name__):
+                structure = self.parse(parser)
+                residue = next(structure.get_residues())
+                self.assertEqual(residue.id, (" ", 20, " "))
+
+    def test_label_seq_id(self):
+        """A non-integer label_seq_id raises too, without the auth hint."""
+        for parser in (
+            MMCIFParser(auth_residues=False, QUIET=True),
+            FastMMCIFParser(auth_residues=False, QUIET=True),
+        ):
+            with self.subTest(parser=type(parser).__name__):
+                with self.assertRaises(PDBConstructionException) as cm:
+                    self.parse(parser, label_seq_id="x1")
+                message = str(cm.exception)
+                self.assertIn("'x1'", message)
+                self.assertIn("_atom_site.label_seq_id", message)
+                self.assertNotIn("auth_residues", message)
 
 
 class CIFtoPDB(unittest.TestCase):
