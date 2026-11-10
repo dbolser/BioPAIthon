@@ -41,6 +41,51 @@ request.
 
 Newest first.
 
+### [#5386](https://github.com/biopython/biopython/pull/5386) — Peter Cock (peterjc)
+
+The ruff settings lived only in the arguments of the pre-commit hook, so a
+bare `ruff check` used ruff's defaults and disagreed with CI (321 errors
+against none). The pull request moves them into `[tool.ruff.lint]` in
+`pyproject.toml`, and with them upstream issue
+[#2828](https://github.com/biopython/biopython/issues/2828)'s isort settings
+into `[tool.isort]`. This closes the ruff item of `IMPROVEMENTS.md` §3.6. It
+changes no code and no behaviour of the library.
+
+**The three commits taken** (`70e793df6` adds the `check-toml` pre-commit
+hook, `cf6b88a98` makes `setup.py` executable to match its shebang,
+`5b767a9f0` moves the settings; cherry-picked with `-x`). They applied
+without conflicts; git's 3-way merge handled the context that differs here,
+which is the fork's extra S101 hook in `.pre-commit-config.yaml` and the
+renamed project URLs in `pyproject.toml`. The `[tool.isort]` block does
+nothing here, since the fork runs no isort hook, but is kept so the file
+matches upstream at the next sync.
+
+**Left behind, and why.** `c6072cec8`, "Ran isort 9.0.2, and black
+24.10.0", a sweep that reorders imports and moves comments in 23 files. It
+does not apply here, because the fork has changed several of those files,
+including `Bio/pairwise2.py` and `Bio/Restriction/__init__.py`, and
+`Scripts/xbbtools/nextorf.py` no longer exists. Much of it is comment
+shuffling of no value, such as moving "Import these explicitly to avoid
+flake8 F405 below" above the `import *` line it explains. The hook does not select ruff's
+import-order rules (`I`); if the fork wants them, it can run
+`ruff check --select I` itself and check each hit for intent.
+
+**Added by the fork:** `AGENTS.md` no longer lists the ruff options and
+points at `pyproject.toml` instead; `IMPROVEMENTS.md` §3.6 and `NEWS.rst`
+record the change.
+
+**Checked:** with ruff 0.15.20 on the 589 tracked `.py` files, a bare
+`ruff check` now gives "All checks passed!", and `ruff check --isolated`
+(ignoring the config) still fails, so the config is what is being read. The
+fork's second hook (`--select=S101` over the parser packages) still enables
+only S101, as `--show-settings` shows, and passes. Peter Cock is already in
+`CONTRIB.rst`.
+
+**Upstream status:** as of 2026-11-10 the pull request is open, not a draft,
+with no reviews; peterjc rebased it on 2026-11-02. Issue #2828 is open. The
+licence box is ticked. If upstream merges a different shape, expect a small
+conflict in `pyproject.toml` at the next sync.
+
 ### [#5380](https://github.com/biopython/biopython/pull/5380) — Shubhodeep Chatterjee (shubhodeepcx)
 
 Answers upstream issue
