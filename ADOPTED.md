@@ -65,6 +65,15 @@ it; that is harmless and is kept as upstream wrote it. The author ticked the
 box for being listed already, through #5351, and is in `CONTRIB.rst` from
 the adoption of #5356.
 
+**Not covered:** a dictionary whose values are all empty, such as
+`Seq({0: ''}, length=4)`, means the same as `{}` but still builds a
+`_PartiallyDefinedSequenceData` with only zero-length segments, as before:
+its `repr` keeps the empty entry, `defined_ranges` is `((0, 0),)`, printing
+it says "only partially defined", and `* 2` gives
+`Seq({0: '', 4: ''}, length=8)`. Nothing crashes. This was so before the
+fix, the upstream pull request does not touch it, and it is left as a
+possible follow-up.
+
 **Upstream status:** closed unmerged on 2026-10-12, withdrawn by its author
 pending the outcome of upstream's draft policy on AI-assisted contributions
 ([#5241](https://github.com/biopython/biopython/pull/5241), still open on
