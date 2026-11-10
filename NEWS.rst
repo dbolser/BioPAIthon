@@ -70,6 +70,22 @@ defect (biopython/biopython#5329, reported by Aniruddha Adak), also in
 Biopython 1.88 and still in upstream's development code; the fix is Zehao
 Wang's, from the unmerged biopython/biopython#5362. See ``ADOPTED.md``.
 
+The EMBL parser now reads ``DT`` (date) lines, so a record read with
+``SeqIO`` in format ``"embl"`` or ``"imgt"`` has a ``date`` annotation, as a
+GenBank record does. It holds the date from the last ``DT`` line, normally
+the "Last updated" one, such as ``"20-APR-1999"``, without the release notes
+in brackets. Before, every ``DT`` line was discarded, so an EMBL record had no
+date, and converting it to GenBank silently wrote ``01-JAN-1980`` on the
+``LOCUS`` line; it now carries the real date. A date not in the
+``DD-MMM-YYYY`` form, such as ``1997-12-13``, is stored as written, and the
+GenBank writer warns about it and uses its default, as for any other
+malformed date. A ``DT`` line with no date gives a ``BiopythonParserWarning``
+and is skipped. The EMBL writer still writes no ``DT`` lines. This was an
+upstream defect (biopython/biopython#1016, first reported by Wim De Smet),
+also in Biopython 1.88 and still in upstream's development code. The fix is
+NinjagoJaden1's, from the unmerged biopython/biopython#5318; see
+``ADOPTED.md``.
+
 ``Bio.Nexus`` and ``Bio.Phylo`` now read a NEXUS ``TRANSLATE`` table whose
 taxon names contain a hyphen without quotes, such as ``1 dog-cat,``, as
 TreeAnnotator writes them. The parser split such a name at the hyphen and
