@@ -8027,6 +8027,28 @@ KEYWORDS    """,
             "COMPLETENESS: full length.",
         )
 
+    def test_structured_comment_written_after_free_text(self):
+        """Write the free-text comment before the structured comment."""
+        # In tsa_acropora.gb, as in NCBI records generally, the COMMENT
+        # opens with free text and ends with an ##Assembly-Data-START##
+        # table. The writer used to put the table first (upstream issue
+        # #2477). Blank lines are compared away, as the parser drops them.
+
+        def comment_lines(text):
+            block = text.split("\nCOMMENT     ", 1)[1].split("\nFEATURES ", 1)[0]
+            return [line.strip() for line in block.split("\n") if line.strip()]
+
+        path = support.DATA / "GenBank" / "tsa_acropora.gb"
+        with open(path) as handle:
+            original = handle.read()
+        record = SeqIO.read(path, "genbank")
+        written = comment_lines(record.format("gb"))
+        self.assertEqual(
+            written[0],
+            "The Acropora millepora transcriptome shotgun assembly (TSA) project",
+        )
+        self.assertEqual(written, comment_lines(original))
+
     def test_multiline_structured_comment_parsing(self):
         """Multiline structured comment parsing."""
         # GU949562.1, MIENS-Data, environment has value on multiple lines

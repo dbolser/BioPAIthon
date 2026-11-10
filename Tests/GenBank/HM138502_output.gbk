@@ -14,13 +14,13 @@ REFERENCE   1  (bases 1 to 1410)
   TITLE     Direct Submission
   JOURNAL   Submitted (21-APR-2010) Friedrich-Loeffler-Institut, Suedufer 10,
             Greifswald-Insel Riems 17493, Germany
-COMMENT     ##GISAID_EpiFlu(TM)Data-START##
+COMMENT     Swine influenza A (H1N1) virus isolated during human swine flu
+            outbreak of 2009.
+            ##GISAID_EpiFlu(TM)Data-START##
             Isolate :: A/California/07/09
             Subtype :: H1N1
             Lineage :: swl
             ##GISAID_EpiFlu(TM)Data-END##
-            Swine influenza A (H1N1) virus isolated during human swine flu
-            outbreak of 2009.
 FEATURES             Location/Qualifiers
      source          1..1410
                      /organism="Influenza A virus (A/California/07/2009(H1N1))"

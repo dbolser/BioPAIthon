@@ -1101,7 +1101,22 @@ class GenBankWriter(_InsdcWriter):
         # A list of lines is also reasonable.
         # A single (long) string is perhaps the most natural of all.
         # This means we may need to deal with line wrapping.
+        #
+        # The parser keeps the free text ("comment") apart from the
+        # ##...-START## tables ("structured_comment") and does not record
+        # how they were interleaved. NCBI records put the free text first,
+        # so we do too. (A line of free text after the tables, such as the
+        # "COMPLETENESS: full length." that ends many RefSeq records,
+        # therefore moves up, ahead of the tables.)
         lines = []
+        if "comment" in record.annotations:
+            comment = record.annotations["comment"]
+            if isinstance(comment, str):
+                lines += comment.split("\n")
+            elif isinstance(comment, (list, tuple)):
+                lines += list(comment)
+            else:
+                raise ValueError("Could not understand comment annotation")
         if "structured_comment" in record.annotations:
             comment = record.annotations["structured_comment"]
             # Find max length of keys for equal padded printing
@@ -1118,14 +1133,6 @@ class GenBankWriter(_InsdcWriter):
                         f"{subkey}{spaces}{self.STRUCTURED_COMMENT_DELIM}{subdata}"
                     )
                 lines.append(f"##{key}{self.STRUCTURED_COMMENT_END}")
-        if "comment" in record.annotations:
-            comment = record.annotations["comment"]
-            if isinstance(comment, str):
-                lines += comment.split("\n")
-            elif isinstance(comment, (list, tuple)):
-                lines += list(comment)
-            else:
-                raise ValueError("Could not understand comment annotation")
         self._write_multi_line("COMMENT", lines[0])
         for line in lines[1:]:
             self._write_multi_line("", line)
