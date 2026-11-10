@@ -1049,6 +1049,13 @@ sequences:
    >>> print("%5.3g" % pvalue)
    1.21e-08
 
+If MEME was given more sequences than its ``-brief`` option allows (1000
+by default), it leaves the sequence names and motif sites out of its XML
+output. Each motif then still has its name, id, length, number of
+occurrences and E-value, but its ``.alignment`` and ``.counts`` are
+``None``, and ``record.sequences`` is an empty list. Run MEME with a larger
+``-brief`` value to keep the sites.
+
 MAST
 ^^^^
 
