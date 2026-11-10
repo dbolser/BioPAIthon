@@ -416,7 +416,10 @@ def _read_v3(handle):
                         value = value[index:]
                     subfields = value.split("\x14")
                     if len(subfields) != 12:
-                        ValueError("Subfields length isn't 12")
+                        raise ParserError(
+                            "Expected 12 subfields in DatHeader, "
+                            f"found {len(subfields)}"
+                        )
                     subfield = subfields[0]
                     try:
                         scanner_id, scanner_type = subfield.split()

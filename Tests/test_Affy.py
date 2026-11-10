@@ -272,6 +272,45 @@ class AffyTest(unittest.TestCase):
         with self.assertRaisesRegex(CelFile.ParserError, r"Expected \[min..max\]"):
             CelFile.read(io.StringIO(data))
 
+    def testAffyDatHeaderWrongSubfieldCount(self):
+        # The DatHeader of a version 3 file must hold exactly 12 subfields
+        # separated by \x14; any other count used to give an IndexError or a
+        # misleading error from int() on a shifted field, or pass silently.
+        with open(self.affy3) as f:
+            data = f.read()
+        cases = {
+            # Seven subfields: the five numeric ones at the end removed
+            7: data.replace(" 570 \x14 25356.509766 \x14", "", 1).replace(
+                " \x14 3.500000 \x14 1.5600 \x14 6", "", 1
+            ),
+            # Eleven subfields: the last one cut off
+            11: data.replace(" \x14 6\n", "\n", 1),
+            # Thirteen subfields: an extra one in the middle
+            13: data.replace(" \x14 1.5600 \x14", " \x14 99 \x14 1.5600 \x14", 1),
+        }
+        for count, bad in cases.items():
+            with self.subTest(count=count):
+                self.assertNotEqual(bad, data)
+                with self.assertRaisesRegex(
+                    CelFile.ParserError,
+                    rf"Expected 12 subfields in DatHeader, found {count}$",
+                ):
+                    CelFile.read(io.StringIO(bad))
+
+    def testAffyDatHeaderScannerIdWithoutType(self):
+        # A DatHeader whose first subfield holds a scanner ID but no scanner
+        # type, as in GEO sample GSM2810894 (biopython/biopython#4144).
+        with open(self.affy3) as f:
+            data = f.read()
+        self.assertIn(" 50205880  M10   \x14", data)
+        data = data.replace(" 50205880  M10   \x14", " 50205880   \x14", 1)
+        record = CelFile.read(io.StringIO(data))
+        self.assertEqual(record.DatHeader["scanner-id"], "50205880")
+        self.assertNotIn("scanner-type", record.DatHeader)
+        self.assertEqual(record.DatHeader["array-type"], "Tgondii_SNP1.1sq")
+        self.assertEqual(record.DatHeader["filter-wavelength"], 570)
+        self.assertEqual(record.DatHeader["image-orientation"], 6)
+
     def testAffyWrongModeReadV3(self):
         with self.assertRaises(ValueError):
             with open(self.affy3, "rb") as f:

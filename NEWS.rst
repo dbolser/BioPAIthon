@@ -55,6 +55,20 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Affy.CelFile.read`` now raises ``CelFile.ParserError`` with the message
+"Expected 12 subfields in DatHeader, found N" when the DatHeader line of a
+version 3 CEL file does not hold exactly 12 subfields. The check was meant to
+do this all along, but built the error without raising it, so a malformed
+header gave a bare ``IndexError``, or a misleading ``int()`` or ``float()``
+error from a value read out of the wrong field. This is the behaviour change:
+a header with extra subfields used to be accepted, and is now rejected,
+because the parser reads fields by fixed position and cannot know which
+field is the extra one. ``ParserError`` is a subclass of ``ValueError``, so
+code catching ``ValueError`` still works. This is an upstream defect, also in
+Biopython 1.88, found while looking at biopython/biopython#4144; a test is
+also added for that issue's own case, a scanner ID with no scanner type,
+which was already fixed by biopython/biopython#4138.
+
 ``Bio.UniGene`` now reads NCBI's UniGene files for *Xenopus laevis*
 (``Xl.data``) and *Xenopus tropicalis* (``Str.data``), which put blank lines
 between the fields of a record. Both ``parse()`` and ``read()`` used to fail
