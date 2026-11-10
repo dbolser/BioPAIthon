@@ -2640,7 +2640,7 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   `IndexError` instead of the "not a known header" `ValueError`. Upstream
   too. **Fixed** in the fork, in all four readers. Upstream
   biopython/biopython#5374 covered only `ClustalIO` and was withdrawn
-  unmerged, with no licence ticked.
+  unmerged, with no licence ticked. (PR #323)
 
 ### BLAST and SearchIO
 
