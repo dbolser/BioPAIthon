@@ -16,6 +16,12 @@ from Bio.Seq import Seq
 def read(handle):
     """Parse the text output of the MEME program into a meme.Record object.
 
+    If MEME was given more sequences than its ``-brief`` option allows (1000
+    by default), it leaves the sequence names and motif sites out of its XML
+    output. The motifs of such a file have their name, id, length, number of
+    occurrences and E-value, but their ``alignment`` and ``counts`` are
+    ``None``, and ``record.sequences`` is empty.
+
     Examples
     --------
     >>> from Bio.motifs import meme
@@ -158,7 +164,9 @@ def __read_motifs(record, xml_tree, sequence_id_name_map):
             instance.strand = __convert_strand(site_tree.get("strand"))
             instance.length = len(sequence)
             instances.append(instance)
-        alignment = Align.Alignment(instances)
+        # MEME leaves the sites out when given more sequences than -brief
+        # allows (1000 by default); Motif cannot count an empty alignment.
+        alignment = Align.Alignment(instances) if instances else None
         motif = Motif(record.alphabet, alignment)
         motif.id = motif_tree.get("id")
         motif.name = motif_tree.get("name")
