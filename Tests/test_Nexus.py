@@ -1679,7 +1679,8 @@ end;
 
     def test_translate_dashed_taxon_names(self):
         # Unquoted taxon labels containing a hyphen must be preserved in the
-        # TRANSLATE block instead of raising "Missing ','" (issue #1022).
+        # TRANSLATE block instead of raising "Missing ','"
+        # (biopython/biopython#1022).
         handle = StringIO(
             """#NEXUS
         begin trees;
@@ -1693,9 +1694,7 @@ end;
         """
         )
         nexus = Nexus.Nexus(handle)
-        self.assertEqual(
-            nexus.translate, {1: "dog-cat", 2: "mouse-rat", 3: "foo-bar"}
-        )
+        self.assertEqual(nexus.translate, {1: "dog-cat", 2: "mouse-rat", 3: "foo-bar"})
 
 
 class TestStandardDatatype(unittest.TestCase):
