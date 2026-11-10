@@ -88,12 +88,17 @@ organism or `genes`; converts to an outside database from any source,
 which covers unprefixed KEGG entries such as `kegg_conv("chebi",
 "C00001")`; and accepts `ncbi-proteinid` and `chebi`. KEGG withdrew conv's
 RDF output and `ncbi-gi` (HTTP 400 for the database form, an empty answer
-for entries), so those now raise `ValueError`, where the pull request
-ignored an option silently. `kegg_list` gains `option=` for the two
-listings KEGG now subsets, such as `/list/genome/animals`, raises
-`ValueError` for `module` with an organism, and applies its 100-entry limit
-to a `+`-joined string as well as to a list: the server accepts 150 entries but silently returns only the first
-100. The `kegg_info` docstring pointed at `/list/organism` and now points
+for entries such as `ncbi-gi:4507949`, even alongside other entries), so
+those now raise `ValueError`, where the pull request ignored an option
+silently. So does a conversion between a gene and a chemical database,
+such as `kegg_conv("pubchem", "hsa")` or `kegg_conv("uniprot",
+"compound")`, which KEGG answers with HTTP 400. `kegg_list` gains
+`option=` for the two listings KEGG now subsets, such as
+`/list/genome/animals`, and its error for `kegg_list("genome", "animals")`
+names the `option=` form; it raises `ValueError` for `module` with an
+organism, and applies its 100-entry limit to a `+`-joined string as well
+as to a list: the server accepts 150 entries but silently returns only the
+first 100. The `kegg_info` docstring pointed at `/list/organism` and now points
 at `/list/genome`. The online tests use `ncbi-proteinid` in place of
 `ncbi-gi`, and gain tests of the conv calls above.
 

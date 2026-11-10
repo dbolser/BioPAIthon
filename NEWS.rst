@@ -69,7 +69,9 @@ option, and ``kegg_link`` the taxonomy options ``"species"`` to
 answers now raise ``ValueError`` before any request is sent, instead of an
 HTTP error from the server or an empty result: ``kegg_list("module", org)``,
 any ``option`` of ``kegg_conv`` (KEGG withdrew its RDF output), ``ncbi-gi`` in
-``kegg_conv`` (use ``ncbi-proteinid``), and RDF options of ``kegg_link`` for
+``kegg_conv``, as a database or in entries such as ``"ncbi-gi:4507949"`` (use
+``ncbi-proteinid``), ``kegg_conv`` between a gene and a chemical database,
+such as ``kegg_conv("pubchem", "hsa")``, and RDF options of ``kegg_link`` for
 targets other than ``drug``, ``atc`` and ``jtc``. ``kegg_list`` now also
 refuses more than 100 entries joined with ``"+"`` in a string, as it already
 did for a list: KEGG silently returns only the first 100. This is a
