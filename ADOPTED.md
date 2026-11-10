@@ -72,8 +72,8 @@ which only undoes the CRLF damage and is not needed after `-Xrenormalize`.
 **Chosen over [#5357](https://github.com/biopython/biopython/pull/5357)**
 (JingHao-Leon, withdrawn 2026-10-12), which rewrites the same lines of
 `calc_dihedral` to return NaN instead. That fixes only the dihedral:
-`calc_angle` and `Vector.angle` still return pi. Dan decided on
-2026-11-10 to raise, as the fork does elsewhere for unusable input.
+`calc_angle` and `Vector.angle` still return pi. Raising matches what the
+fork does elsewhere for unusable input.
 
 **Added by the fork:** the callers in `Bio.PDB` that used to get pi now
 handle the error. `Polypeptide.get_tau_list` and `get_theta_list` put
@@ -82,19 +82,23 @@ the same spot), as `get_phi_psi_list` already did and as the fork's
 missing-CA fix does (fork PR
 [#320](https://github.com/BioAGI-org/biop-ai/pull/320), upstream
 [#969](https://github.com/biopython/biopython/issues/969)); with the pull
-request alone, one such window raised and lost the whole list. `HSExposureCB` and `HSExposureCA` leave
-out a residue whose CA-CB or pseudo-CB direction has zero length, as for
-missing atoms (before, every neighbour was counted as down), and skip a
-neighbouring CA exactly on the residue's own CA (before, counted as down);
-`HSExposureCA` gives `None` for the CB to pseudo-CB angle when the CB sits
-on the CA. `internal_coords`, `DSSP`, `Superimposer`, `SCADIO` and the rest
-of `Bio.PDB` do not call `Vector.angle`, `calc_angle`, `calc_dihedral` or
+request alone, one such window raised and lost the whole list.
+`HSExposureCB` and `HSExposureCA` leave out a residue whose CA-CB or
+pseudo-CB direction has zero length, as for missing atoms (before, every
+neighbour was counted as down; this covers a CB atom on its CA atom, and
+three CA atoms in a straight line), and skip a neighbouring CA exactly on
+the residue's own CA (before, counted as down); `HSExposureCA` gives `None`
+for the CB to pseudo-CB angle when the CB sits on the CA.
+`internal_coords`, `DSSP`, `Superimposer`, `SCADIO` and the rest of
+`Bio.PDB` do not call `Vector.angle`, `calc_angle`, `calc_dihedral` or
 `vector_to_axis`, so nothing else changes. Regression tests for each, and
 a longer `NEWS.rst` entry arguing the change.
 
-**Checked:** the pull request's tests fail on fork main and pass here. The
-fork's new Polypeptide and HSExposure tests fail both on fork main (where
-they get pi) and with only the upstream commit applied (where they raise).
+**Checked:** six of the pull request's seven tests fail on fork main and
+all pass here; the seventh, `test_angle_roundoff`, guards against a
+regression and passes on both. The fork's new Polypeptide and HSExposure
+tests fail both on fork main (where they get pi) and with only the upstream
+commit applied (where they raise).
 
 **Upstream status:** as of 2026-11-10 the pull request is open, not a
 draft, and on hold: on 2026-10-05 peterjc thanked the author for declaring
