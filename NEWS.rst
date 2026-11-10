@@ -61,6 +61,33 @@ vectors instead of returning an incorrect angle. This also affects
 do not define the required planes. Valid planar dihedral angles remain
 supported, with an angle of 180 degrees returned as positive pi.
 
+Such an angle has no value, but it used to come back as pi or minus pi,
+with at most a ``RuntimeWarning`` the first time, so for example four
+collinear points gave a dihedral of -180 degrees, indistinguishable from a
+real trans conformation. An exactly planar trans dihedral also came back as
+minus pi, outside the documented range of minus pi (excluded) to pi. Code
+that relied on a number for degenerate geometry must now catch
+``ValueError``; a ``Vector`` holding NaN now gives an angle of NaN rather
+than pi. ``vector_to_axis`` no longer warns when the point is the origin.
+The ``Bio.PDB`` code that calls these functions handles the new error. The
+``get_tau_list`` and ``get_theta_list`` methods of a ``Polypeptide`` give
+``None`` for an angle that is undefined, for example where two C-alpha atoms
+coincide, as ``get_phi_psi_list`` already did, instead of losing the whole
+list. ``HSExposureCB`` and ``HSExposureCA`` leave out a residue whose CA-CB
+or pseudo-CB direction has zero length, as they do a residue with missing
+atoms (before,
+every neighbour was counted in the lower half sphere), and count a
+neighbouring C-alpha atom on exactly the same spot as neither up nor down
+(before, it was counted as down); ``HSExposureCA`` gives ``None`` for the
+CA-CB to pseudo-CB angle of a residue whose CB atom sits on its CA atom.
+This is an upstream defect, also in Biopython 1.88
+(biopython/biopython#5342). The change to ``Bio.PDB.vectors`` was written by
+Yuxuan Luo in biopython/biopython#5352, which is on hold upstream; the
+handling in ``Polypeptide`` and ``HSExposure`` was added by the fork.
+biopython/biopython#5357, withdrawn, proposed returning NaN for an
+undefined dihedral instead, but left ``calc_angle`` and ``Vector.angle``
+returning pi.
+
 Rerooting a ``Bio.Phylo`` tree no longer lengthens it. When the outgroup
 given to ``root_with_outgroup`` was a child of the old root and
 ``outgroup_branch_length`` was not zero, the new root was put on the
