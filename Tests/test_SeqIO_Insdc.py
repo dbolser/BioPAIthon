@@ -464,6 +464,17 @@ class TestWriterErrors(unittest.TestCase):
         record.features.append(SeqFeature(SimpleLocation(0, 2)))
         self.check(record, "Cannot write a feature with no type, at location [0:2]")
 
+    def test_feature_without_location(self):
+        # The parsers leave None, with a warning, for a location they cannot read
+        record = self.make_record()
+        record.features.append(SeqFeature(None, type="variation"))
+        self.check(
+            record,
+            "Cannot write a 'variation' feature with no location "
+            "(its .location is None)",
+            formats=("genbank", "embl", "imgt"),
+        )
+
     def test_annotation_list(self):
         record = self.make_record()
         record.annotations["organism"] = ["Homo sapiens", "Mus musculus"]
