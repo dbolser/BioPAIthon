@@ -92,6 +92,7 @@ https://biopython.org
 - Brad Chapman <https://github.com/chapmanb>
 - Brandon Carter  <https://github.com/b-carter>
 - Brandon Invergo <https://github.com/brandoninvergo>
+- Brandon Mokrytzki <https://github.com/bmokrytz>
 - Brandon Seah <https://github.com/kbseah/>
 - Brian Osborne <https://github.com/bosborne>
 - Bryan Brancotte <https://github.com/bryan-brancotte>

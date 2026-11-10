@@ -41,6 +41,68 @@ request.
 
 Newest first.
 
+### [#5350](https://github.com/biopython/biopython/pull/5350) — Brandon Mokrytzki
+
+Fixes upstream issue
+[#4878](https://github.com/biopython/biopython/issues/4878), and also
+[#4879](https://github.com/biopython/biopython/issues/4879), whose half the
+fork already had from #4918 below. The parser keeps a strand prefix with the
+molecule type, as in `"ss-DNA"`, and the GenBank writer wrote the whole
+string from column 48 of the LOCUS line, three columns right of the 45-47
+that section 3.4.4.2 of the GenBank release notes gives the strand.
+
+**Only the two test commits taken** (`6037becc9` and `cfeed7071`,
+cherry-picked with `-x`). `6037becc9` conflicted on context only, because in
+the pull request it follows the NA test the fork does not take; the
+resolution keeps just the new test. `cfeed7071` applied cleanly.
+
+**Left behind, and why.**
+
+- `c43a3816d`, the writer fix. It pads a molecule type with no prefix with
+  three spaces and still calls `ljust(7)`, which leaves the type four
+  columns. `snRNA` and `ncRNA` then give an 80-character LOCUS line, `snoRNA`
+  81 and `circRNA` 82, with no warning, and `Bio.SeqIO` cannot read them back
+  (`LOCUS line does not contain space at position 68`). The pull request's
+  test table stops at four-letter types, so its own tests pass. The fork's
+  fix instead splits the prefix off into its own three columns and keeps the
+  type seven wide.
+- `0cdee08e6`, and the `__init__.py` and 80-column hunks of `3dacd8898`: the
+  NA half, which the fork has in a stricter form from #4918 (an exact token
+  match, which also reads `ss-NA`). The one hunk of `3dacd8898` the fork
+  lacked, accepting `NA` in the writer's check of a LOCUS line too long for
+  the usual columns, is ported by hand in the fork's commit. It tests the
+  molecule type after any prefix, not the whole token, so `ss-NA` passes too.
+- `fcd6451f1` and `969b9161a`, the `example_NA.gb` fixture and a test that
+  writes into `Tests/GenBank/`. The #4918 tests already read NA, and the new
+  long-name test below covers the write path that was missing. peterjc also
+  found the fixture odd.
+- `70303b3f9`, the author's `CONTRIB.rst` and `NEWS.rst` lines; the author is
+  added to the fork's `CONTRIB.rst` instead.
+
+**Corrections on top**, in the fork's own commit: the writer fix above. The
+test table is rewritten as padded strings with a PEP257 summary, as peterjc's
+review asked, widened to all ten columns, extended with `snRNA`, `ncRNA`,
+`snoRNA` and `circRNA` with and without a prefix, and each line is read back.
+Three tests are added. One writes NCBI's `NC_001422` (`ss-DNA`) and a
+`ds-DNA` test plasmid back with their LOCUS lines unchanged. One writes `NA`,
+`ss-NA`, `DNA` and `ss-DNA` with a 27-character locus name and checks the
+layout after the length. One writes `protein`, `ss-protein` and `ds-PROTEIN`:
+no parser gives a strand with a protein, and the writer drops it with the
+type, where splitting it off first would otherwise leave `ss-` beside the
+units `aa`, a line `Bio.SeqIO` cannot read back. Against main before the fix,
+35 of the 49 subtests fail. The 14 that pass have no prefix, and their output
+does not change: the 12 table rows, `DNA` with the long name, and `protein`.
+With `c43a3816d` in place of the fork's fix, the eight rows of five to seven
+letters fail, and so do `NA` and `ss-NA` with the long name and the two
+proteins with a prefix.
+
+**Upstream status:** as of 2026-11-09 the pull request is open, with no
+commits since 2026-10-02 and style-only review comments from peterjc. On #4878
+the same day another contributor asked to be assigned the issue, and the
+author replied that the review changes would come by 15 November and that the
+other contributor was welcome to take it over if not. Nobody upstream has
+mentioned the overflow. The licence box is ticked.
+
 ### [#5389](https://github.com/biopython/biopython/pull/5389) — Michiel de Hoon
 
 Titled "PDB deprecation warnings", but one of its two lines fixes a silent
@@ -573,7 +635,10 @@ on the pull request, the scanner change alone does not make such files parse:
 teaches `record_end` the `NA` branch, makes the same one-line change to the
 writer's LOCUS checks in `Bio/SeqIO/InsdcIO.py` (by their own comment "copied
 from Bio.GenBank.Scanner") so the record round-trips, and adds the regression
-tests the upstream pull request was asked for but never grew.
+tests the upstream pull request was asked for but never grew. That correction
+missed the writer's other check, for a LOCUS line too long for the usual
+columns, so `NA` with a long locus name still raised `ValueError`; the #5350
+adoption above fixes it.
 
 ### [#3911](https://github.com/biopython/biopython/pull/3911) — Erik Whiting
 
