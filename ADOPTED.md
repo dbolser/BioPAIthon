@@ -75,11 +75,15 @@ comment there says why.
 
 **Added by the fork:** `Tests/test_BioSQL_pymysql.py`, the common BioSQL tests
 with `DBDRIVER = "pymysql"`, mirroring `test_BioSQL_MySQLdb.py`, with its
-`expected_skips.txt` line; and `pymysql` installed next to `mysqlclient` in
-the CI job that runs a MySQL server, and in the list of alternative BioSQL
-drivers in `pyproject.toml`. The pull request had no test.
+`expected_skips.txt` line. The module also has two tests of its own, which
+use its own settings rather than `common_BioSQL`'s, so they reach MySQL
+through PyMySQL even in a full run (see the caveat below): one checks the
+adaptor and the `_dbutils` entry, the other that `ANSI_QUOTES` is set.
+`pymysql` is installed next to `mysqlclient` in the CI job that runs a MySQL
+server, and listed among the alternative BioSQL drivers in `pyproject.toml`.
+The pull request had no test.
 
-**Checked**, against a local MySQL 8.0 server in Docker with PyMySQL 2.2.8:
+**Checked**, against a local MySQL 8.0 server in Docker with PyMySQL 1.2.4:
 on this fork's main all 72 tests of the new module fail or error with the
 loader `ValueError`; with the upstream commit alone they pass with 440
 warnings; with the fork's correction they pass with
@@ -94,8 +98,9 @@ module's globals, and each module's `check_config` overwrites them at import,
 so every module's tests run with whichever driver was imported last,
 `sqlite3`. Locally all nine BioSQL modules together pass 289 tests in about
 ten seconds, while `test_BioSQL_pymysql.py` alone takes nearly two minutes
-against MySQL. So until that is fixed, the CI job does not exercise PyMySQL
-(or MySQLdb) even with the driver installed.
+against MySQL. So until that is fixed, in CI only the module's two own tests
+reach MySQL through PyMySQL; the shared tests do not, and neither do
+MySQLdb's.
 
 **Upstream status:** as of 2026-11-09 the pull request is open and not a
 draft, with one commit, no reviews and no activity since 2026-08-06. The
@@ -201,7 +206,7 @@ the reporter, makes the same change, but its description dropped the
 template's checklist, so there is no licence box ticked and it is not
 eligible.
 
-### [#5278](https://github.com/biopython/biopython/pull/5278) — yiyabo
+### [#5278](https://github.com/biopython/biopython/pull/5278) — Xinxiang Wang (yiyabo)
 
 Fixes upstream issue
 [#1022](https://github.com/biopython/biopython/issues/1022), reported in 2016
