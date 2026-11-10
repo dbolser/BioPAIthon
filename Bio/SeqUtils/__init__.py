@@ -635,6 +635,15 @@ def six_frame_translations(seq, genetic_code=1):
     return res
 
 
+class _NoCodonsError(ValueError, ZeroDivisionError):
+    """No codon of the sequence counts towards the codon adaptation index.
+
+    A ``ValueError``, as the input is unusable, and a ``ZeroDivisionError``,
+    which ``CodonAdaptationIndex.calculate`` raised here before, so that code
+    catching either keeps working.
+    """
+
+
 class CodonAdaptationIndex(dict):
     """A codon adaptation index (CAI) implementation.
 
@@ -711,7 +720,29 @@ class CodonAdaptationIndex(dict):
         (Met) and TGG (Trp) in the standard code, but only ATG in the mold
         mitochondrial and Mycoplasma code (table 4), where TGA is Trp too.
         A stop codon of that genetic code is skipped if it is missing from
-        the index; any other codon missing from the index is an error.
+        the index; any other codon missing from the index is an error. Stop
+        codons in the index count like any other codon.
+
+        If no codon of the sequence counts, for example in an empty sequence
+        or one made up only of ATG and TGG in the standard code, there is
+        nothing to average and an exception is raised. It is both a
+        ``ValueError`` and a ``ZeroDivisionError``, so either can be caught:
+
+        >>> from Bio.SeqUtils import CodonAdaptationIndex
+        >>> cai = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"])
+        >>> try:
+        ...     cai.calculate("ATGTGG")
+        ... except ValueError as error:
+        ...     print(error)
+        ...
+        no codon in the sequence counts towards the CAI (left out: ATG, TGG, each the only codon for its amino acid)
+        >>> try:
+        ...     cai.calculate("")
+        ... except ZeroDivisionError as error:
+        ...     print(error)
+        ...
+        cannot calculate the CAI of an empty sequence
+
         """
         cai_value, cai_length = 0, 0
 
@@ -746,6 +777,16 @@ class CodonAdaptationIndex(dict):
             else:
                 cai_length += 1
 
+        if not cai_length:
+            if sequence:
+                message = (
+                    "no codon in the sequence counts towards the CAI (left out: "
+                    + ", ".join(sorted(single_codons))
+                    + ", each the only codon for its amino acid)"
+                )
+            else:
+                message = "cannot calculate the CAI of an empty sequence"
+            raise _NoCodonsError(message)
         return exp(cai_value / cai_length)
 
     def optimize(self, sequence, seq_type="DNA", strict=True):
