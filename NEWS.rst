@@ -75,11 +75,10 @@ The ``Bio.PDB`` code that calls these functions handles the new error. The
 coincide, as ``get_phi_psi_list`` already did, instead of losing the whole
 list. ``HSExposureCB`` and ``HSExposureCA`` leave out a residue whose CA-CB
 or pseudo-CB direction has zero length, as they do a residue with missing
-atoms (before,
-every neighbour was counted in the lower half sphere), and count a
-neighbouring C-alpha atom on exactly the same spot as neither up nor down
-(before, it was counted as down); ``HSExposureCA`` gives ``None`` for the
-CA-CB to pseudo-CB angle of a residue whose CB atom sits on its CA atom.
+atoms (before, every neighbour was counted in the lower half sphere), and
+count a neighbouring C-alpha atom on exactly the same spot as neither up nor
+down (before, it was counted as down); ``HSExposureCA`` gives ``None`` for
+the CA-CB to pseudo-CB angle of a residue whose CB atom sits on its CA atom.
 This is an upstream defect, also in Biopython 1.88
 (biopython/biopython#5342). The change to ``Bio.PDB.vectors`` was written by
 Yuxuan Luo in biopython/biopython#5352, which is on hold upstream; the
