@@ -624,6 +624,22 @@ class BgzfTests(unittest.TestCase):
         with open(self.temp_file, "wb") as handle:
             bgzf.BgzfWriter(fileobj=handle)
 
+    def test_writer_with_read_only_file(self):
+        """A BgzfWriter must raise ValueError at once on a read-only handle."""
+        error = "^fileobj must be an output handle in binary mode$"
+        with open(self.temp_file, "rb") as handle:
+            with self.assertRaisesRegex(ValueError, error) as cm:
+                bgzf.BgzfWriter(fileobj=handle)
+        # The handle's own complaint is kept as the cause
+        self.assertIsInstance(cm.exception.__cause__, OSError)
+
+    def test_writer_with_text_wrapper(self):
+        """A BgzfWriter must raise ValueError at once on a text handle without mode."""
+        error = "^fileobj must be an output handle in binary mode$"
+        with io.TextIOWrapper(io.BytesIO()) as handle:
+            with self.assertRaisesRegex(ValueError, error):
+                bgzf.BgzfWriter(fileobj=handle)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
