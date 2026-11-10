@@ -28,6 +28,7 @@ except ImportError:
 import support
 
 from Bio import motifs
+from Bio.motifs.matrix import PositionSpecificScoringMatrix
 from Bio.Seq import Seq
 
 
@@ -247,7 +248,7 @@ U:   0.50   0.17   0.50   0.17   0.50
 
 
 class TestDegenerateConsensus(unittest.TestCase):
-    """Tests for degenerate_consensus on alphabets of fewer than four letters."""
+    """Tests for degenerate_consensus on short alphabets and empty columns."""
 
     def test_three_letter_alphabet(self):
         """A three-letter alphabet has no fourth-ranked letter to inspect."""
@@ -270,6 +271,31 @@ class TestDegenerateConsensus(unittest.TestCase):
         """Padding must not disturb the usual four-letter behaviour."""
         motif = motifs.create([Seq("AC"), Seq("CG"), Seq("GT"), Seq("TA")])
         self.assertEqual(motif.degenerate_consensus, "NN")
+
+    def test_column_of_letters_outside_alphabet(self):
+        """A column of N, gaps or Y counts nothing, so it is N, not V."""
+        motif = motifs.create([Seq("ACGTN"), Seq("CGTAN")])
+        self.assertEqual(motif.degenerate_consensus, "MSKWN")
+        motif = motifs.create([Seq("A-Y"), Seq("A-Y")])
+        self.assertEqual(motif.degenerate_consensus, "ANN")
+
+    def test_all_zero_column_from_counts(self):
+        counts = {"A": [5, 0], "C": [0, 0], "G": [0, 0], "T": [0, 0]}
+        motif = motifs.Motif("ACGT", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "AN")
+
+    def test_all_zero_column_three_letter_alphabet(self):
+        counts = {"A": [3, 0], "C": [0, 0], "G": [0, 0]}
+        motif = motifs.Motif("ACG", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "AN")
+
+    def test_scores_summing_to_zero_are_not_an_empty_column(self):
+        """Only a column of zeros is empty; log-odds may sum to zero."""
+        pssm = PositionSpecificScoringMatrix(
+            "ACGT",
+            {"A": [1.0, 0.0], "C": [0.0, 0.0], "G": [0.0, 0.0], "T": [-1.0, 0.0]},
+        )
+        self.assertEqual(pssm.degenerate_consensus, "AN")
 
 
 class TestCalculateConsensus(unittest.TestCase):
