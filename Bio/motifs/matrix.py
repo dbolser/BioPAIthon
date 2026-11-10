@@ -207,8 +207,21 @@ class GenericPositionMatrix(dict):
             # letter outside the alphabet is absent at every position, so pad
             # the ranked counts with zeros rather than special-case each rule.
             counts += [0] * (4 - len(counts))
-            # Follow the Cavener rules:
-            if counts[0] > sum(counts[1:]) and counts[0] > 2 * counts[1]:
+            # A column of zeros favours no letter. In counts, nothing in the
+            # alphabet was counted there (say, the column holds only N or
+            # gaps, which are outside the alphabet). In log-odds scores, every
+            # letter is at its background frequency, so under a uniform
+            # background the letters were counted equally. Either way, give
+            # it the code of a column in which every letter is equally common.
+            # The Cavener rules do not cover a column of zeros. Left to them,
+            # with four or more letters it would fall into the three-letter
+            # rule below, which names three letters and rules out the rest
+            # (V, not T, for ACGT), so say N explicitly. With fewer than four
+            # letters, that rule already names the whole alphabet.
+            if len(nucleotides) >= 4 and not any(counts):
+                key = "ACGT"
+            # Otherwise, follow the Cavener rules:
+            elif counts[0] > sum(counts[1:]) and counts[0] > 2 * counts[1]:
                 key = nucleotides[0]
             elif 4 * sum(counts[:2]) > 3 * sum(counts):
                 key = "".join(sorted(nucleotides[:2]))

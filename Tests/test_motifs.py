@@ -28,6 +28,7 @@ except ImportError:
 import support
 
 from Bio import motifs
+from Bio.motifs.matrix import PositionSpecificScoringMatrix
 from Bio.Seq import Seq
 
 
@@ -247,7 +248,7 @@ U:   0.50   0.17   0.50   0.17   0.50
 
 
 class TestDegenerateConsensus(unittest.TestCase):
-    """Tests for degenerate_consensus on alphabets of fewer than four letters."""
+    """Tests for degenerate_consensus on short alphabets and empty columns."""
 
     def test_three_letter_alphabet(self):
         """A three-letter alphabet has no fourth-ranked letter to inspect."""
@@ -270,6 +271,58 @@ class TestDegenerateConsensus(unittest.TestCase):
         """Padding must not disturb the usual four-letter behaviour."""
         motif = motifs.create([Seq("AC"), Seq("CG"), Seq("GT"), Seq("TA")])
         self.assertEqual(motif.degenerate_consensus, "NN")
+
+    def test_column_of_letters_outside_alphabet(self):
+        """A column of N, gaps or Y counts nothing, so it is N, not V."""
+        motif = motifs.create([Seq("ACGTN"), Seq("CGTAN")])
+        self.assertEqual(motif.degenerate_consensus, "MSKWN")
+        motif = motifs.create([Seq("A-Y"), Seq("A-Y")])
+        self.assertEqual(motif.degenerate_consensus, "ANN")
+
+    def test_all_zero_column_from_counts(self):
+        counts = {"A": [5, 0], "C": [0, 0], "G": [0, 0], "T": [0, 0]}
+        motif = motifs.Motif("ACGT", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "AN")
+
+    def test_all_zero_column_short_alphabet(self):
+        """With fewer than four letters, an empty column names the alphabet.
+
+        That is also the code for a column in which every letter is equally
+        common, so a scoring-matrix column of zeros (letters at background
+        frequency) agrees with the counts it came from.
+        """
+        counts = {"A": [3, 0], "C": [0, 0], "G": [0, 0]}
+        motif = motifs.Motif("ACG", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "AV")
+        motif = motifs.create([Seq("AA"), Seq("CA"), Seq("GA")], alphabet="ACG")
+        self.assertEqual(motif.degenerate_consensus, "VA")
+        self.assertEqual(motif.pssm.degenerate_consensus, "VA")
+        motif = motifs.create([Seq("AA"), Seq("CA")], alphabet="AC")
+        self.assertEqual(motif.pssm.degenerate_consensus, "MA")
+        motif = motifs.create([Seq("AA")], alphabet="A")
+        self.assertEqual(motif.pssm.degenerate_consensus, "AA")
+
+    def test_all_zero_column_in_alphabet_order(self):
+        """The old answer for an empty column depended on the alphabet order."""
+        counts = {"G": [5, 0], "A": [0, 0], "T": [0, 0], "C": [0, 0]}
+        motif = motifs.Motif("GATC", counts=counts)
+        self.assertEqual(motif.degenerate_consensus, "GN")
+
+    def test_pssm_column_at_background_frequency(self):
+        """Equal counts score zero under a uniform background, so give N."""
+        motif = motifs.create(["AACGT", "CACGT", "GACGT", "TACGT"])
+        self.assertEqual(motif.degenerate_consensus, "NACGT")
+        self.assertEqual(motif.pssm.degenerate_consensus, "NACGT")
+        motif.pseudocounts = 0.5
+        self.assertEqual(motif.pssm.degenerate_consensus, "NACGT")
+
+    def test_scores_summing_to_zero_are_not_an_empty_column(self):
+        """Only a column of zeros is empty; log-odds may sum to zero."""
+        pssm = PositionSpecificScoringMatrix(
+            "ACGT",
+            {"A": [1.0, 0.0], "C": [0.0, 0.0], "G": [0.0, 0.0], "T": [-1.0, 0.0]},
+        )
+        self.assertEqual(pssm.degenerate_consensus, "AN")
 
 
 class TestCalculateConsensus(unittest.TestCase):
@@ -2389,6 +2442,8 @@ class TestJASPAR(unittest.TestCase):
         self.assertAlmostEqual(motif.counts["C", 14], 0.583333333)
         self.assertEqual(motif.consensus, "AGCGGGGGGGGGAGC")
         self.assertEqual(motif.degenerate_consensus, "MGCNNNNNNNNNMGC")
+        # Columns 3-11 are at background frequency, so every score is zero.
+        self.assertEqual(motif.pssm.degenerate_consensus, "MGCNNNNNNNNNMGC")
         self.assertTrue(
             np.allclose(
                 motif.relative_entropy,

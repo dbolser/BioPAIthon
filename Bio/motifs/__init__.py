@@ -436,7 +436,10 @@ class Motif:
         translational start sites in Drosophila and vertebrates."
         Nucleic Acids Research 15(4): 1353-1361. (1987).
 
-        The same rules are used by TRANSFAC.
+        The same rules are used by TRANSFAC. A column in which no letter of
+        the alphabet was counted, such as one holding only N or gaps, gets the
+        same code as a column in which every letter is equally common: N for
+        the default ACGT alphabet.
         """
         return self.counts.degenerate_consensus
 
