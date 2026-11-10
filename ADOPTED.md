@@ -41,6 +41,74 @@ request.
 
 Newest first.
 
+### [#5255](https://github.com/biopython/biopython/pull/5255) — Arata Synqa Bando
+
+Fixes upstream issue
+[#729](https://github.com/biopython/biopython/issues/729), open since 2015:
+`kegg_conv` rejected the `/conv/<target_db>/<dbentries>` form that KEGG's
+own documentation uses as its examples, such as
+`kegg_conv("ncbi-proteinid", "hsa:10458+ece:Z5100")`, and also
+`kegg_conv("compound", "chebi")`, because a typo had `"glycan"` where
+`"chebi"` belonged. The pull request brings each `Bio.KEGG.REST` function
+up to date with the current KEGG REST API, one commit per operation.
+
+**The four commits taken** (`49799cf7f` info, `46f5a7c99` find,
+`1600e60a2` get, `2c21f1725` link, cherry-picked with `-x`), which applied
+without conflicts. They update the comments listing KEGG's databases, add
+the `"nop"` option to `kegg_find` and `"conf"` to `kegg_get`, and give
+`kegg_link` the taxonomy options `"species"` to `"phylum"` while allowing
+its RDF options only for the `drug`, `atc` and `jtc` targets, as KEGG now
+does (`link/pathway/hsa:10458/turtle` is HTTP 400, `link/atc/D01441/turtle`
+answers). Two of them add online tests.
+
+**Left behind, and why.**
+
+- `97ae71e7f`, the conv commit. It keyed the entries form on the target
+  only, so `kegg_conv("eco", "ncbi-geneid:948364")`, which the KEGG
+  documentation allows and the server answers, still raised `ValueError`,
+  and it kept the `option` argument but ignored it silently, documenting
+  it as deprecated. The fork's own commit redoes it.
+- `b48bb563b`, the list commit. Its new `option` argument and the removal
+  of `/list/module/<org>` (HTTP 400 today) are right and are redone in the
+  fork's commit under the same keyword name, but it also lowered the entry
+  limit from 100 to 10, which refuses requests the server answers in full.
+- `93b25fbe2`, which drops the online test of `/list/organism` (HTTP 400
+  today). Correct, but redone in the fork's commit with a test of
+  `/list/genome/animals` in its place.
+- `f106d1c6b`, the offline tests. They went into `Tests/test_KEGG.py`, which
+  imported `test_KEGG_online` at module level; that module skips itself
+  offline, which took the KEGG parser tests with it. The fork writes its own
+  offline module instead.
+- `b11f2d32c`, the author's `CONTRIB.rst` and `NEWS.rst` lines; the author
+  is added to the fork's `CONTRIB.rst` instead.
+
+**Corrections on top**, in the fork's own commit. `kegg_conv` treats any
+source containing `:` as entries, convertible to any database including an
+organism or `genes`; converts to an outside database from any source,
+which covers unprefixed KEGG entries such as `kegg_conv("chebi",
+"C00001")`; and accepts `ncbi-proteinid` and `chebi`. KEGG withdrew conv's
+RDF output and `ncbi-gi` (HTTP 400 for the database form, an empty answer
+for entries), so those now raise `ValueError`, where the pull request
+ignored an option silently. `kegg_list` gains `option=` for the two
+listings KEGG now subsets, such as `/list/genome/animals`, raises
+`ValueError` for `module` with an organism, and applies its 100-entry limit
+to a `+`-joined string as well as to a list: the server accepts 150 entries but silently returns only the first
+100. The `kegg_info` docstring pointed at `/list/organism` and now points
+at `/list/genome`. The online tests use `ncbi-proteinid` in place of
+`ncbi-gi`, and gain tests of the conv calls above.
+
+**Checked.** Every URL the new offline `Tests/test_KEGG_REST.py` accepts,
+and the 400s it guards against, were requested from rest.kegg.jp on
+2026-11-10. Nine of its thirteen tests fail on this fork's main. The online
+`Tests/test_KEGG_online.py` passes in full against the live server (49
+tests), as does the offline suite.
+
+**Upstream status:** as of 2026-11-09 the pull request is still a draft,
+opened in July 2026, with no reviews or comments and no activity since
+2026-08-07. The licence box is ticked, and the author added their own name to
+`CONTRIB.rst`. Issue #729 is open and upstream master has no fix; upstream
+master still sends `/list/organism` in its online tests.
+
 ### [#5233](https://github.com/biopython/biopython/pull/5233) — Xinxiang Wang (yiyabo)
 
 Fixes upstream issue
