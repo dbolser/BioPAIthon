@@ -279,7 +279,7 @@ class AffyTest(unittest.TestCase):
         with open(self.affy3) as f:
             data = f.read()
         cases = {
-            # Seven subfields: everything after the array type removed
+            # Seven subfields: the five numeric ones at the end removed
             7: data.replace(" 570 \x14 25356.509766 \x14", "", 1).replace(
                 " \x14 3.500000 \x14 1.5600 \x14 6", "", 1
             ),
