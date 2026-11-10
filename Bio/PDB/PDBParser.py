@@ -188,11 +188,11 @@ class PDBParser:
                 resseq_field = line[22:26]
                 if not resseq_field.strip():
                     # AutoDock writes ligands with a blank residue number.
-                    # Only a blank is defaulted; any other unreadable number
-                    # is an error, as guessing could merge distinct residues.
+                    # When permissive it becomes 0. Only a blank is defaulted;
+                    # any other unreadable number is an error, as guessing
+                    # could merge distinct residues.
                     self._handle_PDB_exception(
-                        "Blank residue sequence number, using 0",
-                        global_line_counter,
+                        "Blank residue sequence number", global_line_counter
                     )
                     resseq = 0
                 else:

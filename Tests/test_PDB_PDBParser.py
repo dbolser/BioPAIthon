@@ -139,7 +139,7 @@ class FlawedPDB_tests(unittest.TestCase):
                 "test", StringIO(self.blank_resseq)
             )
         self.assertEqual(len(w), 1, w)
-        self.assertIn("Blank residue sequence number, using 0 at line 2.", str(w[0]))
+        self.assertIn("Blank residue sequence number at line 2.", str(w[0]))
         chain = structure[0]["A"]
         self.assertEqual([r.id for r in chain], [("H_LIG", 1, " "), ("H_LIG", 0, " ")])
         self.assertEqual([a.get_name() for a in chain[("H_LIG", 0, " ")]], ["C2"])
@@ -148,7 +148,7 @@ class FlawedPDB_tests(unittest.TestCase):
         """A blank residue number is an error naming the line when strict."""
         with self.assertRaisesRegex(
             PDBConstructionException,
-            r"^Blank residue sequence number, using 0 at line 2\.$",
+            r"^Blank residue sequence number at line 2\.$",
         ):
             self.strict.get_structure("test", StringIO(self.blank_resseq))
 
