@@ -70,8 +70,19 @@ gave a dN of 0.165 and the ``ML`` method one of 0.135. As before, a codon
 with a gap in it is skipped, such as one that ``codonalign.build`` cuts short
 at a frameshift and pads with gaps, or one that gaps split without putting the
 codons after it out of frame, which raised ``IndexError`` if it was the last
-codon. This is an upstream defect (biopython/biopython#4999, reported by
-Boxuan Li), also in Biopython 1.88 and still in upstream's development code.
+codon. Three columns in which no codon of the reading frame (the ``rf_table``)
+starts, which a hand-made ``rf_table`` can leave against a codon of the other
+sequence, are now skipped too; they raised ``TypeError`` or ``IndexError``, or
+``LWL85`` compared them as a codon. This is an upstream defect
+(biopython/biopython#4999, reported by Boxuan Li), also in Biopython 1.88 and
+still in upstream's development code.
+
+``Bio.codonalign.build`` now keeps the codon positions (the ``rf_table``) of a
+sequence with a frameshift when it adds gaps to that sequence against a
+frameshift insertion in another sequence. It lost them, so ``get_dn_ds_matrix``
+of such an alignment raised ``ValueError: Sequence length is not a multiple of
+three``; it now gives dN and dS. This upstream defect is also in Biopython 1.88
+and in upstream's development code.
 
 The ``Bio.SeqIO`` GenBank writer now writes the free text of a ``COMMENT``
 before its structured comments, the tables from a line such as
