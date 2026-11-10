@@ -762,16 +762,20 @@ class CodonAdaptationIndex(dict):
         # slicing a MutableSeq gives a MutableSeq, which is unhashable.
         sequence = str(sequence).upper()
 
+        # Codons of the sequence that were skipped, kept for the error below.
+        skipped_single, skipped_stop = set(), set()
         for i in range(0, len(sequence), 3):
             codon = sequence[i : i + 3]
             if codon in single_codons:
                 # The only codon for its amino acid, so its index is always one.
+                skipped_single.add(codon)
                 continue
             try:
                 cai_value += log(self[codon])
             except KeyError:
                 if codon in self._table.stop_codons:
                     # Stop codon, which is valid but may be missing from the index.
+                    skipped_stop.add(codon)
                     continue
                 raise TypeError(f"illegal codon in sequence: {codon}") from None
             else:
@@ -779,10 +783,21 @@ class CodonAdaptationIndex(dict):
 
         if not cai_length:
             if sequence:
+                reasons = []
+                if skipped_single:
+                    reasons.append(
+                        ", ".join(sorted(skipped_single))
+                        + ", each the only codon for its amino acid"
+                    )
+                if skipped_stop:
+                    reasons.append(
+                        ", ".join(sorted(skipped_stop))
+                        + ", each a stop codon missing from the index"
+                    )
                 message = (
                     "no codon in the sequence counts towards the CAI (left out: "
-                    + ", ".join(sorted(single_codons))
-                    + ", each the only codon for its amino acid)"
+                    + "; ".join(reasons)
+                    + ")"
                 )
             else:
                 message = "cannot calculate the CAI of an empty sequence"
