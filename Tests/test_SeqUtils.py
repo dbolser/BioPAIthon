@@ -1061,6 +1061,74 @@ class CodonAdaptationIndexErrorTests(unittest.TestCase):
         self.assertAlmostEqual(index["AAG"], 1.0)
         self.assertAlmostEqual(index.calculate("ATGAAG"), 0.5, places=10)
 
+    def test_calculate_without_counted_codons(self):
+        """No codon to average is both a ValueError and a ZeroDivisionError.
+
+        From biopython/biopython#5306: ATG and TGG are left out in the
+        standard code, so ATG TGG and an empty sequence leave nothing to
+        average. This used to be a bare "division by zero".
+        """
+        index = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"])
+        for sequence, message in (
+            (
+                "ATGTGG",
+                "no codon in the sequence counts towards the CAI "
+                "(left out: ATG, TGG, each the only codon for its amino acid)",
+            ),
+            ("", "cannot calculate the CAI of an empty sequence"),
+            (Seq(""), "cannot calculate the CAI of an empty sequence"),
+        ):
+            for error in (ValueError, ZeroDivisionError):
+                with self.subTest(sequence=sequence, error=error.__name__):
+                    with self.assertRaises(error) as context:
+                        index.calculate(sequence)
+                    self.assertEqual(str(context.exception), message)
+        # The codons left out follow the index's genetic code: in table 4
+        # TGG has a synonym, so it counts and only ATG is left out.
+        table = unambiguous_dna_by_id[4]
+        index = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"], table=table)
+        self.assertAlmostEqual(index.calculate("ATGTGG"), 1.0)
+        with self.assertRaises(ValueError) as context:
+            index.calculate("ATGATG")
+        self.assertEqual(
+            str(context.exception),
+            "no codon in the sequence counts towards the CAI "
+            "(left out: ATG, each the only codon for its amino acid)",
+        )
+
+    def test_calculate_without_counted_codons_names_skipped(self):
+        """The error names only the codons of the sequence that were skipped."""
+        index = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"])
+        # TGG is also the only codon for its amino acid, but not in "ATG".
+        with self.assertRaises(ValueError) as context:
+            index.calculate("ATGATG")
+        self.assertEqual(
+            str(context.exception),
+            "no codon in the sequence counts towards the CAI "
+            "(left out: ATG, each the only codon for its amino acid)",
+        )
+        # Table 9 has several single-codon amino acids (AAG among them).
+        table = unambiguous_dna_by_id[9]
+        index = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"], table=table)
+        with self.assertRaises(ValueError) as context:
+            index.calculate("ATG")
+        self.assertEqual(
+            str(context.exception),
+            "no codon in the sequence counts towards the CAI "
+            "(left out: ATG, each the only codon for its amino acid)",
+        )
+        # A stop codon deleted from the index is skipped, and named too.
+        index = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"])
+        del index["TAA"]
+        with self.assertRaises(ZeroDivisionError) as context:
+            index.calculate("ATGTAA")
+        self.assertEqual(
+            str(context.exception),
+            "no codon in the sequence counts towards the CAI "
+            "(left out: ATG, each the only codon for its amino acid; "
+            "TAA, each a stop codon missing from the index)",
+        )
+
     def test_calculate_rejects_illegal_codons(self):
         """An illegal or incomplete codon is a TypeError, whatever the code."""
         for table_id in (1, 4, 9):

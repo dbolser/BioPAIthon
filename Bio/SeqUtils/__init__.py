@@ -635,6 +635,15 @@ def six_frame_translations(seq, genetic_code=1):
     return res
 
 
+class _NoCodonsError(ValueError, ZeroDivisionError):
+    """No codon of the sequence counts towards the codon adaptation index.
+
+    A ``ValueError``, as the input is unusable, and a ``ZeroDivisionError``,
+    which ``CodonAdaptationIndex.calculate`` raised here before, so that code
+    catching either keeps working.
+    """
+
+
 class CodonAdaptationIndex(dict):
     """A codon adaptation index (CAI) implementation.
 
@@ -711,7 +720,29 @@ class CodonAdaptationIndex(dict):
         (Met) and TGG (Trp) in the standard code, but only ATG in the mold
         mitochondrial and Mycoplasma code (table 4), where TGA is Trp too.
         A stop codon of that genetic code is skipped if it is missing from
-        the index; any other codon missing from the index is an error.
+        the index; any other codon missing from the index is an error. Stop
+        codons in the index count like any other codon.
+
+        If no codon of the sequence counts, for example in an empty sequence
+        or one made up only of ATG and TGG in the standard code, there is
+        nothing to average and an exception is raised. It is both a
+        ``ValueError`` and a ``ZeroDivisionError``, so either can be caught:
+
+        >>> from Bio.SeqUtils import CodonAdaptationIndex
+        >>> cai = CodonAdaptationIndex(["GCTGCCGCA", "ATGTGG"])
+        >>> try:
+        ...     cai.calculate("ATGTGG")
+        ... except ValueError as error:
+        ...     print(error)
+        ...
+        no codon in the sequence counts towards the CAI (left out: ATG, TGG, each the only codon for its amino acid)
+        >>> try:
+        ...     cai.calculate("")
+        ... except ZeroDivisionError as error:
+        ...     print(error)
+        ...
+        cannot calculate the CAI of an empty sequence
+
         """
         cai_value, cai_length = 0, 0
 
@@ -731,21 +762,46 @@ class CodonAdaptationIndex(dict):
         # slicing a MutableSeq gives a MutableSeq, which is unhashable.
         sequence = str(sequence).upper()
 
+        # Codons of the sequence that were skipped, kept for the error below.
+        skipped_single, skipped_stop = set(), set()
         for i in range(0, len(sequence), 3):
             codon = sequence[i : i + 3]
             if codon in single_codons:
                 # The only codon for its amino acid, so its index is always one.
+                skipped_single.add(codon)
                 continue
             try:
                 cai_value += log(self[codon])
             except KeyError:
                 if codon in self._table.stop_codons:
                     # Stop codon, which is valid but may be missing from the index.
+                    skipped_stop.add(codon)
                     continue
                 raise TypeError(f"illegal codon in sequence: {codon}") from None
             else:
                 cai_length += 1
 
+        if not cai_length:
+            if sequence:
+                reasons = []
+                if skipped_single:
+                    reasons.append(
+                        ", ".join(sorted(skipped_single))
+                        + ", each the only codon for its amino acid"
+                    )
+                if skipped_stop:
+                    reasons.append(
+                        ", ".join(sorted(skipped_stop))
+                        + ", each a stop codon missing from the index"
+                    )
+                message = (
+                    "no codon in the sequence counts towards the CAI (left out: "
+                    + "; ".join(reasons)
+                    + ")"
+                )
+            else:
+                message = "cannot calculate the CAI of an empty sequence"
+            raise _NoCodonsError(message)
         return exp(cai_value / cai_length)
 
     def optimize(self, sequence, seq_type="DNA", strict=True):

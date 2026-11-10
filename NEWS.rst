@@ -55,6 +55,19 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqUtils.CodonAdaptationIndex.calculate`` no longer fails with a bare
+``ZeroDivisionError: division by zero`` when no codon of the sequence counts
+towards the index, as for an empty sequence or one made up only of ATG and
+TGG in the standard genetic code (a codon that is the only one for its amino
+acid is always left out). The exception raised now says why: that the
+sequence is empty, or which codons were left out. It is both a
+``ValueError``, as the fork raises elsewhere for unusable input, and a
+``ZeroDivisionError``, so code that caught the old error keeps working.
+Upstream would keep a plain ``ZeroDivisionError`` and document it, which
+biopython/biopython#5311 proposes; its example now appears in the
+docstring, which also says which codons count. This is an upstream defect,
+also in Biopython 1.88 (biopython/biopython#5306).
+
 The PHD reader, ``Bio.Sequencing.Phd`` and ``Bio.SeqIO`` format ``"phd"``,
 now reads a ``TRIM:`` comment line whose probability is written in scientific
 notation with a space where the exponent's sign should be, such as
