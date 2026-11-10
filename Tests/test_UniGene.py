@@ -1261,6 +1261,13 @@ class TestUniGene(unittest.TestCase):
         self.assertEqual(record.ID, "Xl.11")
         self.assertEqual(record.symbol, "stmn2-b")
         self.assertEqual(len(record.sequence), 18)
+        # A blank line holding only spaces and a tab is skipped too
+        text = text.replace("\nGENE ", "\n   \t \nGENE ", 1)
+        self.assertIn("\n   \t \n", text)
+        record = UniGene.read(io.StringIO(text))
+        self.assertEqual(record.ID, "Xl.11")
+        self.assertEqual(record.symbol, "stmn2-b")
+        self.assertEqual(len(record.sequence), 18)
 
     def test_line_with_text_after_blank_tag(self):
         # Only lines that are entirely blank are skipped; a line with an
