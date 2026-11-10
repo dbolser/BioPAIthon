@@ -2578,12 +2578,17 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
   Read, not run. Upstream too. (PR #155)
 - `Bio/Align/analysis.py` (`_yn00`): identical sequences raise
   `RuntimeError: dictionary changed size during iteration`
-  (`cal_dn_ds(s, s, method="YN00")`). Upstream too. (PR #154)
+  (`cal_dn_ds(s, s, method="YN00")`). Upstream too. (PR #154) *Fixed in
+  PR #290.*
 - `Bio/Align/analysis.py` (`_count_diff_YN00`): the two-difference branch
   counts the step from `codon1` to `codon` twice and never the step to
   `codon2`; the three-difference branch passes `k[1]` where `k[2]` looks
   intended. Check against PAML's `yn00.c` before changing. Upstream too.
-  (PR #154)
+  (PR #154) *Fixed in PR #290, checked against `yn00.c`.*
+- `Bio/Align/analysis.py` (`_count_site_YN00`): the base frequencies at
+  synonymous and nonsynonymous sites count the base of the codon it could
+  change to (`freqSN[...][base]`); PAML's `CountSites()` counts the codon's
+  own base. Upstream too (read, not run). *Found and fixed in PR #290.*
 - Two upstream defects that PR #154 fixed here: `codonalign.mktest`'s
   `"-" in all_codon` never matches, so a partly gapped codon raises
   `KeyError: '---'`; and `_get_pi`'s F1x4 counts with a `Counter`, so a
