@@ -41,6 +41,54 @@ request.
 
 Newest first.
 
+### [#5279](https://github.com/biopython/biopython/pull/5279) — Yiyabo
+
+Answers upstream issue
+[#5257](https://github.com/biopython/biopython/issues/5257), where Anika
+Dureja asked for a radius of gyration function and posted her own. Adds
+`Entity.radius_of_gyration(geometric=False)` to Structure, Model, Chain and
+Residue: the root-mean-square distance of the atoms from their center of
+mass, each weighted by `Atom.mass`, or equally with `geometric=True`. The
+walk over the hierarchy that `center_of_mass()` did inline, which unpacks
+disordered residues and atoms so that every alternative location counts in
+full, moves into a private `_get_atoms()` that both methods share. The pull
+request's expected values for 1LCD (13.944 weighted by mass and 13.729
+geometric, and 11.279, 12.338 and 12.508 for chains A, B and C) were
+reproduced with an independent float64 computation, and `center_of_mass()`
+through `_get_atoms()` gives the same array as before.
+
+**The single commit taken** (`5462b2c78`, cherry-picked with `-x`), which
+applied cleanly. Nothing was left behind.
+
+**Corrections on top**, in two fork commits:
+
+- The empty-structure test opened `"PDB/disordered.pdb"` relative to the
+  working directory, which raises `FileNotFoundError` when pytest starts
+  outside `Tests/`, as CI does; it now uses `support.DATA` like the rest of
+  the file. The docstring example read `PDB/1GBT.cif` with `PDBParser`,
+  which raises `ValueError` on an mmCIF file, and gave 10.34; it was marked
+  `+SKIP`, so nothing noticed. It now uses `MMCIFParser` and runs as a
+  doctest, giving 16.27, which an independent float64 computation over all
+  1761 atoms agrees with.
+- `_get_atoms()` raised `IndexError: pop from an empty deque` for an entity
+  with children but no atoms, such as a Structure whose only Model is empty
+  or a Chain whose one Residue has no atoms, so neither method gave the
+  `ValueError` the pull request's description promises for an empty entity.
+  Copilot said so in review and nothing came of it. `center_of_mass()`
+  crashes the same way in Biopython 1.88 and in upstream master.
+  `_get_atoms()` now raises `ValueError` when its queue runs empty. The new
+  test covers both methods on both entities and fails with the `IndexError`
+  on main and on the adopted commit alone.
+
+Copilot's other comment, that `geometric=True` could pass `weights=None`
+rather than an array of ones, is not taken: it is cosmetic.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with no activity since 2026-08-06, when the author wrote that an AI
+assistant helped with the patch and its description. Issue #5257 is open.
+The licence box is ticked. The author left the box for being listed
+unticked and wrote "not wished", so is not added to `CONTRIB.rst`.
+
 ### [#3022](https://github.com/biopython/biopython/pull/3022) — Tony Tung
 
 `Bio.Phylo.NewickIO.Writer.to_strings` built each tree's text with
