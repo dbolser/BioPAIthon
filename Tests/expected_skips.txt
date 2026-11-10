@@ -40,6 +40,7 @@ test_BioSQL_mysql_connector                 # BioSQL test configuration file bio
 test_BioSQL_mysql_connector_online          # internet not available
 test_BioSQL_psycopg2                        # BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)
 test_BioSQL_psycopg2_online                 # internet not available
+test_BioSQL_pymysql                         # BioSQL test configuration file biosql.ini missing (see biosql.ini.sample)
 test_BioSQL_sqlite3_online                  # internet not available
 test_ColorSpiral                            # Install reportlab if you want to use Bio.Graphics.
 test_Entrez_online                          # internet not available

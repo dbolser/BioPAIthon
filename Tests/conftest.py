@@ -445,9 +445,9 @@ def pytest_xdist_make_scheduler(config, log):
     Under --dist loadfile every other module is scheduled as a file of its
     own, as usual.  These groups must not run at the same time:
 
-    - The BioSQL modules for one database server (MySQLdb and
-      mysql_connector for MySQL, psycopg2 for PostgreSQL, each with its
-      _online variant) create and drop the same test database named in
+    - The BioSQL modules for one database server (MySQLdb,
+      mysql_connector and pymysql for MySQL, psycopg2 for PostgreSQL, most
+      with an _online variant) create and drop the same test database named in
       biosql.ini (see common_BioSQL.py).  The sqlite3 modules use temporary
       files and would be safe apart, but are kept with the rest for
       simplicity.
