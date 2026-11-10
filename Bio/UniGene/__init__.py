@@ -281,6 +281,9 @@ def _read(handle):
     UG_INDENT = 12
     record = None
     for line in handle:
+        if not line.strip():
+            # NCBI's Xl.data and Str.data put blank lines between fields
+            continue
         tag, value = line[:UG_INDENT].rstrip(), line[UG_INDENT:].rstrip()
         line = line.rstrip()
         if tag == "ID":

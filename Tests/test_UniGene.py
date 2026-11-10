@@ -4,6 +4,7 @@
 
 """Tests for UniGene module."""
 
+import io
 import unittest
 
 import support
@@ -1208,6 +1209,65 @@ class TestUniGene(unittest.TestCase):
         with open(support.DATA / "UniGene" / "Hs.2.data") as handle:
             UniGene.read(handle)
             self.assertRaises(ValueError, UniGene.read, handle)
+
+    def test_parse_blank_lines(self):
+        # Records Xl.11 and Xl.12, unchanged, from the UniGene file for
+        # Xenopus laevis downloaded from:
+        # ftp://ftp.ncbi.nih.gov/repository/UniGene/Xenopus_laevis
+        # Unlike the other species files, it has blank lines between fields.
+        with open(support.DATA / "UniGene" / "Xl_partial.data") as handle:
+            records = list(UniGene.parse(handle))
+        self.assertEqual([record.ID for record in records], ["Xl.11", "Xl.12"])
+        record = records[0]
+        self.assertEqual(record.species, "Xl")
+        self.assertEqual(record.title, "Stathmin-like 2")
+        self.assertEqual(record.symbol, "stmn2-b")
+        self.assertEqual(record.gene_id, "780757")
+        self.assertEqual(record.locuslink, "780757")
+        self.assertTrue(record.homol)
+        self.assertEqual(
+            record.express,
+            [
+                "brain",
+                "head",
+                "tail",
+                "tailbud embryo",
+                "tadpole",
+                "metamorphosis",
+                "adult",
+            ],
+        )
+        self.assertEqual(record.restr_expr, ["head"])
+        self.assertEqual(record.chromosome, "*")
+        self.assertEqual(len(record.protsim), 29)
+        self.assertEqual(record.protsim[-1].protid, "XP_001167275.1")
+        self.assertEqual(len(record.sequence), 18)
+        self.assertEqual(record.sequence[-1].acc, "BM192920.1")
+        record = records[1]
+        self.assertEqual(record.title, "Nuclear protein SDK2")
+        self.assertEqual(record.symbol, "sdk2-a")
+        self.assertEqual(record.chromosome, "*")
+        self.assertEqual(len(record.protsim), 50)
+        self.assertEqual(len(record.sequence), 36)
+        self.assertEqual(record.sequence[0].acc, "BC094154.1")
+
+    def test_read_blank_lines(self):
+        # Xl.11 alone, with its blank lines between fields
+        with open(support.DATA / "UniGene" / "Xl_partial.data") as handle:
+            text = handle.read()
+        text = text[: text.index("//\n") + 3]
+        self.assertIn("\n\n", text)
+        record = UniGene.read(io.StringIO(text))
+        self.assertEqual(record.ID, "Xl.11")
+        self.assertEqual(record.symbol, "stmn2-b")
+        self.assertEqual(len(record.sequence), 18)
+
+    def test_line_with_text_after_blank_tag(self):
+        # Only lines that are entirely blank are skipped; a line with an
+        # empty tag but a value is still an error, not silently dropped.
+        text = "ID          Xl.11\n            stray value\n//\n"
+        with self.assertRaisesRegex(ValueError, "Unknown tag"):
+            UniGene.read(io.StringIO(text))
 
 
 if __name__ == "__main__":
