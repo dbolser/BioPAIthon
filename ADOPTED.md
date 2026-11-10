@@ -41,6 +41,67 @@ request.
 
 Newest first.
 
+### [#5278](https://github.com/biopython/biopython/pull/5278) — yiyabo
+
+Fixes upstream issue
+[#1022](https://github.com/biopython/biopython/issues/1022), reported in 2016
+by Tyghe Vallard. `CharBuffer.next_word` treats `-` as punctuation, so an
+unquoted name such as `dog-cat` in a NEXUS `TRANSLATE` table came out as three
+words, `dog`, `-` and `cat`, and `Nexus._translate`, which expects a comma
+after each name, raised `NexusError: Missing ','`. `Bio.Phylo`'s `"nexus"`
+reader goes through the same code, so it could not read the trees in such a
+file. The hyphen cannot simply leave `PUNCTUATION`, because `_parse_list`
+needs it for ranges such as `4-8` in a `CHARSET` or `TAXSET`, as etal pointed
+out on the issue in 2017. The pull request gives `next_word` an optional
+`extra_chars` argument, punctuation to keep inside a word, defaulting to the
+empty string, and passes `"-"` only when `_translate` reads a name. Every
+other caller is unchanged.
+
+**The single commit taken** (`264b17f15`, cherry-picked with `-x`), with
+nothing left behind. It applied without conflicts, and has no `NEWS.rst` or
+`CONTRIB.rst` hunk. The author left the box for being listed unticked
+("optional, not wished"), so is not added to `CONTRIB.rst`.
+
+**Correction on top**, in the fork's own commit. black reformats both files.
+The comment that trailed the changed `_translate` line now sits on its own
+line, where black would have split the call over three lines to make room
+for it. The docstring, that comment and the test's comment cite the issue as
+`biopython/biopython#1022`, because the fork's issue numbers are not
+upstream's.
+
+**Checked.** The new test, `test_translate_dashed_taxon_names`, fails on
+main with the `NexusError` and passes here. The table also reads with a
+hyphen at either end of a name or doubled (`-lead`, `trail-`, `a--b`), and
+with no space after a comma. Plain and quoted names read as before, and
+`charset r = 2-4;` still gives `[1, 2, 3]`. `test_Nexus`, `test_Phylo`,
+`test_Phylo_NeXML`, `test_PhyloXML`, `test_Phylo_CDAO`, `test_AlignIO`,
+`test_Align_nexus`, `test_SeqIO` and the `Bio.Nexus.Nexus` doctests pass.
+
+**Not fixed: an unquoted name with a hyphen in a `MATRIX` row.** `_matrix`
+reads the taxon name with the same `next_word`, so `dog-cat ACGT` is still
+taxon `dog` with the data `-catACGT`, here as in Biopython 1.88. With
+`nchar=4` reading fails with
+`Matrix Nchar 4 does not match data length (8) for taxon dog`; with `nchar=8`
+it succeeds silently and gives the wrong taxon and data. That is outside #1022 and the pull request, and would be its
+own change. Also unchanged: through `Bio.Phylo` a translated name with a
+hyphen comes back quoted, as `'dog-cat'`, because `NexusIO` passes each name
+through `Nexus.safename`; a quoted name with a hyphen always did.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with one commit and no activity since 2026-08-06. peterjc asked
+whether it was AI-generated and what the author thought of upstream's draft
+policy on AI-assisted contributions
+([#5241](https://github.com/biopython/biopython/pull/5241), still open). The
+author said he had used an AI assistant for the code and for the English of
+the description, explained the change, and offered to close the pull request
+if the project does not want such patches. There is no technical objection.
+The licence box is ticked. Issue #1022 is still open and upstream master has
+no fix. [#5397](https://github.com/biopython/biopython/pull/5397) by
+TheNetherWatcher, also open, rewrites `CharBuffer` so that reading is linear
+rather than quadratic; it touches the same `next_word` but is a different
+change, not taken here, and its commit merges onto this one without conflict
+(`git merge-tree`).
+
 ### [#5279](https://github.com/biopython/biopython/pull/5279) — Yiyabo
 
 Answers upstream issue
