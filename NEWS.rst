@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``Bio.SeqIO`` GenBank writer now writes the free text of a ``COMMENT``
+before its structured comments, the tables from a line such as
+``##Assembly-Data-START##`` to the matching ``##Assembly-Data-END##``, which
+is the order NCBI records use. The parser reads the two into separate
+annotations, ``"comment"`` and ``"structured_comment"``, and the writer put
+the tables first, so writing out a record that had both, such as a TSA or WGS
+record with assembly details, moved its free text to the end of the
+``COMMENT``. Reading the output back gave the same annotations, so nothing was
+lost, but the file no longer read as the original did. The parser does not
+record how free text and tables were interleaved, so the writer now always puts
+the free text first. Many RefSeq records end their ``COMMENT`` with a line of
+free text, such as ``COMPLETENESS: full length.``, after the tables. The old
+order happened to keep that line last, where it belongs, and it is now written
+before the tables. A record with only one of the two is written as before.
+This is an upstream defect (biopython/biopython#2477, reported by Kai Blin),
+also in Biopython 1.88 and still in upstream's development code.
+``Bio.GenBank.Record`` is unchanged, and still writes no structured comments.
+
 The ``Bio.SeqIO`` GenBank writer now puts a strand prefix, such as the ``ss-``
 of molecule type ``"ss-DNA"``, in columns 45 to 47 of the LOCUS line, with the
 molecule type from column 48, where the GenBank specification (section
