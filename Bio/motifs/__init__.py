@@ -436,7 +436,8 @@ class Motif:
         translational start sites in Drosophila and vertebrates."
         Nucleic Acids Research 15(4): 1353-1361. (1987).
 
-        The same rules are used by TRANSFAC.
+        The same rules are used by TRANSFAC. A column in which no letter of
+        the alphabet was counted, such as one holding only N or gaps, gives N.
         """
         return self.counts.degenerate_consensus
 
