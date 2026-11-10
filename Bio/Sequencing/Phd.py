@@ -16,6 +16,7 @@ Alternatively, using Bio.SeqIO with the "phd" format will call this module
 internally.  This will give SeqRecord objects for each contig sequence.
 """
 
+import re
 import warnings
 
 from Bio import BiopythonParserWarning
@@ -114,6 +115,10 @@ def _open(source):
     return handle
 
 
+# A mantissa ending in the exponent marker, such as "-1.000000e" (issue #2839).
+_SPLIT_MANTISSA = re.compile(r"[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)[eE]", re.ASCII)
+
+
 def _parse_trim(value):
     """Parse the value of a TRIM comment line into (first, last, prob).
 
@@ -124,7 +129,7 @@ def _parse_trim(value):
     parts = value.split()
     if (
         len(parts) == 4
-        and parts[2][-1:] in ("e", "E")
+        and _SPLIT_MANTISSA.fullmatch(parts[2])
         and parts[3].isdecimal()
         and parts[3].isascii()
     ):

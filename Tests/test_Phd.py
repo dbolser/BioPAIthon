@@ -4,6 +4,7 @@
 # as part of this package.
 """Tests for Phd module."""
 
+import re
 import unittest
 import warnings
 from io import StringIO
@@ -525,7 +526,10 @@ class PhdTrimLine(unittest.TestCase):
 
     def test_split_exponent(self):
         """Check a space in place of the exponent sign is tolerated."""
-        message = "^Problematic scientific notation in PHD file TRIM line '-1 -1 -1.000000e 000'$"
+        message = "^%s$" % re.escape(
+            "Problematic scientific notation in PHD file TRIM line "
+            "'-1 -1 -1.000000e 000'"
+        )
         with self.assertWarnsRegex(BiopythonParserWarning, message):
             record = Phd.read(self.make_phd("-1 -1 -1.000000e 000"))
         self.assertEqual(record.comments["trim"], (-1, -1, -1.0))
@@ -536,7 +540,12 @@ class PhdTrimLine(unittest.TestCase):
 
     def test_wrong_number_of_values(self):
         """Check a TRIM line without three values raises ValueError."""
-        for trim in ("-1 -1", "3 391 0.05 extra", "3 391 0.05e 000 extra"):
+        for trim in (
+            "-1 -1",
+            "3 391 0.05 extra",
+            "3 391 0.05e 000 extra",
+            "-1 -1 e 000",
+        ):
             message = (
                 r"^TRIM line must have three values \(first last prob\), "
                 f"got {trim!r}$"

@@ -58,10 +58,10 @@ and the default branch is now ``main`` rather than ``master``.
 The PHD reader, ``Bio.Sequencing.Phd`` and ``Bio.SeqIO`` format ``"phd"``,
 now reads a ``TRIM:`` comment line whose probability is written in scientific
 notation with a space where the exponent's sign should be, such as
-``TRIM: -1 -1 -1.000000e 000``. Such files have been seen in practice; the
-value is read as ``-1.0`` (phred's "no trimming" probability) and a
-``BiopythonParserWarning`` is issued, the workaround the Biopython
-maintainers suggested. Previously this failed with a bare
+``TRIM: -1 -1 -1.000000e 000``, as one user reported meeting. The value is
+read as ``-1.0`` (phred's "no trimming" probability) and a
+``BiopythonParserWarning`` is issued, the workaround a Biopython maintainer
+suggested. Previously this failed with a bare
 ``ValueError: too many values to unpack``. Any other ``TRIM:`` line without
 exactly three values now raises a ``ValueError`` that quotes the line,
 instead of an unpacking error (biopython/biopython#2839).
