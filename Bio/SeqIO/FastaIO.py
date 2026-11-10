@@ -544,7 +544,7 @@ class FastaWriter(SequenceWriter):
     def to_string(cls, record):
         """Turn a SeqRecord into a FASTA formatted string, and return it."""
         id = _clean(record.id)
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id:
             # The description includes the id at the start
             title = description
@@ -573,7 +573,7 @@ class FastaWriter(SequenceWriter):
             title = self.clean(self.record2title(record))
         else:
             id = self.clean(record.id)
-            description = self.clean(record.description)
+            description = self.clean(record.description).strip()
             if description and description.split(None, 1)[0] == id:
                 # The description includes the id at the start
                 title = description
@@ -644,7 +644,7 @@ class FastaTwoLineWriter(FastaWriter):
     def to_string(cls, record):
         """Return a string in FASTA format with the sequence as one line."""
         id = _clean(record.id)
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id:
             # The description includes the id at the start
             title = description

@@ -157,6 +157,30 @@ test_records = [
             ),
         ],
     ),
+    (
+        [
+            SeqRecord(
+                Seq("AATAAACCTTGCTGGCCATTGTGATCCATCCA"),
+                id="X",
+                description="   ",
+                annotations={"molecule_type": "DNA"},
+            ),
+            SeqRecord(
+                Seq("ACTCAACCTTGCTGGTCATTGTGACCCCAGCA"),
+                id="Y",
+                description="\t",
+                annotations={"molecule_type": "DNA"},
+            ),
+            SeqRecord(
+                Seq("TTTCCTCGGAGGCCAATCTGGATCAAGACCAT"),
+                id="Z",
+                description=" ",
+                annotations={"molecule_type": "DNA"},
+            ),
+        ],
+        "3 DNA seq alignment with whitespace-only descriptions",
+        [],
+    ),
 ]
 # Meddle with the annotation too:
 assert test_records[4][1] == "3 DNA seq alignment with CR/LF in name/descr"
@@ -309,6 +333,67 @@ class WriterTests(SeqIOTestBaseClass):
                         "or carriage return",
                     )
                     self.assertRaises(ValueError, record.format, fmt)
+
+    def test_whitespace_only_description(self):
+        """Check a whitespace-only description is written as no description.
+
+        These writers used to raise IndexError (biopython/biopython#1624).
+        """
+        title_lines = {
+            "fasta": ">Alpha",
+            "fasta-2line": ">Alpha",
+            "fastq": "@Alpha",
+            "fastq-solexa": "@Alpha",
+            "fastq-illumina": "@Alpha",
+            "qual": ">Alpha",
+        }
+        for description in ("   ", "\t", " \t "):
+            record = SeqRecord(
+                Seq("ACGT"),
+                id="Alpha",
+                description=description,
+                letter_annotations={"phred_quality": [40, 30, 20, 10]},
+            )
+            for fmt, title in title_lines.items():
+                with self.subTest(fmt=fmt, description=description):
+                    # SeqRecord.format uses the writer's to_string method
+                    self.assertEqual(record.format(fmt).split("\n", 1)[0], title)
+                    # SeqIO.write uses the writer's write_record method
+                    handle = StringIO()
+                    self.assertEqual(SeqIO.write(record, handle, fmt), 1)
+                    self.assertEqual(handle.getvalue().split("\n", 1)[0], title)
+                    handle.seek(0)
+                    new_record = SeqIO.read(handle, fmt)
+                    self.assertEqual(new_record.id, "Alpha")
+                    self.assertEqual(new_record.description, "Alpha")
+                    if fmt != "qual":
+                        self.assertEqual(new_record.seq, record.seq)
+
+    def test_description_edge_whitespace(self):
+        """Check leading and trailing description whitespace is not written."""
+        cases = [
+            ("Alpha ", "Alpha"),
+            (" Alpha", "Alpha"),
+            (" Alpha beta ", "Alpha beta"),
+            (" beta", "Alpha beta"),
+            ("beta ", "Alpha beta"),
+            ("beta", "Alpha beta"),
+            ("Alpha  beta", "Alpha  beta"),
+        ]
+        for description, title in cases:
+            record = SeqRecord(
+                Seq("ACGT"),
+                id="Alpha",
+                description=description,
+                letter_annotations={"phred_quality": [40, 30, 20, 10]},
+            )
+            for fmt, marker in (("fasta", ">"), ("fastq", "@"), ("qual", ">")):
+                with self.subTest(fmt=fmt, description=description):
+                    expected = marker + title
+                    self.assertEqual(record.format(fmt).split("\n", 1)[0], expected)
+                    handle = StringIO()
+                    SeqIO.write(record, handle, fmt)
+                    self.assertEqual(handle.getvalue().split("\n", 1)[0], expected)
 
     def test_alignment_formats(self):
         for records, descr, errs in test_records:
