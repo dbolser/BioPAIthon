@@ -41,6 +41,39 @@ request.
 
 Newest first.
 
+### [#5380](https://github.com/biopython/biopython/pull/5380) — Shubhodeep Chatterjee (shubhodeepcx)
+
+Answers upstream issue
+[#4652](https://github.com/biopython/biopython/issues/4652), open since
+2024: a user asked how to find the residues near a residue with
+`Bio.PDB.NeighborSearch`, and peterjc said a proper example in the
+Tutorial would be welcome. The "Determining atom-atom contacts" section of
+`Doc/Tutorial/chapter_pdb.rst` only named the class. The pull request adds
+a doctested example on `Tests/PDB/1A8O.pdb`: a `NeighborSearch` over all
+atoms, `search(coord, 5.0, level="R")` around the CA of residue A:152, and
+`search_all(4.0, level="R")` for all residue pairs. Docs only; no code
+changes.
+
+**The single commit taken** (`dc95e1e96`, cherry-picked with `-x`), which
+applied without conflicts, including the author's own `CONTRIB.rst` line.
+
+**Left behind:** nothing.
+
+**Added by the fork:** the text listed `"C"` and `"M"` as the other levels;
+a fork commit adds `"S"` (structure), which `search` and `search_all` also
+accept.
+
+**Checked:** the example's outputs (ASP 152; residues 151, 152, 153 and
+the waters 1001, 1027, 1035 and 1054; 525 pairs) are the same on this
+fork, on upstream master and on Biopython 1.88. `Tests/test_Tutorial.py`
+extracts and runs the new block, and passes.
+
+**Upstream status:** as of 2026-11-10 the pull request is open and not a
+draft, with one commit and no reviews; the last activity was on
+2026-10-18, when peterjc asked whether AI was used and the author pointed
+to his answer on #5378. The licence box is ticked. The same `CONTRIB.rst`
+line is in #5378, so adopting that too would give a trivial conflict.
+
 ### [#5194](https://github.com/biopython/biopython/pull/5194) — Gert Hulselmans (ghuls)
 
 `Bio.motifs.minimal.read` required a "Background letter frequencies" section
