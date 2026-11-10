@@ -16,6 +16,10 @@ Alternatively, using Bio.SeqIO with the "phd" format will call this module
 internally.  This will give SeqRecord objects for each contig sequence.
 """
 
+import re
+import warnings
+
+from Bio import BiopythonParserWarning
 from Bio import Seq
 
 CKEYWORDS = [
@@ -111,6 +115,37 @@ def _open(source):
     return handle
 
 
+# A mantissa ending in the exponent marker, such as "-1.000000e" (issue #2839).
+_SPLIT_MANTISSA = re.compile(r"[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)[eE]", re.ASCII)
+
+
+def _parse_trim(value):
+    """Parse the value of a TRIM comment line into (first, last, prob).
+
+    Some files hold the probability in scientific notation with a space
+    where the exponent's sign should be, as in ``-1 -1 -1.000000e 000``
+    (issue #2839); such a value is rejoined with a warning.
+    """
+    parts = value.split()
+    if (
+        len(parts) == 4
+        and _SPLIT_MANTISSA.fullmatch(parts[2])
+        and parts[3].isdecimal()
+        and parts[3].isascii()
+    ):
+        warnings.warn(
+            f"Problematic scientific notation in PHD file TRIM line {value!r}",
+            BiopythonParserWarning,
+        )
+        parts[2:] = [parts[2] + parts[3]]
+    if len(parts) != 3:
+        raise ValueError(
+            f"TRIM line must have three values (first last prob), got {value!r}"
+        )
+    first, last, prob = parts
+    return int(first), int(last), float(prob)
+
+
 def _read(handle):
     for line in handle:
         if line.startswith("BEGIN_SEQUENCE"):
@@ -156,8 +191,7 @@ def _read(handle):
         elif keyword == "trace_peak_area_ratio":
             record.comments[keyword] = float(value)
         elif keyword == "trim":
-            first, last, prob = value.split()
-            record.comments[keyword] = (int(first), int(last), float(prob))
+            record.comments[keyword] = _parse_trim(value)
     else:
         raise ValueError("Failed to find END_COMMENT line")
 

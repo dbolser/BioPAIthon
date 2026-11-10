@@ -4,10 +4,14 @@
 # as part of this package.
 """Tests for Phd module."""
 
+import re
 import unittest
+import warnings
+from io import StringIO
 
 import support
 
+from Bio import BiopythonParserWarning
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -490,6 +494,67 @@ class PhdWriterErrors(unittest.TestCase):
             ValueError, "^No sequence present in SeqRecord 'empty'$"
         ):
             record.format("phd")
+
+
+class PhdTrimLine(unittest.TestCase):
+    """Check the TRIM comment line, including malformed ones (issue #2839)."""
+
+    @staticmethod
+    def make_phd(trim):
+        return StringIO(
+            "BEGIN_SEQUENCE test\n\n"
+            "BEGIN_COMMENT\n\n"
+            "CHROMAT_FILE: test\n"
+            f"TRIM: {trim}\n\n"
+            "END_COMMENT\n\n"
+            "BEGIN_DNA\n"
+            "a 20 6\n"
+            "c 30 18\n"
+            "g 40 26\n"
+            "END_DNA\n\n"
+            "END_SEQUENCE\n"
+        )
+
+    def test_trim(self):
+        """Check a well formed TRIM line parses without a warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            record = Phd.read(self.make_phd("-1 -1 0.0500"))
+            self.assertEqual(record.comments["trim"], (-1, -1, 0.05))
+            record = Phd.read(self.make_phd("-1 -1 -1.000000e+000"))
+            self.assertEqual(record.comments["trim"], (-1, -1, -1.0))
+
+    def test_split_exponent(self):
+        """Check a space in place of the exponent sign is tolerated."""
+        message = "^%s$" % re.escape(
+            "Problematic scientific notation in PHD file TRIM line "
+            "'-1 -1 -1.000000e 000'"
+        )
+        with self.assertWarnsRegex(BiopythonParserWarning, message):
+            record = Phd.read(self.make_phd("-1 -1 -1.000000e 000"))
+        self.assertEqual(record.comments["trim"], (-1, -1, -1.0))
+        with self.assertWarnsRegex(BiopythonParserWarning, message):
+            seq_record = SeqIO.read(self.make_phd("-1 -1 -1.000000e 000"), "phd")
+        self.assertEqual(seq_record.annotations["trim"], (-1, -1, -1.0))
+        self.assertEqual(seq_record.seq, "acg")
+
+    def test_wrong_number_of_values(self):
+        """Check a TRIM line without three values raises ValueError."""
+        for trim in (
+            "-1 -1",
+            "3 391 0.05 extra",
+            "3 391 0.05e 000 extra",
+            "-1 -1 e 000",
+        ):
+            message = (
+                r"^TRIM line must have three values \(first last prob\), "
+                f"got {trim!r}$"
+            )
+            with self.subTest(trim=trim):
+                with self.assertRaisesRegex(ValueError, message):
+                    Phd.read(self.make_phd(trim))
+                with self.assertRaisesRegex(ValueError, message):
+                    SeqIO.read(self.make_phd(trim), "phd")
 
 
 if __name__ == "__main__":
