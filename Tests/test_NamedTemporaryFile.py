@@ -125,6 +125,14 @@ class NamedTemporaryFileTests(unittest.TestCase):
         )
         self.assertEqual(len(names), 8)
 
+    def test_SeqIO_swiss(self):
+        # SeqIO's "swiss" parser reads each record with SwissProt._read.
+        ids = self.check(
+            "SwissProt/multi_ex.txt",
+            lambda h: [record.id for record in SeqIO.parse(h, "swiss")],
+        )
+        self.assertEqual(len(ids), 8)
+
     def test_GenePop_read(self):
         loci = self.check("PopGen/c2line.gen", lambda h: GenePop.read(h).loci_list)
         self.assertEqual(loci, ["136255903", "136257048", "136257636"])
