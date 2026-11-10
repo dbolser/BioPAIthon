@@ -587,9 +587,26 @@ class PositionSpecificScoringMatrix(GenericPositionMatrix):
         """Return the similarity score based on pearson correlation for the given motif against self.
 
         We use the Pearson's correlation of the respective probabilities.
+
+        Both matrices must hold finite values only, or the correlation is
+        undefined and this raises ValueError. A log-odds matrix made from
+        counts without pseudocounts has -inf wherever a count is zero, so
+        add pseudocounts to the motif before computing its PSSM. A
+        background frequency of zero gives +inf or NaN, whatever the
+        pseudocounts.
         """
         if self.alphabet != other.alphabet:
             raise ValueError("Cannot compare motifs with different alphabets")
+        for matrix in (self, other):
+            for letter in self.alphabet:
+                if not all(map(math.isfinite, matrix[letter])):
+                    raise ValueError(
+                        "Cannot compute the Pearson correlation of a matrix "
+                        "with an infinite or NaN value; a log-odds matrix "
+                        "has -inf wherever a count is zero, which "
+                        "pseudocounts avoid, and +inf or NaN wherever a "
+                        "background frequency is zero"
+                    )
 
         max_p = -2
         for offset in range(-self.length + 1, other.length):

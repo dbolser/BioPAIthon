@@ -5367,6 +5367,73 @@ class MotifTestPWM(unittest.TestCase):
         self.assertAlmostEqual(pseudocounts["T"], 1.695582495781317, places=5)
 
 
+class TestDistPearson(unittest.TestCase):
+    """Tests of dist_pearson, with the motif of the Tutorial's motifs chapter."""
+
+    instances = [
+        Seq(s) for s in ("TACAA", "TACGC", "TACAC", "TACCC", "AACCC", "AATGC", "AATGC")
+    ]
+
+    def make_pssm(self, pseudocounts=True):
+        """Return the Tutorial motif's PSSM, with its pseudocounts by default."""
+        motif = motifs.create(self.instances)
+        if pseudocounts:
+            motif.pseudocounts = {"A": 0.6, "C": 0.4, "G": 0.4, "T": 0.6}
+        motif.background = {"A": 0.3, "C": 0.2, "G": 0.2, "T": 0.3}
+        return motif.pssm
+
+    def test_self(self):
+        """A motif matches itself best with no offset."""
+        # Not true of every motif: if its first and last columns are the same,
+        # overlapping just those also scores a correlation of 1.
+        pssm = self.make_pssm()
+        self.assertEqual(pssm.dist_pearson(pssm), (0.0, 0))
+
+    def test_tutorial_pair(self):
+        """Compare the Tutorial motif with REB1, as the Tutorial does."""
+        with open(support.DATA / "motifs" / "REB1.pfm") as stream:
+            reb1 = motifs.read(stream, "pfm")
+        reb1.pseudocounts = {"A": 0.6, "C": 0.4, "G": 0.4, "T": 0.6}
+        reb1.background = {"A": 0.3, "C": 0.2, "G": 0.2, "T": 0.3}
+        distance, offset = self.make_pssm().dist_pearson(reb1.pssm)
+        self.assertAlmostEqual(distance, 0.239244, places=6)
+        self.assertEqual(offset, -2)
+
+    def test_zero_counts_without_pseudocounts(self):
+        """Zero counts give -inf log-odds, which raise (biopython/biopython#555)."""
+        pssm = self.make_pssm(pseudocounts=False)
+        self.assertEqual(pssm["G", 0], -math.inf)
+        # This raised UnboundLocalError, as every offset's correlation was nan.
+        with self.assertRaisesRegex(ValueError, "pseudocounts"):
+            pssm.dist_pearson(pssm)
+
+    def test_zero_background(self):
+        """A zero background frequency gives +inf log-odds, which raise."""
+        motif = motifs.create(self.instances)
+        motif.pseudocounts = 0.5
+        motif.background = {"A": 0.5, "C": 0.0, "G": 0.0, "T": 0.5}
+        pssm = motif.pssm
+        self.assertEqual(pssm["C", 0], math.inf)
+        with self.assertRaisesRegex(ValueError, "background frequency is zero"):
+            pssm.dist_pearson(pssm)
+
+    def test_one_non_finite_value(self):
+        """One infinite or NaN value in either matrix raises (biopython/biopython#555)."""
+        # These gave a wrong distance and offset, skipping each offset that
+        # overlapped the bad value, such as (1.13, 4) for a matrix against
+        # itself.
+        good = self.make_pssm()
+        for value in (-math.inf, math.inf, math.nan):
+            bad = self.make_pssm()
+            bad["G"][1] = value
+            for first, second in ((bad, bad), (bad, good), (good, bad)):
+                with self.subTest(
+                    value=value, first=first is bad, second=second is bad
+                ):
+                    with self.assertRaisesRegex(ValueError, "pseudocounts"):
+                        first.dist_pearson(second)
+
+
 # Run only while the GIL is off. A free-threaded build turns it back on when
 # an undeclared extension is imported, unless PYTHON_GIL=0 is set.
 @unittest.skipIf(
