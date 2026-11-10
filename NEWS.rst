@@ -118,8 +118,8 @@ the hyphen: reading either fails with ``Matrix Nchar ... does not match data
 length`` or, when the lengths happen to agree, silently gives the taxon
 ``dog`` with ``-cat`` prepended to its data. This is an
 upstream defect (biopython/biopython#1022, reported by Tyghe Vallard), also in
-Biopython 1.88 and still in upstream's development code. The fix is yiyabo's,
-from the unmerged biopython/biopython#5278; see ``ADOPTED.md``.
+Biopython 1.88 and still in upstream's development code. The fix is Xinxiang
+Wang's, from the unmerged biopython/biopython#5278; see ``ADOPTED.md``.
 
 ``Bio.PDB`` structures, models, chains and residues have a new
 ``radius_of_gyration`` method. It gives the radius of gyration in Angstroms:
