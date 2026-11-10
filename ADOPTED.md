@@ -55,12 +55,15 @@ a `StringIO`. It was written after Nextstrain's augur hit the limit
 ([nextstrain/augur#328](https://github.com/nextstrain/augur/issues/328)).
 
 **The single commit taken** (`9edae6a89`, cherry-picked with `-x`), with
-nothing left behind. It conflicted twice, both times on lines that changed
-after 2020. On the label-quoting line the fork's line was kept: it doubles a
-single quote, as upstream master has since `35b09e7c9`, where the pull request
-backslash-escaped it. In `CONTRIB.rst`, the author's line went into its
-alphabetical place after Tommy Carstensen. The rest of the code is as the
-author wrote it.
+nothing left behind. It conflicted in both files it touches, on lines that
+changed after 2020. `NewickIO.py` conflicted in three places. In the imports,
+the pull request's `deque` joined the fork's `warnings` and `weakref`. On the
+label-quoting line the fork's line was kept: the pull request backslash-escaped
+a single quote, and the fork doubles it, as upstream master has since
+`35b09e7c9`. The old recursive return line, which the fork had made an
+f-string, goes, as the pull request removes it. In `CONTRIB.rst`, the author's
+line went into its alphabetical place after Tommy Carstensen. Apart from the
+quoting line, the code is as the author wrote it.
 
 **Corrections on top**, in the fork's own commits. The two `.format` calls the
 pull request added are f-strings, as the fork's ruff (UP032) requires. `tung`
@@ -85,10 +88,22 @@ written, times 384 combinations of the writer's options: 125,568 comparisons,
 each with the same text, or the same exception, and the same warnings, which
 432 of them give. Depths 5000 and 100000 round-trip.
 
-**Not fixed: NEXUS output of deep trees.** `NexusIO.write` uses this writer,
-then lists the tips with `get_terminals`, whose `_preorder_traverse` is a
-recursive generator. So format `"nexus"` now fails from depth 992 rather than
-497. Making that traversal iterative is a separate change.
+**Two other differences**, outside those comparisons. The new writer is not
+faster: run in one process on the same trees, best of five, it took 1.19 times
+as long as the recursive writer for a balanced tree of 131,072 tips and 1.28
+times as long for a star of 200,000 tips. And a clade that is its own
+descendant, which is not a tree, used to raise `RecursionError` at once; the
+new writer loops until memory runs out (`MemoryError` after 23 s with the
+address space capped at 1.5 GB).
+
+**Not fixed: the `ladderize` option and NEXUS output, for deep trees.** With
+`ladderize="left"` or `"right"`, the writer first calls `Tree.ladderize`,
+which calls itself for each subclade and counts tips with `count_terminals`,
+another recursive traversal. So Newick output with that option fails from depth
+986. `NexusIO.write` uses this writer, then lists the tips with
+`get_terminals`, whose `_preorder_traverse` is a recursive generator. So format
+`"nexus"` fails from depth 992. Both failed from depth 496 or 497 before.
+Making those traversals iterative is a separate change.
 
 **Upstream status:** as of 2026-11-09 the pull request is open and not a
 draft, with one commit. The only review comment, peterjc's docstring nit, was
