@@ -70,9 +70,10 @@ time in fifteen for neighbour joining and one in four for UPGMA, in a test
 on random six-taxon distance matrices. ``ParsimonyScorer.get_score`` midpoint
 roots, in place, any unrooted tree it is given, so that tree could come back
 lengthened, though its parsimony score, which ignores branch lengths, was
-right. Branch lengths and tip distances are now kept. Rerooting on any other clade, or with no ``outgroup_branch_length``,
-was already correct and is unchanged. This is an upstream defect, also in
-Biopython 1.88; the fix is biopython/biopython#5390.
+right. Branch lengths and tip distances are now kept. Rerooting on any other
+clade, or with ``outgroup_branch_length`` left unset or zero, was already
+correct and is unchanged. This is an upstream defect, also in Biopython 1.88;
+the fix is biopython/biopython#5390.
 
 ``Bio.SeqUtils.CodonAdaptationIndex.calculate`` no longer fails with a bare
 ``ZeroDivisionError: division by zero`` when no codon of the sequence counts
