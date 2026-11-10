@@ -398,11 +398,11 @@ class Entity(Generic[_Parent, _Child]):
 
         Examples
         --------
-        >>> from Bio.PDB import PDBParser
-        >>> parser = PDBParser(QUIET=True)
-        >>> structure = parser.get_structure("1gbt", "PDB/1GBT.cif")  # doctest: +SKIP
-        >>> round(structure.radius_of_gyration(), 2)  # doctest: +SKIP
-        10.34
+        >>> from Bio.PDB import MMCIFParser
+        >>> parser = MMCIFParser(QUIET=True)
+        >>> structure = parser.get_structure("1gbt", "PDB/1GBT.cif")
+        >>> round(structure.radius_of_gyration(), 2)
+        16.27
 
         """
         if not len(self):
