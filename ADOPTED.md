@@ -60,7 +60,7 @@ through `_get_atoms()` gives the same array as before.
 **The single commit taken** (`5462b2c78`, cherry-picked with `-x`), which
 applied cleanly. Nothing was left behind.
 
-**Corrections on top**, in two fork commits:
+**Corrections on top**, in three fork commits:
 
 - The empty-structure test opened `"PDB/disordered.pdb"` relative to the
   working directory, which raises `FileNotFoundError` when pytest starts
@@ -79,6 +79,13 @@ applied cleanly. Nothing was left behind.
   `_get_atoms()` now raises `ValueError` when its queue runs empty. The new
   test covers both methods on both entities and fails with the `IndexError`
   on main and on the adopted commit alone.
+- The docstrings of both methods now say what was only in the code: every
+  alternative location of a disordered atom or residue counts at full mass,
+  not only the selected one that `get_atoms()` gives (238 atoms against 203
+  in model 0 of `3JQH.cif`, which moves Rg by under 0.03 Angstrom), and an
+  atom of unknown element has a mass of NaN, which makes the mass-weighted
+  result NaN. The two empty-entity tests check the error message, so they
+  tell "no children" from "no atoms".
 
 Copilot's other comment, that `geometric=True` could pass `weights=None`
 rather than an array of ones, is not taken: it is cosmetic.
