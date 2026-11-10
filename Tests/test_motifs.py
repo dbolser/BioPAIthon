@@ -4052,6 +4052,46 @@ class TestMEME(unittest.TestCase):
         self.assertEqual(motif.consensus, "INKEKLIEYILSCQ")
         self.assertEqual(motif[3:-8].consensus, "EKL")
 
+    def test_meme_parser_brief(self):
+        """Parse motifs/meme.brief.classic.zoops.xml, which has no sites.
+
+        MEME leaves the sequence names and motif sites out of its XML when it
+        is given more sequences than its -brief option allows (1000 by
+        default); this file is from a run on 1542 sequences. Reading it
+        raised ValueError (biopython/biopython#3532).
+        """
+        with open(support.DATA / "motifs" / "meme.brief.classic.zoops.xml") as stream:
+            record = motifs.parse(stream, "meme")
+        self.assertEqual(record.version, "5.3.3")
+        self.assertEqual(record.datafile, "/test.fasta")
+        self.assertEqual(
+            record.command, "meme /test.fasta -dna -nmotifs 5 -minw 5 -maxw 20 "
+        )
+        self.assertEqual(record.alphabet, "ACGT")
+        self.assertEqual(record.sequences, [])
+        self.assertEqual(
+            [
+                (motif.id, motif.name, motif.alt_id, len(motif), motif.num_occurrences)
+                for motif in record
+            ],
+            [
+                ("motif_1", "GDCSDBGDCGRBSATGATSW", "MEME-1", 20, 822),
+                ("motif_2", "TGGTAGWTGTRSYAGT", "MEME-2", 16, 10),
+                ("motif_3", "AGGTCGTGTCCGTAAAGTGC", "MEME-3", 20, 5),
+                ("motif_4", "GYCGMCGATGCCGGTG", "MEME-4", 16, 13),
+                ("motif_5", "CATGTGACCTTCTGACTGGT", "MEME-5", 20, 4),
+            ],
+        )
+        # The E-value of motif_1, 5.7e-446, is too small for a float.
+        self.assertEqual(
+            [motif.evalue for motif in record[1:]], [4.0e-3, 0.27, 1.1, 450.0]
+        )
+        for motif in record:
+            self.assertEqual(motif.alphabet, "ACGT")
+            self.assertIsNone(motif.alignment)
+            self.assertIsNone(motif.counts)
+        self.assertIs(record["TGGTAGWTGTRSYAGT"], record[1])
+
     def test_minimal_meme_parser(self):
         """Parse motifs/minimal_test.meme file."""
         with open(support.DATA / "motifs" / "minimal_test.meme") as stream:
