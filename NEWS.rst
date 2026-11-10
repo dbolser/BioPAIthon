@@ -66,10 +66,10 @@ place of the ranges, so reading its output back lost them and turned the record
 count into a length in bases. The writer now writes ``rc`` when the sequence is
 undefined and one of these annotations is set, and writes the range lines
 whenever they are set, before any ``ORIGIN`` or ``CONTIG`` line. NCBI's master
-records use ``rc``, as do both in the test suite, and the parser has accepted
-it since it first read WGS master records in 2009. A record with a sequence
-keeps ``bp``; if it also carries one of these annotations, its range lines are
-now written rather than dropped. This is an upstream defect
+records use ``rc``, as do all three in the test suite, and the parser has
+accepted it since it first read WGS master records in 2009. A record with a
+sequence keeps ``bp``; if it also carries one of these annotations, its range
+lines are now written rather than dropped. This is an upstream defect
 (biopython/biopython#2449, reported by Kai Blin), also in Biopython 1.88 and
 still in upstream's development code. ``Bio.GenBank.Record`` is unchanged, and
 still writes ``bp`` and no ``TSA`` or ``TLS`` line.

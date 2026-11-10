@@ -8778,10 +8778,17 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(original_division, written_division)
 
     def test_write_master_records(self):
-        """Write TSA and TLS master records with rc units and their range line."""
-        for filename, range_line in (
-            ("tsa_acropora.gb", "TSA         GHGH01000001-GHGH01126539"),
-            ("tls_KDHP01000000.gb", "TLS         KBUV01000001-KBUV01003714"),
+        """Write WGS, TSA and TLS master records with rc units and range lines."""
+        for filename, range_lines in (
+            ("tsa_acropora.gb", ["TSA         GHGH01000001-GHGH01126539"]),
+            ("tls_KDHP01000000.gb", ["TLS         KBUV01000001-KBUV01003714"]),
+            (
+                "wgs_AAAB00000000.gb",
+                [
+                    "WGS         AAAB01000001-AAAB01069724",
+                    "WGS_SCAFLD  CM000356-CM000360",
+                ],
+            ),
         ):
             with self.subTest(filename=filename):
                 path = support.DATA / "GenBank" / filename
@@ -8792,8 +8799,8 @@ class OutputTests(unittest.TestCase):
                 lines = text.splitlines()
                 # The length counts records ("rc"), not bases ("bp")
                 self.assertEqual(lines[0], first_line)
-                # The range line ends the record, in place of an ORIGIN line
-                self.assertEqual(lines[-2:], [range_line, "//"])
+                # The range lines end the record, in place of an ORIGIN line
+                self.assertEqual(lines[-len(range_lines) - 1 :], [*range_lines, "//"])
                 self.assertNotIn("ORIGIN", text)
 
                 new = SeqIO.read(StringIO(text), "genbank")
@@ -8801,8 +8808,8 @@ class OutputTests(unittest.TestCase):
                 self.assertEqual(len(new), len(record))
                 self.assertFalse(new.seq.defined)
 
-    def test_write_wgs_master_record(self):
-        """Write a WGS master record with its WGS and WGS_SCAFLD lines."""
+    def test_write_wgs_scafld_lines(self):
+        """Write a WGS master record with several WGS_SCAFLD lines."""
         with open(support.DATA / "GenBank" / "tsa_acropora.gb") as handle:
             source = handle.read()
         range_lines = (
