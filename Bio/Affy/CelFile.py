@@ -127,11 +127,14 @@ def read(handle, version=None):
     if data == "[CEL":
         # Version 3 format. Continue to read the header here before passing
         # control to _read_v3 to avoid having to seek to the beginning of
-        # the file.
-        data += next(handle)
+        # the file. Use readline rather than next, as some file-like objects
+        # such as tempfile.NamedTemporaryFile are not iterators (issue #4926).
+        data += handle.readline()
         if data.strip() != "[CEL]":
             raise ValueError("Failed to parse Affy Version 3 CEL file.")
-        line = next(handle)
+        line = handle.readline()
+        if "=" not in line:
+            raise ValueError("Failed to parse Affy Version 3 CEL file.")
         keyword, value = line.split("=", 1)
         if keyword != "Version":
             raise ValueError("Failed to parse Affy Version 3 CEL file.")

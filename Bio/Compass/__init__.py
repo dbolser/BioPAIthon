@@ -21,6 +21,9 @@ import re
 
 def read(handle):
     """Read a COMPASS file containing one COMPASS record."""
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    handle = iter(handle)
     record = None
     try:
         line = next(handle)
@@ -55,6 +58,9 @@ def read(handle):
 
 def parse(handle):
     """Iterate over records in a COMPASS file."""
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    handle = iter(handle)
     record = None
     try:
         line = next(handle)

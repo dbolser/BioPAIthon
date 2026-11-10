@@ -295,7 +295,9 @@ def _parse(stream):
     ``parse`` (without a leading underscore) takes care of opening the file,
     calling ``_parse`` to read from it, and closing the file if appropriate.
     """
-
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    stream = iter(stream)
     line = ""
     while True:
         # at beginning, skip the AS and look for first CO command
@@ -576,14 +578,14 @@ class ACEFileRecord:
 
 def read(handle):
     """Parse a full ACE file into a list of contigs."""
-    handle = iter(handle)
-
     record = ACEFileRecord()
 
-    try:
-        line = next(handle)
-    except StopIteration:
-        raise ValueError("Premature end of file") from None
+    # Use readline, not iter() and next(): the handle is passed on to parse,
+    # which needs a file-like object, and iter() of some file-like objects
+    # such as tempfile.NamedTemporaryFile is a plain generator (issue #4926).
+    line = handle.readline()
+    if not line:
+        raise ValueError("Premature end of file")
 
     # check if the file starts correctly
     if not line.startswith("AS"):

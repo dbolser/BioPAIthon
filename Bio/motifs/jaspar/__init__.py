@@ -236,6 +236,9 @@ def _read_sites(handle):
     alphabet = "ACGT"
     instances = []
 
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    handle = iter(handle)
     for line in handle:
         if not line.startswith(">"):
             break

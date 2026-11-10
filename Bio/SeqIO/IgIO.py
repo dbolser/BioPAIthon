@@ -89,7 +89,11 @@ class IgIterator(SequenceIterator):
         while line.startswith(";"):
             # TODO - Extract identifier from lines like "LOCUS\tB_SF2"?
             comment_lines.append(line[1:].strip())
-            line = next(stream)
+            # readline, not next, as some file-like objects such as
+            # tempfile.NamedTemporaryFile are not iterators (issue #4926).
+            line = stream.readline()
+            if not line:
+                raise StopIteration
         title = line.rstrip()
 
         seq_lines = []

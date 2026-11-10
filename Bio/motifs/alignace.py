@@ -22,6 +22,9 @@ class Record(list):
 
 def read(handle):
     """Parse an AlignACE format handle as a Record object."""
+    # iter() so that next() also works on handles that are iterable but not
+    # iterators, such as tempfile.NamedTemporaryFile (see issue #4926).
+    handle = iter(handle)
     record = Record()
     line = next(handle)
     record.version = line.strip()
