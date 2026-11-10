@@ -181,8 +181,9 @@ environment variable and are skipped when it is unset; never commit a key.
 ## Style
 
 - **black**, targeting Python 3.10.
-- **ruff** with `--extend-select=B,C4,D,ISC,UP,S307` (plus `S101` over the
-  parser packages), and **flake8** with
+- **ruff**, configured in `[tool.ruff.lint]` in `pyproject.toml` (so a bare
+  `ruff check` agrees with the pre-commit hook), plus a second hook enforcing
+  `S101` over the parser packages; and **flake8** with
   `flake8-rst-docstrings`.
 - **mypy** over `Bio` and `BioSQL`; see [Typing](#typing).
 - Docstrings are reStructuredText and follow PEP257.

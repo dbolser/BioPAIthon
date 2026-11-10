@@ -1555,9 +1555,11 @@ duplicated `--source`.
 > `.pre-commit-config.yaml` now has `additional_dependencies: [numpy]`, the
 > `[mypy-numpy.*]` override is gone from `.mypy.ini`, and the five
 > `Bio/PDB/Atom.py` errors are resolved (a `_isclose` helper handling
-> `float | None`). **Still open:** `ci-dependencies.txt:10` still pins
-> `black==22.12.0` against pre-commit's `24.10.0`, ruff configuration still
-> lives only in pre-commit CLI args with no `[tool.ruff]` section,
+> `float | None`). **The ruff half is fixed** by adopting upstream PR #5386
+> (open upstream, peterjc; see `ADOPTED.md`): the settings moved from the
+> pre-commit CLI args into `[tool.ruff.lint]` in `pyproject.toml`, so a bare
+> `ruff check` now agrees with the hook. **Still open:** `ci-dependencies.txt:10`
+> still pins `black==22.12.0` against pre-commit's `24.10.0`,
 > `ci-dependencies.txt` has not been replaced by `[dependency-groups]`, and
 > there is no scheduled full-tree `pre-commit run --all-files`.
 
