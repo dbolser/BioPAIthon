@@ -8772,12 +8772,98 @@ class OutputTests(unittest.TestCase):
         outfile.seek(0)
         first_line_written = outfile.readline()
 
-        # ideally, we'd be able to compare these directly, but we also
-        # break the "units" field at the moment, so use split instead
         original_division = first_line.split()[-2]
         written_division = first_line_written.split()[-2]
 
         self.assertEqual(original_division, written_division)
+
+    def test_write_master_records(self):
+        """Write TSA and TLS master records with rc units and their range line."""
+        for filename, range_line in (
+            ("tsa_acropora.gb", "TSA         GHGH01000001-GHGH01126539"),
+            ("tls_KDHP01000000.gb", "TLS         KBUV01000001-KBUV01003714"),
+        ):
+            with self.subTest(filename=filename):
+                path = support.DATA / "GenBank" / filename
+                with open(path) as handle:
+                    first_line = handle.readline().rstrip("\n")
+                record = SeqIO.read(path, "genbank")
+                text = record.format("genbank")
+                lines = text.splitlines()
+                # The length counts records ("rc"), not bases ("bp")
+                self.assertEqual(lines[0], first_line)
+                # The range line ends the record, in place of an ORIGIN line
+                self.assertEqual(lines[-2:], [range_line, "//"])
+                self.assertNotIn("ORIGIN", text)
+
+                new = SeqIO.read(StringIO(text), "genbank")
+                self.assertEqual(new.annotations, record.annotations)
+                self.assertEqual(len(new), len(record))
+                self.assertFalse(new.seq.defined)
+
+    def test_write_wgs_master_record(self):
+        """Write a WGS master record with its WGS and WGS_SCAFLD lines."""
+        with open(support.DATA / "GenBank" / "tsa_acropora.gb") as handle:
+            source = handle.read()
+        range_lines = (
+            "WGS         GHGH01000001-GHGH01126539\n"
+            "WGS_SCAFLD  CM000356-CM000360\n"
+            "WGS_SCAFLD  GHGH01200001\n"
+        )
+        source = source.replace("TSA         GHGH01000001-GHGH01126539\n", range_lines)
+        record = SeqIO.read(StringIO(source), "genbank")
+        self.assertEqual(
+            record.annotations["wgs_scafld"],
+            [["CM000356", "CM000360"], ["GHGH01200001"]],
+        )
+
+        text = record.format("genbank")
+        self.assertEqual(text.split("\n", 1)[0], source.split("\n", 1)[0])
+        self.assertTrue(
+            text.endswith('/collection_date="2011"\n' + range_lines + "//\n"), text
+        )
+        new = SeqIO.read(StringIO(text), "genbank")
+        self.assertEqual(new.annotations, record.annotations)
+
+    def test_write_master_ranges_as_strings(self):
+        """Write master record ranges assigned as already formatted strings."""
+        record = SeqIO.read(support.DATA / "GenBank" / "tsa_acropora.gb", "genbank")
+        record.annotations["tsa"] = "GHGH01000001-GHGH01126539"
+        record.annotations["wgs_scafld"] = "CM000356-CM000360"
+        text = record.format("genbank")
+        self.assertTrue(
+            text.endswith(
+                "\nWGS_SCAFLD  CM000356-CM000360\n"
+                "TSA         GHGH01000001-GHGH01126539\n//\n"
+            ),
+            text,
+        )
+
+    def test_write_master_record_long_locus(self):
+        """Write rc units in a LOCUS line too long for the usual columns."""
+        record = SeqIO.read(support.DATA / "GenBank" / "tsa_acropora.gb", "genbank")
+        record.name = "GHGH01000000_LONG_NAME"
+        with self.assertWarns(BiopythonWarning):
+            text = record.format("genbank")
+        self.assertEqual(text.split()[1:4], ["GHGH01000000_LONG_NAME", "126539", "rc"])
+
+    def test_write_wgs_ranges_with_sequence(self):
+        """Keep bp and the sequence when a record has WGS ranges and a sequence."""
+        with open(support.DATA / "GenBank" / "noref.gb") as handle:
+            source = handle.read()
+        source = source.replace(
+            "ORIGIN      \n",
+            "WGS         ABCD01000001-ABCD01000002\nORIGIN      \n",
+        )
+        record = SeqIO.read(StringIO(source), "genbank")
+        self.assertTrue(record.seq.defined)
+
+        text = record.format("genbank")
+        self.assertEqual(text.split()[3], "bp")
+        self.assertIn("\nWGS         ABCD01000001-ABCD01000002\nORIGIN\n", text)
+        new = SeqIO.read(StringIO(text), "genbank")
+        self.assertEqual(new.seq, record.seq)
+        self.assertEqual(new.annotations, record.annotations)
 
 
 class GenBankScannerTests(unittest.TestCase):
