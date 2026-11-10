@@ -667,6 +667,27 @@ class TestExtract(unittest.TestCase):
                 "join{[0:2](-), [2:4](-)}",
             )
 
+    def test_insertion_as_descending_pair(self):
+        """Test an insertion written N+1..N on a sequence that is not circular."""
+        # Ensembl writes an insertion between bases 6 and 7 as 7..6, the
+        # INSDC 6^7 (upstream issue #4969).
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", category=BiopythonParserWarning)
+            self.assertEqual(
+                SimpleLocation.fromstring("7..6", 10), SimpleLocation(6, 6)
+            )
+            self.assertEqual(
+                SimpleLocation.fromstring("complement(7..6)", 10),
+                SimpleLocation(6, 6, strand=-1),
+            )
+        # Any further apart, and it still looks like origin wrapping:
+        with self.assertRaises(LocationParserError):
+            SimpleLocation.fromstring("8..6", 10)
+        # An insertion before the first base would be [0:0], which would be
+        # written as 0^1, not valid INSDC, so it stays an error:
+        with self.assertRaises(LocationParserError):
+            SimpleLocation.fromstring("1..0", 10)
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

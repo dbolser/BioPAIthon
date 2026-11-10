@@ -1124,8 +1124,22 @@ class SimpleLocation(Location):
             e_pos = Position.fromstring(e)
             # We have seen Ensembl data in "GenBank Format" with length zero in the LOCUS
             # and variation features with s_pos >= e_pos - they are not origin wrapping!
+            # Ensembl writes an insertion between bases 6 and 7 as "7..6"
+            # (INSDC "6^7") with the real length in the LOCUS too, so equal
+            # positions wrap only on a circular sequence, where "3..2" covers
+            # all of it, starting at base 3. Otherwise they fall through to a
+            # zero-length location, here [6:6]. The exception is "1..0", an
+            # insertion before the first base: as [0:0] it would be written
+            # as "0^1", which is not valid INSDC, so it stays an error.
             # (No "?" gets this far, so neither position is an UnknownPosition.)
-            if e_pos <= s_pos and length and s_pos < length:  # type: ignore[operator]
+            if (
+                (
+                    e_pos < s_pos  # type: ignore[operator]
+                    or (e_pos == s_pos and (circular or s_pos == 0))  # type: ignore[comparison-overlap]
+                )
+                and length
+                and s_pos < length  # type: ignore[operator]
+            ):
                 # Assuming this is meant to be origin wrapping.
                 # Create a CompoundLocation of the wrapped feature,
                 # consisting of two SimpleLocation objects to extend to

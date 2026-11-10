@@ -353,6 +353,85 @@ SQ   Sequence 100 BP; 100 A; 0 C; 0 G; 0 T; 0 other;
         self.assertEqual(new.features[2].qualifiers[0].value, self.transl_except)
 
 
+class TestInsertionBetweenBases(unittest.TestCase):
+    """Ensembl's 7..6, an insertion between bases 6 and 7, is read as 6^7.
+
+    Ensembl's GenBank and EMBL exports write the insertion this way with the
+    sequence's real length. The parsers took it for a feature spanning the
+    origin of a sequence that is not circular, so they warned and set the
+    location to None, and writing the record then failed (upstream issue
+    #4969). On a circular sequence 7..6 still spans the origin.
+    """
+
+    genbank = """\
+LOCUS       TEST                      10 bp    DNA     {topology:8} UNK 01-JAN-1980
+DEFINITION  Insertion.
+ACCESSION   TEST
+VERSION     TEST
+FEATURES             Location/Qualifiers
+     source          1..10
+     variation       7..6
+                     /replace="-/T"
+ORIGIN
+        1 aaagaaaggc
+//
+"""
+
+    embl = """\
+ID   TEST; SV 1; {topology}; DNA; STD; UNC; 10 BP.
+XX
+AC   TEST;
+XX
+DE   Insertion
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..10
+FT   variation       7..6
+FT                   /replace="-/T"
+XX
+SQ   Sequence 10 BP; 6 A; 1 C; 3 G; 0 T; 0 other;
+     aaagaaaggc                                                               10
+//
+"""
+
+    def read(self, fmt, topology):
+        text = getattr(self, fmt).format(topology=topology)
+        return SeqIO.read(StringIO(text), fmt)
+
+    def test_not_circular(self):
+        """With no topology, or a linear one, the insertion is [6:6]."""
+        for fmt, topology in [
+            ("genbank", ""),
+            ("genbank", "linear"),
+            ("embl", "linear"),
+        ]:
+            with self.subTest(fmt=fmt, topology=topology):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    record = self.read(fmt, topology)
+                location = record.features[1].location
+                self.assertEqual(location, SimpleLocation(6, 6, strand=1))
+                text = record.format(fmt)
+                self.assertIn("variation       6^7\n", text)
+                self.assertEqual(
+                    SeqIO.read(StringIO(text), fmt).features, record.features
+                )
+
+    def test_circular(self):
+        """On a circular sequence 7..6 still spans the origin."""
+        for fmt in ["genbank", "embl"]:
+            with self.subTest(fmt=fmt):
+                with self.assertWarnsRegex(BiopythonParserWarning, "origin wrapping"):
+                    record = self.read(fmt, "circular")
+                self.assertEqual(
+                    record.features[1].location,
+                    SimpleLocation(6, 10, strand=1) + SimpleLocation(0, 6, strand=1),
+                )
+                text = record.format(fmt)
+                self.assertIn("variation       join(7..10,1..6)\n", text)
+
+
 class TestWriterErrors(unittest.TestCase):
     """Records the INSDC writers cannot represent raise ValueError."""
 
