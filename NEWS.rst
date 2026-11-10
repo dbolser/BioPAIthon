@@ -55,6 +55,26 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.bgzf.BgzfWriter`` now checks, when it is created, that a ``fileobj``
+it is given will take bytes, and raises ``ValueError("fileobj must be an
+output handle in binary mode")`` if not. A handle opened for reading, such as
+``open(path, "rb")``, and a text handle with no ``mode`` attribute, such as
+``io.TextIOWrapper(io.BytesIO())``, used to be accepted, so writes appeared to
+succeed until about 64 KB had been buffered, or until ``flush()`` or
+``close()``, which then raised ``io.UnsupportedOperation`` or ``TypeError``.
+The check writes zero bytes to the handle, as Peter Cock suggested on the
+issue, and keeps the handle's own error as the cause. Only calls that already
+failed are affected, and they now fail at once: a closed handle, or an object
+with no ``write`` method, raises the same error as before, but when the writer
+is created. ``io.StringIO`` and text files opened with ``"w"`` still raise
+``ValueError("fileobj not opened in binary mode")``, and ``io.BytesIO``,
+``sys.stdout.buffer`` and files opened with ``"wb"``, ``"ab"`` or ``"r+b"``
+are accepted as before. Code that caught the ``TypeError`` from a text handle
+must now catch ``ValueError``; ``io.UnsupportedOperation`` was already a
+``ValueError``. This is an upstream defect (biopython/biopython#3751, reported
+by Fabian Egli), also in Biopython 1.88 and still in upstream's development
+code.
+
 ``Bio.codonalign.codonseq.cal_dn_ds``, and so ``get_dn_ds_matrix`` and
 ``get_dn_ds_tree`` of a ``CodonAlignment``, and ``Bio.codonalign.mktest``, now
 raise ``ValueError`` when gaps split codons so that a codon starts partway

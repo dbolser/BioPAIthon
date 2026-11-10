@@ -810,6 +810,20 @@ class BgzfWriter:
                 fileobj, "mode", "wb"
             ):
                 raise ValueError("fileobj not opened in binary mode")
+            # Fail now, not at the first full block, flush or close, on a
+            # read-only handle or a text handle with no mode attribute (e.g. a
+            # TextIOWrapper). This zero-length write is the twin of
+            # BgzfReader's read(0) probe; a read probe cannot be used here, as
+            # write-only handles reject it. io.UnsupportedOperation is an
+            # OSError, so read-only handles are caught; any other OSError from
+            # the probe is chained as the cause. Duck-typed handles therefore
+            # see one extra, empty write() call.
+            try:
+                fileobj.write(b"")
+            except (TypeError, OSError) as err:
+                raise ValueError(
+                    "fileobj must be an output handle in binary mode"
+                ) from err
             handle = fileobj
         else:
             if "w" not in mode.lower() and "a" not in mode.lower():
