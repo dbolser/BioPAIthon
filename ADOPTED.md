@@ -41,6 +41,71 @@ request.
 
 Newest first.
 
+### [#5233](https://github.com/biopython/biopython/pull/5233) — Xinxiang Wang (yiyabo)
+
+Fixes upstream issue
+[#4291](https://github.com/biopython/biopython/issues/4291), reported in 2023
+by jmzhuzhonghua. `open_database(driver="pymysql")` connected, but BioSQL
+listed its MySQL drivers by name in four places and PyMySQL was in none of
+them. So `load_database_sql` raised
+`ValueError: Module pymysql not supported by the loader.`, the generic
+`Adaptor` was used rather than `MysqlConnectorAdaptor`, `last_insert_id` went
+through `Generic_dbutils`, and `SET sql_mode='ANSI_QUOTES'` was never run,
+which makes MySQL 8 reject the double-quoted `"rank"` column with error 1064
+when records are loaded. The pull request adds `"pymysql"` to the
+`ANSI_QUOTES` check, the loader's list, the adaptor map and the `_dbutils` map.
+Every change is keyed on the driver name `"pymysql"`, so other drivers are
+unaffected.
+
+**The single commit taken** (`a70f5de1f`, cherry-picked with `-x`). Its
+`NEWS.rst` hunk added the author to the contributor list of upstream's 1.88
+release, which this fork keeps as inherited history, so it was dropped while
+resolving the conflict. The `CONTRIB.rst` hunk is kept: the author ticked the
+box and added their own name.
+
+**Left behind, in a fork commit on top:** the commit also added `"pymysql"`
+to the drivers whose connection keywords `open_database` renames to `db` and
+`passwd`, as MySQLdb wants. PyMySQL takes the DB-API names `database` and
+`password` and deprecates `db` and `passwd`, so with that hunk every
+connection raised two `DeprecationWarning`s (440 over
+`test_BioSQL_pymysql.py`), and under `-W error::DeprecationWarning` the module
+could not connect at all and skipped. PyMySQL is left in the existing `else`
+branch, which already turns `db` and `passwd` into the DB-API names, and a
+comment there says why.
+
+**Added by the fork:** `Tests/test_BioSQL_pymysql.py`, the common BioSQL tests
+with `DBDRIVER = "pymysql"`, mirroring `test_BioSQL_MySQLdb.py`, with its
+`expected_skips.txt` line; and `pymysql` installed next to `mysqlclient` in
+the CI job that runs a MySQL server, and in the list of alternative BioSQL
+drivers in `pyproject.toml`. The pull request had no test.
+
+**Checked**, against a local MySQL 8.0 server in Docker with PyMySQL 2.2.8:
+on this fork's main all 72 tests of the new module fail or error with the
+loader `ValueError`; with the upstream commit alone they pass with 440
+warnings; with the fork's correction they pass with
+`-W error::DeprecationWarning`. `test_BioSQL_MySQLdb.py`,
+`test_BioSQL_mysql_connector.py` and `test_BioSQL_sqlite3.py` pass, each run
+on its own.
+
+**Caveat, not caused here:** run in one pytest session, as CI runs the
+suite, the server-backed BioSQL modules do not reach their server. They all
+share `common_BioSQL`'s test classes, which read the driver from that
+module's globals, and each module's `check_config` overwrites them at import,
+so every module's tests run with whichever driver was imported last,
+`sqlite3`. Locally all nine BioSQL modules together pass 289 tests in about
+ten seconds, while `test_BioSQL_pymysql.py` alone takes nearly two minutes
+against MySQL. So until that is fixed, the CI job does not exercise PyMySQL
+(or MySQLdb) even with the driver installed.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with one commit, no reviews and no activity since 2026-08-06. The
+licence box is ticked. Issue #4291 is open. An earlier one-line fix,
+[#5191](https://github.com/biopython/biopython/pull/5191) by musashifolk,
+which set `ANSI_QUOTES` for PyMySQL only, was closed unmerged on 2026-04-11;
+peterjc wrote there that adding `"pymysql"` to the drivers would be welcome.
+[#1882](https://github.com/biopython/biopython/issues/1882), the same `rank`
+error reported in 2018, is closed.
+
 ### [#5318](https://github.com/biopython/biopython/pull/5318) — NinjagoJaden1
 
 Fixes upstream issue
