@@ -63,15 +63,19 @@ for everything. A server given as a bare host, such as the default
 ``"https://files.wwpdb.org"`` or ``"https://ftp.pdbj.org"``, still has
 ``/pub/pdb`` added, so existing code keeps working. A server given with a
 path is now taken to be the archive itself: this is the behaviour change.
-It only affects a server whose path is followed by ``/pub/pdb``, such as a
-local copy of the wwPDB tree served below ``http://host/mirror``; pass
-``"http://host/mirror/pub/pdb"`` instead. We judged that rarer than wanting
-the EBI mirror, which could not work at all, and naming the archive in full,
-as in ``"https://files.wwpdb.org/pub/pdb"``, now also works rather than
-doubling the path. This is an upstream defect, also in Biopython 1.88 and
-still in upstream's development code, reported as biopython/biopython#3987;
-the fix is our own, as the earlier attempts biopython/biopython#5157 and
-biopython/biopython#5268 carry no licence statement.
+It only affects a server with a path whose archive sits in ``/pub/pdb``
+below that path, such as a local copy of the wwPDB tree served below
+``http://host/mirror``; pass ``"http://host/mirror/pub/pdb"`` instead. The
+same goes for a ``file://`` URL, which always has a path. We judged that
+rarer than wanting the EBI mirror, which could not work at all, and naming
+the archive in full, as in ``"https://files.wwpdb.org/pub/pdb"``, now also
+works rather than doubling the path. A trailing slash on the server no
+longer gives a double slash in every URL. This is an upstream defect, also
+in Biopython 1.88 and still in upstream's development code, reported as
+biopython/biopython#3987; the fix is our own, as neither of the earlier
+attempts, biopython/biopython#5157 and biopython/biopython#5268, agrees to
+the licence: #5157 has no licence statement and #5268 leaves its box
+unticked.
 
 ``Bio.PDB.MMCIFParser`` and ``FastMMCIFParser`` now raise
 ``PDBConstructionException`` when a residue number is not an integer, such as
