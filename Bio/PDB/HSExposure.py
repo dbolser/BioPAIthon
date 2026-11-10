@@ -16,6 +16,15 @@ from Bio.PDB.Polypeptide import is_aa
 from Bio.PDB.vectors import rotaxis
 
 
+def _angle_or_none(v1, v2):
+    """Return the angle between two vectors, or None if undefined (PRIVATE)."""
+    try:
+        return v1.angle(v2)
+    except ValueError:
+        # One of them has zero length
+        return None
+
+
 class _AbstractHSExposure(AbstractPropertyMap):
     """Abstract class to calculate Half-Sphere Exposure (HSE).
 
@@ -73,6 +82,10 @@ class _AbstractHSExposure(AbstractPropertyMap):
                     # Missing atoms, or i==0, or i==len(pp1)-1
                     continue
                 pcb, angle = result
+                if pcb.norm() == 0:
+                    # No direction for the half spheres (for example the CB
+                    # atom sits on the CA atom), as for missing atoms
+                    continue
                 hse_u = 0
                 hse_d = 0
                 ca2 = r2["CA"].get_vector()
@@ -86,6 +99,9 @@ class _AbstractHSExposure(AbstractPropertyMap):
                             continue
                         cao = ro["CA"].get_vector()
                         d = cao - ca2
+                        if d.norm() == 0:
+                            # A CA atom on this one is in neither half sphere
+                            continue
                         if d.norm() < radius:
                             if d.angle(pcb) < (pi / 2):
                                 hse_u += 1
@@ -197,13 +213,13 @@ class HSExposureCA(_AbstractHSExposure):
             cb = r2["CB"].get_vector()
             cb_ca = cb - ca2
             cb_ca.normalize()
-            angle = cb_ca.angle(b)
+            angle = _angle_or_none(cb_ca, b)
         elif r2.get_resname() == "GLY":
             cb_ca = self._get_gly_cb_vector(r2)
             if cb_ca is None:
                 angle = None
             else:
-                angle = cb_ca.angle(b)
+                angle = _angle_or_none(cb_ca, b)
         else:
             angle = None
         # vector b is centered at the origin!

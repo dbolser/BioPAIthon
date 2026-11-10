@@ -28,6 +28,7 @@ except ImportError:
 
 import support
 
+from Bio.PDB import CaPPBuilder
 from Bio.PDB import ExposureCN
 from Bio.PDB import HSExposureCA
 from Bio.PDB import HSExposureCB
@@ -126,6 +127,67 @@ class Exposure(unittest.TestCase):
         for i, residue in enumerate(self.a_residues):
             if residue is not glycine:
                 self.assertEqual(residue.xtra, expected[i])
+
+    def test_HSExposureCB_cb_on_ca(self):
+        """A CB atom on its CA atom gives no half spheres for that residue."""
+        HSExposureCB(self.model, self.radius)
+        expected = [dict(residue.xtra) for residue in self.a_residues]
+        for residue in self.a_residues:
+            residue.xtra.clear()
+
+        residue = self.a_residues[2]
+        residue["CB"].coord = residue["CA"].coord.copy()
+        HSExposureCB(self.model, self.radius)
+
+        self.assertEqual(residue.xtra, {})
+        for i, other in enumerate(self.a_residues):
+            if other is not residue:
+                self.assertEqual(other.xtra, expected[i])
+
+    def test_HSExposureCA_cb_on_ca(self):
+        """A CB atom on its CA atom gives no CB-pCB angle, but keeps the HSE."""
+        HSExposureCA(self.model, self.radius)
+        expected = [dict(residue.xtra) for residue in self.a_residues]
+        for residue in self.a_residues:
+            residue.xtra.clear()
+
+        residue = self.a_residues[2]
+        residue["CB"].coord = residue["CA"].coord.copy()
+        HSExposureCA(self.model, self.radius)
+
+        self.assertIsNone(residue.xtra["EXP_CB_PCB_ANGLE"])
+        self.assertEqual(residue.xtra["EXP_HSE_A_U"], expected[2]["EXP_HSE_A_U"])
+        self.assertEqual(residue.xtra["EXP_HSE_A_D"], expected[2]["EXP_HSE_A_D"])
+        for i, other in enumerate(self.a_residues):
+            if other is not residue:
+                self.assertEqual(other.xtra, expected[i])
+
+    def test_HSExposureCB_coincident_ca(self):
+        """A CA atom on top of this residue's CA is in neither half sphere."""
+        residue = self.a_residues[2]
+        # Move residues 60 and 61 together, so that they stay one peptide
+        # for CaPPBuilder, until the CA of residue 60 is on that of residue 2.
+        shift = residue["CA"].coord - self.a_residues[60]["CA"].coord
+        for other in self.a_residues[60:62]:
+            for atom in other:
+                atom.coord = atom.coord + shift
+        other = self.a_residues[60]
+        other["CA"].coord = residue["CA"].coord.copy()  # exactly, not to roundoff
+        self.assertEqual(other["CA"] - residue["CA"], 0)
+        peptides = CaPPBuilder().build_peptides(self.model)
+        self.assertTrue(any(other in pp for pp in peptides))
+
+        HSExposureCB(self.model, self.radius)
+
+        # Every other CA atom within the radius is counted once, up or down,
+        # apart from the one on top of this residue's CA.
+        neighbours = 0
+        for pp in peptides:
+            for ro in pp:
+                if ro is not residue and 0 < ro["CA"] - residue["CA"] < self.radius:
+                    neighbours += 1
+        hse = residue.xtra["EXP_HSE_B_U"] + residue.xtra["EXP_HSE_B_D"]
+        self.assertEqual(hse, neighbours)
 
     def test_ExposureCN(self):
         """HSExposureCN."""
