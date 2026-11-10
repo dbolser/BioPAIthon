@@ -1711,7 +1711,7 @@ class FastqPhredWriter(SequenceWriter):
                 % (record.id, len(seq_str), len(qualities_str))
             )
         id_ = _clean(record.id) if record.id else ""
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id_:
             title = description
         elif description:
@@ -1788,7 +1788,7 @@ class QualPhredWriter(SequenceWriter):
     def to_string(cls, record: SeqRecord) -> str:
         """Turn a SeqRecord into a QUAL formatted string."""
         id_ = _clean(record.id) if record.id else ""
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id_:
             title = description
         elif description:
@@ -1825,7 +1825,7 @@ class QualPhredWriter(SequenceWriter):
             title = self.clean(self.record2title(record))
         else:
             id_ = self.clean(record.id) if record.id else ""
-            description = self.clean(record.description)
+            description = self.clean(record.description).strip()
             if description and description.split(None, 1)[0] == id_:
                 # The description includes the id at the start
                 title = description
@@ -1940,7 +1940,7 @@ class FastqSolexaWriter(SequenceWriter):
                 % (record.id, len(seq_str), len(qualities_str))
             )
         id_ = _clean(record.id) if record.id else ""
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id_:
             # The description includes the id at the start
             title = description
@@ -2000,7 +2000,7 @@ class FastqIlluminaWriter(SequenceWriter):
                 % (record.id, len(seq_str), len(qualities_str))
             )
         id_ = _clean(record.id) if record.id else ""
-        description = _clean(record.description)
+        description = _clean(record.description).strip()
         if description and description.split(None, 1)[0] == id_:
             title = description
         elif description:

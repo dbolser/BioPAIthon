@@ -55,6 +55,27 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SeqIO`` can now write a record whose description is only whitespace,
+such as ``" "`` or ``"\t"``, in FASTA (``"fasta"`` and ``"fasta-2line"``),
+FASTQ (``"fastq"``, ``"fastq-solexa"`` and ``"fastq-illumina"``) and QUAL
+format. The title line is then just the record ID, as for an empty
+description. Before, ``SeqIO.write`` and ``SeqRecord.format`` raised a bare
+``IndexError: list index out of range``. The fix strips the description
+before building the title line, so leading and trailing whitespace in a
+description is no longer written: this is the behaviour change. Trailing
+whitespace was already dropped on reading the file back, and leading
+whitespace either doubled the space after the ID or, for a description such
+as ``" x foo"`` on a record with ID ``x``, put a space straight after the
+``>`` or ``@``, so a tool that takes the ID to be the text up to the first
+space would read a blank ID. Only whitespace at the ends of a description is
+affected; spacing inside it is written as before.
+The shared ``clean()`` method of the writer classes is unchanged, so other
+formats and third-party writers built on it behave as before. This is an
+upstream defect, also in Biopython 1.88 and still in upstream's development
+code, reported as biopython/biopython#1624; the fix is our own, as the
+earlier attempt, biopython/biopython#1625, was closed unmerged and no longer
+applies to today's code.
+
 ``Bio.SeqIO`` now reads GenBank files whose DEFINITION line is literally
 ``<unknown description>.`` (which Geneious writes for a sequence with no
 description) or ``<unknown description>``, and EMBL and IMGT files whose DE
