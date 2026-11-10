@@ -1695,6 +1695,14 @@ end;
         )
         nexus = Nexus.Nexus(handle)
         self.assertEqual(nexus.translate, {1: "dog-cat", 2: "mouse-rat", 3: "foo-bar"})
+        # Bio.Phylo, the path the issue reported, goes through the same parser.
+        # NexusIO passes each name through Nexus.safename, which quotes it.
+        handle.seek(0)
+        tree = Phylo.read(handle, "nexus")
+        self.assertEqual(
+            [clade.name for clade in tree.get_terminals()],
+            ["'dog-cat'", "'mouse-rat'", "'foo-bar'"],
+        )
 
 
 class TestStandardDatatype(unittest.TestCase):

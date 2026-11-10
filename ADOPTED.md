@@ -70,7 +70,9 @@ for it. The docstring, that comment and the test's comment cite the issue as
 upstream's.
 
 **Checked.** The new test, `test_translate_dashed_taxon_names`, fails on
-main with the `NexusError` and passes here. The table also reads with a
+main with the `NexusError` and passes here. A fork commit extends it to read
+the same file with `Phylo.read(..., "nexus")`, the path the issue reported,
+which also raises the `NexusError` on main. The table also reads with a
 hyphen at either end of a name or doubled (`-lead`, `trail-`, `a--b`), and
 with no space after a comma. Plain and quoted names read as before, and
 `charset r = 2-4;` still gives `[1, 2, 3]`. `test_Nexus`, `test_Phylo`,
