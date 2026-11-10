@@ -710,7 +710,7 @@ class CenterOfMassTests(unittest.TestCase):
         for child in list(s):
             s.detach_child(child.id)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "does not have children"):
             s.radius_of_gyration()
 
     def test_no_atoms(self):
@@ -722,9 +722,9 @@ class CenterOfMassTests(unittest.TestCase):
 
         for entity in (structure, chain):
             with self.subTest(entity=entity):
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, "does not have any atoms"):
                     entity.center_of_mass()
-                with self.assertRaises(ValueError):
+                with self.assertRaisesRegex(ValueError, "does not have any atoms"):
                     entity.radius_of_gyration()
 
 
