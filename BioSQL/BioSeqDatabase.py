@@ -52,7 +52,7 @@ def open_database(driver="MySQLdb", **kwargs):
 
     # Different drivers use different keywords...
     kw = kwargs.copy()
-    if driver in ["MySQLdb", "mysql.connector", "pymysql"]:
+    if driver in ["MySQLdb", "mysql.connector"]:
         if "database" in kw:
             kw["db"] = kw["database"]
             del kw["database"]
@@ -62,7 +62,8 @@ def open_database(driver="MySQLdb", **kwargs):
         # kw["charset"] = "utf8"
         # kw["use_unicode"] = True
     else:
-        # DB-API recommendations
+        # DB-API recommendations. These include pymysql, which deprecates
+        # the db and passwd aliases that MySQLdb uses.
         if "db" in kw:
             kw["database"] = kw["db"]
             del kw["db"]
