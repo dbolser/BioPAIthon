@@ -55,6 +55,15 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.UniGene`` now reads NCBI's UniGene files for *Xenopus laevis*
+(``Xl.data``) and *Xenopus tropicalis* (``Str.data``), which put blank lines
+between the fields of a record. Both ``parse()`` and ``read()`` used to fail
+on them with ``ValueError: Unknown tag``. Only lines that are entirely blank
+are skipped: a line with text but no tag is still an error. ``read()`` still
+reports a second record if anything, including a blank line, follows the
+``//`` that ends the first. This is a long-standing upstream defect
+(biopython/biopython#2853), also in Biopython 1.88.
+
 ``Bio.SeqIO`` can now write a record whose description is only whitespace,
 such as ``" "`` or ``"\t"``, in FASTA (``"fasta"`` and ``"fasta-2line"``),
 FASTQ (``"fastq"``, ``"fastq-solexa"`` and ``"fastq-illumina"``) and QUAL
