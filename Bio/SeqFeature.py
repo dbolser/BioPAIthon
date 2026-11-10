@@ -438,11 +438,13 @@ class SeqFeature:
         Given a SeqRecord, this returns a SeqRecord. For a simple location
         that is a slice of the record, which keeps every feature of the
         record lying wholly inside it, so this feature too if the record
-        holds it. A joined location is assembled from several slices, none
-        of which holds the whole feature, so instead a copy of this feature
-        is placed first in the returned record, located over all of it, with
+        holds it. A compound location (a ``join``, or an ``order``) is
+        assembled from several slices, none of which normally holds the
+        whole feature. So if the record holds this feature, a copy of it is
+        placed first in the returned record, located over all of it, with
         the same type, id and qualifiers, and with the feature's fuzzy ends
-        (such as ``<`` on a partial CDS) kept:
+        (such as ``<`` on a partial CDS) kept. If one part covers the whole
+        feature, that part's slice already keeps it, and no copy is added:
 
         >>> from Bio.SeqRecord import SeqRecord
         >>> from Bio.SeqFeature import BeforePosition, CompoundLocation
@@ -474,9 +476,22 @@ class SeqFeature:
             # several slices and none of them holds the whole feature.
             from Bio.SeqRecord import SeqRecord
 
-            if isinstance(answer, SeqRecord):
-                joined = self._joined_copy(self.location.parts, len(answer))
-                answer.features.insert(0, joined)
+            parts = self.location.parts
+            if (
+                isinstance(answer, SeqRecord)
+                and isinstance(parent_sequence, SeqRecord)
+                # Keep it only if the record has it, as a slice does:
+                and any(f is self for f in parent_sequence.features)
+                # A part covering the whole feature has already kept it:
+                and not any(
+                    part.ref is None
+                    and part.ref_db is None
+                    and part.start <= self.location.start
+                    and self.location.end <= part.end
+                    for part in parts
+                )
+            ):
+                answer.features.insert(0, self._joined_copy(parts, len(answer)))
         return answer
 
     def _joined_copy(
