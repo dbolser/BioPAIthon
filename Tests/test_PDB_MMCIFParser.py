@@ -459,6 +459,7 @@ ATOM 7 N N . GLY A 1 %s A 1.000 2.000 3.000 1.00 10.00 20A GLY B N 1
                 self.assertIn("chain 'B'", message)
                 self.assertIn("atom 7)", message)
                 self.assertIn("auth_residues=False", message)
+                self.assertIn("If it holds an insertion code", message)
                 # Callers catching ValueError, as before, still catch it.
                 self.assertIsInstance(cm.exception, ValueError)
 

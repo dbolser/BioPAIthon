@@ -32,9 +32,9 @@ def _int_resseq(resseq, field, chainid, serial):
         )
         if field == "_atom_site.auth_seq_id":
             msg += (
-                "; insertion codes belong in _atom_site.pdbx_PDB_ins_code. "
-                "Use auth_residues=False to number residues by "
-                "_atom_site.label_seq_id instead"
+                ". If it holds an insertion code, that belongs in "
+                "_atom_site.pdbx_PDB_ins_code. Use auth_residues=False to "
+                "number residues by _atom_site.label_seq_id instead"
             )
         raise PDBConstructionException(msg) from None
 
