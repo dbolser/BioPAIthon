@@ -55,6 +55,19 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.MMCIFParser`` and ``FastMMCIFParser`` now raise
+``PDBConstructionException`` when a residue number is not an integer, such as
+``20A`` in ``_atom_site.auth_seq_id``, which the mmCIF dictionary allows and
+some non-wwPDB tools write. The message names the value, its column, the chain
+and the atom serial, and points at ``auth_residues=False`` to number residues
+by ``_atom_site.label_seq_id`` instead. They used to fail with a bare
+``ValueError`` from ``int()`` that said none of this. Code catching
+``ValueError`` still works, because ``PDBConstructionException`` is a subclass
+of it. Such files still cannot be read with the author numbering: residue
+numbers in ``Bio.PDB`` are integers, and insertion codes are read from
+``_atom_site.pdbx_PDB_ins_code``. This is a long-standing upstream defect
+(biopython/biopython#2259), also in Biopython 1.88.
+
 ``Bio.motifs`` now reads minimal MEME files that have no "Background letter
 frequencies" section, such as those offered by factorbook.org. The MEME
 format makes that section optional, and says a missing one means uniform

@@ -16,6 +16,29 @@ from Bio.PDB.PDBExceptions import PDBConstructionWarning
 from Bio.PDB.StructureBuilder import StructureBuilder
 
 
+def _int_resseq(resseq, field, chainid, serial):
+    """Return the residue number as an int, or raise PDBConstructionException.
+
+    Bio.PDB residue ids hold an integer residue number. The mmCIF dictionary
+    allows any text in ``_atom_site.auth_seq_id``, so a file from a non-wwPDB
+    tool can hold a value such as ``20A`` there (biopython/biopython#2259).
+    """
+    try:
+        return int(resseq)
+    except ValueError:
+        msg = (
+            f"Residue number {resseq!r} in {field} (chain {chainid!r}, "
+            f"atom {serial}) is not an integer"
+        )
+        if field == "_atom_site.auth_seq_id":
+            msg += (
+                ". If it holds an insertion code, that belongs in "
+                "_atom_site.pdbx_PDB_ins_code. Use auth_residues=False to "
+                "number residues by _atom_site.label_seq_id instead"
+            )
+        raise PDBConstructionException(msg) from None
+
+
 class MMCIFParser:
     """Parse a mmCIF file and return a Structure object."""
 
@@ -194,12 +217,13 @@ class MMCIFParser:
             # if auth_seq_id is present, we use this.
             # Otherwise label_seq_id is used.
             if "_atom_site.auth_seq_id" in mmcif_dict:
-                seq_id_list = mmcif_dict["_atom_site.auth_seq_id"]
+                seq_id_field = "_atom_site.auth_seq_id"
             else:
-                seq_id_list = mmcif_dict["_atom_site.label_seq_id"]
+                seq_id_field = "_atom_site.label_seq_id"
         else:
-            seq_id_list = mmcif_dict["_atom_site.label_seq_id"]
+            seq_id_field = "_atom_site.label_seq_id"
             icode_list = ["."] * len(icode_list)
+        seq_id_list = mmcif_dict[seq_id_field]
 
         # Now loop over atoms and build the structure
         current_chain_id = None
@@ -249,7 +273,7 @@ class MMCIFParser:
                     PDBConstructionWarning,
                 )
                 continue
-            int_resseq = int(resseq)
+            int_resseq = _int_resseq(resseq, seq_id_field, chainid, serial)
             icode = icode_list[i]
             if icode in _unassigned:
                 icode = " "
@@ -513,12 +537,13 @@ class FastMMCIFParser:
             # if auth_seq_id is present, we use this.
             # Otherwise label_seq_id is used.
             if "_atom_site.auth_seq_id" in mmcif_dict:
-                seq_id_list = mmcif_dict["_atom_site.auth_seq_id"]
+                seq_id_field = "_atom_site.auth_seq_id"
             else:
-                seq_id_list = mmcif_dict["_atom_site.label_seq_id"]
+                seq_id_field = "_atom_site.label_seq_id"
         else:
-            seq_id_list = mmcif_dict["_atom_site.label_seq_id"]
+            seq_id_field = "_atom_site.label_seq_id"
             icode_list = ["."] * len(icode_list)
+        seq_id_list = mmcif_dict[seq_id_field]
 
         # Now loop over atoms and build the structure
         current_chain_id = None
@@ -560,7 +585,7 @@ class FastMMCIFParser:
                     PDBConstructionWarning,
                 )
                 continue
-            int_resseq = int(resseq)
+            int_resseq = _int_resseq(resseq, seq_id_field, chainid, serial)
             icode = icode_list[i]
             if icode in _unassigned:
                 icode = " "
