@@ -186,6 +186,67 @@ class PolypeptideTests(unittest.TestCase):
         self.assertAlmostEqual(thetas[2], 2.0702447422720143, places=3)
 
 
+class MissingCalphaTests(unittest.TestCase):
+    """Test Polypeptide methods on residues without a C-alpha atom."""
+
+    def test_terminal_residue_without_ca(self):
+        """Test a PPBuilder peptide ending in a residue with only an N atom."""
+        # ALA A 617, the last residue of chain A in 2XHE, has only its N atom,
+        # but PPBuilder links it to LYS A 616 by the C-N distance.
+        parser = PDBParser(PERMISSIVE=True, QUIET=True)
+        structure = parser.get_structure("2XHE", support.DATA / "PDB" / "2XHE.pdb")
+        pp = PPBuilder().build_peptides(structure[0]["A"])[-1]
+        self.assertEqual(repr(pp), "<Polypeptide start=561 end=617>")
+        self.assertNotIn("CA", pp[-1])
+
+        ca_list = pp.get_ca_list()
+        self.assertEqual(len(ca_list), len(pp))
+        self.assertIsNone(ca_list[-1])
+        self.assertIs(ca_list[-2], pp[-2]["CA"])
+        self.assertTrue(all(ca is not None for ca in ca_list[:-1]))
+
+        # Only the last window holds the CA-less residue.
+        taus = pp.get_tau_list()
+        self.assertEqual(len(taus), len(pp) - 3)
+        self.assertIsNone(taus[-1])
+        self.assertTrue(all(isinstance(tau, float) for tau in taus[:-1]))
+        self.assertIsNone(pp[-2].xtra["TAU"])
+
+        thetas = pp.get_theta_list()
+        self.assertEqual(len(thetas), len(pp) - 2)
+        self.assertIsNone(thetas[-1])
+        self.assertTrue(all(isinstance(theta, float) for theta in thetas[:-1]))
+        self.assertIsNone(pp[-2].xtra["THETA"])
+
+    def test_inner_residue_without_ca(self):
+        """Test that a CA-less residue mid-chain keeps the angles in place."""
+        parser = PDBParser(PERMISSIVE=True, QUIET=True)
+        structure = parser.get_structure("1A8O", support.DATA / "PDB" / "1A8O.pdb")
+        pp = PPBuilder().build_peptides(structure)[0]
+        taus_before = pp.get_tau_list()
+        thetas_before = pp.get_theta_list()
+
+        k = 10
+        pp[k].detach_child("CA")
+        self.assertIsNone(pp.get_ca_list()[k])
+
+        # tau i covers residues i to i+3, theta i covers residues i to i+2.
+        taus = pp.get_tau_list()
+        self.assertEqual(len(taus), len(taus_before))
+        for i, tau in enumerate(taus):
+            if i <= k <= i + 3:
+                self.assertIsNone(tau)
+            else:
+                self.assertEqual(tau, taus_before[i])
+        thetas = pp.get_theta_list()
+        self.assertEqual(len(thetas), len(thetas_before))
+        for i, theta in enumerate(thetas):
+            if i <= k <= i + 2:
+                self.assertIsNone(theta)
+            else:
+                self.assertEqual(theta, thetas_before[i])
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)

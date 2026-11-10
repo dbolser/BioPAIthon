@@ -190,14 +190,16 @@ class Polypeptide(list):
     def get_ca_list(self):
         """Get list of C-alpha atoms in the polypeptide.
 
-        :return: the list of C-alpha atoms
-        :rtype: [L{Atom}, L{Atom}, ...]
+        A residue without a C-alpha atom, such as a truncated terminal
+        residue that PPBuilder linked by its backbone N, gives None in
+        its slot, so the list stays aligned with the residues of the
+        polypeptide (as the list from get_phi_psi_list does).
+
+        :return: the list of C-alpha atoms, with None for a residue that
+            has no C-alpha atom
+        :rtype: [L{Atom} or None, ...]
         """
-        ca_list = []
-        for res in self:
-            ca = res["CA"]
-            ca_list.append(ca)
-        return ca_list
+        return [res["CA"] if "CA" in res else None for res in self]
 
     def get_phi_psi_list(self):
         """Return the list of phi/psi dihedral angles."""
@@ -245,30 +247,48 @@ class Polypeptide(list):
         return ppl
 
     def get_tau_list(self):
-        """List of tau torsions angles for all 4 consecutive Calpha atoms."""
+        """List of tau torsions angles for all 4 consecutive Calpha atoms.
+
+        Entry i is the angle for residues i to i+3. It is None when any
+        of those four residues has no C-alpha atom, so the list always
+        has len(self) - 3 entries.
+        """
         ca_list = self.get_ca_list()
         tau_list = []
         for i in range(len(ca_list) - 3):
             atom_list = (ca_list[i], ca_list[i + 1], ca_list[i + 2], ca_list[i + 3])
-            v1, v2, v3, v4 = (a.get_vector() for a in atom_list)
-            tau = calc_dihedral(v1, v2, v3, v4)
+            if any(a is None for a in atom_list):
+                tau = None
+                res = self[i + 2]
+            else:
+                v1, v2, v3, v4 = (a.get_vector() for a in atom_list)
+                tau = calc_dihedral(v1, v2, v3, v4)
+                res = ca_list[i + 2].get_parent()
             tau_list.append(tau)
             # Put tau in xtra dict of residue
-            res = ca_list[i + 2].get_parent()
             res.xtra["TAU"] = tau
         return tau_list
 
     def get_theta_list(self):
-        """List of theta angles for all 3 consecutive Calpha atoms."""
+        """List of theta angles for all 3 consecutive Calpha atoms.
+
+        Entry i is the angle for residues i to i+2. It is None when any
+        of those three residues has no C-alpha atom, so the list always
+        has len(self) - 2 entries.
+        """
         theta_list = []
         ca_list = self.get_ca_list()
         for i in range(len(ca_list) - 2):
             atom_list = (ca_list[i], ca_list[i + 1], ca_list[i + 2])
-            v1, v2, v3 = (a.get_vector() for a in atom_list)
-            theta = calc_angle(v1, v2, v3)
+            if any(a is None for a in atom_list):
+                theta = None
+                res = self[i + 1]
+            else:
+                v1, v2, v3 = (a.get_vector() for a in atom_list)
+                theta = calc_angle(v1, v2, v3)
+                res = ca_list[i + 1].get_parent()
             theta_list.append(theta)
-            # Put tau in xtra dict of residue
-            res = ca_list[i + 1].get_parent()
+            # Put theta in xtra dict of residue
             res.xtra["THETA"] = theta
         return theta_list
 

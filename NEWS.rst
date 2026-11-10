@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``get_ca_list``, ``get_tau_list`` and ``get_theta_list`` methods of a
+``Bio.PDB`` ``Polypeptide`` no longer fail with a bare ``KeyError: 'CA'`` when
+a residue has no C-alpha atom. ``PPBuilder`` joins residues by the distance
+from C to N, so it can include a truncated residue, typically at a chain end,
+such as ALA 617 of chain A in PDB entry 2XHE, which has only its N atom.
+``get_ca_list`` now gives ``None`` in that residue's place, and
+``get_tau_list`` and ``get_theta_list`` give ``None`` for each angle that
+needs the missing atom, as ``get_phi_psi_list`` already did. All three lists
+therefore stay aligned with the residues of the polypeptide: the C-alpha list
+has one entry per residue, tau angle *i* is still that of residues *i* to
+*i* + 3, and theta angle *i* that of residues *i* to *i* + 2. This changes only
+polypeptides that used to raise; code given one should now expect ``None`` in
+these lists. ``CaPPBuilder`` never admits such a residue and is unaffected.
+This is a long-standing upstream defect (biopython/biopython#969), also in
+Biopython 1.88.
+
 More parsers now accept a handle from ``tempfile.NamedTemporaryFile``:
 ``Bio.SeqIO`` in ``"ig"`` and ``"swiss"`` format, ``Bio.Compass``,
 ``Bio.Affy.CelFile`` (version 3 files), ``Bio.motifs`` in ``"alignace"`` and
