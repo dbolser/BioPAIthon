@@ -5407,6 +5407,16 @@ class TestDistPearson(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "pseudocounts"):
             pssm.dist_pearson(pssm)
 
+    def test_zero_background(self):
+        """A zero background frequency gives +inf log-odds, which raise."""
+        motif = motifs.create(self.instances)
+        motif.pseudocounts = 0.5
+        motif.background = {"A": 0.5, "C": 0.0, "G": 0.0, "T": 0.5}
+        pssm = motif.pssm
+        self.assertEqual(pssm["C", 0], math.inf)
+        with self.assertRaisesRegex(ValueError, "background frequency is zero"):
+            pssm.dist_pearson(pssm)
+
     def test_one_non_finite_value(self):
         """One infinite or NaN value in either matrix raises (biopython/biopython#555)."""
         # These gave a wrong distance and offset, skipping each offset that

@@ -591,7 +591,9 @@ class PositionSpecificScoringMatrix(GenericPositionMatrix):
         Both matrices must hold finite values only, or the correlation is
         undefined and this raises ValueError. A log-odds matrix made from
         counts without pseudocounts has -inf wherever a count is zero, so
-        add pseudocounts to the motif before computing its PSSM.
+        add pseudocounts to the motif before computing its PSSM. A
+        background frequency of zero gives +inf or NaN, whatever the
+        pseudocounts.
         """
         if self.alphabet != other.alphabet:
             raise ValueError("Cannot compare motifs with different alphabets")
@@ -602,7 +604,8 @@ class PositionSpecificScoringMatrix(GenericPositionMatrix):
                         "Cannot compute the Pearson correlation of a matrix "
                         "with an infinite or NaN value; a log-odds matrix "
                         "has -inf wherever a count is zero, which "
-                        "pseudocounts avoid"
+                        "pseudocounts avoid, and +inf or NaN wherever a "
+                        "background frequency is zero"
                     )
 
         max_p = -2
