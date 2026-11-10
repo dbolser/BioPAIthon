@@ -699,7 +699,9 @@ class CenterOfMassTests(unittest.TestCase):
         """Radius of gyration of empty structure raises ValueError."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
-            s = self.parser.get_structure("c", "PDB/disordered.pdb")  # smaller
+            s = self.parser.get_structure(
+                "c", support.DATA / "PDB" / "disordered.pdb"
+            )  # smaller
 
         for child in list(s):
             s.detach_child(child.id)
