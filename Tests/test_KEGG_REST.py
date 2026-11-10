@@ -197,7 +197,7 @@ class KEGGRESTURLs(unittest.TestCase):
         # KEGG offers RDF output of link only for drug, atc and jtc
         with self.assertRaises(ValueError):
             kegg_link("pathway", "hsa:10458", "turtle")
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "kegg link request"):
             kegg_link("pathway", "hsa", "kingdom")
 
 
