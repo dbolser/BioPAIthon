@@ -184,16 +184,25 @@ class PDBParser:
                     serial_number = int(line[6:11])
                 except Exception:
                     serial_number = 0
-                try:
-                    resseq = int(line[22:26].split()[0])  # sequence identifier
-                except IndexError:
-                    resseq = 0
-                    warnings.warn(
-                        "Empty residue sequence identifier in PDB file; defaulting "
-                        "residue sequence number to 0",
-                        PDBConstructionWarning,
+                # sequence identifier
+                resseq_field = line[22:26]
+                if not resseq_field.strip():
+                    # AutoDock writes ligands with a blank residue number.
+                    # Only a blank is defaulted; any other unreadable number
+                    # is an error, as guessing could merge distinct residues.
+                    self._handle_PDB_exception(
+                        "Blank residue sequence number, using 0",
+                        global_line_counter,
                     )
-
+                    resseq = 0
+                else:
+                    try:
+                        resseq = int(resseq_field.split()[0])
+                    except ValueError:
+                        raise PDBConstructionException(
+                            "Invalid residue sequence number %r at line %i."
+                            % (resseq_field, global_line_counter)
+                        ) from None
                 icode = line[26]  # insertion code
                 if record_type == "HETATM":  # hetero atom flag
                     if resname == "HOH" or resname == "WAT":
