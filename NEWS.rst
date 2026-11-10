@@ -55,19 +55,21 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
-``Bio.Phylo`` now writes Newick trees of any depth. ``Phylo.write`` with
-format ``"newick"``, and so ``Phylo.convert`` to Newick and
-``tree.format("newick")``, built the tree text with a function that called
-itself once for each level of nesting, so a tree more than about 500 levels
-deep, such as a long caterpillar, raised ``RecursionError``, although
-``Phylo.read`` reads trees of any depth. The writer now keeps its own stack
-of the clades still to write, and its output is unchanged. Writing with
-format ``"nexus"`` goes through the same writer, so it now works to about
-1000 levels rather than 500, but deeper trees still raise ``RecursionError``:
-listing the tips for the ``TaxLabels`` line uses a traversal that still
-recurses. This is an upstream defect, also in Biopython 1.88 and still in
-upstream's development code. The fix is Tony Tung's, from the unmerged
-biopython/biopython#3022, written after Nextstrain's augur hit it
+``Bio.Phylo`` now writes Newick trees of any depth, unless the ``ladderize``
+option is given. ``Phylo.write`` with format ``"newick"``, and so
+``Phylo.convert`` to Newick and ``tree.format("newick")``, built the tree text
+with a function that called itself once for each level of nesting, so a tree
+more than about 500 levels deep, such as a long caterpillar, raised
+``RecursionError``, although ``Phylo.read`` reads trees of any depth. The
+writer now keeps its own stack of the clades still to write, and its output is
+unchanged. Two cases still recurse elsewhere, so they now work to about 1000
+levels rather than 500, but deeper trees still raise ``RecursionError``: the
+``ladderize`` option, because ``Tree.ladderize`` sorts the clades recursively
+before the tree is written, and format ``"nexus"``, which goes through the
+same writer but then lists the tips for the ``TaxLabels`` line with a
+recursive traversal. This is an upstream defect, also in Biopython 1.88 and
+still in upstream's development code. The fix is Tony Tung's, from the
+unmerged biopython/biopython#3022, written after Nextstrain's augur hit it
 (nextstrain/augur#328). See ``ADOPTED.md``.
 
 The ``dist_pearson`` method of a ``Bio.motifs`` PSSM now raises ``ValueError``
