@@ -435,6 +435,33 @@ class SeqFeature:
            ...
         ValueError: The feature's .location is None. Check the sequence file for a valid location.
 
+        Given a SeqRecord, this returns a SeqRecord. For a simple location
+        that is a slice of the record, which keeps every feature of the
+        record lying wholly inside it, so this feature too if the record
+        holds it. A compound location (a ``join``, or an ``order``) is
+        assembled from several slices, none of which normally holds the
+        whole feature. So if the record holds this feature, a copy of it is
+        placed first in the returned record, located over all of it, with
+        the same type, id and qualifiers, and with the feature's fuzzy ends
+        (such as ``<`` on a partial CDS) kept. If one part covers the whole
+        feature, that part's slice already keeps it, and no copy is added:
+
+        >>> from Bio.SeqRecord import SeqRecord
+        >>> from Bio.SeqFeature import BeforePosition, CompoundLocation
+        >>> record = SeqRecord(Seq("AAACCCGGGTTTTAG"), id="demo")
+        >>> loc = CompoundLocation(
+        ...     [SimpleLocation(BeforePosition(0), 3, 1), SimpleLocation(9, 15, 1)]
+        ... )
+        >>> cds = SeqFeature(loc, type="CDS", qualifiers={"gene": ["demo"]})
+        >>> record.features.append(cds)
+        >>> sub = cds.extract(record)
+        >>> sub.seq
+        Seq('AAATTTTAG')
+        >>> print(sub.features[0].type, sub.features[0].location)
+        CDS [<0:9](+)
+        >>> sub.features[0].qualifiers
+        {'gene': ['demo']}
+
         Note - currently only compound features of type "join" are supported.
         """
         if self.location is None:
@@ -442,7 +469,67 @@ class SeqFeature:
                 "The feature's .location is None. Check the "
                 "sequence file for a valid location."
             )
-        return self.location.extract(parent_sequence, references=references)
+        answer = self.location.extract(parent_sequence, references=references)
+        if isinstance(self.location, CompoundLocation):
+            # A simple location extracts a slice of a SeqRecord, which keeps
+            # this feature if the record has it, but a join is assembled from
+            # several slices and none of them holds the whole feature.
+            from Bio.SeqRecord import SeqRecord
+
+            parts = self.location.parts
+            if (
+                isinstance(answer, SeqRecord)
+                and isinstance(parent_sequence, SeqRecord)
+                # Keep it only if the record has it, as a slice does:
+                and any(f is self for f in parent_sequence.features)
+                # A part covering the whole feature has already kept it:
+                and not any(
+                    part.ref is None
+                    and part.ref_db is None
+                    and part.start <= self.location.start
+                    and self.location.end <= part.end
+                    for part in parts
+                )
+            ):
+                answer.features.insert(0, self._joined_copy(parts, len(answer)))
+        return answer
+
+    def _joined_copy(
+        self, parts: Sequence["SimpleLocation"], length: int
+    ) -> "SeqFeature":
+        """Return a copy of a joined feature located over its extract (PRIVATE).
+
+        The arguments are the parts of the feature's CompoundLocation and
+        the length of the extracted sequence. The copy's start is the start
+        of the first part, and its end the end of the last part, each as it
+        reads in that part's own extracted piece, so fuzzy positions
+        survive. Its strand is the strand every part reads on once
+        extracted (+1 for parts on either strand), or None if they
+        disagree, as for a CompoundLocation.
+        """
+        pieces = []
+        for part in parts:
+            # The part as located in its own extracted piece, from zero.
+            piece = SimpleLocation(part.start, part.end, part.strand)
+            piece = piece._shift(-int(part.start))
+            if part.strand == -1:
+                piece = piece._flip(len(piece))
+            pieces.append(piece)
+        strands = {piece.strand for piece in pieces}
+        location = SimpleLocation(
+            pieces[0].start,
+            pieces[-1].end + (length - len(pieces[-1])),
+            strands.pop() if len(strands) == 1 else None,
+        )
+        return SeqFeature(
+            location=location,
+            type=self.type,
+            id=self.id,
+            qualifiers={
+                key: _copy_qualifier_value(value)
+                for key, value in self.qualifiers.items()
+            },
+        )
 
     @overload
     def translate(

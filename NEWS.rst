@@ -55,6 +55,31 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``SeqFeature.extract`` given a ``SeqRecord`` now keeps the feature when its
+location is a join, as it already did for a simple location. Extracting a
+simple location slices the record, and the slice keeps every feature lying
+wholly inside it, this feature included when the record holds it. A joined
+location, such as a spliced CDS or one spanning the origin, is assembled
+from one slice per part, none of which holds the whole feature, so the
+feature was silently dropped. Now, when the record holds the feature, the
+returned record gains, as its first feature, a copy of it with the same
+type, id and qualifiers (the qualifiers copied, so editing one leaves the
+original alone), located over the whole extracted sequence. That location
+is a single simple one: on the plus strand, including for minus strand and
+mixed strand joins, since the extract reads in the feature's own direction,
+and strandless for a strandless join such as a protein domain. Its ends
+keep the feature's fuzziness, so the copy of a partial CDS
+``join(<1..3,7..>9)``, or of its complement, runs from ``<0`` to ``>6`` on
+the plus strand. The same applies to an ``order`` location, whose parts
+``extract`` also joins end to end. Features lying wholly inside one part
+are still kept as before, after the copy. Nothing changes when the record
+does not hold the feature, as for a simple location; when one part covers
+the whole feature, since that part's slice already keeps it; for a ``Seq``
+or a string; or for ``CompoundLocation.extract`` called directly, which has
+no feature to keep. Code that counted or indexed the features of such an
+extract will see one more. This is an upstream defect, also in Biopython
+1.88 (biopython/biopython#4989).
+
 ``Bio.PDB.vectors.Vector.angle`` now raises ``ValueError`` for zero-length
 vectors instead of returning an incorrect angle. This also affects
 ``calc_angle`` and ``calc_dihedral`` when their defining points coincide or

@@ -688,6 +688,210 @@ class TestExtract(unittest.TestCase):
         with self.assertRaises(LocationParserError):
             SimpleLocation.fromstring("1..0", 10)
 
+    def check_joined_copy(self, feature, record, location):
+        """Extract a feature from a record, checking the copy of it kept."""
+        record.features.append(feature)
+        sub = feature.extract(record)
+        self.assertEqual(sub.seq, feature.extract(record.seq))
+        copy = sub.features[0]
+        self.assertIsNot(copy, feature)
+        self.assertEqual(copy.location, location)
+        # Equality ignores fuzziness, so compare the text as well:
+        self.assertEqual(str(copy.location), str(location))
+        self.assertEqual(len(copy), len(sub))
+        self.assertEqual(copy.extract(sub.seq), sub.seq)
+        self.assertEqual(copy.type, feature.type)
+        self.assertEqual(copy.id, feature.id)
+        self.assertEqual(copy.qualifiers, feature.qualifiers)
+        # The qualifiers are copied, as when slicing a record:
+        copy.qualifiers["gene"].append("changed")
+        self.assertEqual(feature.qualifiers["gene"], ["g"])
+        return sub
+
+    def test_joined_feature_kept_from_record(self):
+        """Test extracting a joined feature from a record keeps the feature."""
+        # Upstream issue #4989: a simple location kept the feature, as the
+        # record slice holds it, but a join silently dropped it.
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"), id="chr1")
+        inner = SeqFeature(SimpleLocation(7, 8, 1), type="misc_feature")
+        record.features.append(inner)
+        sub = self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(0, 3, 1) + SimpleLocation(6, 9, 1),
+                type="CDS",
+                id="cds1",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(0, 6, 1),
+        )
+        self.assertEqual(sub.seq, "AAAGGG")
+        # Features wholly inside one part are still kept after the copy:
+        self.assertEqual(len(sub.features), 2)
+        self.assertEqual(sub.features[1].type, "misc_feature")
+        self.assertEqual(sub.features[1].location, SimpleLocation(4, 5, 1))
+
+    def test_joined_feature_kept_minus_strand(self):
+        """Test a minus strand join gives a plus strand copy, as a slice does."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        sub = self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(6, 9, -1) + SimpleLocation(0, 3, -1),
+                type="CDS",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(0, 6, 1),
+        )
+        self.assertEqual(sub.seq, "CCCTTT")
+
+    def test_joined_feature_kept_mixed_strand(self):
+        """Test a mixed strand join reads on the plus strand once extracted."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(0, 3, 1) + SimpleLocation(6, 9, -1),
+                type="misc_feature",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(0, 6, 1),
+        )
+
+    def test_joined_feature_kept_strandless(self):
+        """Test a strandless join, such as a protein domain, stays strandless."""
+        record = SeqRecord.SeqRecord(Seq.Seq("MKQHKAMIVALIVICITAVVAAL"))
+        self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(2, 8) + SimpleLocation(10, 15),
+                type="domain",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(0, 11),
+        )
+
+    def test_joined_feature_kept_origin_spanning(self):
+        """Test an origin spanning join on a circular record keeps the feature."""
+        record = SeqRecord.SeqRecord(
+            Seq.Seq("AAACCCGGGTTT"), annotations={"topology": "circular"}
+        )
+        self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(9, 12, 1) + SimpleLocation(0, 2, 1),
+                type="CDS",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(0, 5, 1),
+        )
+
+    def test_joined_feature_kept_fuzzy_ends(self):
+        """Test the copy keeps the fuzzy ends of a partial joined feature."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        # join(<1..3,7..>9), the start of the feature, at the first part:
+        self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(BeforePosition(0), 3, 1)
+                + SimpleLocation(6, AfterPosition(9), 1),
+                type="CDS",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(BeforePosition(0), AfterPosition(6), 1),
+        )
+        # complement(join(<1..3,7..>9)) starts at >9 and ends at <1:
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        self.check_joined_copy(
+            SeqFeature(
+                SimpleLocation(6, AfterPosition(9), -1)
+                + SimpleLocation(BeforePosition(0), 3, -1),
+                type="CDS",
+                qualifiers={"gene": ["g"]},
+            ),
+            record,
+            SimpleLocation(BeforePosition(0), AfterPosition(6), 1),
+        )
+
+    def test_joined_feature_kept_with_references(self):
+        """Test a join with a part on another record keeps the feature."""
+        parent_record = SeqRecord.SeqRecord(Seq.Seq("aaccaaccaaccaaccaa"))
+        another_record = SeqRecord.SeqRecord(Seq.Seq("ttggttggttggttggtt"))
+        feature = SeqFeature(
+            SimpleLocation(2, 6) + SimpleLocation(5, 8, ref="ANOTHER.7"),
+            type="misc_feature",
+        )
+        parent_record.features.append(feature)
+        sub = feature.extract(parent_record, references={"ANOTHER.7": another_record})
+        self.assertEqual(sub.seq, "ccaatgg")
+        self.assertEqual(len(sub.features), 1)
+        self.assertEqual(sub.features[0].location, SimpleLocation(0, 7))
+        self.assertIsNone(sub.features[0].location.ref)
+
+    def test_joined_feature_kept_fuzzy_ends_text(self):
+        """Test the fuzzy ends of the copy are kept, not only their values."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        for location in (
+            SimpleLocation(BeforePosition(0), 3, 1)
+            + SimpleLocation(6, AfterPosition(9), 1),
+            SimpleLocation(6, AfterPosition(9), -1)
+            + SimpleLocation(BeforePosition(0), 3, -1),
+        ):
+            feature = SeqFeature(location, type="CDS")
+            record.features = [feature]
+            copy = feature.extract(record).features[0]
+            self.assertEqual(str(copy.location), "[<0:>6](+)")
+            self.assertIsInstance(copy.location.start, BeforePosition)
+            self.assertIsInstance(copy.location.end, AfterPosition)
+
+    def test_order_feature_kept(self):
+        """Test an order location keeps a copy too, as extract joins its parts."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        feature = SeqFeature(
+            CompoundLocation(
+                [SimpleLocation(0, 3, 1), SimpleLocation(6, 9, 1)], "order"
+            ),
+            type="misc_feature",
+        )
+        record.features.append(feature)
+        sub = feature.extract(record)
+        self.assertEqual(sub.seq, "AAAGGG")
+        self.assertEqual(len(sub.features), 1)
+        self.assertEqual(str(sub.features[0].location), "[0:6](+)")
+
+    def test_joined_feature_not_kept_if_record_lacks_it(self):
+        """Test no copy is added when the record does not hold the feature."""
+        # As for a simple location, whose slice only keeps the record's own.
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        joined = SeqFeature(SimpleLocation(0, 3, 1) + SimpleLocation(6, 9, 1))
+        simple = SeqFeature(SimpleLocation(0, 3, 1))
+        self.assertEqual(joined.extract(record).features, [])
+        self.assertEqual(simple.extract(record).features, [])
+
+    def test_joined_feature_not_duplicated(self):
+        """Test a part covering the whole feature does not give it twice."""
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        feature = SeqFeature(
+            SimpleLocation(0, 10, 1) + SimpleLocation(4, 10, 1), type="CDS"
+        )
+        record.features.append(feature)
+        sub = feature.extract(record)
+        self.assertEqual(len(sub), 16)
+        # The first part's slice keeps the feature, as before the fix:
+        self.assertEqual(
+            [str(f.location) for f in sub.features],
+            ["join{[0:10](+), [4:10](+)}"],
+        )
+
+    def test_joined_feature_not_added_to_plain_sequences(self):
+        """Test extracting a joined feature from a Seq or str is unchanged."""
+        feature = SeqFeature(SimpleLocation(0, 3) + SimpleLocation(6, 9))
+        self.assertEqual(feature.extract(Seq.Seq("AAACCCGGGTTT")), "AAAGGG")
+        self.assertEqual(feature.extract("AAACCCGGGTTT"), "AAAGGG")
+        # The location's own extract has no feature to keep:
+        record = SeqRecord.SeqRecord(Seq.Seq("AAACCCGGGTTT"))
+        self.assertEqual(feature.location.extract(record).features, [])
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
