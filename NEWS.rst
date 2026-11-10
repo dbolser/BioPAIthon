@@ -55,6 +55,29 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.KEGG.REST`` now matches the current KEGG REST API. ``kegg_conv``
+converts given entries to any database, including an organism, as in
+``kegg_conv("eco", "ncbi-geneid:948364")`` or ``kegg_conv("genes",
+"ncbi-geneid:948364")``, and accepts ``ncbi-proteinid`` and ``chebi``; all of
+these raised ``ValueError`` before, as did ``kegg_conv("compound", "chebi")``,
+because of a typo. ``kegg_list`` takes a new ``option`` argument for the
+database subsets KEGG now offers, as in ``kegg_list("genome",
+option="animals")`` or ``kegg_list("genome", option="562")`` for a taxonomy
+ID; ``kegg_find`` accepts the ``"nop"`` option, ``kegg_get`` the ``"conf"``
+option, and ``kegg_link`` the taxonomy options ``"species"`` to
+``"phylum"``. Some calls KEGG no longer
+answers now raise ``ValueError`` before any request is sent, instead of an
+HTTP error from the server or an empty result: ``kegg_list("module", org)``,
+any ``option`` of ``kegg_conv`` (KEGG withdrew its RDF output), ``ncbi-gi`` in
+``kegg_conv`` (use ``ncbi-proteinid``), and RDF options of ``kegg_link`` for
+targets other than ``drug``, ``atc`` and ``jtc``. ``kegg_list`` now also
+refuses more than 100 entries joined with ``"+"`` in a string, as it already
+did for a list: KEGG silently returns only the first 100. This is a
+long-standing upstream defect (biopython/biopython#729), also in Biopython
+1.88; the ``find``, ``get``, ``link`` and ``info`` changes are Arata Synqa
+Bando's, from the unmerged biopython/biopython#5255, and the ``conv`` and
+``list`` changes are this fork's. See ``ADOPTED.md``.
+
 ``BioSQL`` now works with the pure-Python MySQL driver PyMySQL, through
 ``BioSeqDatabase.open_database(driver="pymysql", ...)``. It could connect
 before, but could not load the BioSQL schema (``load_database_sql`` raised
