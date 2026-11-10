@@ -64,11 +64,11 @@ reduction operation maximum which has no identity``, a numpy error that did
 not say what was wrong. Each motif now has its name, id, length, number of
 occurrences and E-value, but its ``alignment`` and ``counts`` are ``None``, as
 for the motifs that ``Bio.motifs.mast`` reads, so ``consensus``, ``pwm`` and
-the other properties computed from the counts raise ``AttributeError``; and
-``record.sequences`` is an empty list. Run MEME with a larger ``-brief`` value
-to keep the sites. A file that has its sites is read as before. This is an
-upstream defect (biopython/biopython#3532, reported by Mathias Witte Paz),
-also in Biopython 1.88 and still in upstream's development code.
+the other properties computed from the counts fail; and ``record.sequences``
+is an empty list. Run MEME with a larger ``-brief`` value to keep the sites.
+A file that has its sites is read as before. This is an upstream defect
+(biopython/biopython#3532, reported by Mathias Witte Paz), also in Biopython
+1.88 and still in upstream's development code.
 
 ``Bio.bgzf.BgzfWriter`` now checks, when it is created, that a ``fileobj``
 it is given will take bytes, and raises ``ValueError("fileobj must be an
