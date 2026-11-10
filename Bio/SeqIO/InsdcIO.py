@@ -39,6 +39,7 @@ from string import digits
 from Bio import BiopythonWarning
 from Bio import SeqFeature
 from Bio import SeqIO
+from Bio.GenBank.Record import _wgs_range
 from Bio.GenBank.Scanner import _ImgtScanner
 from Bio.GenBank.Scanner import _NO_SPACE_QUALIFIERS
 from Bio.GenBank.Scanner import EmblScanner
@@ -1140,10 +1141,7 @@ class GenBankWriter(_InsdcWriter):
                 continue
             if key != "wgs_scafld" or isinstance(ranges, str):
                 ranges = [ranges]
-            for endpoints in ranges:
-                if not isinstance(endpoints, str):
-                    endpoints = "-".join(endpoints)
-                lines.append((tag, endpoints))
+            lines.extend((tag, _wgs_range(endpoints)) for endpoints in ranges)
         return lines
 
     def _write_sequence(self, record):

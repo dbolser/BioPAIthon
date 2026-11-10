@@ -97,7 +97,7 @@ def _indent_genbank(information, indent):
 
 
 def _wgs_range(endpoints):
-    """Format a WGS or WGS_SCAFLD range for output (PRIVATE).
+    """Format a WGS, WGS_SCAFLD, TSA or TLS range for output (PRIVATE).
 
     The parser stores a range as the list of its endpoints, which are joined
     with a hyphen. A range assigned as an already formatted string is written
