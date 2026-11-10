@@ -596,6 +596,12 @@ class Test_dn_ds(unittest.TestCase):
 class Test_dn_ds_not_codon_aligned(unittest.TestCase):
     """Test dN and dS of alignments whose gaps split codons."""
 
+    def setUp(self):
+        # Test set 3 of Test_build
+        self.codon_table = CodonTable.unambiguous_dna_by_id[3]
+        self.seq1 = "ATGGCAAGGGACCACCCAGTTGGGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACCTTTCTTTTCTCAAGACCATCCAG"
+        self.seq2 = "ATGGCAAGGCACCATCCAGTTGAGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACGTGTCTCTGCTCAAGACCATCCAG"
+
     def assertNotCodonAligned(self, seq1, seq2, columns):
         """Assert that cal_dn_ds rejects the pair, naming the columns."""
         from Bio.codonalign.codonseq import cal_dn_ds
@@ -612,6 +618,8 @@ class Test_dn_ds_not_codon_aligned(unittest.TestCase):
 
     def test_out_of_frame(self):
         """Test codons put out of frame by a gap that splits a codon."""
+        from Bio.codonalign.codonseq import cal_dn_ds
+
         # The codons of the first are AAA, CCC, GGG and TTT, but the
         # three columns 10-12 hold GTT. This gave dN of 0.165 by LWL85 and
         # 0.135 by ML for two sequences with no differences, and NG86 and
@@ -619,6 +627,13 @@ class Test_dn_ds_not_codon_aligned(unittest.TestCase):
         self.assertNotCodonAligned("AAACCC-GGGTTT--", "AAACCCGGGTTT---", "10-12")
         # This raised IndexError
         self.assertNotCodonAligned("AAACCC--GGGTT----T", "AAACCCGGGTTT------", "10-12")
+        # The arguments are checked first
+        with self.assertRaisesRegex(RuntimeError, "^cfreq can only be specified"):
+            cal_dn_ds(
+                codonalign.CodonSeq("AAACCC-GGGTTT--"),
+                codonalign.CodonSeq("AAACCCGGGTTT---"),
+                cfreq="F61",
+            )
 
     def test_issue_pair(self):
         """Test the nucleotide alignment of biopython/biopython#4999."""
@@ -665,10 +680,7 @@ class Test_dn_ds_not_codon_aligned(unittest.TestCase):
         """
         from Bio.codonalign.codonseq import cal_dn_ds
 
-        # Test set 3 of Test_build
-        codon_table = CodonTable.unambiguous_dna_by_id[3]
-        seq1 = "ATGGCAAGGGACCACCCAGTTGGGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACCTTTCTTTTCTCAAGACCATCCAG"
-        seq2 = "ATGGCAAGGCACCATCCAGTTGAGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACGTGTCTCTGCTCAAGACCATCCAG"
+        seq1, seq2, codon_table = self.seq1, self.seq2, self.codon_table
         # Split the codon at i as XY- Z--, with the other sequence's codon
         # against XY-, or remove it, leaving six gaps. With the codon at 81,
         # the last one, the split raised IndexError.
@@ -684,15 +696,46 @@ class Test_dn_ds_not_codon_aligned(unittest.TestCase):
                         cal_dn_ds(gapped, other, method, codon_table),
                     )
 
-    def test_mktest(self):
-        """Test that mktest rejects codons put out of frame."""
+    def test_no_codon_start_skipped(self):
+        """Test three columns in which no codon of the reading frame starts.
+
+        They are skipped, like a codon with a gap.
+        """
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        seq1, codon_table = self.seq1, self.codon_table
+        other = codonalign.CodonSeq(self.seq2)
+        # A reading frame that skips the codon at i, as for an insertion.
+        # This raised TypeError, or IndexError for the last codon, at 81.
+        for i in (30, 81):
+            rf_table = [j for j in range(0, len(seq1), 3) if j != i]
+            skipped = codonalign.CodonSeq(seq1, rf_table=rf_table)
+            gapped = codonalign.CodonSeq(f"{seq1[:i]}---{seq1[i + 3 :]}")
+            for method in ("NG86", "LWL85"):
+                with self.subTest(i=i, method=method):
+                    self.assertEqual(
+                        cal_dn_ds(skipped, other, method, codon_table),
+                        cal_dn_ds(gapped, other, method, codon_table),
+                    )
+
+    def test_alignment_methods(self):
+        """Test the CodonAlignment methods and mktest on codons out of frame."""
         codon_aln = codonalign.CodonAlignment(
             [
                 SeqRecord(codonalign.CodonSeq("AAACCC-GGGTTT--"), id="alpha"),
                 SeqRecord(codonalign.CodonSeq("AAACCCGGGTTT---"), id="beta"),
+                SeqRecord(codonalign.CodonSeq("AAACCAGGGTTT---"), id="gamma"),
             ]
         )
-        with self.assertRaisesRegex(ValueError, "^Not a codon alignment"):
+        # These raised TypeError, and mktest gave a p-value
+        message = "^Not a codon alignment: alignment columns 10-12 "
+        with self.assertRaisesRegex(ValueError, message) as cm:
+            codon_aln.get_dn_ds_matrix()
+        self.assertIn(" Bio.Align.CodonAligner makes", str(cm.exception))
+        self.assertIn(" Bio.Align.analysis.calculate_dn_ds ", str(cm.exception))
+        with self.assertRaisesRegex(ValueError, message):
+            codon_aln.get_dn_ds_tree()
+        with self.assertRaisesRegex(ValueError, message):
             codonalign.mktest([codon_aln, codon_aln])
 
 

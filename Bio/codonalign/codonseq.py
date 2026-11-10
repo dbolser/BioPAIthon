@@ -257,7 +257,9 @@ def _get_codon_list(codonseq):
     Each codon of the reading frame (rf_table) must start at the first
     nucleotide in its three columns, or this raises ValueError. A codon may
     have gaps in it, as does one that a frameshift cuts short in an alignment
-    from codonalign.build; the callers skip any codon with a gap.
+    from codonalign.build; the callers skip any codon with a gap. Three
+    columns in which no codon starts, such as an insertion that the reading
+    frame skips, are given as gaps, so that they are skipped too.
     """
     seq = str(codonseq)
     if len(seq) % 3:
@@ -271,8 +273,10 @@ def _get_codon_list(codonseq):
     starts = codonseq.rf_table  # where each codon starts, not counting gaps
     codon = 0  # the next codon to start
     done = 0  # nucleotides before these three columns
+    codons = []
     for column in range(0, len(seq), 3):
         bases = 3 - seq.count("-", column, column + 3)
+        block = "---"  # unless a codon starts here
         while codon < len(starts) and starts[codon] < done + bases:
             if starts[codon] != done:
                 raise ValueError(
@@ -283,9 +287,11 @@ def _get_codon_list(codonseq):
                     "alignments, and Bio.Align.analysis.calculate_dn_ds "
                     "calculates dN and dS from them."
                 )
+            block = seq[column : column + 3]
             codon += 1
+        codons.append(block)
         done += bases
-    return [seq[i : i + 3] for i in range(0, len(seq), 3)]
+    return codons
 
 
 def cal_dn_ds(codon_seq1, codon_seq2, method="NG86", codon_table=None, k=1, cfreq=None):
@@ -312,9 +318,9 @@ def cal_dn_ds(codon_seq1, codon_seq2, method="NG86", codon_table=None, k=1, cfre
 
     The two sequences must be rows of a codon alignment, such as one from
     ``codonalign.build``, in which each codon starts at the first nucleotide
-    in its three columns; codons with a gap in them are skipped. If gaps split
-    codons so that one starts partway through its three columns, ValueError
-    is raised.
+    in its three columns. Codons with a gap in them are skipped, as are three
+    columns in which no codon starts. If gaps split codons so that one starts
+    partway through its three columns, ValueError is raised.
 
     """
     if isinstance(codon_seq1, CodonSeq) and isinstance(codon_seq2, CodonSeq):
@@ -327,12 +333,10 @@ def cal_dn_ds(codon_seq1, codon_seq2, method="NG86", codon_table=None, k=1, cfre
             "cal_dn_ds accepts two CodonSeq objects or SeqRecord "
             "that contains CodonSeq as its seq!"
         )
-    seq1_codon_lst = _get_codon_list(codon_seq1)
-    seq2_codon_lst = _get_codon_list(codon_seq2)
-    if len(seq1_codon_lst) != len(seq2_codon_lst):
+    if len(codon_seq1) // 3 != len(codon_seq2) // 3:
         raise RuntimeError(
-            f"full_rf_table length of seq1 ({len(seq1_codon_lst)})"
-            f" and seq2 ({len(seq2_codon_lst)}) are not the same"
+            f"full_rf_table length of seq1 ({len(codon_seq1) // 3})"
+            f" and seq2 ({len(codon_seq2) // 3}) are not the same"
         )
     if cfreq is None:
         cfreq = "F3x4"
@@ -348,6 +352,8 @@ def cal_dn_ds(codon_seq1, codon_seq2, method="NG86", codon_table=None, k=1, cfre
         cfreq = "F3x4"
     if codon_table is None:
         codon_table = CodonTable.generic_by_id[1]
+    seq1_codon_lst = _get_codon_list(codon_seq1)
+    seq2_codon_lst = _get_codon_list(codon_seq2)
     # remove gaps in seq_codon_lst
     seq1 = []
     seq2 = []
