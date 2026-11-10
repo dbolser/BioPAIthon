@@ -41,6 +41,55 @@ request.
 
 Newest first.
 
+### [#5318](https://github.com/biopython/biopython/pull/5318) — NinjagoJaden1
+
+Fixes upstream issue
+[#1016](https://github.com/biopython/biopython/issues/1016), filed by peterjc
+in 2016 from a RedMine report by Wim De Smet. `EmblScanner` threw away every
+`DT` line, so a record read as `"embl"` or `"imgt"` had no
+`annotations["date"]`, and writing it as GenBank silently put `01-JAN-1980`
+on the `LOCUS` line. The pull request passes the first word of each `DT`
+line to `consumer.date()`, so the last one, normally "Last updated", wins:
+the pragmatic approach peterjc outlined on the issue.
+
+**The three commits taken** (`57c2cb0`, `006a07d`, `a32ec36`,
+cherry-picked with `-x`), with nothing left behind. They applied without
+conflicts and have no `NEWS.rst` or `CONTRIB.rst` hunk. The third adjusts two
+existing tests for the new annotation: `test_SeqIO_Insdc` deletes `date`
+before an EMBL round trip, because the EMBL writer writes no `DT` lines, and
+`test_SeqIO_features` skips `date` when comparing a GenBank and an EMBL copy
+of the same record, whose dates differ (`21-JUL-2008` against
+`14-NOV-2006`). The author ticked the combined "added my name, am listed
+already, or do not wish to be listed" box but added no name and is not
+listed, so is not added to `CONTRIB.rst`.
+
+**Correction on top**, in the fork's own commit. `data.split()[0]` raised
+`IndexError` on a `DT` line with no date, which the parser used to ignore.
+Such a line is now skipped with a `BiopythonParserWarning`, as a malformed
+`DR` line is, with a test. This guard is worth offering upstream on #5318.
+
+**Checked.** `test_embl_date` fails on main with `KeyError: 'date'`, and the
+fork's `test_embl_empty_date` fails there too (no warning); both pass here,
+as does the whole offline suite. The pull request's record now writes
+`20-APR-1999` on the GenBank `LOCUS` line. `Tests/EMBL/101ma_no_coords.embl`,
+whose `DT` line holds `1997-12-13`, keeps that string as its date, and the
+GenBank writer warns about it and falls back to `01-JAN-1980`, as for any
+malformed date.
+
+**Not done: round-tripping the date.** The EMBL writer still writes no `DT`
+line, so an EMBL round trip loses the date. peterjc asked on the pull
+request whether it could be round-tripped; a `DT` line also carries release
+information that the annotation does not hold, so that would be its own
+change.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with no activity since 2026-09-18. peterjc said it "seems fine",
+asked for the pull request template, for black to pass, and whether AI tools
+were used, then reported the test failures the third commit fixes and asked
+about the round trip above. The description now follows the template and all
+upstream checks pass, but neither question has a reply. The licence box is
+ticked. Issue #1016 is still open and upstream master has no fix.
+
 ### [#5362](https://github.com/biopython/biopython/pull/5362) — Zehao Wang
 
 Fixes upstream issue
