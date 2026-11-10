@@ -534,6 +534,13 @@ class _SeqAbstractBaseClass(ABC):
             return self._data < other.encode("ASCII")
         elif isinstance(other, (bytes, bytearray)):
             return self._data < other
+        elif isinstance(self._data, bytearray):
+            # A MutableSeq also orders against any other buffer object (a
+            # memoryview, array.array, NumPy array, ...), as bytearray does.
+            # Calling the method directly, not using <, returns NotImplemented
+            # for anything else instead of handing the bytearray to the other
+            # operand's reflected method. The same applies to <=, > and >=.
+            return self._data.__lt__(other)
         else:
             return NotImplemented
 
@@ -545,6 +552,8 @@ class _SeqAbstractBaseClass(ABC):
             return self._data <= other.encode("ASCII")
         elif isinstance(other, (bytes, bytearray)):
             return self._data <= other
+        elif isinstance(self._data, bytearray):
+            return self._data.__le__(other)
         else:
             return NotImplemented
 
@@ -556,6 +565,8 @@ class _SeqAbstractBaseClass(ABC):
             return self._data > other.encode("ASCII")
         elif isinstance(other, (bytes, bytearray)):
             return self._data > other
+        elif isinstance(self._data, bytearray):
+            return self._data.__gt__(other)
         else:
             return NotImplemented
 
@@ -567,6 +578,8 @@ class _SeqAbstractBaseClass(ABC):
             return self._data >= other.encode("ASCII")
         elif isinstance(other, (bytes, bytearray)):
             return self._data >= other
+        elif isinstance(self._data, bytearray):
+            return self._data.__ge__(other)
         else:
             return NotImplemented
 

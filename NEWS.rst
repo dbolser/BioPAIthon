@@ -63,15 +63,18 @@ so ``Seq("ACGT") < 5`` failed with "'<' not supported between instances of
 received a ``bytes`` object instead of the sequence. Now the message names
 ``'Seq'`` (or ``'MutableSeq'``), and the other class receives the sequence
 itself. Comparisons with a string, ``bytes``, ``bytearray`` or another
-sequence, and sorting mixtures of these, are unchanged. Two results change.
-Ordering against a NumPy array of byte strings, in either order, as in
-``Seq("ATG") < np.array([b"AAA", b"TTT"])``, used to compare element by
-element through the leaked ``bytes`` and now raises ``TypeError``; compare
-``bytes(seq)`` with the array to keep the old result. Equality (``==``)
-against such an array is unchanged. And an undefined sequence such as
-``Seq(None, length=3)`` compared with an unsupported type now raises
-``TypeError`` rather than ``UndefinedSequenceError``, as the comparison
-fails before its contents are needed. This is an upstream defect, also in
+sequence, and sorting mixtures of these, are unchanged. A ``MutableSeq``
+still orders against any other object with the buffer protocol, such as a
+``memoryview``, an ``array.array`` or a NumPy array, by comparing raw bytes
+and returning a single ``True`` or ``False``, as ``bytearray`` does. Two
+results change. Ordering a ``Seq`` against a NumPy array of byte strings, in
+either order, as in ``Seq("ATG") < np.array([b"AAA", b"TTT"])``, used to
+compare element by element through the leaked ``bytes`` and now raises
+``TypeError``; compare ``bytes(seq)`` with the array to keep the old result.
+Equality (``==``) against such an array is unchanged. And an undefined
+sequence such as ``Seq(None, length=3)`` compared with an unsupported type
+now raises ``TypeError`` rather than ``UndefinedSequenceError``, as the
+comparison fails before its contents are needed. This is an upstream defect, also in
 Biopython 1.88 (biopython/biopython#5292); the upstream maintainers would
 keep the ``TypeError`` and at most reword its message, which was proposed in
 biopython/biopython#5300, but that still hands the ``bytes`` to the other

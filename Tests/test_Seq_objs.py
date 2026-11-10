@@ -1563,6 +1563,37 @@ class ComparisonTests(unittest.TestCase):
                     self.assertEqual(called, reflected)
                     self.assertIs(received, seq)
 
+    def test_ordering_bytes_like(self):
+        """Both classes order against bytes, bytearray and their subclasses."""
+        for cls in (Seq, MutableSeq):
+            with self.subTest(cls=cls):
+                self.assertLess(cls("AC"), bytearray(b"AT"))
+                self.assertGreater(bytearray(b"AT"), cls("AC"))
+                self.assertGreaterEqual(cls("AT"), bytearray(b"AC"))
+                self.assertLessEqual(bytearray(b"AC"), cls("AT"))
+                if np is not None:
+                    self.assertLess(cls("AC"), np.bytes_(b"AT"))
+                    self.assertGreater(np.bytes_(b"AT"), cls("AC"))
+
+    def test_ordering_mutableseq_buffer(self):
+        """MutableSeq orders against other buffer objects, as bytearray does."""
+        others = [memoryview(b"AT"), array.array("B", b"AT")]
+        if np is not None:
+            others.append(np.frombuffer(b"AT", dtype=np.uint8))
+        for other in others:
+            with self.subTest(other=type(other).__name__):
+                self.assertIs(MutableSeq("AC") < other, True)
+                self.assertIs(MutableSeq("AC") <= other, True)
+                self.assertIs(MutableSeq("AC") > other, False)
+                self.assertIs(MutableSeq("AC") >= other, False)
+                self.assertIs(other > MutableSeq("AC"), True)
+                self.assertIs(other <= MutableSeq("AC"), False)
+        # Seq is backed by bytes, which does not order against these
+        for other in others[:2]:
+            with self.subTest(cls=Seq, other=type(other).__name__):
+                with self.assertRaises(TypeError):
+                    Seq("AC") < other  # noqa: B015
+
     def test_ordering_undefined_against_unsupported_type(self):
         """An undefined sequence against an unsupported type is a TypeError."""
         for symbol, op, _ in self.ordering:
