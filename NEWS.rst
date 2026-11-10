@@ -55,6 +55,29 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The ``Bio.SeqIO`` GenBank writer now puts a strand prefix, such as the ``ss-``
+of molecule type ``"ss-DNA"``, in columns 45 to 47 of the LOCUS line, with the
+molecule type from column 48, where the GenBank specification (section
+3.4.4.2 of the release notes), NCBI and SnapGene put them. The parser keeps
+the two together in ``record.annotations["molecule_type"]``, and the writer
+wrote them together from column 48, three columns to the right, so a record
+such as NCBI's phiX174 genome (``NC_001422``, ``ss-DNA``) or a SnapGene export
+(``ds-DNA``) was not written back as it was read. Molecule types with no
+prefix are written exactly as before. As the prefix now has its own columns,
+the limit of seven characters on the molecule type applies to what follows
+it, so ``"ss-snRNA"`` is written as it is, where it was replaced by ``DNA``
+with a warning that it was too long. Two cases that raised ``ValueError`` now
+write: molecule type ``ss-NA``, whose misplaced prefix failed the writer's
+own check of the molecule type, and ``NA`` with a locus name too long for the
+usual columns, a path the fork's adoption of biopython/biopython#4918 missed.
+This is an upstream defect (biopython/biopython#4878, reported by Peter
+Vegh), also in Biopython 1.88 and still in upstream's development code. The
+tests are adopted from Brandon Mokrytzki's unmerged biopython/biopython#5350
+and extended to molecule types of five to seven letters, such as ``snRNA``.
+That pull request's own writer change leaves four columns for the molecule
+type, so for these it writes a LOCUS line one to three characters too long,
+which ``Bio.SeqIO`` cannot read back, and the fork does not take it.
+
 ``Bio.Phylo`` no longer renames an internal clade that has both a name and a
 confidence when it writes a Newick tree. The writer put the confidence
 straight after the name, so a clade named ``N1`` with a confidence of 0.9 was
