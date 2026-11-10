@@ -55,6 +55,26 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB.PDBParser`` no longer crashes with a bare ``IndexError`` on an
+``ATOM`` or ``HETATM`` line whose residue number (columns 23 to 26) is
+blank, as AutoDock writes for ligands. The default, permissive parser now
+gives that atom residue number 0 and issues a ``PDBConstructionWarning``
+naming the line; with ``PERMISSIVE=False`` it raises
+``PDBConstructionException`` naming the line. A residue number that is not
+blank but is not an integer, such as ``1X`` or the hybrid-36 ``A000``, used
+to raise a bare ``ValueError`` and now raises ``PDBConstructionException``
+naming the field and the line, in both modes. That is a subclass of
+``ValueError``, so existing ``except ValueError`` code still catches it.
+Such numbers are not replaced by 0, because that would merge distinct
+residues into one. Note that 0 is a guess: if one chain holds several
+residues of the same name with blank numbers, they all become the same
+residue, and the permissive parser keeps the first copy of each atom and
+warns about the rest (silently with ``QUIET=True``); renumber such files
+first. This is an upstream defect, also in Biopython 1.88
+(biopython/biopython#5327). The default to 0 was written by Lucio Montero
+in biopython/biopython#5328, which is open upstream; the strict-mode error
+and the handling of non-numeric numbers were added by the fork.
+
 ``SeqFeature.extract`` given a ``SeqRecord`` now keeps the feature when its
 location is a join, as it already did for a simple location. Extracting a
 simple location slices the record, and the slice keeps every feature lying
