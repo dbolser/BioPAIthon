@@ -902,6 +902,14 @@ class GenBankWriter(_InsdcWriter):
         mol_type = self._get_annotation_str(record, "molecule_type", None)
         if mol_type is None:
             raise ValueError("missing molecule_type in annotations")
+        # The parser keeps a strand prefix with the molecule type (e.g.
+        # "ss-DNA"), but the LOCUS line gives the strand columns 45-47 of
+        # its own, before the molecule type from column 48 (GenBank
+        # release notes section 3.4.4.2), so split them apart again.
+        if mol_type[:3] in ("ss-", "ds-", "ms-") and mol_type[3:]:
+            strand, mol_type = mol_type[:3], mol_type[3:]
+        else:
+            strand = "   "
         if mol_type and len(mol_type) > 7:
             # Deal with common cases from EMBL to GenBank
             mol_type = mol_type.replace("unassigned ", "").replace("genomic ", "")
@@ -909,7 +917,9 @@ class GenBankWriter(_InsdcWriter):
                 warnings.warn(f"Molecule type {mol_type!r} too long", BiopythonWarning)
                 mol_type = "DNA"
         if mol_type in ["protein", "PROTEIN"]:
+            # No strand for a protein, so drop any prefix with the type
             mol_type = ""
+            strand = "   "
 
         if mol_type == "":
             units = "aa"
@@ -941,9 +951,10 @@ class GenBankWriter(_InsdcWriter):
 
         assert len(units) == 2  # noqa: S101
         assert len(division) == 3  # noqa: S101
-        line = "LOCUS       %s %s    %s %s %s %s\n" % (
+        line = "LOCUS       %s %s %s%s %s %s %s\n" % (
             name_length,
             units,
+            strand,
             mol_type.ljust(7),
             topology,
             division,
@@ -962,6 +973,8 @@ class GenBankWriter(_InsdcWriter):
                 splitline[3].strip() == "aa"
                 or "DNA" in splitline[4].strip().upper()
                 or "RNA" in splitline[4].strip().upper()
+                # Not splitline[4], which keeps any strand prefix (ss-NA)
+                or mol_type.upper() == "NA"
             ):
                 raise ValueError(
                     "LOCUS line does not contain valid "

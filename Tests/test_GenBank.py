@@ -8339,48 +8339,61 @@ KEYWORDS    """,
             self.assertEqual(gb.annotations["date"], "01-JAN-1980")
 
     def test_genbank_locus_strandedness_export_alignment(self):
-        """
-        Check that the strandedness of the molecule type is aligned in the LOCUS line.
-        As per the GenBank format definition specified in section 3.4.4.2 here: https://ftp.ncbi.nih.gov/genbank/gbrel.txt,
-        the strandedness belongs on positions 45-47 of the LOCUS line with values "   " (spaces if not known), "ss-", "ds-" or "ms-".
+        """Check the strand and molecule type columns of a written LOCUS line.
+
+        Section 3.4.4.2 of the GenBank release notes
+        (https://ftp.ncbi.nih.gov/genbank/gbrel.txt) puts the strandedness
+        in columns 45-47 of the LOCUS line, as spaces (if not known),
+        ``ss-``, ``ds-`` or ``ms-``, and the molecule type from column 48.
         """
         sequence_object = Seq("ATGC")
+        # Columns 45-54: the strand, then the molecule type padded to 7.
         test_cases = [
-            ("NA", "   NA  "),
-            ("ss-NA", "ss-NA  "),
-            ("ds-NA", "ds-NA  "),
-            ("ms-NA", "ms-NA  "),
-            ("DNA", "   DNA "),
-            ("ss-DNA", "ss-DNA "),
-            ("ds-DNA", "ds-DNA "),
-            ("ms-DNA", "ms-DNA "),
-            ("RNA", "   RNA "),
-            ("ss-RNA", "ss-RNA "),
-            ("ds-RNA", "ds-RNA "),
-            ("ms-RNA", "ms-RNA "),
-            ("tRNA", "   tRNA"),
-            ("ss-tRNA", "ss-tRNA"),
-            ("ds-tRNA", "ds-tRNA"),
-            ("ms-tRNA", "ms-tRNA"),
-            ("rRNA", "   rRNA"),
-            ("ss-rRNA", "ss-rRNA"),
-            ("ds-rRNA", "ds-rRNA"),
-            ("ms-rRNA", "ms-rRNA"),
-            ("mRNA", "   mRNA"),
-            ("ss-mRNA", "ss-mRNA"),
-            ("ds-mRNA", "ds-mRNA"),
-            ("ms-mRNA", "ms-mRNA"),
-            ("uRNA", "   uRNA"),
-            ("ss-uRNA", "ss-uRNA"),
-            ("ds-uRNA", "ds-uRNA"),
-            ("ms-uRNA", "ms-uRNA"),
-            ("cRNA", "   cRNA"),
-            ("ss-cRNA", "ss-cRNA"),
-            ("ds-cRNA", "ds-cRNA"),
-            ("ms-cRNA", "ms-cRNA"),
+            "   NA     ",
+            "ss-NA     ",
+            "ds-NA     ",
+            "ms-NA     ",
+            "   DNA    ",
+            "ss-DNA    ",
+            "ds-DNA    ",
+            "ms-DNA    ",
+            "   RNA    ",
+            "ss-RNA    ",
+            "ds-RNA    ",
+            "ms-RNA    ",
+            "   tRNA   ",
+            "ss-tRNA   ",
+            "ds-tRNA   ",
+            "ms-tRNA   ",
+            "   rRNA   ",
+            "ss-rRNA   ",
+            "ds-rRNA   ",
+            "ms-rRNA   ",
+            "   mRNA   ",
+            "ss-mRNA   ",
+            "ds-mRNA   ",
+            "ms-mRNA   ",
+            "   uRNA   ",
+            "ss-uRNA   ",
+            "ds-uRNA   ",
+            "ms-uRNA   ",
+            "   cRNA   ",
+            "ss-cRNA   ",
+            "ds-cRNA   ",
+            "ms-cRNA   ",
+            # Molecule types of five to seven letters must still fit
+            "   snRNA  ",
+            "ss-snRNA  ",
+            "   ncRNA  ",
+            "ds-ncRNA  ",
+            "   snoRNA ",
+            "ms-snoRNA ",
+            "   circRNA",
+            "ss-circRNA",
         ]
 
-        for molecule_type, expected_substring in test_cases:
+        for padded_mol_type in test_cases:
+            molecule_type = padded_mol_type.strip()
             with self.subTest(molecule_type=molecule_type):
                 record = SeqRecord(
                     sequence_object,
@@ -8398,7 +8411,79 @@ KEYWORDS    """,
                 self.assertEqual(
                     len(line), 80, f"LOCUS line length is {len(line)} instead of 80"
                 )  # Check that the LOCUS line is exactly 80 characters long (79 plus the newline)
-                self.assertEqual(line[44:51], expected_substring)
+                self.assertEqual(line[44:54], padded_mol_type)
+                self.assertEqual(line[54:64], " linear   ")
+                # The parser joins the two columns back into molecule_type
+                handle.seek(0)
+                record = SeqIO.read(handle, "genbank")
+                self.assertEqual(record.annotations["molecule_type"], molecule_type)
+
+    def test_genbank_locus_strand_round_trip(self):
+        """Write the LOCUS line of a record with a strand prefix unchanged."""
+        # NC_001422 is an NCBI RefSeq record (ss-DNA), and the other file a
+        # test plasmid (ds-DNA). Both put the strand in columns 45-47.
+        for path in (
+            support.DATA / "GFF" / "NC_001422.gbk",
+            support.DATA / "GenBank" / "bad_origin_wrap_CDS.gb",
+        ):
+            with self.subTest(path=path.name):
+                with open(path) as handle:
+                    locus_line = handle.readline()
+                with warnings.catch_warnings():
+                    # bad_origin_wrap_CDS.gb warns about its feature locations
+                    warnings.simplefilter("ignore", BiopythonParserWarning)
+                    record = SeqIO.read(path, "genbank")
+                handle = StringIO()
+                SeqIO.write(record, handle, "genbank")
+                handle.seek(0)
+                self.assertEqual(handle.readline(), locus_line)
+
+    def test_genbank_locus_long_header_molecule_type(self):
+        """Write NA, or a strand prefix, in a LOCUS line with a long name."""
+        # A locus name this long moves the fields from their usual columns,
+        # so the writer checks the molecule type in the whitespace-split line.
+        # After the length the fields keep their usual layout: the units, the
+        # strand, then the molecule type padded to 7.
+        name = "A" * 27
+        for padded_mol_type in ("   NA     ", "ss-NA     ", "   DNA    ", "ss-DNA    "):
+            molecule_type = padded_mol_type.strip()
+            with self.subTest(molecule_type=molecule_type):
+                record = SeqRecord(
+                    Seq("ACGT"),
+                    id=name,
+                    name=name,
+                    annotations={"topology": "linear", "molecule_type": molecule_type},
+                )
+                handle = StringIO()
+                with self.assertWarnsRegex(BiopythonWarning, "long name"):
+                    SeqIO.write(record, handle, "genbank")
+                handle.seek(0)
+                line = handle.readline()
+                expected = f"LOCUS       {name} 4 bp {padded_mol_type} linear   "
+                self.assertEqual(line[: len(expected)], expected)
+                handle.seek(0)
+                self.assertEqual(SeqIO.read(handle, "genbank").seq, "ACGT")
+
+    def test_genbank_locus_strand_prefix_protein(self):
+        """Write a protein with a strand prefix as a plain protein."""
+        # A strand is for nucleic acids, and the parser never gives a prefix
+        # with protein, but a prefix must not be left with the units "aa".
+        for molecule_type in ("protein", "ss-protein", "ds-PROTEIN"):
+            with self.subTest(molecule_type=molecule_type):
+                record = SeqRecord(
+                    Seq("MKV"),
+                    id="P1",
+                    name="P1",
+                    annotations={"molecule_type": molecule_type},
+                )
+                handle = StringIO()
+                SeqIO.write(record, handle, "genbank")
+                handle.seek(0)
+                # Columns 41-54: the units, then a blank strand and type
+                self.assertEqual(handle.readline()[40:54], " aa" + " " * 11)
+                handle.seek(0)
+                record = SeqIO.read(handle, "genbank")
+                self.assertEqual(record.annotations["molecule_type"], "protein")
 
     def test_longer_locus_line(self):
         """Check that we can read and write files with longer locus lines."""
