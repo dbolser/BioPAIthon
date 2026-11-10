@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.codonalign.codonseq.cal_dn_ds``, and so ``get_dn_ds_matrix`` and
+``get_dn_ds_tree`` of a ``CodonAlignment``, and ``Bio.codonalign.mktest``, now
+raise ``ValueError`` when gaps split codons so that a codon starts partway
+through the three columns that should hold it, as in a nucleotide alignment
+that is not a codon alignment. The message names the columns, and points to
+``Bio.Align.CodonAligner`` to make a codon alignment and to
+``Bio.Align.analysis.calculate_dn_ds`` for its dN and dS. Such alignments
+raised ``IndexError`` or ``TypeError``, or ``ValueError: Sequence length is
+not a multiple of three`` for sequences whose length is a multiple of three,
+or gave results from codons out of frame: for ``AAACCC-GGGTTT--`` and
+``AAACCCGGGTTT---``, which have the same four codons, the ``LWL85`` method
+gave a dN of 0.165 and the ``ML`` method one of 0.135. As before, a codon
+with a gap in it is skipped, such as one that ``codonalign.build`` cuts short
+at a frameshift and pads with gaps, or one that gaps split without putting the
+codons after it out of frame, which raised ``IndexError`` if it was the last
+codon. This is an upstream defect (biopython/biopython#4999, reported by
+Boxuan Li), also in Biopython 1.88 and still in upstream's development code.
+
 The ``Bio.SeqIO`` GenBank writer now writes the free text of a ``COMMENT``
 before its structured comments, the tables from a line such as
 ``##Assembly-Data-START##`` to the matching ``##Assembly-Data-END##``, which
