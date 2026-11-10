@@ -1763,7 +1763,7 @@ The ``search`` method takes a center point (a coordinate) and a radius in
 Ångström. To find the residues near a given residue, use the coordinates of
 one of its atoms as the center. With ``level="R"``, it returns every residue
 with at least one atom within the radius, instead of individual atoms
-(``"C"`` and ``"M"`` return chains and models):
+(``"C"``, ``"M"`` and ``"S"`` return chains, models and structures):
 
 .. cont-doctest ../Tests/PDB lib:numpy
 
