@@ -137,3 +137,8 @@ are a few examples from the api documentation
    /list/hsa:10458+ece:Z5100            -> REST.kegg_list(["hsa:10458", "ece:Z5100"])
    /find/compound/300-310/mol_weight    -> REST.kegg_find("compound", "300-310", "mol_weight")
    /get/hsa:10458+ece:Z5100/aaseq      -> REST.kegg_get(["hsa:10458", "ece:Z5100"], "aaseq")
+   /list/genome/animals                 -> REST.kegg_list("genome", option="animals")
+
+The one exception is ``kegg_list``, whose second argument is an organism
+for the pathway database only: subsets of other databases, such as a
+group of genomes, are given as ``option``, as in the last example.

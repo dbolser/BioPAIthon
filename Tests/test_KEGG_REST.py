@@ -88,6 +88,9 @@ class KEGGRESTURLs(unittest.TestCase):
             kegg_list("pathway", option="jp")
         with self.assertRaises(ValueError):
             kegg_list("brite", "hsa", option="jp")
+        # The subset is option, not org
+        with self.assertRaisesRegex(ValueError, "option='animals'"):
+            kegg_list("genome", "animals")
 
     def test_list_limit(self):
         entries = [f"hsa:{i}" for i in range(1, 101)]
@@ -149,6 +152,10 @@ class KEGGRESTURLs(unittest.TestCase):
             kegg_conv("compound", "pubchem:3303"), "conv/compound/pubchem:3303"
         )
         self.assertURL(kegg_conv("chebi", "C00001"), "conv/chebi/C00001")
+        self.assertURL(
+            kegg_conv("pubchem", ["C00001", "D00001", "G00001"]),
+            "conv/pubchem/C00001+D00001+G00001",
+        )
 
     def test_conv_rejects(self):
         with self.assertRaises(ValueError):
@@ -164,6 +171,17 @@ class KEGGRESTURLs(unittest.TestCase):
             kegg_conv("eco", "ncbi-gi")
         with self.assertRaises(ValueError):
             kegg_conv("ncbi-gi", "hsa:10458")
+        with self.assertRaises(ValueError):
+            kegg_conv("hsa", "ncbi-gi:4507949")
+        with self.assertRaises(ValueError):
+            kegg_conv("hsa", ["hsa:10458", "ncbi-gi:4507949"])
+        # Gene and chemical databases do not mix (HTTP 400 or an empty result)
+        with self.assertRaises(ValueError):
+            kegg_conv("pubchem", "hsa")
+        with self.assertRaises(ValueError):
+            kegg_conv("chebi", "T01001")
+        with self.assertRaises(ValueError):
+            kegg_conv("uniprot", "compound")
 
     def test_link(self):
         self.assertURL(kegg_link("pathway", "hsa"), "link/pathway/hsa")

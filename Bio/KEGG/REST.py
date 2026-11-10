@@ -30,10 +30,14 @@ Nucleic Acids Res. 28, 29-34 (2000).
 """
 
 import io
+import re
 import time
 from urllib.request import urlopen
 
 from Bio._utils import function_with_previous
+
+# An unprefixed KEGG compound, drug or glycan entry, such as C00001
+_CHEM_ENTRY = re.compile(r"[CDG]\d{5}")
 
 
 @function_with_previous
@@ -139,6 +143,11 @@ def kegg_list(database, org=None, option=None):
     if database in ("brite", "genome") and option and not org:
         return _q("list", database, option)
 
+    if org and database in ("brite", "genome") and not option:
+        raise ValueError(
+            f"Invalid org arg for kegg list request: use "
+            f"kegg_list({database!r}, option={org!r}) for /list/{database}/{org}."
+        )
     if org:
         raise ValueError("Invalid database arg for kegg list request.")
     if option:
@@ -310,7 +319,12 @@ def kegg_conv(target_db, source_db, option=None):
     if isinstance(source_db, list):
         source_db = "+".join(source_db)
 
-    if "ncbi-gi" in (target_db, source_db):
+    entries = source_db.split("+") if isinstance(source_db, str) else []
+    if target_db == "ncbi-gi" or any(
+        entry == "ncbi-gi" or entry.startswith("ncbi-gi:") for entry in entries
+    ):
+        # KEGG answers the database form with HTTP 400, and the entries
+        # form, even mixed with other entries, with an empty result.
         raise ValueError(
             "KEGG no longer offers ncbi-gi for kegg conv requests; "
             "use ncbi-proteinid instead."
@@ -320,9 +334,25 @@ def kegg_conv(target_db, source_db, option=None):
     chem_kegg_db = ("drug", "compound", "glycan")
     chem_outside_db = ("pubchem", "chebi")
     if (
-        # Either form, converting to an outside database
-        target_db in gene_outside_db + chem_outside_db
-        # Database form, from an outside database
+        # Either form, converting to an outside gene database, but not
+        # from a chemical database (HTTP 400)
+        (
+            target_db in gene_outside_db
+            and source_db not in chem_kegg_db + chem_outside_db
+        )
+        # Converting to an outside chemical database, from a KEGG chemical
+        # database, or from entries such as C00001, D00001 or cpd:C00001
+        # (an organism gets HTTP 400, or an empty result for a T number)
+        or (
+            target_db in chem_outside_db
+            and (
+                source_db in chem_kegg_db
+                or all(
+                    ":" in entry or _CHEM_ENTRY.fullmatch(entry) for entry in entries
+                )
+            )
+        )
+        # Database form, from an outside gene database
         or source_db in gene_outside_db
         or (target_db in chem_kegg_db and source_db in chem_outside_db)
         # Entries form, such as hsa:10458 or ncbi-geneid:948364, which can
