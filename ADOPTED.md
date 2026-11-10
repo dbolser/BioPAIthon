@@ -41,6 +41,62 @@ request.
 
 Newest first.
 
+### [#3022](https://github.com/biopython/biopython/pull/3022) — Tony Tung
+
+`Bio.Phylo.NewickIO.Writer.to_strings` built each tree's text with
+`newickize`, a closure that called itself once per level of nesting, two
+Python frames a level with its generator expression. So `Phylo.write` with
+format `"newick"` raised `RecursionError` from depth 496 of a caterpillar, in
+Biopython 1.88, upstream master and the fork alike, though `Phylo.read` reads
+trees of any depth. The pull request replaces the recursion with a loop over a
+deque of clades and two kinds of marker, one that closes an internal clade and
+writes its label and branch information, and one that writes a comma, all into
+a `StringIO`. It was written after Nextstrain's augur hit the limit
+([nextstrain/augur#328](https://github.com/nextstrain/augur/issues/328)).
+
+**The single commit taken** (`9edae6a89`, cherry-picked with `-x`), with
+nothing left behind. It conflicted twice, both times on lines that changed
+after 2020. On the label-quoting line the fork's line was kept: it doubles a
+single quote, as upstream master has since `35b09e7c9`, where the pull request
+backslash-escaped it. In `CONTRIB.rst`, the author's line went into its
+alphabetical place after Tommy Carstensen. The rest of the code is as the
+author wrote it.
+
+**Corrections on top**, in the fork's own commits. The two `.format` calls the
+pull request added are f-strings, as the fork's ruff (UP032) requires. `tung`
+joins the words codespell accepts, as upstream did for other names, because
+codespell reads the surname as a misspelling of "tongue". A comment in
+`BaseTree` that listed the Newick writer among the recursive traversals no
+longer does; the #4634 entry below still gives it as a reason, which was true
+when that was written. The markers keep their names, though `TerminalMarker`
+marks the end of a non-terminal clade: its docstring says so, and a rename
+would only make the code differ from the pull request.
+
+**Checked.** The pull request has no test. `test_Phylo` gains one that writes
+a 5000-deep caterpillar, with the default options and with `plain=True`, and
+compares the text with the input; against main it fails with `RecursionError`,
+and the rest of `test_Phylo` passes. The new writer's output was compared with
+the recursive writer's from main over 109 tree sources (hand-made cases and
+the Newick files under `Tests/Nexus` and `Tests/TreeConstruction`, each read
+three ways, and the NEXUS, PhyloXML and NeXML test files), each as read, with
+its confidences doubled, and with every internal clade given a name and a
+confidence, so that the fork's confidence comments for named clades are
+written, times 384 combinations of the writer's options: 125,568 comparisons,
+each with the same text, or the same exception, and the same warnings, which
+432 of them give. Depths 5000 and 100000 round-trip.
+
+**Not fixed: NEXUS output of deep trees.** `NexusIO.write` uses this writer,
+then lists the tips with `get_terminals`, whose `_preorder_traverse` is a
+recursive generator. So format `"nexus"` now fails from depth 992 rather than
+497. Making that traversal iterative is a separate change.
+
+**Upstream status:** as of 2026-11-09 the pull request is open and not a
+draft, with one commit. The only review comment, peterjc's docstring nit, was
+fixed by the author. On 2020-07-18 peterjc asked etal to review it, and nobody
+did; the author's last ping was on 2020-10-05. The licence box is ticked, and
+on 2020-07-07 the author said his employer's legal team had approved ticking
+it. He added himself to `CONTRIB.rst`.
+
 ### [#5350](https://github.com/biopython/biopython/pull/5350) — Brandon Mokrytzki
 
 Fixes upstream issue
