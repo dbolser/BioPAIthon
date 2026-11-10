@@ -305,6 +305,25 @@ class Test_build(unittest.TestCase):
                 self.aln1, self.seqlist1, complete_protein=True
             )
 
+    def test_build_frameshift_dn_ds(self):
+        """Test dN and dS of codon alignments with frameshifts."""
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        codon_aln1 = codonalign.build(self.aln1, self.seqlist1)
+        codon_aln2 = codonalign.build(self.aln2, self.seqlist2)
+        # build pads with gaps the codons that a frameshift cuts short
+        self.assertEqual(codon_aln1[1].seq[21:24], "CG-")
+        self.assertEqual(codon_aln2[1].seq[15:18], "TT-")
+        self.assertEqual(codon_aln2[1].seq[99:102], "AA-")
+        self.assertEqual(codon_aln2[2].seq[48:51], "C--")
+        dN, dS = cal_dn_ds(codon_aln1[0], codon_aln1[1], method="NG86")
+        self.assertAlmostEqual(dN, 0.0463, places=4)
+        self.assertAlmostEqual(dS, 0.1544, places=4)
+        # The sequences differ only at the frameshifts, which are skipped
+        dn, ds = codon_aln2.get_dn_ds_matrix(method="LWL85")
+        self.assertEqual(dn.matrix, [[0], [0, 0], [0, 0, 0]])
+        self.assertEqual(ds.matrix, [[0], [0, 0], [0, 0, 0]])
+
 
 class Test_dn_ds(unittest.TestCase):
     def setUp(self):
@@ -538,6 +557,109 @@ class Test_dn_ds(unittest.TestCase):
             self.assertEqual(
                 format(tree, "newick"), format(constructor.wpgma(dm), "newick")
             )
+
+
+class Test_dn_ds_not_codon_aligned(unittest.TestCase):
+    """Test dN and dS of alignments whose gaps split codons."""
+
+    def assertNotCodonAligned(self, seq1, seq2, columns):
+        """Assert that cal_dn_ds rejects the pair, naming the columns."""
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        seq1 = codonalign.CodonSeq(seq1)
+        seq2 = codonalign.CodonSeq(seq2)
+        message = f"^Not a codon alignment: alignment columns {columns} "
+        for method in ("NG86", "LWL85", "YN00", "ML"):
+            with self.subTest(method=method):
+                with self.assertRaisesRegex(ValueError, message):
+                    cal_dn_ds(seq1, seq2, method=method)
+                with self.assertRaisesRegex(ValueError, message):
+                    cal_dn_ds(seq2, seq1, method=method)
+
+    def test_out_of_frame(self):
+        """Test codons put out of frame by a gap that splits a codon."""
+        # The codons of the first are AAA, CCC, GGG and TTT, but the
+        # three columns 10-12 hold GTT. This gave dN of 0.165 by LWL85 and
+        # 0.135 by ML for two sequences with no differences, and NG86 and
+        # YN00 raised TypeError and ValueError.
+        self.assertNotCodonAligned("AAACCC-GGGTTT--", "AAACCCGGGTTT---", "10-12")
+        # This raised IndexError
+        self.assertNotCodonAligned("AAACCC--GGGTT----T", "AAACCCGGGTTT------", "10-12")
+
+    def test_issue_pair(self):
+        """Test the nucleotide alignment of biopython/biopython#4999."""
+        # The 62 gaps after the first 140 nucleotides split a codon, and put
+        # the codons after them out of frame. This raised "ValueError:
+        # Sequence length is not a multiple of three", though it is.
+        seq1 = (
+            "-" * 9
+            + (
+                "atgaccgccgaatcgccgacgatccgcctcgaacgctacagcgaacgccacgtggaaggcctca"
+                "ccgccctgtacaacgaccccgccgtggcccgccaggtcctgcagatgccctaccagtcggtgga"
+                "gcagcgccgcaa"
+            )
+            + "-" * 62
+            + (
+                "gcgcctgcacgacagcgcggacgacgaccgcctgctgatcctcgtcgccctgcaccagggggac"
+                "gtcatcggcagcgccagcctcgaacagcacccgcgcatccgccg"
+            )
+            + "-" * 6
+            + (
+                "cagccacagcggcagcatcggcatgggcgtcgccgtcgcctggcagggcaagggcgtcggcagc"
+                "cgcctgctcggcgaactgctggacatcgccgacaactggatgaacctgcgccgcgtcgaactca"
+                "ccgtctacaccgacaacgccccggcgctggcgctgtatcgcaagttcggcttcgagaccgaagg"
+                "agagatgcgcgactacgcggtgcgggatgggcgcttcgtggacgtgtacagcatggcgcgcttg"
+                "cggag"
+            )
+            + "-" * 16
+            + "ggtcgaggggcgg"
+            + "-" * 79
+            + "gtgg"
+            + "-" * 1
+            + "gggagtga"
+            + "-" * 181
+        )
+        # The other sequence differs from it in three columns
+        seq2 = seq1[:68] + "t" + seq1[69:347] + "c" + seq1[348:391] + "t" + seq1[392:]
+        self.assertEqual(len(seq1), 888)
+        self.assertNotCodonAligned(seq1, seq2, "211-213")
+
+    def test_split_codon_skipped(self):
+        """Test a codon split by gaps that leave the codons after it in frame.
+
+        It is skipped, like any codon with a gap.
+        """
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        # Test set 3 of Test_build
+        codon_table = CodonTable.unambiguous_dna_by_id[3]
+        seq1 = "ATGGCAAGGGACCACCCAGTTGGGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACCTTTCTTTTCTCAAGACCATCCAG"
+        seq2 = "ATGGCAAGGCACCATCCAGTTGAGCACTGATATGATCGGGTGTATTTGCAGAGTAGTAACGTGTCTCTGCTCAAGACCATCCAG"
+        # Split the codon at i as XY- Z--, with the other sequence's codon
+        # against XY-, or remove it, leaving six gaps. With the codon at 81,
+        # the last one, the split raised IndexError.
+        for i in (30, 81):
+            x, y, z = seq1[i : i + 3]
+            split = codonalign.CodonSeq(f"{seq1[:i]}{x}{y}-{z}--{seq1[i + 3 :]}")
+            gapped = codonalign.CodonSeq(f"{seq1[:i]}------{seq1[i + 3 :]}")
+            other = codonalign.CodonSeq(f"{seq2[: i + 3]}---{seq2[i + 3 :]}")
+            for method in ("NG86", "LWL85"):
+                with self.subTest(i=i, method=method):
+                    self.assertEqual(
+                        cal_dn_ds(split, other, method, codon_table),
+                        cal_dn_ds(gapped, other, method, codon_table),
+                    )
+
+    def test_mktest(self):
+        """Test that mktest rejects codons put out of frame."""
+        codon_aln = codonalign.CodonAlignment(
+            [
+                SeqRecord(codonalign.CodonSeq("AAACCC-GGGTTT--"), id="alpha"),
+                SeqRecord(codonalign.CodonSeq("AAACCCGGGTTT---"), id="beta"),
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "^Not a codon alignment"):
+            codonalign.mktest([codon_aln, codon_aln])
 
 
 try:
