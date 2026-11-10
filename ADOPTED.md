@@ -24,7 +24,11 @@ contributor ticks:
 
 That makes the work BSD-3 and adoptable here. **The box is checked on each
 pull request before anything is taken from it** — a few upstream PRs leave it
-unticked, and those are not eligible however good they are.
+unticked, and those are not eligible however good they are. One exception
+has been made, by the fork's owner: for #5390 the author did not tick the box
+but wrote the same grant in his pull request and in his commit message, which
+is the written statement upstream's `CONTRIBUTING.rst` asks for (see its entry
+below).
 
 Adopting is not endorsing. Where a pull request grew a change under review that
 this fork does not want, only the wanted commits are taken, and the omission is
@@ -40,6 +44,62 @@ request.
 ## Adopted
 
 Newest first.
+
+### [#5390](https://github.com/biopython/biopython/pull/5390) — Donncha O'Toole
+
+`Tree.root_with_outgroup(outgroup, outgroup_branch_length=X)` puts the new
+root on the branch above the outgroup. When the outgroup was a child of the
+old root, the branch was given the new length `X` but the rest of it was not
+shortened, so the total branch length and every tip-to-tip distance grew by
+`X`. `root_at_midpoint` goes through the same code, so midpoint rooting
+`(A:1,B:2)` gave a distance of 4.5 between A and B instead of 3. The pull
+request subtracts `X` in that case, as the code already did when the
+outgroup was further from the root.
+
+**The single commit taken** (`e536337f6`, cherry-picked with `-x`, so git
+keeps the author). It applied without conflicts, but its `NEWS.rst`
+paragraph landed in upstream's own 1.89 section; it was moved, unchanged,
+into the fork's 1.89 section in the cherry-picked commit.
+
+**Licence.** The template's licence box is *not* ticked. The author wrote
+the grant in prose instead, in the pull request body ("I agree to dual
+licence this and any previous contributions under both the Biopython
+License Agreement and the BSD 3-Clause License") and in the commit message
+itself ("I agree to dual licence this contribution under both ..."), so it
+travels with the commit. Upstream's `CONTRIBUTING.rst` asks contributors
+to state this agreement in the commit or the pull request; the box is a
+proxy for that. Whether this counts as the ticked box was the fork owner's
+decision, not this file's rule: Dan Bolser decided on 2026-11-10 that it
+does. It is the only adoption so far on that basis.
+
+**Left behind:** nothing. The pull request has no `CONTRIB.rst` hunk and
+does not answer the template's box about being listed, so the author is
+not added to `CONTRIB.rst`.
+
+**Added by the fork**, in separate commits: `RerootDistanceTests` in
+`Tests/test_Phylo.py`, which reroots seeded random trees (zero-length
+branches and trifurcating roots included) on random clades with and
+without `outgroup_branch_length`, midpoint roots them, and midpoint roots
+NJ and UPGMA trees from `DistanceTreeConstructor`, checking the total
+branch length and every tip distance each time; and a rewritten
+`NEWS.rst` entry for users. The support handling that fork PR #278 added
+to the same function is untouched, and its `RerootSupportTests` pass.
+
+**Checked:** on fork main without the fix, the pull request's two tests and
+the fork's three fail; with it they pass, as do `test_Phylo`,
+`test_PhyloXML`, `test_Phylo_NeXML`, `test_Phylo_CDAO`,
+`test_TreeConstruction`, `test_Consensus` and `test_Nexus`. Of 60 random
+six-taxon NJ trees, 4 had wrong tip distances after midpoint rooting before
+the fix, and of 60 UPGMA trees, 16; none after. The same defect is in
+Biopython 1.88 and upstream master. Found while testing, not fixed here:
+`root_at_midpoint` raises `UnboundLocalError` on a tree whose tips are all
+at distance zero from each other.
+
+**Upstream status:** as of 2026-11-10 the pull request is open, not a
+draft, with one commit and no reviews. The last human activity was
+peterjc's comment of 2026-10-26 about upstream's AI policy, with no reply
+from the author. Upstream's template now also asks for a declaration of
+AI use, which the pull request does not answer.
 
 ### [#5386](https://github.com/biopython/biopython/pull/5386) — Peter Cock (peterjc)
 
