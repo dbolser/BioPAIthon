@@ -48,10 +48,10 @@ class KEGGTests(unittest.TestCase):
             handle.read()
         self.assertEqual(handle.url, "https://rest.kegg.jp/list/pathway/hsa")
 
-    def test_list_organism(self):
-        with kegg_list("organism") as handle:
+    def test_list_genome_animals(self):
+        with kegg_list("genome", option="animals") as handle:
             handle.read()
-        self.assertEqual(handle.url, "https://rest.kegg.jp/list/organism")
+        self.assertEqual(handle.url, "https://rest.kegg.jp/list/genome/animals")
 
     def test_list_hsa(self):
         with kegg_list("hsa") as handle:
@@ -217,19 +217,40 @@ class KEGGTests(unittest.TestCase):
             handle.read()
         self.assertEqual(handle.url, "https://rest.kegg.jp/conv/ncbi-geneid/eco")
 
-    def test_conv_ncbi_gi_hsa_10458_plus_ece_Z5100(self):
-        with kegg_conv("ncbi-gi", "hsa:10458+ece:Z5100") as handle:
-            handle.read()
+    def test_conv_ncbi_proteinid_hsa_10458_plus_ece_Z5100(self):
+        with kegg_conv("ncbi-proteinid", "hsa:10458+ece:Z5100") as handle:
+            lines = handle.read().splitlines()
+        self.assertEqual(len(lines), 2)
         self.assertEqual(
-            handle.url, "https://rest.kegg.jp/conv/ncbi-gi/hsa:10458+ece:Z5100"
+            handle.url, "https://rest.kegg.jp/conv/ncbi-proteinid/hsa:10458+ece:Z5100"
         )
 
-    def test_conv_ncbi_gi_hsa_10458_list_ece_Z5100(self):
-        with kegg_conv("ncbi-gi", ["hsa:10458", "ece:Z5100"]) as handle:
-            handle.read()
+    def test_conv_ncbi_proteinid_hsa_10458_list_ece_Z5100(self):
+        with kegg_conv("ncbi-proteinid", ["hsa:10458", "ece:Z5100"]) as handle:
+            lines = handle.read().splitlines()
+        self.assertEqual(len(lines), 2)
         self.assertEqual(
-            handle.url, "https://rest.kegg.jp/conv/ncbi-gi/hsa:10458+ece:Z5100"
+            handle.url, "https://rest.kegg.jp/conv/ncbi-proteinid/hsa:10458+ece:Z5100"
         )
+
+    def test_conv_eco_ncbi_geneid_948364(self):
+        with kegg_conv("eco", "ncbi-geneid:948364") as handle:
+            data = handle.read()
+        self.assertEqual(data, "ncbi-geneid:948364\teco:b3809\n")
+        self.assertEqual(handle.url, "https://rest.kegg.jp/conv/eco/ncbi-geneid:948364")
+
+    def test_conv_genes_ncbi_geneid_948364(self):
+        with kegg_conv("genes", "ncbi-geneid:948364") as handle:
+            data = handle.read()
+        self.assertEqual(data, "ncbi-geneid:948364\teco:b3809\n")
+        self.assertEqual(
+            handle.url, "https://rest.kegg.jp/conv/genes/ncbi-geneid:948364"
+        )
+
+    def test_conv_compound_chebi(self):
+        with kegg_conv("compound", "chebi") as handle:
+            handle.read()
+        self.assertEqual(handle.url, "https://rest.kegg.jp/conv/compound/chebi")
 
     def test_link_pathway_hsa(self):
         with kegg_link("pathway", "hsa") as handle:

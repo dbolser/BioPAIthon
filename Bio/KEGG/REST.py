@@ -78,7 +78,7 @@ def kegg_info(database):
     (e.g. 'hsa' or 'T01001' for human).
 
     A valid list of organism codes and their T numbers can be obtained
-    via kegg_info('organism') or https://rest.kegg.jp/list/organism
+    via kegg_list('genome') or https://rest.kegg.jp/list/genome
 
     """
     # TODO - return a string (rather than the handle?)
@@ -95,52 +95,76 @@ def kegg_info(database):
     return _q("info", database)
 
 
-def kegg_list(database, org=None):
+def kegg_list(database, org=None, option=None):
     """KEGG list - Entry list for database, or specified database entries.
 
-    db - database or organism (string)
+    db - database or organism (string), or database entries (string, or
+    list of strings)
     org - optional organism (string), see below.
+    option - optional subset of the brite or genome database (string),
+    see below.
 
-    For the pathway and module databases the optional organism can be
-    used to restrict the results.
+    For the pathway database the optional organism can be used to
+    restrict the results, as in ``kegg_list("pathway", "hsa")``.
+
+    For the brite database, option can be "br", "jp", "ko" or a KEGG
+    organism code; for the genome database, it can be a KEGG organism
+    group name such as "animals", or the NCBI taxonomy ID of a phylum,
+    class, order, family, genus or species, such as "562".
+
+    At most 100 database entries can be listed at once, whether given as
+    a list or joined with "+" in a string: KEGG silently drops any beyond
+    the first 100.
 
     """
     # TODO - split into two functions (dbentries seems separate)?
     #
-    #  https://rest.kegg.jp/list/<database>/<org>
+    # https://rest.kegg.jp/list/pathway/<org>
     #
-    #  <database> = pathway | module
-    #  <org> = KEGG organism code
-    if database in ("pathway", "module") and org:
-        resp = _q("list", database, org)
-    elif isinstance(database, str) and database and org:
+    # <org> = KEGG organism code
+    #
+    # (KEGG no longer offers /list/module/<org>, nor /list/organism.)
+    if database == "pathway" and org and not option:
+        return _q("list", database, org)
+
+    # https://rest.kegg.jp/list/brite/<option>
+    #
+    # <option> = br | jp | ko | <org>
+    #
+    # https://rest.kegg.jp/list/genome/<option>
+    #
+    # <option> = <group_name> | <rank_id>
+    # <group_name> = KEGG organism group name
+    # <rank_id> = Taxonomy ID for phylum, class, order, family, genus and species
+    if database in ("brite", "genome") and option and not org:
+        return _q("list", database, option)
+
+    if org:
         raise ValueError("Invalid database arg for kegg list request.")
+    if option:
+        raise ValueError("Invalid option arg for kegg list request.")
 
     # https://rest.kegg.jp/list/<database>
     #
-    # <database> = pathway | brite | module | disease | drug | environ |
-    #              ko | genome | <org> | compound | glycan | reaction |
-    #              rpair | rclass | enzyme | organism
+    # <database> = pathway | brite | module | ko | <org> | ag | vg | vp |
+    #              genome | vtax | vgenome | compound | glycan | reaction |
+    #              rclass | rmodule | enzyme | network | ntmap | variant |
+    #              disease | drug | dgroup
     # <org> = KEGG organism code or T number
-    #
     #
     # https://rest.kegg.jp/list/<dbentries>
     #
     # <dbentries> = KEGG database entries involving the following <database>
-    # <database> = pathway | brite | module | disease | drug | environ |
-    #              ko | genome | <org> | compound | glycan | reaction |
-    #              rpair | rclass | enzyme
+    # <database> = pathway | brite | module | ko | <org> | ag | vg | vp |
+    #              genome | vtax | vgenome | compound | glycan | reaction |
+    #              rclass | rmodule | enzyme | network | ntmap | variant |
+    #              disease | drug | dgroup
     # <org> = KEGG organism code or T number
-    else:
-        if isinstance(database, list):
-            if len(database) > 100:
-                raise ValueError(
-                    "Maximum number of databases is 100 for kegg list query"
-                )
-            database = ("+").join(database)
-        resp = _q("list", database)
-
-    return resp
+    if isinstance(database, list):
+        database = "+".join(database)
+    if database.count("+") >= 100:
+        raise ValueError("Maximum number of databases is 100 for kegg list query")
+    return _q("list", database)
 
 
 def kegg_find(database, query, option=None):
@@ -237,11 +261,20 @@ def kegg_conv(target_db, source_db, option=None):
 
     Arguments:
      - target_db - Target database
-     - source_db_or_dbentries - source database or database entries
-     - option - Can be "turtle" or "n-triple" (string).
+     - source_db - Source database, or database entries (string, or list
+       of strings)
+     - option - No longer supported: KEGG withdrew the "turtle" and
+       "n-triple" output of conv, so any option raises ValueError.
+
+    Convert a whole database, as in ``kegg_conv("eco", "ncbi-geneid")``,
+    or given entries, as in ``kegg_conv("ncbi-proteinid",
+    "hsa:10458+ece:Z5100")`` or ``kegg_conv("eco", "ncbi-geneid:948364")``.
+    The outside databases are "ncbi-geneid", "ncbi-proteinid" and "uniprot"
+    for genes, and "pubchem" and "chebi" for chemical substances; KEGG no
+    longer offers "ncbi-gi".
 
     """
-    # https://rest.kegg.jp/conv/<target_db>/<source_db>[/<option>]
+    # https://rest.kegg.jp/conv/<target_db>/<source_db>
     #
     # (<target_db> <source_db>) = (<kegg_db> <outside_db>) |
     #                             (<outside_db> <kegg_db>)
@@ -249,52 +282,56 @@ def kegg_conv(target_db, source_db, option=None):
     # For gene identifiers:
     # <kegg_db> = <org>
     # <org> = KEGG organism code or T number
-    # <outside_db> = ncbi-gi | ncbi-geneid | uniprot
+    # <outside_db> = ncbi-geneid | ncbi-proteinid | uniprot
     #
     # For chemical substance identifiers:
     # <kegg_db> = drug | compound | glycan
     # <outside_db> = pubchem | chebi
     #
-    # <option> = turtle | n-triple
-    #
-    # https://rest.kegg.jp/conv/<target_db>/<dbentries>[/<option>]
+    # https://rest.kegg.jp/conv/<target_db>/<dbentries>
     #
     # For gene identifiers:
     # <dbentries> = database entries involving the following <database>
-    # <database> = <org> | ncbi-gi | ncbi-geneid | uniprot
+    # <database> = <org> | genes | ncbi-geneid | ncbi-proteinid | uniprot
     # <org> = KEGG organism code or T number
     #
     # For chemical substance identifiers:
     # <dbentries> = database entries involving the following <database>
     # <database> = drug | compound | glycan | pubchem | chebi
     #
-    # <option> = turtle | n-triple
-    if option and option not in ["turtle", "n-triple"]:
-        raise ValueError("Invalid option arg for kegg conv request.")
+    # KEGG used to offer an RDF <option> (turtle | n-triple) on both forms,
+    # and ncbi-gi as an outside database; both are gone.
+    if option:
+        raise ValueError(
+            "Invalid option arg for kegg conv request: "
+            "KEGG no longer offers RDF output for conv."
+        )
 
     if isinstance(source_db, list):
         source_db = "+".join(source_db)
 
-    if (
-        target_db in ["ncbi-gi", "ncbi-geneid", "uniprot"]
-        or source_db in ["ncbi-gi", "ncbi-geneid", "uniprot"]
-        or (
-            target_db in ["drug", "compound", "glycan"]
-            and source_db in ["pubchem", "glycan"]
+    if "ncbi-gi" in (target_db, source_db):
+        raise ValueError(
+            "KEGG no longer offers ncbi-gi for kegg conv requests; "
+            "use ncbi-proteinid instead."
         )
-        or (
-            target_db in ["pubchem", "glycan"]
-            and source_db in ["drug", "compound", "glycan"]
-        )
-    ):
-        if option:
-            resp = _q("conv", target_db, source_db, option)
-        else:
-            resp = _q("conv", target_db, source_db)
 
-        return resp
-    else:
-        raise ValueError("Bad argument target_db or source_db for kegg conv request.")
+    gene_outside_db = ("ncbi-geneid", "ncbi-proteinid", "uniprot")
+    chem_kegg_db = ("drug", "compound", "glycan")
+    chem_outside_db = ("pubchem", "chebi")
+    if (
+        # Either form, converting to an outside database
+        target_db in gene_outside_db + chem_outside_db
+        # Database form, from an outside database
+        or source_db in gene_outside_db
+        or (target_db in chem_kegg_db and source_db in chem_outside_db)
+        # Entries form, such as hsa:10458 or ncbi-geneid:948364, which can
+        # be converted to any database, including an organism or genes
+        or (isinstance(source_db, str) and ":" in source_db)
+    ):
+        return _q("conv", target_db, source_db)
+
+    raise ValueError("Bad argument target_db or source_db for kegg conv request.")
 
 
 def kegg_link(target_db, source_db, option=None):
