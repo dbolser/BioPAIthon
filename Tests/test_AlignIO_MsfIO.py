@@ -181,6 +181,17 @@ class MsfBadHeader(unittest.TestCase):
             parse_msf(data)
         self.assertIn("not a known GCG MSF header", str(cm.exception))
 
+    def test_blank_first_line(self):
+        """A blank or whitespace-only first line is not an MSF header."""
+        for data in ("\n" + build_msf(), "   \n" + build_msf(), " \t \n"):
+            with self.subTest(data=data[:10]):
+                with self.assertRaises(ValueError) as cm:
+                    parse_msf(data)
+                self.assertIn(
+                    "blank first line is not a known GCG MSF header",
+                    str(cm.exception),
+                )
+
     def test_missing_msf_line(self):
         """A file with no MSF/Type/Check line at all is rejected."""
         data = "!!AA_MULTIPLE_ALIGNMENT 1.0\n\nPileUp of: @nothing\n\n"

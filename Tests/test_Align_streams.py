@@ -253,13 +253,20 @@ class TestSeekableBehaviour(unittest.TestCase):
                 self.assertEqual(str(cm.exception), "Empty file.")
 
     def test_blank_lines(self):
-        # A file of blank lines raises IndexError, not ValueError.  This is a
-        # bug, pinned here only so that reading pipes does not change it.
-        for fmt in ("fasta", "a2m", "msf"):
+        # A file of blank lines raises IndexError, not ValueError, in these
+        # parsers.  This is a bug, pinned here only so that reading pipes does
+        # not change it.
+        for fmt in ("fasta", "a2m"):
             with self.subTest(fmt=fmt):
                 alignments = Align.parse(StringIO("\n\n"), fmt)
                 with self.assertRaises(IndexError):
                     next(alignments)
+        # The MSF and Clustal parsers reject a blank first line properly.
+        # Clustal reads its header when the iterator is made, MSF on next().
+        for fmt in ("msf", "clustal"):
+            with self.subTest(fmt=fmt):
+                with self.assertRaisesRegex(ValueError, "blank first line"):
+                    next(Align.parse(StringIO("\n\n"), fmt))
 
     def test_at_end_of_file(self):
         fasta = ">a\nAC-GT\n>b\nACAGT\n"

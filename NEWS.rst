@@ -55,6 +55,18 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The Clustal and GCG MSF alignment readers, in both ``Bio.AlignIO`` and
+``Bio.Align``, no longer fail with a bare ``IndexError: list index out of
+range`` when the first line of the file is blank or holds only whitespace.
+They now raise ``ValueError`` saying the blank first line is not a known
+header, as they already did for any other unrecognised first line. Such a
+file is not valid Clustal or MSF, so nothing that used to parse is affected;
+code that caught ``IndexError`` here should catch ``ValueError`` instead. A
+completely empty file behaves as before. This is a long-standing upstream
+defect, also in Biopython 1.88; biopython/biopython#5374 proposed a fix for
+the ``Bio.AlignIO`` Clustal reader only and was withdrawn, so the fork wrote
+its own for all four readers.
+
 For contributors: the ruff linter settings now live in ``pyproject.toml``
 rather than only in the pre-commit hook's arguments, so running ``ruff check``
 directly gives the same result as the pre-commit check. Nothing changes for

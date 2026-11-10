@@ -455,6 +455,20 @@ DOA*01:04        62 ----------  62
             next(alignments)
         self.assertEqual(str(cm.exception), "Empty file.")
 
+    def test_blank_first_line(self):
+        """A blank or whitespace-only first line is not an MSF header."""
+        with open(support.DATA / "msf" / "W_prot.msf") as stream:
+            data = stream.read()
+        for text in ("\n" + data, "   \n" + data, " \t \n"):
+            with self.subTest(text=text[:10]):
+                alignments = Align.parse(StringIO(text), "msf")
+                with self.assertRaises(ValueError) as cm:
+                    next(alignments)
+                self.assertIn(
+                    "blank first line is not a known GCG MSF header",
+                    str(cm.exception),
+                )
+
 
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)

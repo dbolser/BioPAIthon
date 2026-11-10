@@ -113,6 +113,11 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             "Kalign",
             "Biopython",
         ]
+        if not words:
+            raise ValueError(
+                "blank first line does not name a program known to generate "
+                "CLUSTAL files: %s" % ", ".join(known_programs)
+            )
         program = words[0]
         if program not in known_programs:
             raise ValueError(

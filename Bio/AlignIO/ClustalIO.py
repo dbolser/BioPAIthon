@@ -120,10 +120,16 @@ class ClustalIterator(AlignmentIterator):
             "Kalign",
             "Biopython",
         ]
-        if line.strip().split()[0] not in known_headers:
+        words = line.split()
+        if not words:
+            raise ValueError(
+                "blank first line is not a known CLUSTAL header: %s"
+                % ", ".join(known_headers)
+            )
+        if words[0] not in known_headers:
             raise ValueError(
                 "%s is not a known CLUSTAL header: %s"
-                % (line.strip().split()[0], ", ".join(known_headers))
+                % (words[0], ", ".join(known_headers))
             )
 
         # find the clustal version in the header line

@@ -62,10 +62,16 @@ class MsfIterator(AlignmentIterator):
         # MUSCLE just has a line "PileUp", while other sources just use the line
         # "!!AA_MULTIPLE_ALIGNMENT" (amino acid) or "!!NA_MULTIPLE_ALIGNMENT"
         # (nucleotide).
-        if line.strip().split()[0] not in known_headers:
+        words = line.split()
+        if not words:
+            raise ValueError(
+                "blank first line is not a known GCG MSF header: %s"
+                % ", ".join(known_headers)
+            )
+        if words[0] not in known_headers:
             raise ValueError(
                 "%s is not a known GCG MSF header: %s"
-                % (line.strip().split()[0], ", ".join(known_headers))
+                % (words[0], ", ".join(known_headers))
             )
 
         while line and " MSF: " not in line:
