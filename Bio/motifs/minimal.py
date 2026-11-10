@@ -101,6 +101,7 @@ def _read_background(record, handle):
     """Read background letter frequencies (PRIVATE)."""
     background_freqs = [0.25, 0.25, 0.25, 0.25]
     read_motif_line = False
+    line = ""  # the handle may already be exhausted after the ALPHABET line
     for line in handle:
         if line.startswith("Background letter frequencies"):
             background_freqs = []
