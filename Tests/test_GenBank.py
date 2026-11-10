@@ -8120,6 +8120,51 @@ KEYWORDS    """,
                 str(caught[0].message),
             )
 
+    def test_unknown_description_genbank(self):
+        """Read a DEFINITION line that is literally the SeqRecord default.
+
+        Geneious writes "<unknown description>." when a sequence has no
+        description (upstream issue #1663).
+        """
+        handle = StringIO(
+            """\
+LOCUS       X                          4 bp    DNA     linear   UNK 01-JAN-1980
+DEFINITION  <unknown description>.
+ACCESSION   X
+VERSION     X
+FEATURES             Location/Qualifiers
+ORIGIN
+        1 acgt
+//
+"""
+        )
+        record = SeqIO.read(handle, "genbank")
+        self.assertEqual(record.description, "<unknown description>")
+
+    def test_unknown_description_embl(self):
+        """Read a DE line that is literally the SeqRecord default.
+
+        Unlike GenBank, EMBL keeps a trailing dot, so it is the dot-less
+        form that matches the default (upstream issue #1663).
+        """
+        handle = StringIO(
+            """\
+ID   X; SV 1; linear; DNA; STD; UNC; 4 BP.
+XX
+AC   X;
+XX
+DE   <unknown description>
+XX
+FH   Key             Location/Qualifiers
+FH
+SQ   Sequence 4 BP; 1 A; 1 C; 1 G; 1 T; 0 other;
+     acgt                                                                      4
+//
+"""
+        )
+        record = SeqIO.read(handle, "embl")
+        self.assertEqual(record.description, "<unknown description>")
+
     def test_locus_line_topogoly(self):
         """Test if chromosome topology is conserved."""
         record = SeqIO.read(support.DATA / "GenBank" / "DS830848.gb", "genbank")

@@ -535,8 +535,6 @@ class InsdcScanner:
                     raise ValueError(
                         "Failed to parse the record's name. Invalid ID line?"
                     )
-                if record.description == "<unknown description>":
-                    raise ValueError("Failed to parse the record's description")
                 yield record
 
     def parse_cds_features(
