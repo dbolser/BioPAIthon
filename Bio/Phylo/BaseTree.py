@@ -768,9 +768,9 @@ class TreeMixin:
         # Split the children in half at each level, so an n-way polytomy
         # resolves to depth log2(n) rather than a chain of depth n - a
         # chain deeper than Python's recursion limit would defeat the
-        # recursive traversals used elsewhere (is_bifurcating, the Newick
-        # writer, preorder find_clades). Halving preserves the child order
-        # left to right, and only recurses to log2(n) deep itself.
+        # recursive traversals used elsewhere (is_bifurcating, preorder
+        # find_clades). Halving preserves the child order left to right, and
+        # only recurses to log2(n) deep itself.
         def _build(node, to_add):
             if len(to_add) <= 2:
                 node.clades = to_add

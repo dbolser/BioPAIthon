@@ -401,11 +401,9 @@ class Writer:
                         label = "'%s'" % label.replace("'", "''")
 
                 if isinstance(dequeued_item, TerminalMarker):
-                    result.write("){}{}".format(label, make_info_string(item)))
+                    result.write(f"){label}{make_info_string(item)}")
                 elif item.is_terminal():  # terminal
-                    result.write(
-                        "{}{}".format(label, make_info_string(item, terminal=True))
-                    )
+                    result.write(f"{label}{make_info_string(item, terminal=True)}")
                 else:
                     # insert the terminal marker first
                     to_process.appendleft(TerminalMarker(item))
