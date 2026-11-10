@@ -250,8 +250,9 @@ class Polypeptide(list):
         """List of tau torsions angles for all 4 consecutive Calpha atoms.
 
         Entry i is the angle for residues i to i+3. It is None when any
-        of those four residues has no C-alpha atom, so the list always
-        has len(self) - 3 entries.
+        of those four residues has no C-alpha atom, or when the angle is
+        undefined because three of the C-alpha atoms are collinear or two
+        coincide, so the list always has len(self) - 3 entries.
         """
         ca_list = self.get_ca_list()
         tau_list = []
@@ -262,7 +263,11 @@ class Polypeptide(list):
                 res = self[i + 2]
             else:
                 v1, v2, v3, v4 = (a.get_vector() for a in atom_list)
-                tau = calc_dihedral(v1, v2, v3, v4)
+                try:
+                    tau = calc_dihedral(v1, v2, v3, v4)
+                except ValueError:
+                    # Undefined, see calc_dihedral
+                    tau = None
                 res = ca_list[i + 2].get_parent()
             tau_list.append(tau)
             # Put tau in xtra dict of residue
@@ -273,8 +278,9 @@ class Polypeptide(list):
         """List of theta angles for all 3 consecutive Calpha atoms.
 
         Entry i is the angle for residues i to i+2. It is None when any
-        of those three residues has no C-alpha atom, so the list always
-        has len(self) - 2 entries.
+        of those three residues has no C-alpha atom, or when the angle is
+        undefined because two consecutive C-alpha atoms coincide, so the
+        list always has len(self) - 2 entries.
         """
         theta_list = []
         ca_list = self.get_ca_list()
@@ -285,7 +291,11 @@ class Polypeptide(list):
                 res = self[i + 1]
             else:
                 v1, v2, v3 = (a.get_vector() for a in atom_list)
-                theta = calc_angle(v1, v2, v3)
+                try:
+                    theta = calc_angle(v1, v2, v3)
+                except ValueError:
+                    # Undefined, see calc_angle
+                    theta = None
                 res = ca_list[i + 1].get_parent()
             theta_list.append(theta)
             # Put theta in xtra dict of residue

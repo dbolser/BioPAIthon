@@ -247,6 +247,45 @@ class MissingCalphaTests(unittest.TestCase):
                 self.assertEqual(theta, thetas_before[i])
 
 
+class UndefinedAngleTests(unittest.TestCase):
+    """Test Polypeptide angle lists where an angle is undefined."""
+
+    def test_coincident_calpha_atoms(self):
+        """Test that two CA atoms on the same spot cost only their windows."""
+        parser = PDBParser(PERMISSIVE=True, QUIET=True)
+        structure = parser.get_structure("1A8O", support.DATA / "PDB" / "1A8O.pdb")
+        pp = PPBuilder().build_peptides(structure)[0]
+        taus_before = pp.get_tau_list()
+        thetas_before = pp.get_theta_list()
+
+        # Put the CA of residue k + 1 on the CA of residue k.
+        k = 10
+        pp[k + 1]["CA"].coord = pp[k]["CA"].coord.copy()
+
+        # A tau window holding both atoms has a zero-length bond vector, as
+        # does a theta window, so the angle is undefined and given as None.
+        taus = pp.get_tau_list()
+        self.assertEqual(len(taus), len(taus_before))
+        for i, tau in enumerate(taus):
+            if i <= k and k + 1 <= i + 3:
+                self.assertIsNone(tau)
+            elif i <= k + 1 <= i + 3:
+                self.assertIsInstance(tau, float)
+            else:
+                self.assertEqual(tau, taus_before[i])
+        self.assertIsNone(pp[k].xtra["TAU"])
+        thetas = pp.get_theta_list()
+        self.assertEqual(len(thetas), len(thetas_before))
+        for i, theta in enumerate(thetas):
+            if i <= k and k + 1 <= i + 2:
+                self.assertIsNone(theta)
+            elif i <= k + 1 <= i + 2:
+                self.assertIsInstance(theta, float)
+            else:
+                self.assertEqual(theta, thetas_before[i])
+        self.assertIsNone(pp[k].xtra["THETA"])
+
+
 if __name__ == "__main__":
     runner = unittest.TextTestRunner(verbosity=2)
     unittest.main(testRunner=runner)
