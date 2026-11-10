@@ -2638,7 +2638,7 @@ on 2026-10-13 as a segfault or an abort; the other two were read.
 - `Bio/AlignIO/ClustalIO.py`, `Bio/AlignIO/MsfIO.py`, `Bio/Align/clustal.py`
   and `Bio/Align/msf.py`: a blank or whitespace-only first line raises
   `IndexError` instead of the "not a known header" `ValueError`. Upstream
-  too. **Fixed** here, in all four readers; upstream
+  too. **Fixed** in the fork, in all four readers. Upstream
   biopython/biopython#5374 covered only `ClustalIO` and was withdrawn
   unmerged, with no licence ticked.
 
