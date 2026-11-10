@@ -564,6 +564,12 @@ class _InsdcWriter(SequenceWriter):
             raise ValueError(
                 f"Cannot write a feature with no type, at location {feature.location}"
             )
+        if feature.location is None:
+            # The parsers leave None for a location they cannot read
+            raise ValueError(
+                f"Cannot write a {feature.type!r} feature with no location"
+                " (its .location is None)"
+            )
 
         f_type = feature.type.replace(" ", "_")
         if not _allowed_table_component_name_chars.issuperset(f_type):

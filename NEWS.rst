@@ -55,6 +55,28 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The GenBank and EMBL parsers now read an insertion that Ensembl writes as a
+descending pair, such as ``7..6`` for an insertion between bases 6 and 7,
+as the zero-length location ``[6:6]``, which is written back as the INSDC
+``6^7``, when the sequence has no topology or a linear one. They took the
+pair for a feature spanning the origin of a sequence that is not circular,
+so they warned and set the location to ``None``, and writing the record then
+failed with ``AttributeError``. ``SimpleLocation.fromstring`` and
+``Location.fromstring``, which the parsers call, change in the same way:
+given a length and ``circular=False``, ``"7..6"`` now returns ``[6:6]``
+where it raised ``LocationParserError``. On a circular sequence ``7..6``
+still spans the origin and covers the whole sequence, starting at base 7.
+On a sequence that is not circular, pairs further apart, such as ``8..6``,
+are still an error, and so is ``1..0``, an insertion before the first base,
+which INSDC has no way to write. Separately, the GenBank, EMBL and IMGT
+writers now raise ``ValueError`` rather than ``AttributeError`` for a
+feature whose location is ``None``, which is what the parsers leave for a
+location they cannot read. This is an upstream defect
+(biopython/biopython#4969, reported by Cazza), also in Biopython 1.88 and
+still in upstream's development code. Chris Logue's unmerged
+biopython/biopython#5206 makes the same change to the parser, apart from
+keeping ``1..0`` an error.
+
 The ``Bio.SeqIO`` GenBank writer now writes WGS, TSA and TLS project master
 records back as they were read. A master record has no sequence: its LOCUS
 line gives the number of records in the project, in units of ``rc``, and it
