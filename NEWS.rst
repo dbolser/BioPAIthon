@@ -65,21 +65,23 @@ three letters in the order of the alphabet. So
 ``MSKWV``, where ``V`` claims "A, C or G, but not T" for a column with no
 evidence for any letter; a motif read with format ``"pfm-four-rows"``, whose
 alphabet is ordered ``"GATC"``, gave ``D``, and other alphabets gave other
-letters. It now gives ``MSKWN``; ``calculate_consensus`` already gave ``N`` for
-that column. The same applies to alphabets of fewer than four letters, where
-an empty column gave ``V`` for ``"ACG"``, ``M`` for ``"AC"`` and the letter
-itself for a one-letter alphabet, and now gives ``N``. Only columns in which
-every value is zero change, whether they hold counts or scores; a column of
-log-odds scores that merely add up to zero is treated as before. A column of a
-position-specific scoring matrix (``motif.pssm``) whose letters are exactly at
-their background frequencies scores zero for every letter, so it changes too,
-although its counts are real: under the default uniform background, a column
-in which ``A``, ``C``, ``G`` and ``T`` were counted equally gave ``V`` (``D``
-for a ``"pfm-four-rows"`` motif) from ``motif.pssm.degenerate_consensus``, and
-now gives ``N``, as ``motif.degenerate_consensus`` of the counts already did.
-The TRANSFAC writer ends each matrix row with the degenerate consensus, so
+letters. It now gives ``MSKWN``: an empty column gets ``N``, the code of a
+column in which every letter is equally common, and ``calculate_consensus``
+already gave ``N`` for it.
+Only columns in which every value is zero change, whether they hold counts or
+scores; a column of log-odds scores that merely add up to zero is treated as
+before. A column of a position-specific scoring matrix (``motif.pssm``) whose
+letters are exactly at their background frequencies scores zero for every
+letter, so it changes too, although its counts are real: under the default
+uniform background, a column in which ``A``, ``C``, ``G`` and ``T`` were
+counted equally gave ``V`` (``D`` for a ``"pfm-four-rows"`` motif) from
+``motif.pssm.degenerate_consensus``, and now gives ``N``, as
+``motif.degenerate_consensus`` of the counts already did. The TRANSFAC writer
+ends each matrix row with the degenerate consensus, so
 ``format(motif, "transfac")`` and ``motifs.write`` now end an all-zero row
-with ``N``. Letters outside the alphabet are still not counted, so a column of
+with ``N``. Alphabets of fewer than four letters are unchanged: there the rule
+for three letters already names the whole alphabet, such as ``V`` for
+``"ACG"``. Letters outside the alphabet are still not counted, so a column of
 ``Y`` gives ``N``, not ``Y``. This is an upstream defect
 (biopython/biopython#4988, reported by Ben Anderson), also in Biopython 1.88
 and still in upstream's development code.
