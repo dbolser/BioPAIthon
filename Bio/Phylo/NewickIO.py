@@ -13,8 +13,10 @@ See: http://evolution.genetics.washington.edu/phylip/newick_doc.html
 """
 
 import re
+import warnings
 from io import StringIO
 
+from Bio import BiopythonWarning
 from Bio.Phylo import Newick
 
 
@@ -89,6 +91,36 @@ def _get_comment(clade):
         if comment:
             return _format_comment(str(comment))
     return ""
+
+
+def _get_confidence_comment(clade, format_confidence):
+    """Return the comment of a named clade, holding its confidence (PRIVATE).
+
+    The name of a clade is its label, so its confidence cannot be the label
+    too: "E" then "98.00" reads back as one name, "E98.00". The confidence
+    goes in a comment after the branch length instead, the form of RAxML's
+    branch-labels output, which ``comments_are_confidence=True`` reads back.
+
+    If the clade already has a comment that reads as its confidence, as one
+    read with ``comments_are_confidence=True`` does, that comment is written
+    as it is. A comment that reads as a different number is an old support
+    value, left behind when the confidence was changed, as rescaling or
+    rerooting does, so the confidence replaces it. Any other comment is other
+    data: it is kept, and a warning says the confidence was not written.
+    """
+    comment = _get_comment(clade)
+    if comment:
+        value = _parse_confidence(str(clade.comment))
+        if value == clade.confidence:
+            return comment
+        if value is None:
+            warnings.warn(
+                f"Clade {clade.name!r} has a comment, so its confidence "
+                f"{clade.confidence} was not written",
+                BiopythonWarning,
+            )
+            return comment
+    return _format_comment(format_confidence % clade.confidence)
 
 
 class Parser:
@@ -282,7 +314,18 @@ class Writer:
         format_confidence="%1.2f",
         format_branch_length="%1.8g",
     ):
-        """Return an iterable of PAUP-compatible tree lines."""
+        """Return an iterable of PAUP-compatible tree lines.
+
+        By default the confidence of an internal clade is written as its
+        label, before the branch length, as in ``(A,B)98.00:0.46``. A clade
+        with a name keeps the name as its label, and its confidence goes in a
+        comment after the branch length, as in ``(A,B)E:0.46[98.00]``, which
+        is read back with ``comments_are_confidence=True``. If that clade
+        already has a comment, the comment is written as it is when it reads
+        as the same number, and replaced by the confidence when it reads as a
+        different number. Any other comment is written in place of the
+        confidence, with a ``BiopythonWarning``.
+        """
         # If there's a conflict in the arguments, we override plain=True
         if confidence_as_branch_length or branch_length_only:
             plain = False
@@ -373,6 +416,11 @@ class Writer:
                     return (":" + format_branch_length) % (
                         clade.branch_length or 0.0
                     ) + _get_comment(clade)
+                elif clade.name:
+                    # The name is the label, so the confidence goes elsewhere
+                    return (":" + format_branch_length) % (
+                        clade.branch_length or 0.0
+                    ) + _get_confidence_comment(clade, format_confidence)
                 else:
                     return (format_confidence + ":" + format_branch_length) % (
                         clade.confidence,
