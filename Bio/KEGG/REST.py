@@ -418,4 +418,4 @@ def kegg_link(target_db, source_db, option=None):
     if not option:
         return _q("link", target_db, source_db)
 
-    raise ValueError("Invalid option arg for kegg conv request.")
+    raise ValueError("Invalid option arg for kegg link request.")
