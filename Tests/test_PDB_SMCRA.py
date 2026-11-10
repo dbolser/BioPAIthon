@@ -40,7 +40,11 @@ from Bio.PDB import Atom
 from Bio.PDB import PDBParser
 from Bio.PDB import rotmat
 from Bio.PDB import Vector
+from Bio.PDB.Chain import Chain
+from Bio.PDB.Model import Model
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
+from Bio.PDB.Residue import Residue
+from Bio.PDB.Structure import Structure
 
 
 class Atom_Element(unittest.TestCase):
@@ -708,6 +712,20 @@ class CenterOfMassTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             s.radius_of_gyration()
+
+    def test_no_atoms(self):
+        """Entity with children but no atoms raises ValueError."""
+        structure = Structure("s")
+        structure.add(Model(0))  # a model with no chains
+        chain = Chain("A")
+        chain.add(Residue((" ", 1, " "), "ALA", "    "))  # a residue with no atoms
+
+        for entity in (structure, chain):
+            with self.subTest(entity=entity):
+                with self.assertRaises(ValueError):
+                    entity.center_of_mass()
+                with self.assertRaises(ValueError):
+                    entity.radius_of_gyration()
 
 
 if __name__ == "__main__":
