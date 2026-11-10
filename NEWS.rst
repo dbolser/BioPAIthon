@@ -57,11 +57,13 @@ and the default branch is now ``main`` rather than ``master``.
 
 The "Determining atom-atom contacts" section of the Tutorial's ``Bio.PDB``
 chapter now has a worked, doctested example of ``NeighborSearch``. It builds
-one from all the atoms of a structure, finds the residues near a given residue
-with ``search(..., level="R")``, and lists every pair of residues in contact
-with ``search_all(..., level="R")``. Before, the section named the class and
-gave no example. Written by Shubhodeep Chatterjee in
-biopython/biopython#5380, which answers biopython/biopython#4652.
+one from all the atoms of a structure, finds the residues near one atom of a
+residue with ``search(..., level="R")``, then the residues near any of its
+atoms, and lists every pair of residues in contact with
+``search_all(..., level="R")``. Before, the section named the class and gave
+no example. Written by Shubhodeep Chatterjee in biopython/biopython#5380,
+which answers biopython/biopython#4652; the search over all atoms of the
+residue was added by the fork.
 
 The ``get_ca_list``, ``get_tau_list`` and ``get_theta_list`` methods of a
 ``Bio.PDB`` ``Polypeptide`` no longer fail with a bare ``KeyError: 'CA'`` when

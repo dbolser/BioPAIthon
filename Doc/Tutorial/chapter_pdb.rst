@@ -1777,7 +1777,24 @@ with at least one atom within the radius, instead of individual atoms
    [151, 152, 153, 1001, 1027, 1035, 1054]
 
 The result includes the residue itself and, in this case, some water
-molecules. The ``search_all`` method finds all pairs of entities within a
+molecules. These are the residues near the CA atom only, not near every atom
+of residue 152. To find all residues with an atom within 5 Å of any atom of
+the residue, search around each of its atoms and combine the results. This
+adds ARG 154, whose N atom is about 3.3 Å from the O atom of residue 152 but
+more than 5 Å from its CA:
+
+.. cont-doctest ../Tests/PDB lib:numpy
+
+.. code:: pycon
+
+   >>> close_residues = set()
+   >>> for atom in residue:
+   ...     close_residues.update(ns.search(atom.coord, 5.0, level="R"))
+   ...
+   >>> sorted(res.id[1] for res in close_residues)
+   [151, 152, 153, 154, 1001, 1027, 1035, 1054]
+
+The ``search_all`` method finds all pairs of entities within a
 given radius of each other. For example, all pairs of residues that have
 atoms within 4 Å of each other:
 
