@@ -125,6 +125,46 @@ class FlawedPDB_tests(unittest.TestCase):
                 "test", support.DATA / "PDB" / "occupancy.pdb"
             )
 
+    # An AutoDock-style ligand, with a blank residue number on its second atom
+    blank_resseq = (
+        "HETATM    1  C1  LIG A   1      11.104   6.134  -6.504  1.00  0.00           C\n"
+        "HETATM    2  C2  LIG A          12.104   6.134  -6.504  1.00  0.00           C\n"
+    )
+
+    def test_7_blank_resseq_permissive(self):
+        """A blank residue number becomes 0, with a warning, when permissive."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", PDBConstructionWarning)
+            structure = self.permissive.get_structure(
+                "test", StringIO(self.blank_resseq)
+            )
+        self.assertEqual(len(w), 1, w)
+        self.assertIn("Blank residue sequence number, using 0 at line 2.", str(w[0]))
+        chain = structure[0]["A"]
+        self.assertEqual([r.id for r in chain], [("H_LIG", 1, " "), ("H_LIG", 0, " ")])
+        self.assertEqual([a.get_name() for a in chain[("H_LIG", 0, " ")]], ["C2"])
+
+    def test_8_blank_resseq_strict(self):
+        """A blank residue number is an error naming the line when strict."""
+        with self.assertRaisesRegex(
+            PDBConstructionException,
+            r"^Blank residue sequence number, using 0 at line 2\.$",
+        ):
+            self.strict.get_structure("test", StringIO(self.blank_resseq))
+
+    def test_9_invalid_resseq(self):
+        """A non-numeric residue number is an error naming the line."""
+        # 'A000' is a hybrid-36 residue number; it must not become 0.
+        for text in ("  1X", "A000"):
+            data = self.blank_resseq.replace("LIG A    ", f"LIG A{text}", 1)
+            for parser in (self.permissive, self.strict):
+                with self.subTest(text=text, permissive=parser.PERMISSIVE):
+                    with self.assertRaisesRegex(
+                        PDBConstructionException,
+                        rf"^Invalid residue sequence number '{text}' at line 2\.$",
+                    ):
+                        parser.get_structure("test", StringIO(data))
+
 
 class ParseDummyPDB_test(unittest.TestCase):
     """Tests for artificial/dummy PDB files."""
