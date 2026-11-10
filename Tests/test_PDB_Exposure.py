@@ -162,6 +162,29 @@ class Exposure(unittest.TestCase):
             if other is not residue:
                 self.assertEqual(other.xtra, expected[i])
 
+    def test_HSExposureCA_straight_cas(self):
+        """Three CA atoms on a straight line give no pseudo-CB, so no HSE."""
+        before, residue, after = self.a_residues[1:4]
+        # Put the CA atoms on whole numbers of angstroms, so that the two
+        # flanking CA atoms are exactly opposite and the pseudo-CB is zero.
+        ca = residue["CA"].coord.round()
+        residue["CA"].coord = ca
+        before["CA"].coord = ca - [3, 0, 0]
+        after["CA"].coord = ca + [3, 0, 0]
+        peptides = CaPPBuilder().build_peptides(self.model)
+        self.assertTrue(
+            any(
+                pp[i : i + 3] == [before, residue, after]
+                for pp in peptides
+                for i in range(len(pp))
+            )
+        )
+
+        HSExposureCA(self.model, self.radius)
+
+        self.assertEqual(residue.xtra, {})
+        self.assertIn("EXP_HSE_A_U", self.a_residues[10].xtra)
+
     def test_HSExposureCB_coincident_ca(self):
         """A CA atom on top of this residue's CA is in neither half sphere."""
         residue = self.a_residues[2]
