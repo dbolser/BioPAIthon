@@ -6,6 +6,8 @@
 
 import unittest
 
+import support
+
 # Really do want "import *" to get all the test classes:
 from common_BioSQL import *  # noqa: F403
 from common_BioSQL import check_config
@@ -13,6 +15,7 @@ from common_BioSQL import check_config
 # Import these explicitly to avoid flake8 F405 below:
 from common_BioSQL import load_biosql_ini
 
+from Bio import SeqIO
 from BioSQL import BioSeqDatabase
 from BioSQL.BioSeqDatabase import MysqlConnectorAdaptor
 from BioSQL.DBUtils import Mysql_dbutils
@@ -54,6 +57,58 @@ class PymysqlConnectionTest(unittest.TestCase):
             "SELECT @@SESSION.sql_mode;"
         )[0][0]
         self.assertIn("ANSI_QUOTES", sql_mode.split(","))
+
+
+class PymysqlLoadTest(unittest.TestCase):
+    """Load the schema and records through pymysql, on this module's settings.
+
+    Uses a database of its own, so it cannot collide with the shared tests of
+    the other MySQL modules on the same server.
+    """
+
+    testdb = TESTDB + "_pymysql"
+
+    def _drop_database(self):
+        server = BioSeqDatabase.open_database(
+            driver=DBDRIVER, host=DBHOST, user=DBUSER, passwd=DBPASSWD
+        )
+        try:
+            server.adaptor.execute(f"DROP DATABASE IF EXISTS {self.testdb}")
+        finally:
+            server.close()
+
+    def setUp(self):
+        self._drop_database()
+        server = BioSeqDatabase.open_database(
+            driver=DBDRIVER, host=DBHOST, user=DBUSER, passwd=DBPASSWD
+        )
+        try:
+            server.adaptor.execute(f"CREATE DATABASE {self.testdb}")
+        finally:
+            server.close()
+        self.addCleanup(self._drop_database)
+
+    def test_load_schema_and_records(self):
+        """Load the BioSQL schema, then GenBank records with ranked features."""
+        server = BioSeqDatabase.open_database(
+            driver=DBDRIVER,
+            host=DBHOST,
+            user=DBUSER,
+            passwd=DBPASSWD,
+            db=self.testdb,
+        )
+        self.addCleanup(server.close)
+        # Raised "Module pymysql not supported by the loader." before:
+        server.load_database_sql(support.DATA / "BioSQL" / "biosqldb-mysql.sql")
+        db = server.new_database("pymysql_load")
+        records = list(SeqIO.parse(support.DATA / "GenBank" / "cor6_6.gb", "gb"))
+        # Without ANSI_QUOTES, MySQL rejects the quoted "rank" column (1064):
+        self.assertEqual(db.load(records), len(records))
+        server.commit()
+        for record in records:
+            stored = db.lookup(accession=record.id.split(".")[0])
+            self.assertEqual(stored.seq, record.seq)
+            self.assertEqual(len(stored.features), len(record.features))
 
 
 if __name__ == "__main__":
