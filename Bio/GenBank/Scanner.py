@@ -993,7 +993,7 @@ class EmblScanner(InsdcScanner):
                 # Keep only the date. A later DT line replaces an earlier
                 # one, so the "Last updated" date wins, matching the date on
                 # a GenBank LOCUS line.
-                if data.strip():
+                if data:
                     consumer.date(data.split()[0])
                 else:
                     warnings.warn(
