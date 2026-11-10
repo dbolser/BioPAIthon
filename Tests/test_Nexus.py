@@ -21,6 +21,7 @@ from io import StringIO
 
 import support
 
+from Bio import Phylo
 from Bio import SeqIO
 from Bio.Align import Alignment
 from Bio.Align import MultipleSeqAlignment
@@ -1675,6 +1676,122 @@ end;
         handle = StringIO()
         with self.assertRaises(ValueError):
             NexusWriter(handle).write_file([a, a])
+
+
+class TestStandardDatatype(unittest.TestCase):
+    """Matrices with datatype=standard, such as morphological characters.
+
+    See biopython/biopython#2814.
+    """
+
+    # Mesquite writes SYMBOLS with a space between (and before) the symbols.
+    # The NEXUS standard says this is the same as SYMBOLS="012".
+    template = """\
+#NEXUS
+begin taxa;
+    dimensions ntax=3;
+    taxlabels alpha beta gamma;
+end;
+begin characters;
+    dimensions nchar=5;
+    format datatype = standard gap = - missing = ? %s;
+    matrix
+    alpha 01201
+    beta  %s
+    gamma 22100
+;
+end;
+"""
+
+    def test_commandline_keeps_quoted_values_whole(self):
+        """A quoted option value with spaces or "=" in it is one value."""
+        line = Nexus.Commandline(
+            "format datatype=standard symbols = \"0 1 2\" equate='R=(02) Y=(1)'",
+            "characters",
+        )
+        self.assertEqual(
+            line.options,
+            {
+                "datatype": "standard",
+                "symbols": '"0 1 2"',
+                "equate": "'R=(02) Y=(1)'",
+            },
+        )
+        # A doubled quote stands for the quote itself, and text straight after
+        # the closing quote stays in the value, as it did before
+        line = Nexus.Commandline("format equate='it''s a' x='ab'cd", "characters")
+        self.assertEqual(line.options, {"equate": "'it''s a'", "x": "'ab'cd"})
+
+    def test_symbols_with_and_without_whitespace(self):
+        """SYMBOLS = "  0 1 2" reads the same as SYMBOLS="012"."""
+        for symbols in ('symbols = "  0 1 2"', 'symbols="012"', "symbols='0 1 2'"):
+            with self.subTest(symbols=symbols):
+                n = Nexus.Nexus(self.template % (symbols, "1?-21"))
+                self.assertEqual("".join(n.symbols), "012")
+                self.assertEqual(
+                    {taxon: str(row) for taxon, row in n.matrix.items()},
+                    {"alpha": "01201", "beta": "1?-21", "gamma": "22100"},
+                )
+
+    def test_phylo_reads_trees(self):
+        """Bio.Phylo reads the trees from a file with such a matrix."""
+        text = self.template % ('symbols = "  0 1 2"', "1?-21")
+        text += "begin trees;\n    tree one = ((alpha,beta),gamma);\nend;\n"
+        (tree,) = Phylo.parse(StringIO(text), "nexus")
+        self.assertEqual(
+            [clade.name for clade in tree.get_terminals()], ["alpha", "beta", "gamma"]
+        )
+
+    def test_read_msa(self):
+        """Bio.AlignIO and Bio.SeqIO read a standard matrix as one letter per character."""
+        text = self.template % ('symbols = "  0 1 2"', "1?-21")
+        alignment = next(NexusIterator(StringIO(text)))
+        self.assertEqual(
+            [record.id for record in alignment], ["alpha", "beta", "gamma"]
+        )
+        self.assertEqual(
+            [record.seq for record in alignment],
+            [Seq("01201"), Seq("1?-21"), Seq("22100")],
+        )
+        records = SeqIO.parse(StringIO(text), "nexus")
+        self.assertEqual(
+            [str(record.seq) for record in records], ["01201", "1?-21", "22100"]
+        )
+
+    def test_read(self):
+        """Bio.Align reads a standard matrix as one letter per character."""
+        text = self.template % ('symbols = "  0 1 2"', "1?-21")
+        alignment = next(AlignmentIterator(StringIO(text)))
+        self.assertEqual(alignment.shape, (3, 5))
+        self.assertEqual(
+            [record.id for record in alignment.sequences], ["alpha", "beta", "gamma"]
+        )
+        self.assertEqual(list(alignment), ["01201", "1?-21", "22100"])
+
+    def test_coding_of_one_state(self):
+        """A polymorphic (1) or uncertain {1} coding of one state is that state."""
+        text = self.template % ('symbols="012"', "1(1)-{2}1")
+        alignment = next(NexusIterator(StringIO(text)))
+        self.assertEqual(alignment[1].seq, Seq("11-21"))
+        alignment = next(AlignmentIterator(StringIO(text)))
+        self.assertEqual(alignment[1], "11-21")
+
+    def test_polymorphic_or_uncertain_coding_raises(self):
+        """A coding of several states cannot be one letter, so reading raises ValueError."""
+        for row, message in (
+            ("1(01)210", r"Taxon beta: character 2 has the polymorphic coding \(01\)"),
+            ("12{02}11", r"Taxon beta: character 3 has the uncertain coding \{02\}"),
+        ):
+            text = self.template % ('symbols="012"', row)
+            # Bio.Nexus itself keeps the coding
+            n = Nexus.Nexus(text)
+            self.assertEqual(str(n.matrix["beta"]), row)
+            with self.subTest(row=row, reader="Bio.AlignIO"):
+                with self.assertRaisesRegex(ValueError, message):
+                    next(NexusIterator(StringIO(text)))
+            with self.subTest(row=row, reader="Bio.Align"):
+                with self.assertRaisesRegex(ValueError, message):
+                    next(AlignmentIterator(StringIO(text)))
 
 
 @unittest.skipIf(cnexus is None, "C extension Bio.Nexus.cnexus not available")

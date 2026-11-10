@@ -180,7 +180,9 @@ class AlignmentIterator(interfaces.AlignmentIterator):
             annotations = {"molecule_type": "protein"}
         else:
             annotations = None
-        aligned_seqs = [bytes(n.matrix[name]) for name in n.taxlabels]
+        aligned_seqs = [
+            bytes(Nexus._row_as_seq(name, n.matrix[name])) for name in n.taxlabels
+        ]
         seqs, coordinates = Alignment.parse_printed_alignment(aligned_seqs)
         records = [
             SeqRecord(Seq(seq), id=name, annotations=annotations)

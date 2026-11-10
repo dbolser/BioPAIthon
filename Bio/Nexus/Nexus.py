@@ -15,6 +15,7 @@ Maddison, Swofford, Maddison. 1997. Syst. Biol. 46(4):590-621
 import copy
 import math
 import random
+import re
 import sys
 import warnings
 from functools import reduce
@@ -51,6 +52,12 @@ WHITESPACE = " \t\n"
 SPECIALCOMMENTS = [
     "&"
 ]  # supported special comment ('tree' command), all others are ignored
+# One token of a command's options: an equals sign, or a run of characters
+# up to whitespace or an equals sign, except that a token starting with a
+# single or double quote runs at least to its closing quote (a doubled quote
+# stands for the quote itself). Quotes are kept, so SYMBOLS="0 1 2" gives the
+# value '"0 1 2"'.
+_OPTION_TOKEN = re.compile(r"""(?:'(?:[^']|'')*'|"(?:[^"]|"")*")[^\s=]*|=|[^\s=]+""")
 CHARSET = "chars"
 TAXSET = "taxa"
 CODONPOSITIONS = "codonpositions"
@@ -327,6 +334,40 @@ def _unique_label(previous_labels, label):
 def _seqmatrix2strmatrix(matrix):
     """Convert a Seq-object matrix to a plain sequence-string matrix (PRIVATE)."""
     return {t: str(matrix[t]) for t in matrix}
+
+
+def _row_as_seq(taxon, row):
+    """Return a row of the matrix as a Seq with one letter per character (PRIVATE).
+
+    Used by Bio.AlignIO, Bio.SeqIO and Bio.Align, which hold one letter per
+    alignment column. Rows of a datatype=standard matrix are StandardData
+    objects. A polymorphic (1) or uncertain {1} coding of one state is that
+    state; one of several states, such as (01) or {01}, cannot be one
+    letter, so it raises ValueError naming the taxon and character rather
+    than drop or replace states. Rows of other datatypes are already Seq
+    objects and are returned unchanged.
+    """
+    if not isinstance(row, StandardData):
+        return row
+    letters = []
+    # raw() rather than iterating, which would move the StandardData's cursor
+    for position, coding in enumerate(row.raw(), 1):
+        states = "".join(coding["d"])
+        if len(states) == 1:
+            letters.append(states)
+        elif coding["t"] == "multi":
+            raise ValueError(
+                "Taxon %s: character %i has the polymorphic coding (%s), "
+                "which an alignment cannot hold as one letter; "
+                "use Bio.Nexus to read this matrix" % (taxon, position, states)
+            )
+        else:
+            raise ValueError(
+                "Taxon %s: character %i has the uncertain coding {%s}, "
+                "which an alignment cannot hold as one letter; "
+                "use Bio.Nexus to read this matrix" % (taxon, position, states)
+            )
+    return Seq("".join(letters))
 
 
 def _compact4nexus(orig_list):
@@ -620,7 +661,7 @@ class Commandline:
         else:
             if len(options) > 0:
                 try:
-                    options = options.replace("=", " = ").split()
+                    options = _OPTION_TOKEN.findall(options)
                     valued_indices = [
                         (n - 1, n, n + 1)
                         for n in range(len(options))
@@ -822,15 +863,8 @@ class Nexus:
             elif self.datatype == "standard":
                 self.ambiguous_values = {}
                 if not self.symbols:
-                    # PARSER BUG ##
-                    # This error arises when symbols are absent or when
-                    # whitespace is located within the SYMBOLS command values.
-                    # The Nexus parser quits reading the SYMBOLS line upon
-                    # finding a whitespace character.
                     raise NexusError(
-                        "Symbols must be defined when using standard datatype. "
-                        "Please remove any whitespace (spaces, tabs, etc.) "
-                        "between values for symbols as this confuses the Nexus parser."
+                        "Symbols must be defined when using standard datatype."
                     )
 
                 self.unambiguous_letters = "".join(self.symbols)
