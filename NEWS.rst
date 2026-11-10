@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.PDB`` structures, models, chains and residues have a new
+``radius_of_gyration`` method. It gives the radius of gyration in Angstroms:
+the root-mean-square distance of the atoms from their center of mass, each
+atom weighted by its mass, or equally with ``geometric=True``. It takes the
+same atoms as ``center_of_mass``, so every alternative location of a
+disordered atom or residue counts in full. For ``1GBT.cif`` in the test suite
+it gives 16.27. Both methods now raise ``ValueError`` for an entity whose
+children hold no atoms, such as a structure whose only model is empty, as
+they already did for an entity with no children; ``center_of_mass`` raised
+``IndexError: pop from an empty deque``, so only code that caught that
+``IndexError`` is affected. That is an upstream defect, also in Biopython
+1.88 and still in upstream's development code. The method is Yiyabo's, from
+the unmerged biopython/biopython#5279, which answers Anika Dureja's request in
+biopython/biopython#5257; the ``ValueError`` and a working docstring example
+are this fork's corrections. See ``ADOPTED.md``.
+
 ``Bio.Phylo`` now writes Newick trees of any depth, unless the ``ladderize``
 option is given. ``Phylo.write`` with format ``"newick"``, and so
 ``Phylo.convert`` to Newick and ``tree.format("newick")``, built the tree text
