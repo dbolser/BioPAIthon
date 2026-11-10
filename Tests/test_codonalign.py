@@ -324,6 +324,40 @@ class Test_build(unittest.TestCase):
         self.assertEqual(dn.matrix, [[0], [0, 0], [0, 0, 0]])
         self.assertEqual(ds.matrix, [[0], [0, 0], [0, 0, 0]])
 
+    def test_build_insertion_frameshift_dn_ds(self):
+        """Test dN and dS of a frameshift insertion against frameshift deletions."""
+        seq3, seq4, seq5 = self.seqlist2
+        pro = SeqRecord(self.aln2[0].seq, id="pro4")
+        # A copy of seq3 with one nucleotide inserted, which build pads
+        # with gaps, adding gaps to the other rows against it
+        inserted = SeqRecord(seq3.seq[:150] + "T" + seq3.seq[150:], id="pro4")
+        codon_aln = codonalign.build(
+            MultipleSeqAlignment([*self.aln2, pro]), [seq3, seq4, seq5, inserted]
+        )
+        self.assertEqual(codon_aln[3].seq[150:153], "T--")
+        # The added gaps leave the codons of the frameshift deletions where
+        # they were. This lost them, and raised ValueError.
+        for rec, plain in zip(codon_aln, codonalign.build(self.aln2, self.seqlist2)):
+            self.assertEqual(rec.seq[150:153], "---")
+            self.assertEqual(rec.seq.rf_table, plain.seq.rf_table)
+        zeros = [[0], [0, 0], [0, 0, 0], [0, 0, 0, 0]]
+        for method in ("NG86", "LWL85"):
+            with self.subTest(method=method):
+                dn, ds = codon_aln.get_dn_ds_matrix(method=method)
+                self.assertEqual(dn.matrix, zeros)
+                self.assertEqual(ds.matrix, zeros)
+        # Six nucleotides inserted in frame: no codon starts in their
+        # columns, so they are not compared
+        inserted = SeqRecord(seq3.seq[:60] + "ACGTAC" + seq3.seq[60:], id="pro4")
+        codon_aln = codonalign.build(
+            MultipleSeqAlignment([self.aln2[0], pro]), [seq3, inserted]
+        )
+        self.assertEqual(codon_aln[0].seq[60:66], "------")
+        self.assertEqual(codon_aln[1].seq[60:66], "ACGTAC")
+        dn, ds = codon_aln.get_dn_ds_matrix()
+        self.assertEqual(dn.matrix, [[0], [0, 0]])
+        self.assertEqual(ds.matrix, [[0], [0, 0]])
+
 
 class Test_dn_ds(unittest.TestCase):
     def setUp(self):
