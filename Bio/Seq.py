@@ -532,8 +532,10 @@ class _SeqAbstractBaseClass(ABC):
             return self._data < other._data
         elif isinstance(other, str):
             return self._data < other.encode("ASCII")
-        else:
+        elif isinstance(other, (bytes, bytearray)):
             return self._data < other
+        else:
+            return NotImplemented
 
     def __le__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the less-than or equal operand."""
@@ -541,8 +543,10 @@ class _SeqAbstractBaseClass(ABC):
             return self._data <= other._data
         elif isinstance(other, str):
             return self._data <= other.encode("ASCII")
-        else:
+        elif isinstance(other, (bytes, bytearray)):
             return self._data <= other
+        else:
+            return NotImplemented
 
     def __gt__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the greater-than operand."""
@@ -550,8 +554,10 @@ class _SeqAbstractBaseClass(ABC):
             return self._data > other._data
         elif isinstance(other, str):
             return self._data > other.encode("ASCII")
-        else:
+        elif isinstance(other, (bytes, bytearray)):
             return self._data > other
+        else:
+            return NotImplemented
 
     def __ge__(self, other: "str | bytes | bytearray | _SeqAbstractBaseClass") -> bool:
         """Implement the greater-than or equal operand."""
@@ -559,8 +565,10 @@ class _SeqAbstractBaseClass(ABC):
             return self._data >= other._data
         elif isinstance(other, str):
             return self._data >= other.encode("ASCII")
-        else:
+        elif isinstance(other, (bytes, bytearray)):
             return self._data >= other
+        else:
+            return NotImplemented
 
     def __len__(self) -> int:
         """Return the length of the sequence."""

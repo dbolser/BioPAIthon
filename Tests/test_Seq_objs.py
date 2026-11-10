@@ -5,6 +5,7 @@
 """Unittests for the Seq objects."""
 
 import array
+import operator
 import subprocess
 import sys
 import unittest
@@ -1516,6 +1517,58 @@ class ComparisonTests(unittest.TestCase):
                 self.assertGreaterEqual(Seq("TT"), seq2[3:5], msg=msg)
                 self.assertGreaterEqual(MutableSeq("TT"), seq1[2:4], msg=msg)
                 self.assertGreaterEqual(MutableSeq("TT"), seq2[3:5], msg=msg)
+
+    ordering = (
+        ("<", operator.lt, ">"),
+        ("<=", operator.le, ">="),
+        (">", operator.gt, "<"),
+        (">=", operator.ge, "<="),
+    )
+
+    def test_ordering_unsupported_type(self):
+        """Ordering against an unsupported type names the sequence class."""
+        for cls in (Seq, MutableSeq):
+            for symbol, op, _ in self.ordering:
+                for other in (5, None, 1.5, ["ACGT"]):
+                    with self.subTest(cls=cls, op=symbol, other=other):
+                        message = (
+                            f"'{symbol}' not supported between instances of "
+                            f"'{cls.__name__}' and '{type(other).__name__}'"
+                        )
+                        with self.assertRaises(TypeError) as cm:
+                            op(cls("ACGT"), other)
+                        self.assertEqual(str(cm.exception), message)
+
+    def test_ordering_reflected_operand(self):
+        """The other operand's reflected method receives the sequence itself."""
+
+        class Probe:
+            def __lt__(self, other):
+                return ("<", other)
+
+            def __le__(self, other):
+                return ("<=", other)
+
+            def __gt__(self, other):
+                return (">", other)
+
+            def __ge__(self, other):
+                return (">=", other)
+
+        for cls in (Seq, MutableSeq):
+            for symbol, op, reflected in self.ordering:
+                with self.subTest(cls=cls, op=symbol):
+                    seq = cls("ACGT")
+                    called, received = op(seq, Probe())
+                    self.assertEqual(called, reflected)
+                    self.assertIs(received, seq)
+
+    def test_ordering_undefined_against_unsupported_type(self):
+        """An undefined sequence against an unsupported type is a TypeError."""
+        for symbol, op, _ in self.ordering:
+            with self.subTest(op=symbol):
+                with self.assertRaises(TypeError):
+                    op(Seq(None, length=4), 5)
 
 
 class PartialSequenceTests(unittest.TestCase):
