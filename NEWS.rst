@@ -55,10 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
-* ``Bio.Phylo`` now preserves the total branch length and all pairwise tip
-  distances when ``root_with_outgroup(..., outgroup_branch_length=...)`` is
-  called on a direct child of the root, and consequently when
-  ``root_at_midpoint()`` places the new root on a root-adjacent branch.
+Rerooting a ``Bio.Phylo`` tree no longer lengthens it. When the outgroup
+given to ``root_with_outgroup`` was a child of the old root and
+``outgroup_branch_length`` was not zero, the new root was put on the
+outgroup's branch without shortening the rest of that branch, so the total
+branch length and the distance between every pair of tips grew by
+``outgroup_branch_length``. For ``(A:1,B:2)``, rerooting on ``A`` with
+``outgroup_branch_length=0.5`` gave a distance of 3.5 between ``A`` and ``B``
+instead of 3. ``root_at_midpoint`` uses the same code, so it gave wrong
+distances whenever the midpoint fell on a branch next to the old root:
+midpoint rooting ``(A:1,B:2)`` gave 4.5 instead of 3. Trees built with
+``DistanceTreeConstructor`` and then midpoint rooted were affected about one
+time in fifteen for neighbour joining and one in four for UPGMA, in a test
+on random six-taxon distance matrices. ``ParsimonyScorer.get_score`` midpoint
+roots, in place, any unrooted tree it is given, so that tree could come back
+lengthened, though its parsimony score, which ignores branch lengths, was
+right. Branch lengths and tip distances are now kept. Rerooting on any other clade, or with no ``outgroup_branch_length``,
+was already correct and is unchanged. This is an upstream defect, also in
+Biopython 1.88; the fix is biopython/biopython#5390.
 
 ``Bio.SeqUtils.CodonAdaptationIndex.calculate`` no longer fails with a bare
 ``ZeroDivisionError: division by zero`` when no codon of the sequence counts
