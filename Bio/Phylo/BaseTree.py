@@ -554,7 +554,7 @@ class TreeMixin:
             return True
         return False
 
-    def is_monophyletic(self, terminals, *more_terminals):
+    def is_monophyletic(self, terminals, *more_terminals, unrooted=False):
         """MRCA of terminals if they comprise a complete subclade, or False.
 
         I.e., there exists a clade such that its terminals are the same set as
@@ -571,10 +571,37 @@ class TreeMixin:
         targets if they are monophyletic (instead of the value True), and False
         otherwise.
 
-        :returns: common ancestor if terminals are monophyletic, otherwise False.
+        By default the test reads the tree from its root as stored, so a
+        group that straddles the root is not monophyletic even if the tree is
+        meant to be unrooted. Either root the tree first (for example with
+        ``root_with_outgroup``), or pass ``unrooted=True``. Then the targets
+        also count as monophyletic when the *other* terminals form a
+        complete subclade, i.e. when some branch splits the terminals into
+        exactly the targets and the rest. In that case the clade returned is
+        the common ancestor of the other terminals, not of the targets; when
+        the targets themselves form a subclade, that clade is returned, just
+        as without the option. The ``rooted`` attribute of the tree is not
+        consulted.
+
+        :param unrooted: if True, also accept targets whose complement is a
+            complete subclade (keyword only, default False).
+        :returns: common ancestor if terminals are monophyletic; with
+            ``unrooted=True``, the common ancestor of the other terminals if
+            only they form a subclade; otherwise False.
 
         """
         target_set = set(_combine_args(terminals, *more_terminals))
+        found = self._find_clade_with_terminals(target_set)
+        if found is not False or not unrooted or not target_set:
+            return found
+        all_terminals = set(self.root.get_terminals())
+        if not target_set < all_terminals:
+            # Some target is not a terminal of this tree
+            return False
+        return self._find_clade_with_terminals(all_terminals - target_set)
+
+    def _find_clade_with_terminals(self, target_set):
+        """Return the clade whose terminals are exactly target_set, or False (PRIVATE)."""
         current = self.root
         while True:
             if set(current.get_terminals()) == target_set:
