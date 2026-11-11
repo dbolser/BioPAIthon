@@ -520,6 +520,54 @@ class TestWriterErrors(unittest.TestCase):
         )
 
 
+class TestEmblMoleculeType(unittest.TestCase):
+    """The EMBL writer warns only on molecule types INSDC does not list."""
+
+    def write(self, mol_type):
+        record = SeqRecord(Seq("ACGT"), id="dummy", name="dummy")
+        record.annotations["molecule_type"] = mol_type
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            text = record.format("embl")
+        return text, [str(w.message) for w in caught]
+
+    def test_quiet(self):
+        # The eleven INSDC v11.3 mol_type values, plus the older short forms
+        # Biopython's GenBank parser and old-style EMBL ID lines produce
+        for mol_type in (
+            "genomic DNA",
+            "genomic RNA",
+            "mRNA",
+            "tRNA",
+            "rRNA",
+            "other RNA",
+            "other DNA",
+            "transcribed RNA",
+            "viral cRNA",
+            "unassigned DNA",
+            "unassigned RNA",
+            "DNA",
+            "RNA",
+            "protein",
+        ):
+            with self.subTest(mol_type=mol_type):
+                text, messages = self.write(mol_type)
+                self.assertEqual(messages, [])
+                self.assertIn(
+                    "; PROTEIN; " if mol_type == "protein" else f"; {mol_type}; ",
+                    text.splitlines()[0],
+                )
+
+    def test_non_standard(self):
+        text, messages = self.write("cDNA")
+        self.assertEqual(len(messages), 1)
+        self.assertTrue(
+            messages[0].startswith("Non-standard molecule type: cDNA."),
+            messages[0],
+        )
+        self.assertIn("; cDNA; ", text.splitlines()[0])
+
+
 class TestEmblRewrite(SeqRecordTestBaseClass):
     def check_rewrite(self, filename):
         old = SeqIO.read(filename, "embl")

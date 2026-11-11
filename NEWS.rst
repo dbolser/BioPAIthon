@@ -55,6 +55,22 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The EMBL writer in ``Bio.SeqIO`` no longer warns "Non-standard molecule
+type" for the eight ``mol_type`` values that INSDC added to its list (feature
+table definition v11.3, October 2024): genomic RNA, tRNA, rRNA, other RNA,
+other DNA, transcribed RNA, viral cRNA and unassigned RNA. They are written
+exactly as before; only the warning has gone. The older short forms DNA, RNA
+and protein are still written without a warning, although INSDC no longer
+lists them, because Biopython's own GenBank parser and old-style EMBL files
+produce them and a warning would fire on nearly every GenBank to EMBL
+conversion with nothing the user could change. The warning for any other
+value now points to the INSDC list, and still begins "Non-standard molecule
+type", so existing warning filters keep working. This is an upstream defect,
+also in Biopython 1.88 (biopython/biopython#5319); the list of new values was
+taken from Cornelius Roemer's biopython/biopython#5323, which upstream has
+not yet merged and which, unlike this change, would also warn on DNA, RNA
+and protein.
+
 The documentation of ``Bio.Phylo.TreeConstruction.DistanceCalculator`` now
 states what its distances range over; the numbers are unchanged. A distance
 is ``1 - score / max_score``. With the 'identity' model that lies between 0
