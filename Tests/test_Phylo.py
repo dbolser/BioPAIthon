@@ -890,15 +890,19 @@ class RerootSupportTests(unittest.TestCase):
             self.assertIsNone(tree.common_ancestor("B", "C").confidence)
 
     def assertWarnsDropped(self, kept, dropped, outgroup, **kwargs):
-        """Check rerooting warns that one of the root's two supports is dropped."""
+        """Check rerooting warns that one of the root's two supports is dropped.
+
+        The outgroup is a tuple of taxon names.
+        """
         with self.assertWarns(BiopythonWarning) as cm:
             self.tree.root_with_outgroup(*outgroup, **kwargs)
         message = str(cm.warning)
-        self.assertIn(f"keeping {kept}", message)
-        self.assertIn(f"dropping {dropped}", message)
+        self.assertIn(f"keeping {kept} and dropping {dropped}.", message)
+        # Reported at the caller's line, not inside Bio.Phylo
+        self.assertEqual(cm.filename, __file__)
 
     def assertNoWarning(self, outgroup, **kwargs):
-        """Check rerooting emits no warning."""
+        """Check rerooting with a tuple of taxon names emits no warning."""
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             self.tree.root_with_outgroup(*outgroup, **kwargs)
@@ -909,12 +913,18 @@ class RerootSupportTests(unittest.TestCase):
         # whichever side the outgroup is on, with or without a branch length,
         # and for an internal outgroup that becomes the root. A 0 is a value.
         for newick, outgroup, kwargs, kept, dropped in (
-            ("((A,B)90:1,(C,D)80:1);", "A", {}, 80, 90),
-            ("((A,B)90:1,(C,D)80:1);", "C", {}, 90, 80),
-            ("((A,B)90:1,(C,D)80:1);", "AB", {}, 80, 90),
-            ("((A,B)90:1,(C,D)80:1);", "AB", {"outgroup_branch_length": 0.5}, 80, 90),
-            ("((A,B)90:1,(C,D)0:1);", "A", {}, 0, 90),
-            ("((A,B)0:1,(C,D)80:1);", "A", {}, 80, 0),
+            ("((A,B)90:1,(C,D)80:1);", ("A",), {}, 80, 90),
+            ("((A,B)90:1,(C,D)80:1);", ("C",), {}, 90, 80),
+            ("((A,B)90:1,(C,D)80:1);", ("A", "B"), {}, 80, 90),
+            (
+                "((A,B)90:1,(C,D)80:1);",
+                ("A", "B"),
+                {"outgroup_branch_length": 0.5},
+                80,
+                90,
+            ),
+            ("((A,B)90:1,(C,D)0:1);", ("A",), {}, 0, 90),
+            ("((A,B)0:1,(C,D)80:1);", ("A",), {}, 80, 0),
         ):
             self.tree = Phylo.read(StringIO(newick), "newick")
             self.assertWarnsDropped(kept, dropped, outgroup, **kwargs)
@@ -927,22 +937,66 @@ class RerootSupportTests(unittest.TestCase):
             "((A,B):1,(C,D):1);",
         ):
             for outgroup, kwargs in (
-                ("A", {}),
-                ("C", {}),
-                ("AB", {}),
-                ("AB", {"outgroup_branch_length": 0.5}),
+                (("A",), {}),
+                (("C",), {}),
+                (("A", "B"), {}),
+                (("A", "B"), {"outgroup_branch_length": 0.5}),
             ):
                 self.tree = Phylo.read(StringIO(newick), "newick")
                 self.assertNoWarning(outgroup, **kwargs)
         # A polytomous old root stays in the tree, so nothing merges
         self.tree = Phylo.read(StringIO("((A,B)90:1,(C,D)80:1,E:1);"), "newick")
-        self.assertNoWarning("A")
+        self.assertNoWarning(("A",))
         # Rerooting again only merges the halves of one branch, which agree
         self.tree = Phylo.read(StringIO("((A,B)90:1,(C,D)80:1);"), "newick")
-        self.assertWarnsDropped(80, 90, "A")
-        for outgroup in ("C", "B", "AB", "CD"):
+        self.assertWarnsDropped(80, 90, ("A",))
+        for outgroup in (("C",), ("B",), ("A", "B"), ("C", "D")):
             self.assertNoWarning(outgroup)
             self.assertNoWarning(outgroup, outgroup_branch_length=0.5)
+        # NaN on both branches drops nothing that differs
+        for left, right, warns in ((math.nan, math.nan, False), (math.nan, 0.9, True)):
+            self.tree = Phylo.BaseTree.Tree(
+                Phylo.BaseTree.Clade(
+                    clades=[
+                        Phylo.BaseTree.Clade(
+                            branch_length=1,
+                            confidence=left,
+                            clades=[
+                                Phylo.BaseTree.Clade(name="A"),
+                                Phylo.BaseTree.Clade(name="B"),
+                            ],
+                        ),
+                        Phylo.BaseTree.Clade(
+                            branch_length=1,
+                            confidence=right,
+                            clades=[
+                                Phylo.BaseTree.Clade(name="C"),
+                                Phylo.BaseTree.Clade(name="D"),
+                            ],
+                        ),
+                    ]
+                )
+            )
+            if warns:
+                self.assertWarnsDropped(right, left, ("A",))
+            else:
+                self.assertNoWarning(("A",))
+
+    def test_old_root_conflict_warns_midpoint(self):
+        """root_at_midpoint warns once, at the caller's line."""
+        tree = Phylo.read(StringIO("((A:1,B:5)90:1,(C:1,D:1)80:1);"), "newick")
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            tree.root_at_midpoint()
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, BiopythonWarning)
+        self.assertIn("keeping", str(caught[0].message))
+        self.assertEqual(caught[0].filename, __file__)
+        # Equal values do not warn
+        tree = Phylo.read(StringIO("((A:1,B:5)90:1,(C:1,D:1)90:1);"), "newick")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            tree.root_at_midpoint()
 
     def test_old_root_conflict_warns_phyloxml(self):
         """PhyloXML supports differ if their values or their types differ."""
@@ -968,19 +1022,36 @@ class RerootSupportTests(unittest.TestCase):
 """
         for confidences in ('<confidence type="bootstrap">90</confidence>', ""):
             self.tree = Phylo.read(StringIO(xml % confidences), "phyloxml")
-            self.assertNoWarning("A")
+            self.assertNoWarning(("A",))
         # The ingroup (C,D) keeps its own list; the message gives the types
         for confidences, kept in (
-            ('<confidence type="bootstrap">80</confidence>', "bootstrap 80.0"),
-            ('<confidence type="probability">90</confidence>', "probability 90.0"),
+            ('<confidence type="bootstrap">80</confidence>', "[bootstrap 80.0]"),
+            ('<confidence type="probability">90</confidence>', "[probability 90.0]"),
             (
                 '<confidence type="bootstrap">90</confidence>'
                 '<confidence type="probability">0.95</confidence>',
-                "bootstrap 90.0, probability 0.95",
+                "[bootstrap 90.0, probability 0.95]",
             ),
         ):
             self.tree = Phylo.read(StringIO(xml % confidences), "phyloxml")
-            self.assertWarnsDropped(kept, "bootstrap 90.0", "A")
+            self.assertWarnsDropped(kept, "[bootstrap 90.0]", ("A",))
+        # The order of the confidence elements carries no meaning
+        two = xml.replace(
+            '<confidence type="bootstrap">90</confidence>',
+            '<confidence type="bootstrap">90</confidence>'
+            '<confidence type="probability">0.95</confidence>',
+        )
+        self.tree = Phylo.read(
+            StringIO(
+                two
+                % (
+                    '<confidence type="probability">0.95</confidence>'
+                    '<confidence type="bootstrap">90</confidence>'
+                )
+            ),
+            "phyloxml",
+        )
+        self.assertNoWarning(("A",))
 
     def test_internal_outgroup_becomes_root(self):
         """An internal outgroup's support moves to the branch below it."""

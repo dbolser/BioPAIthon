@@ -14,6 +14,7 @@ classes in order to use the common methods defined on them.
 import collections
 import copy
 import itertools
+import math
 import random
 import re
 import warnings
@@ -26,17 +27,27 @@ def _support_key(support):
 
     A PhyloXML clade's support is a list of ``Confidence`` values, which
     compare as plain floats, so their types are added: a bootstrap of 90 and
-    a posterior probability of 90 are different support values.
+    a posterior probability of 90 are different support values. The order of
+    the list carries no meaning, so it is compared as a multiset. NaN, which
+    is unequal even to itself, counts as equal to NaN.
     """
+
+    def value_key(value):
+        if isinstance(value, float) and math.isnan(value):
+            return "nan"
+        return value
+
     if isinstance(support, list):
-        return [(value, getattr(value, "type", None)) for value in support]
-    return support
+        return collections.Counter(
+            (value_key(float(value)), getattr(value, "type", None)) for value in support
+        )
+    return value_key(support)
 
 
 def _support_text(support):
     """Describe a clade's support value for a message (PRIVATE)."""
     if isinstance(support, list):
-        return ", ".join(f"{value.type} {value!r}" for value in support)
+        return "[" + ", ".join(f"{value.type} {value!r}" for value in support) + "]"
     return repr(support)
 
 
@@ -940,6 +951,21 @@ class Tree(TreeElement, TreeMixin):
             - Otherwise, create a new root node as the parent of the outgroup.
 
         """
+        self._root_with_outgroup(
+            outgroup_targets,
+            *more_targets,
+            outgroup_branch_length=outgroup_branch_length,
+        )
+
+    def _root_with_outgroup(
+        self, outgroup_targets, *more_targets, outgroup_branch_length=None
+    ):
+        """Reroot this tree as root_with_outgroup does (PRIVATE).
+
+        root_with_outgroup and root_at_midpoint both call this from one frame
+        below the user's code, so a warning raised here with ``stacklevel=3``
+        points at the user's line rather than at a line in this module.
+        """
         # This raises a ValueError if any target is not in this tree
         # Otherwise, common_ancestor guarantees outgroup is in this tree
         outgroup = self.common_ancestor(outgroup_targets, *more_targets)
@@ -1034,7 +1060,7 @@ class Tree(TreeElement, TreeMixin):
                     f"into one branch, keeping {_support_text(ingroup._support)} "
                     f"and dropping {_support_text(prev_support)}.",
                     BiopythonWarning,
-                    stacklevel=2,
+                    stacklevel=3,
                 )
             if new_parent is new_root and new_root is not outgroup:
                 # The outgroup was a child of the old root and the new root
@@ -1063,13 +1089,13 @@ class Tree(TreeElement, TreeMixin):
         max_distance = 0.0
         tips = self.get_terminals()
         for tip in tips:
-            self.root_with_outgroup(tip)
+            self._root_with_outgroup(tip)
             new_max = max(self.depths().items(), key=lambda nd: nd[1])
             if new_max[1] > max_distance:
                 tip1 = tip
                 tip2 = new_max[0]
                 max_distance = new_max[1]
-        self.root_with_outgroup(tip1)
+        self._root_with_outgroup(tip1)
         # Depth to go from the ingroup tip toward the outgroup tip
         root_remainder = 0.5 * (max_distance - (self.root.branch_length or 0))
         assert root_remainder >= 0
@@ -1084,7 +1110,7 @@ class Tree(TreeElement, TreeMixin):
                 break
         else:
             raise ValueError("Somehow, failed to find the midpoint!")
-        self.root_with_outgroup(
+        self._root_with_outgroup(
             outgroup_node, outgroup_branch_length=outgroup_branch_length
         )
 

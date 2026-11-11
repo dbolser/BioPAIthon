@@ -59,17 +59,17 @@ and the default branch is now ``main`` rather than ``master``.
 emits a ``BiopythonWarning`` when rerooting removes a bifurcating root whose
 two branches carry different support values. Those two branches make the
 same split of the taxa, so after rerooting they become one branch with room
-for one value: the clade on the side that does not move keeps its own, and
-the other is dropped, as since the fix for biopython/biopython#745 in this
-release. The input gave one split two values, and the dropped value used to
-vanish without notice; the warning names the value kept and the value
-dropped. The tree produced is unchanged. There is no warning when the two
-values agree, when only one branch has a value, or when the old root had
-more than two children and so stays in the tree. A value of 0 counts as a
-value. PhyloXML clades compare their whole ``confidences`` lists, including
-each value's type, so a bootstrap of 90 and a posterior probability of 90
-differ. Code that expects the conflict can silence the warning with
-``warnings.filterwarnings``.
+for one value. The clade on the side that does not move keeps its own, and
+the other is dropped; this release brought that rule in with the fix for
+biopython/biopython#745 below. The input gave one split two values, and the
+dropped value used to vanish without notice; the warning names the value
+kept and the value dropped. The tree produced is unchanged. There is no
+warning when the two values agree, when only one branch has a value, or when
+the old root had more than two children and so stays in the tree. A value of
+0 counts as a value. PhyloXML clades compare their whole ``confidences``
+lists, including each value's type but not their order, so a bootstrap of 90
+and a posterior probability of 90 differ. Code that expects the conflict can
+silence the warning with ``warnings.filterwarnings``.
 
 ``Phylo.read`` and ``Phylo.parse`` with format ``"nexus"`` now keep every
 comment of a clade, not only the last one. A MrBayes consensus tree gives
