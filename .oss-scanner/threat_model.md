@@ -70,9 +70,6 @@ Untrusted input enters through:
   module at a time. The whole offline suite is
   `python -m pytest --offline -n 2`: about 3 minutes, and about 10 under
   `python-asan`. Run it from `Tests/`, not `/src`.
-- One test, `test_distribution_name.py::TestDistributionName::test_not_listed_twice`,
-  fails under `python-asan` and when run from `/src`. Both see a second
-  `biopaithon` install: `/opt/asan`, or the build's `biopaithon.egg-info`.
 - `Tests/<Format>/` (`Tests/GenBank`, `Tests/PDB`, `Tests/Nexus`,
   `Tests/TwoBit`, ...) hold real sample files, good seeds for malformed
   ones.
