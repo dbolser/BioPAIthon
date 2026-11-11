@@ -65,9 +65,10 @@ the remaining terminals form a clade, as ETE's unrooted option does. The
 method then returns that other clade, here the common ancestor of D to G,
 since the group itself has no clade of its own; a group that is a clade
 returns its own clade as before. The default is unchanged, and the tree's
-``rooted`` attribute is not used to switch modes: the Newick reader never
-sets it to True, and the NEXUS writer does not record it, so switching on it
-would have changed the answer for trees already rooted with an outgroup.
+``rooted`` attribute is not used to switch modes: the Newick reader ignores
+``[&R]`` in the file and the NEXUS writer does not record it, so the attribute
+is often False on trees already rooted with an outgroup, and switching on it
+would have changed their answers.
 
 The PDB header parser, ``Bio.PDB.parse_pdb_header`` and so the ``header``
 of a structure from ``PDBParser``, now keeps the case of the chain IDs in
