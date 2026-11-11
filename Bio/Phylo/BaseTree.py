@@ -16,6 +16,29 @@ import copy
 import itertools
 import random
 import re
+import warnings
+
+from Bio import BiopythonWarning
+
+
+def _support_key(support):
+    """Return a comparable form of a clade's support value (PRIVATE).
+
+    A PhyloXML clade's support is a list of ``Confidence`` values, which
+    compare as plain floats, so their types are added: a bootstrap of 90 and
+    a posterior probability of 90 are different support values.
+    """
+    if isinstance(support, list):
+        return [(value, getattr(value, "type", None)) for value in support]
+    return support
+
+
+def _support_text(support):
+    """Describe a clade's support value for a message (PRIVATE)."""
+    if isinstance(support, list):
+        return ", ".join(f"{value.type} {value!r}" for value in support)
+    return repr(support)
+
 
 # General tree-traversal algorithms
 
@@ -901,6 +924,8 @@ class Tree(TreeElement, TreeMixin):
          - If the original root was bifurcating, its two branches become one
            and make one split. The clade below the merged branch keeps its own
            support, or takes the other branch's support if it has none. If
+           both branches carry support and the values differ, the other
+           branch's value is dropped and a ``BiopythonWarning`` says so. If
            the new root is created on that merged branch (the outgroup was a
            child of the original root), both halves carry the support kept.
          - The new root has no branch above it in the tree, so it has no
@@ -996,9 +1021,21 @@ class Tree(TreeElement, TreeMixin):
             # only one support can stay. Keep the ingroup's own, since its
             # clade is not moved and so keeps the label it had; take the other
             # branch's only if the ingroup has none. If both are set and
-            # differ, the input gave one split two values, and one is lost.
+            # differ, the input gave one split two values, and one is lost,
+            # so say so.
             if ingroup._support is None:
                 ingroup._support = prev_support
+            elif prev_support is not None and _support_key(
+                ingroup._support
+            ) != _support_key(prev_support):
+                warnings.warn(
+                    "The two branches of the original root carry different "
+                    "support values for the same split. Rerooting merges them "
+                    f"into one branch, keeping {_support_text(ingroup._support)} "
+                    f"and dropping {_support_text(prev_support)}.",
+                    BiopythonWarning,
+                    stacklevel=2,
+                )
             if new_parent is new_root and new_root is not outgroup:
                 # The outgroup was a child of the old root and the new root
                 # sits on that same merged branch, so the outgroup's half
