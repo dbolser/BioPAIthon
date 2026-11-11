@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Phylo.read`` and ``Phylo.parse`` with format ``"nexus"`` now keep every
+comment of a clade, not only the last one. A MrBayes consensus tree gives
+each clade two comments, its posterior probability before the branch length
+and branch length statistics after it, as in
+``A[&prob=1.0]:0.1[&length_mean=0.1]``. Since biop-ai 1.88 the clade kept
+only ``[&length_mean=0.1]``, so the posterior was lost; the older
+``Bio.Nexus.Trees`` parser kept the posterior but gave a branch length that
+was a string. The comments are now joined in file order, each in its square
+brackets, so ``clade.comment`` is the string
+``"[&prob=1.0][&length_mean=0.1]"``. It stays a string, a clade with one
+comment is unchanged, and code reading the posterior from the start of the
+comment works again. ``Phylo.write`` with format ``"nexus"`` now writes such
+comments as they are, so they read back the same. It used to escape their
+square brackets, as in ``[\[&prob=1.0\]]``, and ``Bio.Nexus`` then dropped
+them as ordinary comments, so no comment ever survived a NEXUS round trip.
+The Newick writer is unchanged. See also biopython/biopython#3456, the same
+two-comment problem in ``Bio.Nexus``.
+
 The EMBL writer in ``Bio.SeqIO`` no longer warns "Non-standard molecule
 type" for eight ``mol_type`` values that its list was missing, although
 INSDC lists them (feature table definition v11.3, October 2024, and some for
@@ -1315,8 +1333,8 @@ closing ``]`` is now looked for after its ``[&``, so a ``]`` before it, as in
 the quoted label ``'x]y'[&p]``, no longer loses the comment. The MrBayes 3.2
 consensus tree attached to the issue still cannot be read with ``Bio.Nexus``,
 because its comments contain parentheses (``prob(percent)``). ``Phylo.read``
-with format ``"nexus"`` has read it since biop-ai 1.88, keeping the last
-comment.
+with format ``"nexus"`` has read it since biop-ai 1.88, and now keeps both
+comments.
 
 ``Bio.Phylo`` now moves support values with their branches when a tree is
 rerooted by ``root_with_outgroup`` or ``root_at_midpoint``
