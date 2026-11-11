@@ -72,6 +72,20 @@ taken from Cornelius Roemer's biopython/biopython#5323, which upstream has
 not yet merged and which, unlike this change, would also warn on DNA, RNA
 and protein.
 
+A printed ``Bio.Align.Alignment`` can now use wider (or narrower) lines:
+``alignment.format("", line_width=120)`` wraps the human-readable
+representation at 120 columns instead of 80, counting the 20 columns taken by
+the sequence name and coordinate, so the smallest accepted width is 21. This
+covers pairwise alignments with their match line, protein-to-nucleotide
+alignments, and multiple alignments. The default is still 80, so
+``str(alignment)`` and ``print(alignment)`` give exactly the same output as
+before; in particular the width does not follow the terminal, as proposed
+upstream (biopython/biopython#5035, biopython/biopython#5070), because output
+that depends on where it is printed would break doctests and saved output. A
+width below 21 raises ``ValueError``, and a width that is not an integer
+raises ``TypeError``. The keyword applies only to the human-readable format;
+the file format writers reject it.
+
 The documentation of ``Bio.Phylo.TreeConstruction.DistanceCalculator`` now
 states what its distances range over; the numbers are unchanged. A distance
 is ``1 - score / max_score``. With the 'identity' model that lies between 0
