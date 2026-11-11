@@ -59,15 +59,17 @@ The documentation of ``Bio.Phylo.TreeConstruction.DistanceCalculator`` now
 states what its distances range over; the numbers are unchanged. A distance
 is ``1 - score / max_score``. With the 'identity' model that lies between 0
 and 1, but with a substitution matrix it is above 1 whenever the alignment
-score is negative, as it is for distant sequences: 3.0 for AAAA against CCCC
-with 'megablast', 1.8 with 'blastn', and about 1.18 for WWWW against GGGG
-with 'blosum62'. In 'blastn' and 'megablast' every ambiguity code (S, W,
-N and so on) scores negatively against itself, so two sequences made only
-of them can even give a negative distance. A private docstring had promised 0 to 1.
-Capping the distances at 1 (biopython/biopython#5348) was not adopted: every
-pair of sequences below about 44% identity with 'blastn', or 67% with
-'megablast', would get exactly 1, so a tree could no longer tell distant
-sequences from unrelated ones. Rescaling between the lowest and highest
+score is negative while ``max_score`` is positive, as it is for distant
+sequences: 3.0 for AAAA against CCCC with 'megablast', 1.8 with 'blastn',
+and about 1.18 for WWWW against GGGG with 'blosum62'. In 'blastn' and
+'megablast' every ambiguity code (S, W, N and so on) scores negatively
+against itself, so ``max_score`` can be negative too, and two sequences made
+only of such letters can even give a negative distance (-3.0 for SSSS against
+WWWW with 'blastn'). A private docstring had promised 0 to 1. Capping the
+distances at 1 (biopython/biopython#5348) was not adopted: for sequences of
+A, C, G and T only, every pair below about 44% identity with 'blastn', or
+67% with 'megablast', would get exactly 1, so a tree could no longer tell
+distant sequences from unrelated ones. Rescaling between the lowest and highest
 possible score would change every matrix distance, and upstream has not
 chosen between the two (biopython/biopython#5341). Code that computes a
 similarity as ``1 - distance`` should expect negative values with these

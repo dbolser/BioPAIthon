@@ -384,12 +384,14 @@ class DistanceCalculator:
     matrix entries for each pair of letters, and ``max_score`` is the higher
     of the two sequences' scores against themselves. Identical sequences
     give 0, unless their score against themselves is 0, in which case the
-    distance is 1. A negative score gives a distance above 1, and there is
-    no fixed upper limit: it depends on the matrix (3 for 'megablast' on
-    AAAA against CCCC). Distances are not capped at 1. In the 'blastn'
-    (NUC.4.4) and 'megablast' matrices the ambiguity codes (S, W, N and so
-    on) all score negatively against themselves, so two sequences made only
-    of such letters can even give a distance below 0.
+    distance is 1. When ``max_score`` is positive, as it is for sequences
+    of ordinary letters, a negative score gives a distance above 1, and
+    there is no fixed upper limit: it depends on the matrix (3 for
+    'megablast' on AAAA against CCCC). Distances are not capped at 1. In the
+    'blastn' (NUC.4.4) and 'megablast' matrices the ambiguity codes (S, W, N
+    and so on) all score negatively against themselves, so ``max_score`` can
+    be negative, and two sequences made only of such letters can even give a
+    distance below 0 (-3 for 'blastn' on SSSS against WWWW).
 
     Examples
     --------
@@ -534,8 +536,9 @@ class DistanceCalculator:
         (for example when every column is skipped, or seq1 is an empty
         string), and otherwise 0 for identical sequences. With the
         'identity' model it is at most 1. With a substitution matrix it is
-        above 1 whenever the score is negative, and it can be below 0 when
-        ``max_score`` is negative (see the class docstring).
+        above 1 when the score and ``max_score`` have opposite signs, and
+        below 0 when both are negative and the score is lower than
+        ``max_score`` (see the class docstring).
         """
         score = 0
         max_score = 0

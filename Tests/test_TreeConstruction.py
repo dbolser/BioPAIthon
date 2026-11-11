@@ -222,6 +222,22 @@ class DistanceCalculatorTest(unittest.TestCase):
                 dm = DistanceCalculator(model).get_distance(aln)
                 self.assertAlmostEqual(dm["one", "two"], distance)
 
+    def test_matrix_distance_negative_max_score(self):
+        # Ambiguity codes score -1 against themselves in NUC.4.4 and
+        # megablast, so max_score can be negative and the distance can be
+        # below 0; a negative score then does not mean a distance above 1.
+        for model, seq1, seq2, distance in (
+            ("blastn", "SSSS", "WWWW", -3.0),
+            ("megablast", "SSSS", "WWWW", -1.0),
+            ("blastn", "SSSS", "SSSS", 0.0),
+            ("blastn", "NNNN", "SSSS", 0.0),
+        ):
+            with self.subTest(model=model, seq1=seq1, seq2=seq2):
+                fasta = f">one\n{seq1}\n>two\n{seq2}\n"
+                aln = Align.read(StringIO(fasta), "fasta")
+                dm = DistanceCalculator(model).get_distance(aln)
+                self.assertAlmostEqual(dm["one", "two"], distance)
+
     def test_identity_skip_letters(self):
         # Identical sequences containing gap columns; skipped positions
         # must not inflate the distance (biopython/biopython#5332).
