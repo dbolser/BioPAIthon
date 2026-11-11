@@ -389,20 +389,30 @@ It is also possible to get dN and dS matrix or a tree from a
    gi|41327737|ref|NM_005228.3|    0.61415325314   0.60182631356   0.0670105144563 0.0614703609541 0
    gi|6478867|gb|M37394.2|RATEGFR  0.61870883409   0.606868724887  0.0738690303483 0.0735789092792 0.0517984707257 0
    gi|24657088|ref|NM_057410.3|    gi|24657104|ref|NM_057411.3|    gi|302179500|gb|HM749883.1| gi|47522839|ref|NM_214007.1|    gi|41327737|ref|NM_005228.3|    gi|6478867|gb|M37394.2|RATEGFR
-   >>> dn_tree, ds_tree = aln.get_dn_ds_tree()
+
+NG86, the default method, cannot give dS between the rat and the two
+Drosophila sequences: they have too many synonymous differences for its
+correction for multiple substitutions. Those two entries of ``ds_matrix``
+are NaN, with a ``BiopythonWarning`` for each pair, and
+``aln.get_dn_ds_tree()`` raises ``ValueError``, as a tree needs every
+distance. LWL85 gives every distance for this alignment:
+
+.. code:: pycon
+
+   >>> dn_tree, ds_tree = aln.get_dn_ds_tree(dn_ds_method="LWL85")
    >>> print(dn_tree)
    Tree(rooted=True)
        Clade(branch_length=0, name='Inner5')
-           Clade(branch_length=0.279185347322, name='Inner4')
-               Clade(branch_length=0.00859186651689, name='Inner3')
-                   Clade(branch_length=0.0258992353629, name='gi|6478867|gb|M37394.2|RATEGFR')
-                   Clade(branch_length=0.0258992353629, name='gi|41327737|ref|NM_005228.3|')
-               Clade(branch_length=0.0139009266768, name='Inner2')
-                   Clade(branch_length=0.020590175203, name='gi|47522839|ref|NM_214007.1|')
-                   Clade(branch_length=0.020590175203, name='gi|302179500|gb|HM749883.1|')
-           Clade(branch_length=0.294630667432, name='Inner1')
-               Clade(branch_length=0.0104539152529, name='gi|24657104|ref|NM_057411.3|')
-               Clade(branch_length=0.0104539152529, name='gi|24657088|ref|NM_057410.3|')
+           Clade(branch_length=0.272273165577443, name='Inner4')
+               Clade(branch_length=0.008967927544407818, name='Inner3')
+                   Clade(branch_length=0.028547914744642765, name='gi|6478867|gb|M37394.2|RATEGFR')
+                   Clade(branch_length=0.028547914744642765, name='gi|41327737|ref|NM_005228.3|')
+               Clade(branch_length=0.015193978173023329, name='Inner2')
+                   Clade(branch_length=0.022321864116027254, name='gi|47522839|ref|NM_214007.1|')
+                   Clade(branch_length=0.022321864116027254, name='gi|302179500|gb|HM749883.1|')
+           Clade(branch_length=0.29986182814532997, name='Inner1')
+               Clade(branch_length=0.009927179721163628, name='gi|24657104|ref|NM_057411.3|')
+               Clade(branch_length=0.009927179721163628, name='gi|24657088|ref|NM_057410.3|')
 
 Another application of codon alignment that ``codonalign`` supports is
 Mcdonald-Kreitman test. This test compares the within species synonymous

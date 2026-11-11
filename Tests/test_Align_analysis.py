@@ -25,6 +25,7 @@ from Bio.Align.analysis import _get_pi
 from Bio.Align.analysis import _get_Q
 from Bio.Align.analysis import _q
 from Bio.Align.analysis import calculate_dn_ds
+from Bio.Align.analysis import calculate_dn_ds_matrix
 from Bio.Align.analysis import mktest
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
@@ -97,11 +98,14 @@ class CalculateDnDsValidationTests(unittest.TestCase):
     def test_plain_sequences_and_seqrecords_agree(self):
         """Seq and SeqRecord sequences give the same answer."""
         first = "ATGAAATTTGGGCCCAAAGGGTTTATG"
-        second = "ATGAAGTTCGGACCCAAGGGGTTTATG"
-        self.assertEqual(
-            calculate_dn_ds(alignment(first, second)),
-            calculate_dn_ds(alignment(first, second, records=True)),
-        )
+        second = "ATGAAGTTTGGGCCCAAAGGGTTCCTG"
+        with warnings.catch_warnings():
+            # not too divergent for NG86, so there is no warning and no nan
+            warnings.simplefilter("error")
+            self.assertEqual(
+                calculate_dn_ds(alignment(first, second)),
+                calculate_dn_ds(alignment(first, second, records=True)),
+            )
 
 
 class NG86Tests(unittest.TestCase):
@@ -199,20 +203,36 @@ class NG86Tests(unittest.TestCase):
         self.assertAlmostEqual(dn, expected_dn, places=12)
         self.assertAlmostEqual(ds, 0.0, places=12)
 
-    def test_saturated_divergence_is_flagged(self):
-        """Above 3/4 divergence the Jukes-Cantor correction is undefined.
+    def test_saturated_divergence_is_nan(self):
+        """At 3/4 divergence or more the Jukes-Cantor correction is undefined.
 
-        The implementation reports -1 instead of raising, both for dN and
-        for dS.
+        The distance is then nan, with a warning. It was -1, as in PAML,
+        which a ratio dN/dS took as 1.
         """
-        # every codon differs at every position and nothing is synonymous
+        # every codon differs at every position and nothing is synonymous,
+        # so pS = 3/4 and pN = 15/14
         pair = alignment("TTTTTTTTT", "GGGGGGGGG")
-        dn, ds = calculate_dn_ds(pair, method="NG86")
-        self.assertEqual(dn, -1)
-        # a single synonymous difference in a single codon saturates pS
+        with self.assertWarnsRegex(BiopythonWarning, "pS = 0.75, gives nan for dS"):
+            dn, ds = calculate_dn_ds(pair, method="NG86")
+        self.assertTrue(math.isnan(dn))
+        self.assertTrue(math.isnan(ds))
+        # a single synonymous difference in a single codon saturates pS only
         pair = alignment("TTT", "TTC")
-        dn, ds = calculate_dn_ds(pair, method="NG86")
-        self.assertEqual(ds, -1)
+        with self.assertWarnsRegex(BiopythonWarning, "^NG86 cannot correct") as cm:
+            dn, ds = calculate_dn_ds(pair, method="NG86")
+        self.assertNotIn("dN", str(cm.warning))
+        self.assertEqual(dn, 0)
+        self.assertTrue(math.isnan(ds))
+
+    def test_issue_1611_saturated_pair(self):
+        """The saturated pair of biopython/biopython#1611 gives nan, not -1."""
+        pair = alignment("TTTTTTTTT", "CCACCACCA")
+        with self.assertWarnsRegex(
+            BiopythonWarning, r"pS = 1\.25, .* and of nonsynonymous .* dN$"
+        ):
+            dn, ds = calculate_dn_ds(pair, method="NG86")
+        self.assertTrue(math.isnan(dn))
+        self.assertTrue(math.isnan(ds))
 
     def test_dn_ds_rises_with_divergence(self):
         """More differences means larger distances."""
@@ -224,6 +244,119 @@ class NG86Tests(unittest.TestCase):
             for other in (reference, one, two)
         ]
         self.assertEqual(distances, sorted(distances))
+
+
+class LWL85Tests(unittest.TestCase):
+    """Li, Wu and Luo (1985) where a class of sites has too many differences."""
+
+    def test_issue_1611(self):
+        """The pair from biopython/biopython#1611 raised a math domain error.
+
+        The pair has L0 = 12, L2 = 2.5 and L4 = 3.5 sites, and differences
+        Q0 = 3, P2 = 1 and Q2 = 1. At the twofold sites P = Q = 0.4, so
+        1 - 2P - Q is -0.2, and A2, and with it dS, is undefined. dN uses
+        only B2, which is defined, so with A0 and B0 it is
+        3 (L2 B2 + L0 (A0 + B0)) / (2 L2 + 3 L0).
+        """
+        pair = alignment("ATGGGTACCGTGTTGTAT", "ATGGCTACCGTGTTAGTA")
+        message = (
+            r"^LWL85 cannot correct for multiple substitutions at the twofold "
+            r"degenerate sites \(P = 0\.4, Q = 0\.4\), .*; returning nan for dS$"
+        )
+        with self.assertWarnsRegex(BiopythonWarning, message):
+            dn, ds = calculate_dn_ds(pair, method="LWL85")
+        a0 = 0.5 * math.log(1 / (1 - 0.25)) - 0.25 * math.log(1 / (1 - 0.5))
+        b0 = 0.5 * math.log(1 / (1 - 0.5))
+        b2 = 0.5 * math.log(1 / (1 - 0.8))
+        expected_dn = 3 * (2.5 * b2 + 12 * (a0 + b0)) / (2 * 2.5 + 3 * 12)
+        self.assertAlmostEqual(dn, expected_dn, places=12)
+        self.assertTrue(math.isnan(ds))
+
+    def test_saturated(self):
+        """A saturated pair gives nan for both, naming each class of sites."""
+        pair = alignment("TTTTTTTTT", "CCACCACCA")
+        message = (
+            r"at the nondegenerate sites \(P = 1, Q = 0\) or the twofold "
+            r"degenerate sites \(P = 0, Q = 2\), .*; returning nan for dN and dS$"
+        )
+        with self.assertWarnsRegex(BiopythonWarning, message):
+            dn, ds = calculate_dn_ds(pair, method="LWL85")
+        self.assertTrue(math.isnan(dn))
+        self.assertTrue(math.isnan(ds))
+
+    def test_no_warning_when_defined(self):
+        """Where every class of sites can be corrected there is no warning."""
+        # the first case of test_Align_analysis_lwl85.py
+        first = "TTT" * 20 + "GCT" * 5
+        second = "TTCTTCTAT" + first[9:]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            dn, ds = calculate_dn_ds(alignment(first, second), method="LWL85")
+        self.assertFalse(math.isnan(dn))
+        self.assertFalse(math.isnan(ds))
+
+
+class DnDsMatrixTests(unittest.TestCase):
+    """calculate_dn_ds_matrix where some pairs are too divergent."""
+
+    def test_undefined_distances_are_nan(self):
+        """A distance that NG86 cannot give is nan; the others are given.
+
+        The third sequence differs from the first two at every position of
+        all four codons. With the first, pN is 3/4 or more but pS is not;
+        with the second, both are. NG86 gave -1 for these.
+        """
+        records = [
+            SeqRecord(Seq(sequence), id=name)
+            for name, sequence in (
+                ("a", "TTTGGGGGGGGG"),
+                ("b", "TTCGGGGGGGGG"),
+                ("c", "TTTTTTTTTTTT"),
+            )
+        ]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            dn, ds = calculate_dn_ds_matrix(Alignment(records), method="NG86")
+        self.assertEqual(len(caught), 2)
+        for warning in caught:
+            self.assertIs(warning.category, BiopythonWarning)
+        self.assertTrue(str(caught[0].message).startswith("c and a: NG86 cannot"))
+        self.assertTrue(str(caught[1].message).startswith("c and b: NG86 cannot"))
+        # the pair a and b is the hand computed case of NG86Tests
+        expected_ds = -0.75 * math.log(1 - (4 / 3) * (1 / (10 / 3)))
+        self.assertEqual(dn["a", "b"], 0)
+        self.assertAlmostEqual(ds["a", "b"], expected_ds, places=12)
+        self.assertTrue(math.isnan(dn["a", "c"]))
+        self.assertFalse(math.isnan(ds["a", "c"]))
+        self.assertGreater(ds["a", "c"], 0)
+        self.assertTrue(math.isnan(dn["b", "c"]))
+        self.assertTrue(math.isnan(ds["b", "c"]))
+
+    def test_a_warning_for_each_pair(self):
+        """Each pair gets its own warning, even under the default filter.
+
+        The pairs b and a, and c and a, give the same warning from
+        calculate_dn_ds, which the default filter would show only once.
+        The AAA codon gives LWL85 twofold degenerate sites, without which
+        it divides by zero for the pair b and c.
+        """
+        records = [
+            SeqRecord(Seq(sequence), id=name)
+            for name, sequence in (
+                ("a", "TTTTTTTTTAAA"),
+                ("b", "CCACCACCAAAA"),
+                ("c", "CCACCACCAAAA"),
+            )
+        ]
+        for method in ("NG86", "LWL85"):
+            with self.subTest(method=method):
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("default")
+                    calculate_dn_ds_matrix(Alignment(records), method=method)
+                self.assertEqual(
+                    [str(warning.message).split(": ")[0] for warning in caught],
+                    ["b and a", "c and a"],
+                )
 
 
 class DistanceF84Tests(unittest.TestCase):

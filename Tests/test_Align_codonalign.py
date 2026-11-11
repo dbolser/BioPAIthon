@@ -5,6 +5,7 @@
 
 """Unit tests for CodonAligner and Bio.Align.analysis."""
 
+import math
 import os
 import subprocess
 import sys
@@ -24,6 +25,7 @@ except ImportError:
 import support
 
 from Bio import Align
+from Bio import BiopythonWarning
 from Bio import SeqIO
 from Bio.Align import Alignment
 from Bio.Align import codon_align
@@ -8820,14 +8822,21 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
                 0.6374483799734671,
                 0.723542095485497,
                 0,
-                -1,
-                -1,
+                # Too many synonymous differences between the rat and the
+                # fly sequences for NG86 to correct; this was -1
+                math.nan,
+                math.nan,
                 0.953865978141643,
                 1.182154857347706,
                 0.843182957978177,
                 0,
             ]
-            dn, ds = calculate_dn_ds_matrix(alignment)
+            with self.assertWarnsRegex(
+                BiopythonWarning,
+                r"^gi\|6478867\|gb\|M37394\.2\|RATEGFR and "
+                r"gi\|24657088\|ref\|NM_057410\.3\|: NG86 cannot",
+            ):
+                dn, ds = calculate_dn_ds_matrix(alignment)
             dn_list = []
             for i in dn.matrix:
                 dn_list.extend(i)
@@ -8837,7 +8846,10 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
             for i in ds.matrix:
                 ds_list.extend(i)
             for ds_cal, ds_corr in zip(ds_list, ds_correct):
-                self.assertAlmostEqual(ds_cal, ds_corr, places=4)
+                if math.isnan(ds_corr):
+                    self.assertTrue(math.isnan(ds_cal))
+                else:
+                    self.assertAlmostEqual(ds_cal, ds_corr, places=4)
             # LWL85 method with user specified codon table
             dn_correct = [
                 0,

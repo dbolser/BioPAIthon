@@ -322,6 +322,10 @@ def cal_dn_ds(codon_seq1, codon_seq2, method="NG86", codon_table=None, k=1, cfre
     columns in which no codon starts. If gaps split codons so that one starts
     partway through its three columns, ValueError is raised.
 
+    Where the sequences are too divergent for NG86 or LWL85, dN or dS or
+    both are nan, with a ``BiopythonWarning``, as described for
+    ``Bio.Align.analysis.calculate_dn_ds``.
+
     """
     if isinstance(codon_seq1, CodonSeq) and isinstance(codon_seq2, CodonSeq):
         pass
