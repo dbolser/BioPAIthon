@@ -207,6 +207,17 @@ archive in full: ``server="http://host/mirror"`` becomes
 ``server="http://host/mirror/pub/pdb"``, and ``server="file:///data/wwpdb"``
 becomes ``server="file:///data/wwpdb/pub/pdb"``.
 
+Bio.PDB.parse_pdb_header COMPND chain IDs
+-----------------------------------------
+**This change is biop-ai's own; Biopython lowercases these chain IDs.**
+Changed in biop-ai 1.89 without a deprecation period. The ``chain`` values
+of ``header["compound"]`` now keep the case the PDB file gives them, so a
+file saying ``CHAIN: A, B`` gives ``"A, B"``, not ``"a, b"``. A dictionary
+value cannot warn when it is read, so a deprecation period would have
+reached almost nobody, while the lowercased values made chains ``A`` and
+``a`` indistinguishable. Code that compared these values with
+``chain.id.lower()`` must now compare ``chain.id`` itself.
+
 Bio.SeqIO.PdbIO
 ---------------
 **This deprecation is biop-ai's own; Biopython has not deprecated this.**

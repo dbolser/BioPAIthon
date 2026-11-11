@@ -55,6 +55,18 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The PDB header parser, ``Bio.PDB.parse_pdb_header`` and so the ``header``
+of a structure from ``PDBParser``, now keeps the case of the chain IDs in
+``header["compound"]``. It used to lowercase every COMPND line, so a file
+saying ``CHAIN: A, B, C`` gave ``"a, b, c"``, although ``A`` and ``a`` are
+different chains (biopython/biopython#4176). The principle is that a parser
+never alters identifiers; this is its first application, and other header
+fields, such as SOURCE gene and strain names, are still lowercased. Key
+names, ``MOL_ID`` numbering and the free-text values are unchanged. Code that
+matched chains with ``chain.id.lower()`` now silently finds no molecule on
+ordinary uppercase files, so compare ``chain.id`` directly (see
+DEPRECATED.rst).
+
 ``Bio.Phylo``'s ``root_with_outgroup``, and so ``root_at_midpoint``, now
 emits a ``BiopythonWarning`` when rerooting removes a bifurcating root whose
 two branches carry different support values. Those two branches make the

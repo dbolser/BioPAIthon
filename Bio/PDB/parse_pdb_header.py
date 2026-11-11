@@ -292,7 +292,11 @@ def _parse_pdb_header_list(header, permissive=False):
             head = _chop_end_misc(tail).lower()
             pdbh_dict["head"] = head
         elif key == "COMPND":
-            tt = re.sub(r"\;\s*\Z", "", _chop_end_codes(tail)).lower()
+            # Key names and free text are lowercased, but chain IDs are
+            # identifiers and keep their case ("A" and "a" are different
+            # chains), so keep the line as written for the CHAIN values.
+            raw = re.sub(r"\;\s*\Z", "", _chop_end_codes(tail))
+            tt = raw.lower()
             # look for E.C. numbers in COMPND lines
             rec = re.search(r"\d+\.\d+\.\d+\.\d+", tt)
             if rec:
@@ -307,10 +311,14 @@ def _parse_pdb_header_list(header, permissive=False):
                     comp_molid = cval
                     last_comp_key = "misc"
                 else:
+                    if ckey == "chain":
+                        cval = re.sub(r"\A\s*", "", raw.split(":")[1])
                     pdbh_dict["compound"][comp_molid][ckey] = cval
                     last_comp_key = ckey
             else:
-                pdbh_dict["compound"][comp_molid][last_comp_key] += tok[0] + " "
+                # Continuation, such as a CHAIN list wrapped onto a second line
+                text = raw if last_comp_key == "chain" else tok[0]
+                pdbh_dict["compound"][comp_molid][last_comp_key] += text + " "
         elif key == "SOURCE":
             tt = re.sub(r"\;\s*\Z", "", _chop_end_codes(tail)).lower()
             tok = tt.split(":")
