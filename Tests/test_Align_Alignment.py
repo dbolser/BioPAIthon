@@ -3784,6 +3784,18 @@ query           222 GACGGA 228
         with self.assertRaises(TypeError):
             self.alignment.format("fasta", line_width=60)
 
+    def test_unknown_arguments(self):
+        # A misspelt keyword, or a stray positional argument, raises instead
+        # of silently giving the default 80-column output.
+        with self.assertRaisesRegex(TypeError, "'line_widht'"):
+            self.alignment.format("", line_widht=120)
+        with self.assertRaisesRegex(TypeError, "positional argument"):
+            self.alignment.format("", 120)
+        matrix = Align.substitution_matrices.load("BLOSUM62")
+        self.assertEqual(
+            self.alignment.format("", matrix), self.alignment.format("", scoring=matrix)
+        )
+
 
 class TestAlign_mapall(unittest.TestCase):
     def test_mapall(self):

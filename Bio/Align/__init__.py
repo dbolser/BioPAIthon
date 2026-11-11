@@ -2410,7 +2410,13 @@ class Alignment:
                        string); default=80. The width at which lines wrap,
                        including the 20 columns taken by the sequence name and
                        coordinate, so it must be at least 21. The default
-                       output does not depend on the terminal width.
+                       output does not depend on the terminal width. For a
+                       pairwise alignment, the last line of a block can be
+                       one column wider than line_width when its end
+                       coordinate only just fits. Alignments of non-ASCII or
+                       generalized (list of strings) sequences are never
+                       wrapped, so line_width has no effect on them. Any
+                       other argument raises TypeError for this format.
 
         All other arguments are passed to the format-specific writer functions:
          - mask      - PSL format only. Specify if repeat regions in the target
@@ -2446,6 +2452,17 @@ class Alignment:
                 substitution_matrix = scoring
         if fmt == "":
             line_width = kwargs.pop("line_width", 80)
+            if args:
+                raise TypeError(
+                    "unexpected positional argument for the human-readable "
+                    f"format: {args[0]!r}"
+                )
+            if kwargs:
+                name = next(iter(kwargs))
+                raise TypeError(
+                    "unexpected keyword argument for the human-readable "
+                    f"format: {name!r}"
+                )
             return self._format_pretty(substitution_matrix, line_width)
         module = _load(fmt)
         if module.AlignmentIterator.mode == "b":
