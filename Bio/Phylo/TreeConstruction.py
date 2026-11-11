@@ -469,7 +469,8 @@ class DistanceCalculator:
       Epsilon 0.700000    0.355556    0.488889    0.222222    0.000000
           Alpha   Beta    Gamma   Delta   Epsilon
 
-    A substitution-matrix distance is above 1 when the score is negative::
+    For sequences of A, C, G and T, a substitution-matrix distance is above
+    1 when the score is negative::
 
       >>> from io import StringIO
       >>> aln = Align.read(StringIO(">one\\nAAAA\\n>two\\nCCCC\\n"), "fasta")

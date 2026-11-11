@@ -207,7 +207,8 @@ class DistanceCalculatorTest(unittest.TestCase):
 
     def test_matrix_distance_can_exceed_one(self):
         # A substitution-matrix distance is 1 - score / max_score, so it is
-        # above 1 whenever the alignment score is negative. This pins the
+        # above 1 when the alignment score is negative and max_score is
+        # positive, as here. This pins the
         # documented behaviour; capping at 1 (biopython/biopython#5348) was
         # not adopted (biopython/biopython#5341).
         for model, seq1, seq2, distance in (
