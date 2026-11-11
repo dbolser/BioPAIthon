@@ -19,8 +19,6 @@ https://github.com/BioAGI-org/biop-ai
 https://biopython.org
 """
 
-import sys
-
 __version__ = "1.89.dev0"
 
 
@@ -117,54 +115,3 @@ class BiopythonExperimentalWarning(BiopythonWarning):
     If all goes well, experimental code would be promoted to stable in
     a subsequent release, and this warning removed from it.
     """
-
-
-class _BiopythonDistributionFinder:
-    """Answer ``importlib.metadata`` queries for "biopython" with this package.
-
-    The fork's distribution is called "biopaithon", and it kept the ``Bio``
-    package. Code that asks ``importlib.metadata.version("biopython")``, for
-    example to choose a code path by version, would otherwise get
-    ``PackageNotFoundError`` from a package it can import. This finder sits
-    last on ``sys.meta_path``, so a real biopython distribution still answers
-    first, and it answers only for that one name, never for a listing of all
-    distributions. It imports nothing until asked.
-    """
-
-    def find_spec(self, name, path=None, target=None):
-        """Find no modules; this finder exists for distribution metadata only."""
-        return None
-
-    def find_distributions(self, context=None):
-        """Yield the biopaithon distribution when asked for "biopython"."""
-        name = getattr(context, "name", None)
-        if (
-            name is None
-            or name.lower().replace("_", "-").replace(".", "-") != "biopython"
-        ):
-            return iter(())
-        import importlib.metadata
-
-        try:
-            return iter((importlib.metadata.distribution("biopaithon"),))
-        except importlib.metadata.PackageNotFoundError:
-            return iter(())
-
-
-def _register_distribution_finder():
-    """Append the finder to sys.meta_path once.
-
-    Matched by module and class name rather than identity, so that
-    ``importlib.reload(Bio)``, which makes a new class, does not add a second.
-    """
-    for finder in sys.meta_path:
-        cls = type(finder)
-        if (
-            cls.__module__ == __name__
-            and cls.__name__ == "_BiopythonDistributionFinder"
-        ):
-            return
-    sys.meta_path.append(_BiopythonDistributionFinder())
-
-
-_register_distribution_finder()

@@ -1745,14 +1745,6 @@ instead of writing past its end, and its errors for a wrongly shaped ``pc`` or
 ``coordinates`` now give that array's shape. Results for valid input are
 unchanged.
 
-``importlib.metadata.version("biopython")`` now answers with biop-ai's
-version once ``Bio`` has been imported, instead of raising
-``PackageNotFoundError``. The distribution is still called ``biopaithon``;
-a small finder on ``sys.meta_path`` answers for ``biopython`` only, after any
-real ``biopython`` distribution that is installed. Nextstrain's augur checks
-the Biopython version this way before every sequence read, and all 50 of its
-sequence tests failed on biop-ai for no other reason.
-
 BinaryCIF interval quantization now reads the standard ``numSteps`` field
 and computes the step size as ``(max - min) / (numSteps - 1)``. Previously
 valid files raised ``KeyError``, and using the non-standard ``num_steps``
