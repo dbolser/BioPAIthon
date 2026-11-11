@@ -190,6 +190,83 @@ class IOTests(unittest.TestCase):
         self.assertEqual(d.branch_length, 0.2)
         self.assertEqual(d.comment, "[&z]")
 
+    # A MrBayes 3.2 consensus tree: each clade has its posterior in a comment
+    # before the branch length and branch length statistics in one after it
+    MRBAYES_CONSENSUS = """\
+#NEXUS
+begin trees;
+   translate
+      1 A,
+      2 B,
+      3 C;
+   tree con_50_majrule = [&U] \
+(1[&prob=1.00000000e+00,prob_stddev=0.00000000e+00,prob(percent)="100"]\
+:1.0e-01[&length_mean=1.0e-01,length_95%HPD={9.0e-02,1.1e-01}],\
+(2[&prob=1.00000000e+00,prob_stddev=0.00000000e+00,prob(percent)="100"]\
+:2.0e-01[&length_mean=2.0e-01,length_95%HPD={1.9e-01,2.1e-01}],\
+3[&prob=1.00000000e+00,prob_stddev=0.00000000e+00,prob(percent)="100"]\
+:3.0e-01[&length_mean=3.0e-01,length_95%HPD={2.9e-01,3.1e-01}])\
+[&prob=9.5e-01,prob_stddev=1.0e-02,prob(percent)="95"]\
+:4.0e-01[&length_mean=4.0e-01,length_95%HPD={3.9e-01,4.1e-01}]);
+end;
+"""
+
+    def test_nexus_read_two_comments(self):
+        """A clade with two comments keeps both, in file order."""
+        tree = Phylo.read(StringIO(self.MRBAYES_CONSENSUS), "nexus")
+        a, inner = tree.root.clades
+        b, c = inner.clades
+        self.assertEqual([a.name, b.name, c.name], ["A", "B", "C"])
+        self.assertEqual(
+            [a.branch_length, inner.branch_length, b.branch_length, c.branch_length],
+            [0.1, 0.4, 0.2, 0.3],
+        )
+        self.assertEqual(
+            a.comment,
+            '[&prob=1.00000000e+00,prob_stddev=0.00000000e+00,prob(percent)="100"]'
+            "[&length_mean=1.0e-01,length_95%HPD={9.0e-02,1.1e-01}]",
+        )
+        # The clade posterior, before the branch length, is not lost
+        self.assertEqual(
+            inner.comment,
+            '[&prob=9.5e-01,prob_stddev=1.0e-02,prob(percent)="95"]'
+            "[&length_mean=4.0e-01,length_95%HPD={3.9e-01,4.1e-01}]",
+        )
+        self.assertIsNone(tree.root.comment)
+
+    def test_nexus_write_comments(self):
+        """Comments read from a NEXUS tree are written so they read back."""
+        tree = Phylo.read(StringIO(self.MRBAYES_CONSENSUS), "nexus")
+        handle = StringIO()
+        Phylo.write(tree, handle, "nexus")
+        self.assertIn(
+            "A:0.1"
+            '[&prob=1.00000000e+00,prob_stddev=0.00000000e+00,prob(percent)="100"]'
+            "[&length_mean=1.0e-01,length_95%HPD={9.0e-02,1.1e-01}]",
+            handle.getvalue(),
+        )
+        handle.seek(0)
+        tree2 = Phylo.read(handle, "nexus")
+        self.assertEqual(
+            [(c.name, c.branch_length, c.comment) for c in tree2.find_clades()],
+            [(c.name, c.branch_length, c.comment) for c in tree.find_clades()],
+        )
+        # One comment, as BEAST writes, reads back too
+        tree = Phylo.read(
+            StringIO("#NEXUS\nbegin trees;\ntree t = (a[&rate=1.5]:0.1,b);\nend;\n"),
+            "nexus",
+        )
+        handle = StringIO()
+        Phylo.write(tree, handle, "nexus")
+        handle.seek(0)
+        self.assertEqual(
+            Phylo.read(handle, "nexus").root.clades[0].comment, "[&rate=1.5]"
+        )
+        # Newick has no such comments, so its writer still escapes brackets
+        self.assertEqual(
+            tree.format("newick").strip(), r"(a:0.1[\[&rate=1.5\]],b:0):0;"
+        )
+
     def test_nexus_read_translate_error(self):
         """A failed TRANSLATE lookup names the first missing taxon in preorder."""
         handle = StringIO(
