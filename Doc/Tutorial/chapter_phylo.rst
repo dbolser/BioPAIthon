@@ -669,7 +669,10 @@ The rest of these methods are boolean checks:
    given targets. The targets should be terminals of the tree. For
    convenience, this method returns the common ancestor (MCRA) of the
    targets if they are monophyletic (instead of the value ``True``), and
-   ``False`` otherwise.
+   ``False`` otherwise. The test reads the tree from its stored root; with
+   ``unrooted=True`` the targets also count as monophyletic when all the
+   other terminals form a complete subclade, and that other clade is then
+   returned.
 
 ``is_parent_of``
    True if target is a descendent of this tree — not required to be a

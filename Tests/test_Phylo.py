@@ -1362,6 +1362,54 @@ class MixinTests(unittest.TestCase):
         # Alternate argument form
         self.assertEqual(tree.is_monophyletic(*abcd), tree.root)
 
+    def test_is_monophyletic_unrooted(self):
+        """TreeMixin: is_monophyletic(..., unrooted=True), biopython/biopython#589."""
+        # The tree from the issue: A is a direct child of the trifurcating root
+        tree = Phylo.read(StringIO("(A,(B,C),(D,(E,(F,G))));"), "newick")
+        tips = {tip.name: tip for tip in tree.get_terminals()}
+
+        def group(names):
+            return [tips[name] for name in names]
+
+        def tip_names(clade):
+            return sorted(tip.name for tip in clade.get_terminals())
+
+        # A group under the stored root: unchanged, the targets' own clade
+        efg = tree.common_ancestor(group("EFG"))
+        self.assertIs(tree.is_monophyletic(group("EFG")), efg)
+        self.assertIs(tree.is_monophyletic(group("EFG"), unrooted=True), efg)
+        self.assertIs(tree.is_monophyletic(*group("EFG"), unrooted=True), efg)
+        # A single terminal is its own clade either way
+        self.assertIs(tree.is_monophyletic(group("A"), unrooted=True), tips["A"])
+        # Groups straddling the root: not a clade as stored, but a split
+        self.assertIs(tree.is_monophyletic(group("ABC")), False)
+        result = tree.is_monophyletic(group("ABC"), unrooted=True)
+        self.assertEqual(tip_names(result), list("DEFG"))
+        self.assertIs(result, tree.common_ancestor(group("DEFG")))
+        result = tree.is_monophyletic(group("ABCD"), unrooted=True)
+        self.assertEqual(tip_names(result), list("EFG"))
+        result = tree.is_monophyletic(group("BCDEFG"), unrooted=True)
+        self.assertIs(result, tips["A"])
+        # Not a split at all: False either way
+        for names in ("AD", "BD", "ABD", "AEFG"):
+            self.assertIs(tree.is_monophyletic(group(names)), False, names)
+            self.assertIs(
+                tree.is_monophyletic(group(names), unrooted=True), False, names
+            )
+        # Targets that are not terminals of this tree
+        other = Phylo.read(StringIO("(A,B);"), "newick").get_terminals()[0]
+        self.assertIs(
+            tree.is_monophyletic(group("ABC") + [other], unrooted=True), False
+        )
+        self.assertIs(tree.is_monophyletic([], unrooted=True), False)
+        # Called on a clade, the clade is the whole tree being tested
+        right = tree.common_ancestor(group("DEFG"))
+        self.assertIs(right.is_monophyletic(group("DE")), False)
+        self.assertIs(
+            right.is_monophyletic(group("DE"), unrooted=True),
+            right.common_ancestor(group("FG")),
+        )
+
     def test_total_branch_length(self):
         """TreeMixin: total_branch_length() method."""
         tree = self.phylogenies[1]

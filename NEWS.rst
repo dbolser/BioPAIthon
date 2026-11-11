@@ -55,6 +55,21 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.Phylo``'s ``is_monophyletic`` has a new keyword-only option,
+``unrooted=False``. The method has always judged monophyly from the tree's
+root as stored, so on a tree meant to be unrooted a group lying across the
+root, such as A, B and C in ``(A,(B,C),(D,(E,(F,G))));``, was reported as
+not monophyletic, although one branch separates it from the other taxa
+(biopython/biopython#589). With ``unrooted=True`` a group also counts when
+the remaining terminals form a clade, as ETE's unrooted option does. The
+method then returns that other clade, here the common ancestor of D to G,
+since the group itself has no clade of its own; a group that is a clade
+returns its own clade as before. The default is unchanged, and the tree's
+``rooted`` attribute is not used to switch modes: the Newick reader ignores
+``[&R]`` in the file and the NEXUS writer does not record it, so the attribute
+is often False on trees already rooted with an outgroup, and switching on it
+would have changed their answers.
+
 The PDB header parser, ``Bio.PDB.parse_pdb_header`` and so the ``header``
 of a structure from ``PDBParser``, now keeps the case of the chain IDs in
 ``header["compound"]``. It used to lowercase every COMPND line, so a file
