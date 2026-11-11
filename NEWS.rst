@@ -70,11 +70,14 @@ issue's own six-codon pair has only 2.5 twofold degenerate sites, so its dS
 is NaN while its dN is still given. Code that tested for -1 should now use
 ``math.isnan``. ``calculate_dn_ds_matrix`` and
 ``CodonAlignment.get_dn_ds_matrix`` put NaN in the matrix for such a pair,
-warn once for each pair, and still compute every other distance.
-``CodonAlignment.get_dn_ds_tree`` now raises ``ValueError`` naming the
-pairs, because UPGMA, WPGMA and NJ need every distance. With -1 it built a
-tree from them anyway, and in the EGFR example of the codon alignment tests
-the NG86 dS tree placed rat EGFR next to the two Drosophila sequences. YN00
+give a warning for each such pair that names its two sequences, and still
+compute every other distance. ``CodonAlignment.get_dn_ds_tree`` now raises
+``ValueError`` naming the pairs, because UPGMA, WPGMA and NJ need every
+distance. With -1 it built a tree from them anyway, and in the EGFR example
+of the codon alignment tests the NG86 dS tree placed rat EGFR next to the
+two Drosophila sequences. The EGFR tree example in the codonalign guide
+(``Doc/doc.rst``) called ``get_dn_ds_tree`` with the default NG86, which
+now raises, so it now uses LWL85, which gives every distance there. YN00
 is unchanged. Like the yn00 program of PAML, it falls back from F84 to K80
 to JC69 and caps a saturated distance at 99. ML is also unchanged (see
 biopython/biopython#1611).
