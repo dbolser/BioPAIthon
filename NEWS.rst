@@ -69,7 +69,8 @@ comment is unchanged, and code reading the posterior from the start of the
 comment works again. ``Phylo.write`` with format ``"nexus"`` now writes such
 comments as they are, so they read back the same. It used to escape their
 square brackets, as in ``[\[&prob=1.0\]]``, and ``Bio.Nexus`` then dropped
-them as ordinary comments, so no comment ever survived a NEXUS round trip.
+them as ordinary comments, so no comment read from a NEXUS file survived a
+NEXUS round trip.
 The Newick writer is unchanged. See also biopython/biopython#3456, the same
 two-comment problem in ``Bio.Nexus``.
 
