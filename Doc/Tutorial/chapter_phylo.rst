@@ -736,7 +736,9 @@ tree intact, make a complete copy of the tree first, using Python’s
    placed on a branch, both halves of that branch carry its support.
    If a bifurcating original root is dropped, its two branches become
    one, and the clade below keeps its own support, or takes the other
-   branch's if it has none. The new root itself has no support.
+   branch's if it has none. If both branches carry support and the
+   values differ, the other value is dropped and a ``BiopythonWarning``
+   says so. The new root itself has no support.
 
 ``root_at_midpoint``
    Reroot this tree at the calculated midpoint between the two most

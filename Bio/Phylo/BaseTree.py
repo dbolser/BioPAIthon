@@ -14,8 +14,42 @@ classes in order to use the common methods defined on them.
 import collections
 import copy
 import itertools
+import math
 import random
 import re
+import warnings
+
+from Bio import BiopythonWarning
+
+
+def _support_key(support):
+    """Return a comparable form of a clade's support value (PRIVATE).
+
+    A PhyloXML clade's support is a list of ``Confidence`` values, which
+    compare as plain floats, so their types are added: a bootstrap of 90 and
+    a posterior probability of 90 are different support values. The order of
+    the list carries no meaning, so it is compared as a multiset. NaN, which
+    is unequal even to itself, counts as equal to NaN.
+    """
+
+    def value_key(value):
+        if isinstance(value, float) and math.isnan(value):
+            return "nan"
+        return value
+
+    if isinstance(support, list):
+        return collections.Counter(
+            (value_key(float(value)), getattr(value, "type", None)) for value in support
+        )
+    return value_key(support)
+
+
+def _support_text(support):
+    """Describe a clade's support value for a message (PRIVATE)."""
+    if isinstance(support, list):
+        return "[" + ", ".join(f"{value.type} {value!r}" for value in support) + "]"
+    return repr(support)
+
 
 # General tree-traversal algorithms
 
@@ -901,6 +935,8 @@ class Tree(TreeElement, TreeMixin):
          - If the original root was bifurcating, its two branches become one
            and make one split. The clade below the merged branch keeps its own
            support, or takes the other branch's support if it has none. If
+           both branches carry support and the values differ, the other
+           branch's value is dropped and a ``BiopythonWarning`` says so. If
            the new root is created on that merged branch (the outgroup was a
            child of the original root), both halves carry the support kept.
          - The new root has no branch above it in the tree, so it has no
@@ -915,6 +951,21 @@ class Tree(TreeElement, TreeMixin):
             - Otherwise, create a new root node as the parent of the outgroup.
 
         """
+        self._root_with_outgroup(
+            outgroup_targets,
+            *more_targets,
+            outgroup_branch_length=outgroup_branch_length,
+        )
+
+    def _root_with_outgroup(
+        self, outgroup_targets, *more_targets, outgroup_branch_length=None
+    ):
+        """Reroot this tree as root_with_outgroup does (PRIVATE).
+
+        root_with_outgroup and root_at_midpoint both call this from one frame
+        below the user's code, so a warning raised here with ``stacklevel=3``
+        points at the user's line rather than at a line in this module.
+        """
         # This raises a ValueError if any target is not in this tree
         # Otherwise, common_ancestor guarantees outgroup is in this tree
         outgroup = self.common_ancestor(outgroup_targets, *more_targets)
@@ -922,6 +973,33 @@ class Tree(TreeElement, TreeMixin):
         if len(outgroup_path) == 0:
             # Outgroup is the current root -- no change
             return
+
+        # If the original root is bifurcating, its two branches will merge
+        # into one for one split. Check their supports now, before the tree
+        # is changed, so that a warning turned into an error (for example
+        # with -W error) leaves the tree as it was.
+        old_root = self.root
+        if len(old_root) == 2:
+            moved = outgroup_path[0]
+            ingroup = (
+                old_root.clades[1]
+                if old_root.clades[0] is moved
+                else old_root.clades[0]
+            )
+            kept, dropped = ingroup._support, moved._support
+            if (
+                kept is not None
+                and dropped is not None
+                and _support_key(kept) != _support_key(dropped)
+            ):
+                warnings.warn(
+                    "The two branches of the original root carry different "
+                    "support values for the same split. Rerooting merges them "
+                    f"into one branch, keeping {_support_text(kept)} "
+                    f"and dropping {_support_text(dropped)}.",
+                    BiopythonWarning,
+                    stacklevel=3,
+                )
 
         prev_blen = outgroup.branch_length or 0.0
         # Support belongs to the branch above a clade, like its length, so it
@@ -979,7 +1057,6 @@ class Tree(TreeElement, TreeMixin):
             new_parent = parent
 
         # Finally, handle the original root according to number of descendents
-        old_root = self.root
         if outgroup in old_root.clades:
             assert len(outgroup_path) == 1
             old_root.clades.pop(old_root.clades.index(outgroup))
@@ -995,8 +1072,9 @@ class Tree(TreeElement, TreeMixin):
             # The old root's two branches, now merged, made the same split, so
             # only one support can stay. Keep the ingroup's own, since its
             # clade is not moved and so keeps the label it had; take the other
-            # branch's only if the ingroup has none. If both are set and
-            # differ, the input gave one split two values, and one is lost.
+            # branch's only if the ingroup has none. prev_support is the
+            # original support of outgroup_path[0], so a conflict here was
+            # warned about above, before the tree was changed.
             if ingroup._support is None:
                 ingroup._support = prev_support
             if new_parent is new_root and new_root is not outgroup:
@@ -1026,13 +1104,13 @@ class Tree(TreeElement, TreeMixin):
         max_distance = 0.0
         tips = self.get_terminals()
         for tip in tips:
-            self.root_with_outgroup(tip)
+            self._root_with_outgroup(tip)
             new_max = max(self.depths().items(), key=lambda nd: nd[1])
             if new_max[1] > max_distance:
                 tip1 = tip
                 tip2 = new_max[0]
                 max_distance = new_max[1]
-        self.root_with_outgroup(tip1)
+        self._root_with_outgroup(tip1)
         # Depth to go from the ingroup tip toward the outgroup tip
         root_remainder = 0.5 * (max_distance - (self.root.branch_length or 0))
         assert root_remainder >= 0
@@ -1047,7 +1125,7 @@ class Tree(TreeElement, TreeMixin):
                 break
         else:
             raise ValueError("Somehow, failed to find the midpoint!")
-        self.root_with_outgroup(
+        self._root_with_outgroup(
             outgroup_node, outgroup_branch_length=outgroup_branch_length
         )
 
