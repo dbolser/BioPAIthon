@@ -9,6 +9,7 @@
 """Unit tests for PARTS of the parse_pdb_header module of Bio.PDB."""
 
 import unittest
+from io import StringIO
 
 try:
     import numpy as np  # noqa F401
@@ -205,6 +206,59 @@ class ParseReal(unittest.TestCase):
         """Unit test for sensible result with no TITLE line."""
         header = parse_pdb_header(support.DATA / "PDB" / "occupancy.pdb")
         self.assertEqual(header["name"], "")
+
+    def test_compound_chain_ids_keep_case(self):
+        """COMPND CHAIN values keep their case, as "A" and "a" are different chains."""
+        # The COMPND block of PDB entry 7DK4 (biopython/biopython#4176), with
+        # a wrapped CHAIN list added to molecule 3, then two atoms.
+        lines = [
+            "HEADER    VIRAL PROTEIN                           23-NOV-20   7DK4              \n",
+            "COMPND    MOL_ID: 1;                                                            \n",
+            "COMPND   2 MOLECULE: THE HEAVY CHAIN OF 2H2 FAB;                                \n",
+            "COMPND   3 CHAIN: a, c, e;                                                      \n",
+            "COMPND   4 MOL_ID: 2;                                                           \n",
+            "COMPND   5 MOLECULE: THE LIGHT CHAIN OF 2H2 FAB;                                \n",
+            "COMPND   6 CHAIN: b, d, f;                                                      \n",
+            "COMPND   7 MOL_ID: 3;                                                           \n",
+            "COMPND   8 MOLECULE: SPIKE GLYCOPROTEIN;                                        \n",
+            "COMPND   9 CHAIN: A, B, C,                                                      \n",
+            "COMPND  10 D, g;                                                                \n",
+            "COMPND  11 SYNONYM: S GLYCOPROTEIN,E2,PEPLOMER PROTEIN,SARS-COV-2 S PROTEIN;    \n",
+            "COMPND  12 ENGINEERED: YES                                                      \n",
+            "ATOM      1  N   GLN A  14     215.703 239.017 162.981  1.00 87.37           N  \n",
+            "ATOM      2  N   GLN a   1     190.432 205.226 241.016  1.00 99.94           N  \n",
+            "END                                                                             \n",
+        ]
+        header = parse_pdb_header(StringIO("".join(lines)))
+        compound = header["compound"]
+        # MOL_ID dispatch and the lowercase key names are unchanged
+        self.assertEqual(list(compound), ["1", "2", "3"])
+        self.assertEqual(
+            list(compound["3"]),
+            ["misc", "molecule", "chain", "synonym", "engineered"],
+        )
+        # The chain IDs are exactly as written in the file
+        self.assertEqual(compound["1"]["chain"], "a, c, e")
+        self.assertEqual(compound["2"]["chain"], "b, d, f")
+        self.assertEqual(
+            [c.strip() for c in compound["3"]["chain"].split(",")],
+            ["A", "B", "C", "D", "g"],
+        )
+        # Free text is still lowercased, as before
+        self.assertEqual(compound["3"]["molecule"], "spike glycoprotein")
+        self.assertEqual(compound["3"]["engineered"], "yes")
+        # So each chain of the structure finds its own molecule
+        structure = PDBParser().get_structure("7DK4", StringIO("".join(lines)))
+        chain_to_mol = {
+            chain_id.strip(): mol_id
+            for mol_id, info in structure.header["compound"].items()
+            for chain_id in info.get("chain", "").split(",")
+            if chain_id.strip()
+        }
+        self.assertEqual(
+            {chain.id: chain_to_mol[chain.id] for chain in structure[0]},
+            {"A": "3", "a": "1"},
+        )
 
     def test_parse_pdb_with_remark_99(self):
         """Tests that parse_pdb_header can identify REMARK 99 ASTRAL entries."""
