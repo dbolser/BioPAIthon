@@ -93,18 +93,18 @@ def _format_comment(text):
     return "[%s]" % (text.replace("[", "\\[").replace("]", "\\]"))
 
 
-def _get_comment(clade):
+def _get_comment(clade, format_comment=_format_comment):
     try:
         comment = clade.comment
     except AttributeError:
         pass
     else:
         if comment:
-            return _format_comment(str(comment))
+            return format_comment(str(comment))
     return ""
 
 
-def _get_confidence_comment(clade, format_confidence):
+def _get_confidence_comment(clade, format_confidence, format_comment=_format_comment):
     """Return the comment of a named clade, holding its confidence (PRIVATE).
 
     The name of a clade is its label, so its confidence cannot be the label
@@ -119,7 +119,7 @@ def _get_confidence_comment(clade, format_confidence):
     and the confidence replaces it. Any other comment, numeric or not, is
     other data: it is kept, and a warning says the confidence was not written.
     """
-    comment = _get_comment(clade)
+    comment = _get_comment(clade, format_comment)
     if comment:
         if _parse_confidence(str(clade.comment)) == clade.confidence:
             return comment
@@ -168,6 +168,13 @@ class Parser:
             # Last tree is missing a terminal ';' character -- that's OK
             yield self._parse_tree(buf)
 
+    def _read_comment(self, clade, token):
+        """Return the comment of a clade after this comment token (PRIVATE).
+
+        A clade keeps its last comment, without the square brackets.
+        """
+        return token[1:-1]
+
     def _parse_tree(self, text):
         """Parse the text representation into an Tree object (PRIVATE)."""
         tokens = re.finditer(tokenizer, text.strip())
@@ -196,7 +203,7 @@ class Parser:
 
             elif token.startswith("["):
                 # comment
-                current_clade.comment = token[1:-1]
+                current_clade.comment = self._read_comment(current_clade, token)
                 if self.comments_are_confidence:
                     # Try to use this comment as a numeric support value
                     current_clade.confidence = _parse_confidence(current_clade.comment)
@@ -302,6 +309,9 @@ class Parser:
 
 class Writer:
     """Based on the writer in Bio.Nexus.Trees (str, to_string)."""
+
+    # Turns the text of a clade's comment into the comment written
+    _format_comment = staticmethod(_format_comment)
 
     def __init__(self, trees):
         """Initialize parameter for Tree Writer object."""
@@ -446,21 +456,26 @@ class Writer:
         format_branch_length,
     ):
         """Return a function that creates a nicely formatted node tag (PRIVATE)."""
+        format_comment = self._format_comment
+
+        def get_comment(clade):
+            return _get_comment(clade, format_comment)
+
         if plain:
             # Plain tree only. That's easy.
             def make_info_string(clade, terminal=False):
-                return _get_comment(clade)
+                return get_comment(clade)
 
         elif confidence_as_branch_length:
             # Support as branchlengths (eg. PAUP), ignore actual branchlengths
             def make_info_string(clade, terminal=False):
                 if terminal:
                     # terminal branches have 100% support
-                    return (":" + format_confidence % max_confidence) + _get_comment(
+                    return (":" + format_confidence % max_confidence) + get_comment(
                         clade
                     )
                 else:
-                    return (":" + format_confidence % clade.confidence) + _get_comment(
+                    return (":" + format_confidence % clade.confidence) + get_comment(
                         clade
                     )
 
@@ -469,7 +484,7 @@ class Writer:
             def make_info_string(clade, terminal=False):
                 return (
                     ":" + format_branch_length % (clade.branch_length or 0.0)
-                ) + _get_comment(clade)
+                ) + get_comment(clade)
 
         else:
             # write support and branchlengths (e.g. .con tree of mrbayes)
@@ -481,16 +496,18 @@ class Writer:
                 ):
                     return (":" + format_branch_length) % (
                         clade.branch_length or 0.0
-                    ) + _get_comment(clade)
+                    ) + get_comment(clade)
                 elif clade.name:
                     # The name is the label, so the confidence goes elsewhere
                     return (":" + format_branch_length) % (
                         clade.branch_length or 0.0
-                    ) + _get_confidence_comment(clade, format_confidence)
+                    ) + _get_confidence_comment(
+                        clade, format_confidence, format_comment
+                    )
                 else:
                     return (format_confidence + ":" + format_branch_length) % (
                         clade.confidence,
                         clade.branch_length or 0.0,
-                    ) + _get_comment(clade)
+                    ) + get_comment(clade)
 
         return make_info_string

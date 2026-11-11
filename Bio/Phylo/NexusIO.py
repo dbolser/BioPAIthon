@@ -63,6 +63,43 @@ def _prepare_token(match):
     return f"'{_QUOTED}{token[1:]}" if token.startswith("'") else token
 
 
+class _NexusTreeParser(NewickIO.Parser):
+    """NewickIO parser that keeps every comment of a clade (PRIVATE).
+
+    A MrBayes consensus tree gives a clade two comments, its posterior before
+    the branch length and branch length statistics after it, as in
+    ``A[&prob=1.0]:0.1[&length_mean=0.1]``. NewickIO keeps the last one;
+    here they are joined in file order, each in its square brackets, so the
+    comment is still a string and the first comment is still at its start.
+    """
+
+    def _read_comment(self, clade, token):
+        return (clade.comment or "") + token
+
+
+# One or more comments that Bio.Nexus keeps, such as "[&prob=1.0]", with no
+# square brackets inside them
+_NEXUS_COMMENTS = re.compile(r"(?:\[&[^\[\]]*\])+")
+
+
+def _format_nexus_comment(text):
+    r"""Format the comment of a clade for a NEXUS tree (PRIVATE).
+
+    A comment read from a NEXUS tree keeps its square brackets, and is written
+    as it is, so it reads back the same. NewickIO would escape the brackets,
+    giving ``[\[&prob=1.0\]]``, which Bio.Nexus drops as an ordinary comment.
+    """
+    if _NEXUS_COMMENTS.fullmatch(text):
+        return text
+    return NewickIO._format_comment(text)
+
+
+class _NexusWriter(NewickIO.Writer):
+    """NewickIO writer that writes NEXUS comments as they are (PRIVATE)."""
+
+    _format_comment = staticmethod(_format_nexus_comment)
+
+
 class _NexusWithNewickTrees(Nexus.Nexus):
     """Nexus reader that parses each tree with NewickIO (PRIVATE).
 
@@ -75,7 +112,7 @@ class _NexusWithNewickTrees(Nexus.Nexus):
     def _tree(self, options):
         name, weight, rooted, newick = Nexus._split_tree_command(options)
         newick = _PREPARE.sub(_prepare_token, newick)
-        parsed = next(NewickIO.Parser.from_string(newick).parse(), None)
+        parsed = next(_NexusTreeParser.from_string(newick).parse(), None)
         # An empty tree description gives a tree of one empty clade, as before
         root = Newick.Clade() if parsed is None else parsed.root
         _match_bio_nexus_trees(root, self.translate)
@@ -94,7 +131,8 @@ def _match_bio_nexus_trees(root, translate):
     - a bare number after a clade, with no branch length, is the branch
       length, not the confidence;
     - confidences are floats;
-    - comments keep their square brackets, e.g. "[&rate=1.0]";
+    - comments keep their square brackets, e.g. "[&rate=1.0]", and a clade
+      with two comments keeps both, e.g. "[&prob=1.0][&length_mean=0.1]";
     - a quoted label is a name, even one that looks like a number, e.g. '95';
     - terminal names come from the TRANSLATE table, if any, quoted by
       ``Bio.Nexus.Nexus.safename``.
@@ -114,8 +152,6 @@ def _match_bio_nexus_trees(root, translate):
             clade.confidence = None
         elif clade.confidence is not None:
             clade.confidence = float(clade.confidence)
-        if clade.comment is not None:
-            clade.comment = f"[{clade.comment}]"
         if clade.name:
             clade.name = clade.name.replace(_QUOTED, "")
         if translate and not clade.clades:
@@ -133,7 +169,9 @@ def parse(handle):
     ``Bio.Nexus`` reads the file, including any TRANSLATE table, and
     ``NewickIO`` parses each tree description. The values are those the older
     ``Bio.Nexus.Trees`` parser gave: for example, a missing branch length is
-    0.0 rather than None, and comments keep their square brackets.
+    0.0 rather than None, and comments keep their square brackets. A clade
+    with more than one comment, as in MrBayes consensus trees, keeps them all,
+    joined in file order: ``"[&prob=1.0][&length_mean=0.1]"``.
     """
     yield from _NexusWithNewickTrees(handle).trees
 
@@ -142,10 +180,12 @@ def write(obj, handle, **kwargs):
     """Write a new Nexus file containing the given trees.
 
     Uses a simple Nexus template and the NewickIO writer to serialize just the
-    trees and minimal supporting info needed for a valid Nexus file.
+    trees and minimal supporting info needed for a valid Nexus file. A comment
+    made of NEXUS comments in square brackets, as read from a NEXUS file, is
+    written as it is, so that it reads back the same.
     """
     trees = list(obj)
-    writer = NewickIO.Writer(trees)
+    writer = _NexusWriter(trees)
     nexus_trees = [
         TREE_TEMPLATE % {"index": idx + 1, "tree": nwk}
         for idx, nwk in enumerate(
