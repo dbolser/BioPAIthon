@@ -376,6 +376,23 @@ class DistanceCalculator:
             names for DNA sequences and ``protein_models`` for protein
             sequences.
 
+    The distance between two sequences is ``1 - score / max_score``,
+    ignoring the columns where either letter is in ``skip_letters``. With the
+    'identity' model, the score counts the identical letters and
+    ``max_score`` the columns, so the distance runs from 0 (identical) to 1
+    (no letter in common). With a substitution matrix, the score sums the
+    matrix entries for each pair of letters, and ``max_score`` is the higher
+    of the two sequences' scores against themselves. Identical sequences
+    give 0, unless their score against themselves is 0, in which case the
+    distance is 1. When ``max_score`` is positive, as it is for sequences
+    of ordinary letters, a negative score gives a distance above 1, and
+    there is no fixed upper limit: it depends on the matrix (3 for
+    'megablast' on AAAA against CCCC). Distances are not capped at 1. In the
+    'blastn' (NUC.4.4) and 'megablast' matrices the ambiguity codes (S, W, N
+    and so on) all score negatively against themselves, so ``max_score`` can
+    be negative, and two sequences made only of such letters can even give a
+    distance below 0 (-3 for 'blastn' on SSSS against WWWW).
+
     Examples
     --------
     Loading a small PHYLIP alignment from which to compute distances::
@@ -452,6 +469,16 @@ class DistanceCalculator:
       Epsilon 0.700000    0.355556    0.488889    0.222222    0.000000
           Alpha   Beta    Gamma   Delta   Epsilon
 
+    For sequences of A, C, G and T, a substitution-matrix distance is above
+    1 when the score is negative::
+
+      >>> from io import StringIO
+      >>> aln = Align.read(StringIO(">one\\nAAAA\\n>two\\nCCCC\\n"), "fasta")
+      >>> DistanceCalculator('identity').get_distance(aln)["one", "two"]
+      1.0
+      >>> DistanceCalculator('megablast').get_distance(aln)["one", "two"]
+      3.0
+
     """
 
     protein_alphabet = set("ABCDEFGHIKLMNPQRSTVWXYZ")
@@ -506,8 +533,13 @@ class DistanceCalculator:
     def _pairwise(self, seq1, seq2):
         """Calculate pairwise distance from two sequences (PRIVATE).
 
-        Returns a value between 0 (identical sequences) and 1 (completely
-        different, or seq1 is an empty string.)
+        Returns ``1 - score / max_score``. That is 1 when ``max_score`` is 0
+        (for example when every column is skipped, or seq1 is an empty
+        string), and otherwise 0 for identical sequences. With the
+        'identity' model it is at most 1. With a substitution matrix it is
+        above 1 when the score and ``max_score`` have opposite signs, and
+        below 0 when both are negative and the score is lower than
+        ``max_score`` (see the class docstring).
         """
         score = 0
         max_score = 0

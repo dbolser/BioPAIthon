@@ -205,6 +205,40 @@ class DistanceCalculatorTest(unittest.TestCase):
         self.assertEqual(dmat["Alpha", "Alpha"], 0.0)
         self.assertAlmostEqual(dmat["Alpha", "Gamma"], 4.0 / 5.0)
 
+    def test_matrix_distance_can_exceed_one(self):
+        # A substitution-matrix distance is 1 - score / max_score, so it is
+        # above 1 when the alignment score is negative and max_score is
+        # positive, as here. This pins the
+        # documented behaviour; capping at 1 (biopython/biopython#5348) was
+        # not adopted (biopython/biopython#5341).
+        for model, seq1, seq2, distance in (
+            ("identity", "AAAA", "CCCC", 1.0),
+            ("blastn", "AAAA", "CCCC", 1 + 16 / 20),
+            ("megablast", "AAAA", "CCCC", 1 + 8 / 4),
+            ("blosum62", "WWWW", "GGGG", 1 + 8 / 44),
+        ):
+            with self.subTest(model=model):
+                fasta = f">one\n{seq1}\n>two\n{seq2}\n"
+                aln = Align.read(StringIO(fasta), "fasta")
+                dm = DistanceCalculator(model).get_distance(aln)
+                self.assertAlmostEqual(dm["one", "two"], distance)
+
+    def test_matrix_distance_negative_max_score(self):
+        # Ambiguity codes score -1 against themselves in NUC.4.4 and
+        # megablast, so max_score can be negative and the distance can be
+        # below 0; a negative score then does not mean a distance above 1.
+        for model, seq1, seq2, distance in (
+            ("blastn", "SSSS", "WWWW", -3.0),
+            ("megablast", "SSSS", "WWWW", -1.0),
+            ("blastn", "SSSS", "SSSS", 0.0),
+            ("blastn", "NNNN", "SSSS", 0.0),
+        ):
+            with self.subTest(model=model, seq1=seq1, seq2=seq2):
+                fasta = f">one\n{seq1}\n>two\n{seq2}\n"
+                aln = Align.read(StringIO(fasta), "fasta")
+                dm = DistanceCalculator(model).get_distance(aln)
+                self.assertAlmostEqual(dm["one", "two"], distance)
+
     def test_identity_skip_letters(self):
         # Identical sequences containing gap columns; skipped positions
         # must not inflate the distance (biopython/biopython#5332).
