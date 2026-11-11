@@ -55,6 +55,28 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+``Bio.SearchIO``'s ``blat-psl`` parser now reads PSL rows whose blocks run
+backwards, which real ``blat -prot`` output contains. In such a row a block
+can end after the last block, or start before the first, and BLAT writes
+qStart, qEnd, tStart and tEnd as the start of the first block and the end of
+the last one, not as the smallest and largest coordinates. The parser
+refused these rows with a ``ValueError`` (in Biopython 1.88, a bare
+``AssertionError``), so a whole file could not be read through
+``Bio.SearchIO``, although ``Bio.Align.parse(..., "psl")`` already read it.
+It now accepts a row whose columns follow either rule and issues a
+``BiopythonParserWarning`` when only BLAT's rule fits; a row that fits
+neither is still refused. Note what the warning is about: the ``HSP`` keeps
+its documented meaning, so ``query_start``, ``query_end``, ``hit_start`` and
+``hit_end`` give the smallest and largest fragment coordinates and may
+differ from the row's columns (for the reported row, ``query_end`` is 1073
+where qEnd is 1072). Each fragment's coordinates, strand and span are
+exactly those of its block, and agree with what ``Bio.Align`` reads from
+the same row. The ``blat-psl`` writer now writes those four columns by
+BLAT's rule too, so such a row is written back unchanged; for any other
+row the two rules give the same numbers and the output is as before. This
+is an upstream defect, also in Biopython 1.88 (biopython/biopython#4196);
+the fix was written by the fork.
+
 The NG86 and LWL85 methods of ``Bio.Align.analysis.calculate_dn_ds`` and
 ``Bio.codonalign.codonseq.cal_dn_ds`` now return NaN, with a
 ``BiopythonWarning``, for a distance they cannot estimate because the
