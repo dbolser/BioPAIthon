@@ -457,14 +457,17 @@ class Test_dn_ds(unittest.TestCase):
             0.6374483799734671,
             0.723542095485497,
             0,
-            -1,
-            -1,
+            # Too many synonymous differences between the rat and the
+            # fly sequences for NG86 to correct; this was -1
+            math.nan,
+            math.nan,
             0.953865978141643,
             1.182154857347706,
             0.843182957978177,
             0,
         ]
-        dn, ds = self.aln.get_dn_ds_matrix()
+        with self.assertWarnsRegex(BiopythonWarning, "^NG86 cannot"):
+            dn, ds = self.aln.get_dn_ds_matrix()
         dn_list = []
         for i in dn.matrix:
             dn_list.extend(i)
@@ -474,7 +477,10 @@ class Test_dn_ds(unittest.TestCase):
         for i in ds.matrix:
             ds_list.extend(i)
         for ds_cal, ds_corr in zip(ds_list, ds_correct):
-            self.assertAlmostEqual(ds_cal, ds_corr, places=4)
+            if math.isnan(ds_corr):
+                self.assertTrue(math.isnan(ds_cal))
+            else:
+                self.assertAlmostEqual(ds_cal, ds_corr, places=4)
         # LWL85 method with user specified codon table
         dn_correct = [
             0,
@@ -571,14 +577,14 @@ class Test_dn_ds(unittest.TestCase):
         from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
 
         constructor = DistanceTreeConstructor()
-        dn, ds = self.aln.get_dn_ds_matrix()
-        dn_tree, ds_tree = self.aln.get_dn_ds_tree()
-        # UPGMA joins sequences 0, 1 and 5 to sequences 2, 3 and 4 at the mean
-        # of the nine dS distances between them, counting every pair equally.
-        # WPGMA, which upgma() used to compute, puts them about 2.21 apart.
-        mean = sum(ds[i, j] for i in (0, 1, 5) for j in (2, 3, 4)) / 9
-        for i in (0, 1, 5):
-            for j in (2, 3, 4):
+        dn, ds = self.aln.get_dn_ds_matrix(method="LWL85")
+        dn_tree, ds_tree = self.aln.get_dn_ds_tree(dn_ds_method="LWL85")
+        # UPGMA joins the fly sequences 0 and 1 to the vertebrate sequences
+        # 2 to 5 at the mean of the eight dS distances between them, counting
+        # every pair equally.
+        mean = sum(ds[i, j] for i in (0, 1) for j in (2, 3, 4, 5)) / 8
+        for i in (0, 1):
+            for j in (2, 3, 4, 5):
                 with self.subTest(i=i, j=j):
                     distance = ds_tree.distance(ds.names[i], ds.names[j])
                     self.assertAlmostEqual(distance, mean)
@@ -586,11 +592,82 @@ class Test_dn_ds(unittest.TestCase):
             self.assertEqual(
                 format(tree, "newick"), format(constructor.upgma(dm), "newick")
             )
-        dn_tree, ds_tree = self.aln.get_dn_ds_tree(tree_method="WPGMA")
+        dn_tree, ds_tree = self.aln.get_dn_ds_tree(
+            dn_ds_method="LWL85", tree_method="WPGMA"
+        )
         for tree, dm in ((dn_tree, dn), (ds_tree, ds)):
             self.assertEqual(
                 format(tree, "newick"), format(constructor.wpgma(dm), "newick")
             )
+        # NG86 cannot give dS between the rat and the fly sequences. With -1
+        # for it, UPGMA joined the rat to the flies.
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", BiopythonWarning)
+            with self.assertRaisesRegex(
+                ValueError, r"RATEGFR and gi\|24657088\|ref\|NM_057410\.3\| \(dS\)"
+            ):
+                self.aln.get_dn_ds_tree()
+
+
+class Test_dn_ds_too_divergent(unittest.TestCase):
+    """Test dN and dS of pairs too divergent for NG86 or LWL85."""
+
+    def test_cal_dn_ds(self):
+        """Test the two pairs of biopython/biopython#1611."""
+        from Bio.codonalign.codonseq import cal_dn_ds
+
+        # NG86 gave -1 for both, and LWL85 raised a math domain error
+        seq1 = codonalign.CodonSeq("TTTTTTTTT")
+        seq2 = codonalign.CodonSeq("CCACCACCA")
+        for method in ("NG86", "LWL85"):
+            with self.subTest(method=method):
+                with self.assertWarnsRegex(BiopythonWarning, f"^{method} cannot"):
+                    dn, ds = cal_dn_ds(seq1, seq2, method=method)
+                self.assertTrue(math.isnan(dn))
+                self.assertTrue(math.isnan(ds))
+        # Only the twofold degenerate sites have too many differences
+        seq1 = codonalign.CodonSeq("ATGGGTACCGTGTTGTAT")
+        seq2 = codonalign.CodonSeq("ATGGCTACCGTGTTAGTA")
+        with self.assertWarnsRegex(BiopythonWarning, "returning nan for dS$"):
+            dn, ds = cal_dn_ds(seq1, seq2, method="LWL85")
+        self.assertAlmostEqual(dn, 0.4257, places=4)
+        self.assertTrue(math.isnan(ds))
+
+    def setUp(self):
+        self.aln = codonalign.CodonAlignment(
+            [
+                SeqRecord(codonalign.CodonSeq("TTTGGGGGGGGG"), id="a"),
+                SeqRecord(codonalign.CodonSeq("TTCGGGGGGGGG"), id="b"),
+                SeqRecord(codonalign.CodonSeq("TTTTTTTTTTTT"), id="c"),
+            ]
+        )
+
+    def test_dn_ds_matrix(self):
+        """Test the matrices hold nan for the undefined distances only."""
+        with self.assertWarns(BiopythonWarning):
+            dn, ds = self.aln.get_dn_ds_matrix()
+        self.assertEqual(dn["a", "b"], 0)
+        self.assertGreater(ds["a", "b"], 0)
+        self.assertTrue(math.isnan(dn["a", "c"]))
+        self.assertGreater(ds["a", "c"], 0)
+        self.assertTrue(math.isnan(dn["b", "c"]))
+        self.assertTrue(math.isnan(ds["b", "c"]))
+
+    def test_dn_ds_tree(self):
+        """Test get_dn_ds_tree refuses undefined distances, naming them.
+
+        With -1 for them, UPGMA joined c to a, the pair furthest apart.
+        """
+        message = (
+            r"^NG86 gives no distance for c and a \(dN\), c and b \(dN\), "
+            r"c and b \(dS\), as they are too divergent"
+        )
+        for tree_method in ("UPGMA", "WPGMA", "NJ"):
+            with self.subTest(tree_method=tree_method):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", BiopythonWarning)
+                    with self.assertRaisesRegex(ValueError, message):
+                        self.aln.get_dn_ds_tree(tree_method=tree_method)
 
 
 class Test_dn_ds_not_codon_aligned(unittest.TestCase):

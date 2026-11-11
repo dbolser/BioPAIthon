@@ -16,6 +16,7 @@ from heapq import heappush
 from itertools import permutations
 from math import erfc
 from math import floor
+from math import isnan
 from math import log
 from math import nan
 from math import sqrt
@@ -46,6 +47,16 @@ def calculate_dn_ds(alignment, method="NG86", codon_table=None, k=1, cfreq=None)
      - cfreq - Current codon frequency vector can only be specified
        when you are using ML method. Possible ways of
        getting cfreq are: F1x4, F3x4 and F61.
+
+    Returns a tuple ``(dN, dS)``. Where the sequences are too divergent for
+    NG86 or LWL85 to correct for multiple substitutions, a distance is
+    undefined, and is nan, with a ``BiopythonWarning``: for NG86, when the
+    proportion of synonymous or of nonsynonymous differences is 3/4 or more;
+    for LWL85, when a class of sites has too many differences for its
+    number of sites, which can happen with few codons even for similar
+    sequences. YN00 instead falls back from F84 to K80 to JC69, as the yn00
+    program of PAML does, with a distance of at most 99, and ML maximises a
+    likelihood, which needs no such correction.
 
     """
     if cfreq is None:
@@ -127,14 +138,27 @@ def _ng86(codons1, codons2, k, codon_table):
 
     ps = SN[0] / S_sites
     pn = SN[1] / N_sites
+    # The Jukes-Cantor correction needs a proportion of differences below
+    # 3/4; at or above it the distance is undefined, and is nan. This was
+    # -1, as in DistanceMatNG86() of PAML, which a ratio dN/dS took as 1.
+    saturated = []
     if ps < 3 / 4:
         dS = abs(-3.0 / 4 * log(1 - 4.0 / 3 * ps))
     else:
-        dS = -1
+        dS = nan
+        saturated.append(f"synonymous differences, pS = {ps:g}, gives nan for dS")
     if pn < 3 / 4:
         dN = abs(-3.0 / 4 * log(1 - 4.0 / 3 * pn))
     else:
-        dN = -1
+        dN = nan
+        saturated.append(f"nonsynonymous differences, pN = {pn:g}, gives nan for dN")
+    if saturated:
+        warnings.warn(
+            "NG86 cannot correct a proportion of differences of 3/4 or more "
+            "for multiple substitutions: the proportion of "
+            + ", and of ".join(saturated),
+            BiopythonWarning,
+        )
     return dN, dS
 
 
@@ -339,13 +363,40 @@ def _lwl85(codons1, codons2, codon_table):
     PQ = [i / j for i, j in zip(PQ, L * 2)]
     P = PQ[:3]
     Q = PQ[3:]
-    A = [
-        (1.0 / 2) * log(1.0 / (1 - 2 * i - j)) - (1.0 / 4) * log(1.0 / (1 - 2 * j))
-        for i, j in zip(P, Q)
-    ]
-    B = [(1.0 / 2) * log(1.0 / (1 - 2 * i)) for i in Q]
+    # Kimura's correction for each class of sites needs 1 - 2P - Q and
+    # 1 - 2Q to be positive. Where one is not, the class has too many
+    # differences for its number of sites, A or both A and B are undefined,
+    # and so is dS or dN, whichever uses them. They are nan, as in yn00.c of
+    # PAML, which takes the logarithm without a check.
+    A = []
+    B = []
+    undefined = []
+    for name, i, j in zip(
+        ("nondegenerate", "twofold degenerate", "fourfold degenerate"), P, Q
+    ):
+        if 1 - 2 * j > 0:
+            B.append((1.0 / 2) * log(1.0 / (1 - 2 * j)))
+        else:
+            B.append(nan)
+        if 1 - 2 * i - j > 0 and 1 - 2 * j > 0:
+            A.append(
+                (1.0 / 2) * log(1.0 / (1 - 2 * i - j))
+                - (1.0 / 4) * log(1.0 / (1 - 2 * j))
+            )
+        else:
+            A.append(nan)
+            undefined.append(f"{name} sites (P = {i:g}, Q = {j:g})")
     dS = 3 * (L[1] * A[1] + L[2] * (A[2] + B[2])) / (L[1] + 3 * L[2])
     dN = 3 * (L[1] * B[1] + L[0] * (A[0] + B[0])) / (2 * L[1] + 3 * L[0])
+    if undefined:
+        nans = " and ".join(name for name, d in (("dN", dN), ("dS", dS)) if isnan(d))
+        warnings.warn(
+            "LWL85 cannot correct for multiple substitutions at the "
+            + " or the ".join(undefined)
+            + ", as 1 - 2P - Q or 1 - 2Q is not positive: there are too many "
+            f"differences for the number of sites; returning nan for {nans}",
+            BiopythonWarning,
+        )
     return dN, dS
 
 
@@ -1049,6 +1100,11 @@ def calculate_dn_ds_matrix(alignment, method="NG86", codon_table=None):
     Argument:
      - method       - Available methods include NG86, LWL85, YN00 and ML.
      - codon_table  - Codon table to use for forward translation.
+
+    A distance that ``calculate_dn_ds`` finds undefined, because the pair is
+    too divergent for the method, is nan in the matrix, with a
+    ``BiopythonWarning`` for each such pair; the other distances are still
+    calculated.
 
     """
     from Bio.Phylo.TreeConstruction import DistanceMatrix

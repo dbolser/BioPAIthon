@@ -154,6 +154,11 @@ class CodonAlignment(MultipleSeqAlignment):
          - method       - Available methods include NG86, LWL85, YN00 and ML.
          - codon_table  - Codon table to use for forward translation.
 
+        A distance that ``cal_dn_ds`` finds undefined, because the pair is
+        too divergent for the method, is nan in the matrix, with a
+        ``BiopythonWarning`` for each such pair; the other distances are
+        still calculated.
+
         """
         from Bio.Phylo.TreeConstruction import DistanceMatrix as DM
 
@@ -192,7 +197,13 @@ class CodonAlignment(MultipleSeqAlignment):
          - dn_ds_method - Available methods include NG86, LWL85, YN00 and ML.
          - tree_method  - Available methods include UPGMA, WPGMA and NJ.
 
+        If ``get_dn_ds_matrix`` finds a distance undefined, because a pair is
+        too divergent for the method, ValueError is raised, naming the pairs,
+        as UPGMA, WPGMA and NJ all need every distance.
+
         """
+        from math import isnan
+
         from Bio.Phylo.TreeConstruction import DistanceTreeConstructor
 
         if codon_table is None:
@@ -200,6 +211,21 @@ class CodonAlignment(MultipleSeqAlignment):
         dn_dm, ds_dm = self.get_dn_ds_matrix(
             method=dn_ds_method, codon_table=codon_table
         )
+        undefined = [
+            f"{dm.names[i]} and {dm.names[j]} ({name})"
+            for name, dm in (("dN", dn_dm), ("dS", ds_dm))
+            for i in range(len(dm))
+            for j in range(i)
+            if isnan(dm[i, j])
+        ]
+        if undefined:
+            # UPGMA, WPGMA and NJ would spread the nan through the tree
+            raise ValueError(
+                f"{dn_ds_method} gives no distance for "
+                + ", ".join(undefined)
+                + ", as they are too divergent for it; a tree needs every "
+                "distance"
+            )
         dn_constructor = DistanceTreeConstructor()
         ds_constructor = DistanceTreeConstructor()
         if tree_method == "UPGMA":
