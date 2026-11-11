@@ -125,6 +125,7 @@ https://biopython.org
 - Claude Paroz <claude at two (as digit) xlibre dot net>
 - Connor McCoy <cmccoy at the dot org domain fhcrc>
 - Connor T. Skennerton <https://github.com/ctSkennerton>
+- Cornelius Roemer <https://github.com/corneliusroemer>
 - Cymon J Cox <https://github.com/cymon>
 - Damien Goutte-Gattat <https://github.com/gouttegd>
 - Dan Bolser <https://github.com/dbolser>

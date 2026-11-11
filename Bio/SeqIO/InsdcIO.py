@@ -1466,7 +1466,12 @@ class EmblWriter(_InsdcWriter):
         if mol_type is None:
             raise ValueError("missing molecule_type in annotations")
         if mol_type not in (
-            # From INSDC spec v11.3 (Ocober 2024)
+            # The older short forms, which Biopython's own GenBank parser and
+            # old-style EMBL ID lines produce, so users cannot act on a warning
+            "DNA",
+            "RNA",
+            "protein",
+            # From INSDC spec v11.3 (October 2024)
             # see https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt
             "genomic DNA",
             "genomic RNA",
@@ -1481,8 +1486,9 @@ class EmblWriter(_InsdcWriter):
             "unassigned RNA",
         ):
             warnings.warn(
-                f"Invalid INSDC `mol_type`: {mol_type}. See "
-                "https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt for the list of valid molecule types.",
+                f"Non-standard molecule type: {mol_type}. See "
+                "https://ftp.ebi.ac.uk/pub/databases/embl/doc/FT_current.txt "
+                "for the list of valid molecule types.",
                 BiopythonWarning,
             )
         mol_type_upper = mol_type.upper()
