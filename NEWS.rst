@@ -56,8 +56,9 @@ and the default branch is now ``main`` rather than ``master``.
 =============================================
 
 The EMBL writer in ``Bio.SeqIO`` no longer warns "Non-standard molecule
-type" for the eight ``mol_type`` values that INSDC added to its list (feature
-table definition v11.3, October 2024): genomic RNA, tRNA, rRNA, other RNA,
+type" for eight ``mol_type`` values that its list was missing, although
+INSDC lists them (feature table definition v11.3, October 2024, and some for
+many years before that): genomic RNA, tRNA, rRNA, other RNA,
 other DNA, transcribed RNA, viral cRNA and unassigned RNA. They are written
 exactly as before; only the warning has gone. The older short forms DNA, RNA
 and protein are still written without a warning, although INSDC no longer
