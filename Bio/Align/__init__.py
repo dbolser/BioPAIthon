@@ -2608,22 +2608,33 @@ class Alignment:
                     s = "-" * step
                 else:
                     s = seq[start_index:end_index]
+                segment_start = start
+                segment_start_index = start_index
                 while column + len(s) >= line_width:
                     rest = line_width - column
                     if rest > 0:
                         lines[-1] += s[:rest]
                         s = s[rest:]
                         if start != end:
-                            if (end_index - start_index) == abs(end - start):
+                            if (end_index - segment_start_index) == abs(
+                                end - segment_start
+                            ):
                                 step = rest
+                                if start < end:
+                                    start += step
+                                else:
+                                    start -= step
                             else:
-                                # protein to dna alignment;
-                                # integer division, but round up:
-                                step = -(rest // -3)
-                            if start < end:
-                                start += step
-                            else:
-                                start -= step
+                                # protein to dna alignment; count the
+                                # residues from the start of the segment,
+                                # rounding a partial codon up, so that the
+                                # rounding does not accumulate over lines:
+                                columns = start_index + rest - segment_start_index
+                                step = -(columns // -3)
+                                if segment_start < end:
+                                    start = segment_start + step
+                                else:
+                                    start = segment_start - step
                         start_index += rest
                     line = name
                     position_text = str(start)

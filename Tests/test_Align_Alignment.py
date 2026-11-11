@@ -3740,6 +3740,39 @@ query           222 GACGGA 228
             ],
         )
 
+    def test_protein_nucleotide_split_codon(self):
+        # A width whose sequence columns are not a multiple of three wraps
+        # inside a codon; the protein coordinates must not drift.
+        alignment = Align.Alignment(
+            ["M" * 100, "ATG" * 100], np.array([[0, 100], [0, 300]])
+        )
+        text = alignment.format("", line_width=120)
+        starts = [
+            int(line.split()[1])
+            for line in text.splitlines()
+            if line.startswith("target")
+        ]
+        self.assertEqual(starts, [0, 34, 67, 100])
+        starts = [
+            int(line[10:20])
+            for line in alignment.format("", line_width=21).splitlines()
+            if line.startswith("target")
+        ]
+        # Column i shows nucleotide i, so the residue count rounds up; the
+        # blocks after those 300 hold only the end coordinates.
+        self.assertEqual(starts[:300], [-(i // -3) for i in range(300)])
+        self.assertEqual(set(starts[300:]), {100})
+        # On the reverse strand as well:
+        alignment = Align.Alignment(
+            ["M" * 100, "CAT" * 100], np.array([[0, 100], [300, 0]])
+        )
+        starts = [
+            int(line.split()[1])
+            for line in alignment.format("", line_width=120).splitlines()
+            if line.startswith("target")
+        ]
+        self.assertEqual(starts, [0, 34, 67, 100])
+
     def test_multiple(self):
         sequences = [self.s1[:70], self.s1[:70], self.s1[:70]]
         coordinates = np.array([[0, 70], [0, 70], [0, 70]])
