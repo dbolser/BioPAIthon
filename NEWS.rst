@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The PDB header parser, ``Bio.PDB.parse_pdb_header`` and so the ``header``
+of a structure from ``PDBParser``, now gives the chain IDs of each COMPND
+molecule as the file writes them. It used to lowercase every COMPND line, so
+``header["compound"]["3"]["chain"]`` was ``"a, b, c"`` for a file that says
+``CHAIN: A, B, C``. In PDB files ``A`` and ``a`` are different chains: entry
+7DK4 has antibody chains ``a`` to ``f`` and spike chains ``A`` to ``C``,
+and the lowercased header made the two sets indistinguishable
+(biopython/biopython#4176). The principle is that identifiers are never
+altered by a parser, and this change sets the precedent. Only the ``chain``
+values change. The key names (``mol_id``, ``molecule``, ``chain`` and so on)
+stay lowercase, molecules are still numbered by their ``MOL_ID`` as before,
+and the free text, such as ``molecule`` and ``synonym``, stays lowercased as
+it is today. SOURCE records have no chain IDs and are unchanged. This is a
+behaviour change for code that matched chains against the old lowercase
+values, for example with ``chain.id.lower()``: on an ordinary file with
+uppercase chains that code now finds no molecule at all, without any error,
+so compare ``chain.id`` directly instead.
+
 ``Bio.Phylo``'s ``root_with_outgroup``, and so ``root_at_midpoint``, now
 emits a ``BiopythonWarning`` when rerooting removes a bifurcating root whose
 two branches carry different support values. Those two branches make the
