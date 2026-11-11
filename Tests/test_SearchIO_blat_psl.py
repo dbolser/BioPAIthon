@@ -6,10 +6,15 @@
 """Tests for SearchIO BlatIO parsers."""
 
 import unittest
+from io import StringIO
 
 import support
 
+from Bio import Align
+from Bio import BiopythonParserWarning
 from Bio.SearchIO import parse
+from Bio.SearchIO import read
+from Bio.SearchIO import write
 
 # test case files are in the Blast directory
 TEST_DIR = support.DATA / "Blat"
@@ -1324,6 +1329,83 @@ class BlatPslxCases(BlatPslCases):
             "ETSAHEGQTEAPNIDEKVDLHFIALVHVDGHLYEL", hsp.hit_all[0].seq[-35:]
         )
         self.assertEqual("DAIEVCKKFMERDPDELRFNAIALSAA", hsp.hit_all[1].seq)
+
+
+class BlatPslBackwardsBlocks(unittest.TestCase):
+    """A real BLAT -prot row whose query blocks run backwards.
+
+    The row comes from biopython/biopython#4196. Its 16th query block ends at
+    1073, after the last block, which ends at 1072. BLAT writes qEnd as the
+    end of the last block, 1072, but an HSP reports the largest end, 1073.
+    """
+
+    path = TEST_DIR / "psl_backwards_blocks.psl"
+
+    def setUp(self):
+        with open(self.path) as handle:
+            self.row = handle.read().splitlines()[-1]
+
+    def read(self, text):
+        """Parse one PSL row, checking it warns, and return its HSP."""
+        with self.assertWarns(BiopythonParserWarning) as cm:
+            self.qresult = read(StringIO(text), FMT)
+        self.assertIn("blocks that run backwards", str(cm.warning))
+        return self.qresult[0][0]
+
+    def write(self):
+        """Write the parsed row back out as PSL and return it."""
+        handle = StringIO()
+        write(self.qresult, handle, FMT)
+        return handle.getvalue().rstrip("\n")
+
+    def assert_same_blocks(self, hsp, text):
+        """Check Bio.Align reads the same blocks and columns from the row."""
+        alignment = next(Align.parse(StringIO(text), "psl"))
+        hit_blocks, query_blocks = alignment.aligned
+        self.assertEqual(len(hsp), len(query_blocks))
+        for fragment, hit_block, query_block in zip(hsp, hit_blocks, query_blocks):
+            self.assertEqual(fragment.hit_range, tuple(sorted(hit_block)))
+            self.assertEqual(fragment.query_range, tuple(sorted(query_block)))
+        # Bio.Align writes the row's own start and end columns back
+        self.assertEqual(format(alignment, "psl").rstrip("\n"), text)
+
+    def test_plus_strand(self):
+        hsp = self.read(self.row)
+        self.assertEqual(len(hsp), 18)
+        self.assertEqual(hsp.query_range, (188, 1073))
+        self.assertEqual(hsp.hit_range, (188, 1509))
+        self.assertEqual(set(hsp.query_strand_all), {1})
+        self.assertEqual(set(hsp.hit_strand_all), {1})
+        self.assertEqual(hsp[15].query_range, (994, 1073))
+        self.assertEqual(hsp[-1].query_range, (1041, 1072))
+        self.assertEqual(
+            hsp.query_span_all,
+            [33, 133, 22, 61, 41, 100, 19, 32, 68, 71, 28, 34, 76, 30, 103, 79, 90, 31],
+        )
+        self.assertEqual(hsp.query_span_all, hsp.hit_span_all)
+        self.assertEqual(hsp.query_gap_num, -167)
+        # slicing keeps whole fragments, and their own coordinates
+        sliced = hsp[15:17]
+        self.assertEqual(sliced.query_range, (951, 1073))
+        self.assertEqual(sliced.hit_range, (1244, 1439))
+        self.assertEqual(self.write(), self.row)
+        self.assert_same_blocks(hsp, self.row)
+
+    def test_minus_strand(self):
+        # The same blocks on the minus strand of the query; not real BLAT
+        # output. BLAT's rule then gives qStart 1152 - 1072 = 80, while the
+        # smallest block start is 1152 - 1073 = 79.
+        cols = self.row.split("\t")
+        cols[8] = "-"
+        cols[11:13] = ["80", "964"]
+        row = "\t".join(cols)
+        hsp = self.read(row)
+        self.assertEqual(hsp.query_range, (79, 964))
+        self.assertEqual(set(hsp.query_strand_all), {-1})
+        self.assertEqual(hsp[0].query_range, (931, 964))
+        self.assertEqual(hsp[15].query_range, (79, 158))
+        self.assertEqual(self.write(), row)
+        self.assert_same_blocks(hsp, row)
 
 
 if __name__ == "__main__":

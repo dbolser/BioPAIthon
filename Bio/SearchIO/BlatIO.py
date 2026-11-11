@@ -79,6 +79,14 @@ re-anchor the qStarts coordinates to the plus strand whenever it sees a minus
 strand query match. Conversely, when you write out to a PSL(X) file, BlatIO will
 reanchor qStarts to the minus strand again.
 
+BLAT writes Q start, Q end, T start and T end as the start of the first block
+and the end of the last block. HSP objects report the smallest and largest
+coordinates of their fragments instead. The two agree unless the blocks run
+backwards, as some BLAT -prot alignments do. BlatIO accepts such a row with a
+BiopythonParserWarning, so its HSP may report, for example, a query_end one
+larger than the row's Q end. When writing, BlatIO follows BLAT's rule, so the
+row is written back unchanged.
+
 BlatIO provides the following attribute-column mapping:
 
 +----------------+-------------------------+-----------------------------------+
@@ -183,8 +191,10 @@ HSP and HSPFragment documentation for more details on these properties.
 """
 
 import re
+import warnings
 from math import log
 
+from Bio import BiopythonParserWarning
 from Bio.SearchIO._index import SearchIndexer
 from Bio.SearchIO._model import Hit
 from Bio.SearchIO._model import HSP
@@ -242,6 +252,30 @@ def _reorient_starts(starts, blksizes, seqlen, strand):
         # the plus-oriented coordinate is calculated by this:
         # plus_coord = length - minus_coord - block_size
         return [seqlen - start - blksize for start, blksize in zip(starts, blksizes)]
+
+
+def _first_last_span(starts, blksizes, seqlen, strand):
+    """Return (start, end) on the plus strand by BLAT's rule (PRIVATE).
+
+    BLAT's start and end columns are the start of the first block and the end
+    of the last block, taken in the row's own orientation and then converted
+    to plus-strand coordinates.
+
+    :param starts: block start coordinates, as written in the row
+    :type starts: list [int]
+    :param blksizes: block sizes, in the units of ``starts``
+    :type blksizes: list [int]
+    :param seqlen: sequence length
+    :type seqlen: int
+    :param strand: sequence strand
+    :type strand: int, choice of -1, 0, or 1
+
+    """
+    start = starts[0]
+    end = starts[-1] + blksizes[-1]
+    if strand >= 0:
+        return start, end
+    return seqlen - end, seqlen - start
 
 
 def _is_protein(psl):
@@ -386,17 +420,44 @@ def _create_hsp(hid, qid, psl):
     # create hsp object
     hsp = HSP(frags)
     # check if start and end are set correctly
-    for column, from_blocks in (
-        ("qStart", hsp.query_start),
-        ("qEnd", hsp.query_end),
-        ("tStart", hsp.hit_start),
-        ("tEnd", hsp.hit_end),
+    # BLAT itself writes the start of the first block and the end of the last
+    # block, in the row's own orientation. That is the smallest and largest
+    # coordinate unless the blocks run backwards, which real BLAT -prot output
+    # can do (biopython/biopython#4196). Accept either, but warn when only
+    # BLAT's rule fits, because the HSP then reports the smallest and largest.
+    query_blat = _first_last_span(
+        psl["qstarts"], psl["blocksizes"], psl["qsize"], qstrand
+    )
+    hit_blat = _first_last_span(
+        psl["tstarts"],
+        [blocksize_multiplier * i for i in psl["blocksizes"]],
+        psl["tsize"],
+        hstrand,
+    )
+    backwards = []
+    for column, attr, from_blocks, from_blat in (
+        ("qStart", "query_start", hsp.query_start, query_blat[0]),
+        ("qEnd", "query_end", hsp.query_end, query_blat[1]),
+        ("tStart", "hit_start", hsp.hit_start, hit_blat[0]),
+        ("tEnd", "hit_end", hsp.hit_end, hit_blat[1]),
     ):
-        if from_blocks != psl[column.lower()]:
+        value = psl[column.lower()]
+        if from_blocks == value:
+            continue
+        if from_blat != value:
             raise ValueError(
                 f"PSL row for query {qid!r} and hit {hid!r} has {column}"
-                f" {psl[column.lower()]}, but its blocks give {from_blocks}"
+                f" {value}, but its blocks give {from_blocks}"
             )
+        backwards.append(f"{column} {value} but HSP.{attr} {from_blocks}")
+    if backwards:
+        warnings.warn(
+            f"PSL row for query {qid!r} and hit {hid!r} has blocks that run"
+            " backwards. Its start and end columns follow BLAT's rule (first"
+            " block start, last block end), but the HSP reports the smallest"
+            " and largest block coordinates: " + ", ".join(backwards),
+            BiopythonParserWarning,
+        )
     # and check block spans as well
     hit_spans = [span / blocksize_multiplier for span in hsp.hit_span_all]
     assert hit_spans == hsp.query_span_all == psl["blocksizes"]  # noqa: S101
@@ -743,15 +804,24 @@ class BlatPslWriter:
                     hstrand,
                 )
 
+                # BLAT's rule: first block start, last block end. This is
+                # hsp.query_start and so on unless the blocks run backwards.
+                query_start, query_end = _first_last_span(
+                    qstarts, block_sizes, qresult.seq_len, hsp[0].query_strand
+                )
+                hit_start, hit_end = _first_last_span(
+                    hstarts, hsp.hit_span_all, hit.seq_len, hstrand
+                )
+
                 line.append(strand)
                 line.append(qresult.id)
                 line.append(qresult.seq_len)
-                line.append(hsp.query_start)
-                line.append(hsp.query_end)
+                line.append(query_start)
+                line.append(query_end)
                 line.append(hit.id)
                 line.append(hit.seq_len)
-                line.append(hsp.hit_start)
-                line.append(hsp.hit_end)
+                line.append(hit_start)
+                line.append(hit_end)
                 line.append(len(hsp))
                 line.append(",".join(str(x) for x in block_sizes) + ",")
                 line.append(",".join(str(x) for x in qstarts) + ",")
