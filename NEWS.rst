@@ -55,6 +55,24 @@ and the default branch is now ``main`` rather than ``master``.
 (In progress, not yet released): biop-ai 1.89
 =============================================
 
+The documentation of ``Bio.Phylo.TreeConstruction.DistanceCalculator`` now
+states what its distances range over; the numbers are unchanged. A distance
+is ``1 - score / max_score``. With the 'identity' model that lies between 0
+and 1, but with a substitution matrix it is above 1 whenever the alignment
+score is negative, as it is for distant sequences: 3.0 for AAAA against CCCC
+with 'megablast', 1.8 with 'blastn', and about 1.18 for WWWW against GGGG
+with 'blosum62'. Two sequences made only of ambiguity codes that score
+negatively against themselves in 'blastn' or 'megablast', such as S and W,
+can even give a negative distance. A private docstring had promised 0 to 1.
+Capping the distances at 1 (biopython/biopython#5348) was not adopted: every
+pair of sequences below about 44% identity with 'blastn', or 67% with
+'megablast', would get exactly 1, so a tree could no longer tell distant
+sequences from unrelated ones. Rescaling between the lowest and highest
+possible score would change every matrix distance, and upstream has not
+chosen between the two (biopython/biopython#5341). Code that computes a
+similarity as ``1 - distance`` should expect negative values with these
+models.
+
 ``Bio.SearchIO``'s ``blat-psl`` parser now reads PSL rows whose blocks run
 backwards, which real ``blat -prot`` output contains. In such a row a block
 can end after the last block, or start before the first, and BLAT writes
