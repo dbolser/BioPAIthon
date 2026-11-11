@@ -466,7 +466,11 @@ class Test_dn_ds(unittest.TestCase):
             0.843182957978177,
             0,
         ]
-        with self.assertWarnsRegex(BiopythonWarning, "^NG86 cannot"):
+        with self.assertWarnsRegex(
+            BiopythonWarning,
+            r"^gi\|6478867\|gb\|M37394\.2\|RATEGFR and "
+            r"gi\|24657088\|ref\|NM_057410\.3\|: NG86 cannot",
+        ):
             dn, ds = self.aln.get_dn_ds_matrix()
         dn_list = []
         for i in dn.matrix:
@@ -644,8 +648,14 @@ class Test_dn_ds_too_divergent(unittest.TestCase):
 
     def test_dn_ds_matrix(self):
         """Test the matrices hold nan for the undefined distances only."""
-        with self.assertWarns(BiopythonWarning):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
             dn, ds = self.aln.get_dn_ds_matrix()
+        # one warning for each pair, naming it
+        self.assertEqual(
+            [str(warning.message).split(": ")[0] for warning in caught],
+            ["c and a", "c and b"],
+        )
         self.assertEqual(dn["a", "b"], 0)
         self.assertGreater(ds["a", "b"], 0)
         self.assertTrue(math.isnan(dn["a", "c"]))

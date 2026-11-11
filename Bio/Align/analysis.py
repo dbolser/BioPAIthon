@@ -1094,6 +1094,23 @@ def _likelihood_func(t, k, w, pi, codon_cnt, codons, codon_table):
     return likelihood
 
 
+def _dn_ds_for_pair(name1, name2, function, *args, **kwargs):
+    """Call function for a pair of a matrix, naming the pair in its warnings (PRIVATE).
+
+    A warning from calculate_dn_ds or cal_dn_ds does not say which pair it
+    is about, and the default filter of Python shows a repeated message only
+    once, so a matrix of many pairs could show one warning for several.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = function(*args, **kwargs)
+    for warning in caught:
+        warnings.warn(
+            f"{name1} and {name2}: {warning.message}", warning.category, stacklevel=3
+        )
+    return result
+
+
 def calculate_dn_ds_matrix(alignment, method="NG86", codon_table=None):
     """Calculate dN and dS pairwise for the multiple alignment, and return as matrices.
 
@@ -1103,8 +1120,8 @@ def calculate_dn_ds_matrix(alignment, method="NG86", codon_table=None):
 
     A distance that ``calculate_dn_ds`` finds undefined, because the pair is
     too divergent for the method, is nan in the matrix, with a
-    ``BiopythonWarning`` for each such pair; the other distances are still
-    calculated.
+    ``BiopythonWarning`` for each such pair that starts with the names of
+    the two sequences; the other distances are still calculated.
 
     """
     from Bio.Phylo.TreeConstruction import DistanceMatrix
@@ -1124,8 +1141,13 @@ def calculate_dn_ds_matrix(alignment, method="NG86", codon_table=None):
             pairwise_sequences = [sequences[i], sequences[j]]
             pairwise_coordinates = coordinates[(i, j), :]
             pairwise_alignment = Alignment(pairwise_sequences, pairwise_coordinates)
-            dn, ds = calculate_dn_ds(
-                pairwise_alignment, method=method, codon_table=codon_table
+            dn, ds = _dn_ds_for_pair(
+                names[i],
+                names[j],
+                calculate_dn_ds,
+                pairwise_alignment,
+                method=method,
+                codon_table=codon_table,
             )
             dn_matrix[i].append(dn)
             ds_matrix[i].append(ds)

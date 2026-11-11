@@ -14,6 +14,7 @@ import warnings
 
 from Bio import BiopythonWarning
 from Bio.Align import MultipleSeqAlignment
+from Bio.Align.analysis import _dn_ds_for_pair
 from Bio.Align.analysis import _mktest
 from Bio.codonalign.codonseq import _get_codon_list
 from Bio.codonalign.codonseq import cal_dn_ds
@@ -156,8 +157,8 @@ class CodonAlignment(MultipleSeqAlignment):
 
         A distance that ``cal_dn_ds`` finds undefined, because the pair is
         too divergent for the method, is nan in the matrix, with a
-        ``BiopythonWarning`` for each such pair; the other distances are
-        still calculated.
+        ``BiopythonWarning`` for each such pair that starts with the names of
+        the two sequences; the other distances are still calculated.
 
         """
         from Bio.Phylo.TreeConstruction import DistanceMatrix as DM
@@ -173,7 +174,10 @@ class CodonAlignment(MultipleSeqAlignment):
             ds_matrix.append([])
             for j in range(i + 1):
                 if i != j:
-                    dn, ds = cal_dn_ds(
+                    dn, ds = _dn_ds_for_pair(
+                        names[i],
+                        names[j],
+                        cal_dn_ds,
                         self._records[i],
                         self._records[j],
                         method=method,
@@ -199,7 +203,9 @@ class CodonAlignment(MultipleSeqAlignment):
 
         If ``get_dn_ds_matrix`` finds a distance undefined, because a pair is
         too divergent for the method, ValueError is raised, naming the pairs,
-        as UPGMA, WPGMA and NJ all need every distance.
+        as UPGMA, WPGMA and NJ all need every distance. Neither tree is
+        returned, even if only one of the two matrices has an undefined
+        distance; ``get_dn_ds_matrix`` still gives both matrices.
 
         """
         from math import isnan

@@ -98,11 +98,14 @@ class CalculateDnDsValidationTests(unittest.TestCase):
     def test_plain_sequences_and_seqrecords_agree(self):
         """Seq and SeqRecord sequences give the same answer."""
         first = "ATGAAATTTGGGCCCAAAGGGTTTATG"
-        second = "ATGAAGTTCGGACCCAAGGGGTTTATG"
-        self.assertEqual(
-            calculate_dn_ds(alignment(first, second)),
-            calculate_dn_ds(alignment(first, second, records=True)),
-        )
+        second = "ATGAAGTTTGGGCCCAAAGGGTTCCTG"
+        with warnings.catch_warnings():
+            # not too divergent for NG86, so there is no warning and no nan
+            warnings.simplefilter("error")
+            self.assertEqual(
+                calculate_dn_ds(alignment(first, second)),
+                calculate_dn_ds(alignment(first, second, records=True)),
+            )
 
 
 class NG86Tests(unittest.TestCase):
@@ -317,6 +320,8 @@ class DnDsMatrixTests(unittest.TestCase):
         self.assertEqual(len(caught), 2)
         for warning in caught:
             self.assertIs(warning.category, BiopythonWarning)
+        self.assertTrue(str(caught[0].message).startswith("c and a: NG86 cannot"))
+        self.assertTrue(str(caught[1].message).startswith("c and b: NG86 cannot"))
         # the pair a and b is the hand computed case of NG86Tests
         expected_ds = -0.75 * math.log(1 - (4 / 3) * (1 / (10 / 3)))
         self.assertEqual(dn["a", "b"], 0)
@@ -326,6 +331,32 @@ class DnDsMatrixTests(unittest.TestCase):
         self.assertGreater(ds["a", "c"], 0)
         self.assertTrue(math.isnan(dn["b", "c"]))
         self.assertTrue(math.isnan(ds["b", "c"]))
+
+    def test_a_warning_for_each_pair(self):
+        """Each pair gets its own warning, even under the default filter.
+
+        The pairs b and a, and c and a, give the same warning from
+        calculate_dn_ds, which the default filter would show only once.
+        The AAA codon gives LWL85 twofold degenerate sites, without which
+        it divides by zero for the pair b and c.
+        """
+        records = [
+            SeqRecord(Seq(sequence), id=name)
+            for name, sequence in (
+                ("a", "TTTTTTTTTAAA"),
+                ("b", "CCACCACCAAAA"),
+                ("c", "CCACCACCAAAA"),
+            )
+        ]
+        for method in ("NG86", "LWL85"):
+            with self.subTest(method=method):
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("default")
+                    calculate_dn_ds_matrix(Alignment(records), method=method)
+                self.assertEqual(
+                    [str(warning.message).split(": ")[0] for warning in caught],
+                    ["b and a", "c and a"],
+                )
 
 
 class DistanceF84Tests(unittest.TestCase):

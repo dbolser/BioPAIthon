@@ -8831,7 +8831,11 @@ gi|6478867|gb|M37394.2|RATEGFR      AGAGTACCTGCGGGTGGCACCGCCAAGCAGTGAGTTTAGTGGAG
                 0.843182957978177,
                 0,
             ]
-            with self.assertWarnsRegex(BiopythonWarning, "^NG86 cannot"):
+            with self.assertWarnsRegex(
+                BiopythonWarning,
+                r"^gi\|6478867\|gb\|M37394\.2\|RATEGFR and "
+                r"gi\|24657088\|ref\|NM_057410\.3\|: NG86 cannot",
+            ):
                 dn, ds = calculate_dn_ds_matrix(alignment)
             dn_list = []
             for i in dn.matrix:
