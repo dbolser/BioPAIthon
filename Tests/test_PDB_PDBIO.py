@@ -429,35 +429,80 @@ class WriteTest(unittest.TestCase):
         finally:
             os.remove(filename)
 
-    def test_pdbio_write_ter(self):
-        """Test the write_ter option of PDBIO.save."""
+    def test_pdbio_write_ter_false(self):
+        """Test write_ter=False drops TER and numbers the atoms consecutively."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", PDBConstructionWarning)
             # Three models, each with three chains
-            struct = self.parser.get_structure("1lcd", "PDB/1LCD.pdb")
+            struct = self.parser.get_structure(
+                "1lcd", support.DATA / "PDB" / "1LCD.pdb"
+            )
+        self.io.set_structure(struct)
+        handle = StringIO()
+        self.io.save(handle)
+        with_ter = handle.getvalue().splitlines()
+        handle = StringIO()
+        self.io.save(handle, write_ter=False)
+        without_ter = handle.getvalue().splitlines()
 
-        def save_lines(**kwargs):
-            self.io.set_structure(struct)
-            filenumber, filename = tempfile.mkstemp()
-            os.close(filenumber)
-            try:
-                self.io.save(filename, **kwargs)
-                with open(filename) as handle:
-                    return handle.readlines()
-            finally:
-                os.remove(filename)
-
-        with_ter = save_lines()
-        without_ter = save_lines(write_ter=False)
-
-        # Default is unchanged: one TER per chain per model
+        # The default is unchanged: one TER per chain per model
         self.assertEqual(sum(line.startswith("TER") for line in with_ter), 9)
         self.assertEqual(sum(line.startswith("TER") for line in without_ter), 0)
-        # Only the TER lines differ, so atom numbering and the MODEL/ENDMDL
-        # and END records are unaffected
-        self.assertEqual(
-            [line for line in with_ter if not line.startswith("TER")], without_ter
-        )
+
+        # Without TER the serials run from 1 in each model with no gaps
+        serials = []
+        for line in without_ter:
+            if line.startswith("MODEL"):
+                serials.append([])
+            elif line.startswith(("ATOM", "HETATM")):
+                serials[-1].append(int(line[6:11]))
+        self.assertEqual(len(serials), 3)
+        for model in serials:
+            self.assertEqual(model, list(range(1, len(model) + 1)))
+        # With TER, the two TERs before the last chain each take a serial
+        last = [int(line[6:11]) for line in with_ter if line.startswith("HETATM")]
+        self.assertEqual(last[-1], serials[-1][-1] + 2)
+
+        # Apart from the TER lines and the serial numbers, the output is the same
+        def strip(lines):
+            return [
+                line[:6] + line[11:] if line.startswith(("ATOM", "HETATM")) else line
+                for line in lines
+                if not line.startswith("TER")
+            ]
+
+        self.assertEqual(strip(with_ter), strip(without_ter))
+
+        # Both files read back as the same structure
+        def atoms(text):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", PDBConstructionWarning)
+                structure = self.parser.get_structure("x", StringIO(text))
+            return [
+                (atom.full_id[1:], atom.coord.tolist(), atom.element)
+                for atom in structure.get_atoms()
+            ]
+
+        original = atoms((support.DATA / "PDB" / "1LCD.pdb").read_text())
+        self.assertEqual(atoms("\n".join(with_ter)), original)
+        self.assertEqual(atoms("\n".join(without_ter)), original)
+
+    def test_pdbio_write_ter_false_preserve_numbering(self):
+        """Test write_ter=False keeps stored serials with preserve_atom_numbering."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", PDBConstructionWarning)
+            struct = self.parser.get_structure(
+                "1lcd", support.DATA / "PDB" / "1LCD.pdb"
+            )
+        self.io.set_structure(struct)
+        handle = StringIO()
+        self.io.save(handle, preserve_atom_numbering=True, write_ter=False)
+        lines = handle.getvalue().splitlines()
+        self.assertFalse(any(line.startswith("TER") for line in lines))
+        written = [
+            int(line[6:11]) for line in lines if line.startswith(("ATOM", "HETATM"))
+        ]
+        self.assertEqual(written, [atom.serial_number for atom in struct.get_atoms()])
 
     def test_pdbio_write_x_element(self):
         """Write a structure with atomic element X with PDBIO."""
@@ -618,6 +663,44 @@ class WriteTest(unittest.TestCase):
             PDBIOException, "TER serial number \\('100000'\\) exceeds PDB format limit"
         ):
             self.io.save(handle, preserve_atom_numbering=True)
+        self.assertEqual(handle.getvalue(), "")
+
+    def test_pdbio_write_ter_false_serial_limit(self):
+        """Test write_ter=False fits 99,999 atoms and still raises past that."""
+        structure = self.parser.get_structure(
+            "1ssu_mod", support.DATA / "PDB" / "1SSU_mod.pdb"
+        )
+        model = structure[0]
+        # Two chains of one atom each, then pad chain B to 99,999 atoms in all
+        chain_b = model["B"]
+        template = next(chain_b.get_atoms())
+        filler = Residue.Residue((" ", 2, " "), "ALA", "    ")
+        digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        for i in range(99999 - 2):
+            # unique four-character atom names, written in base 36
+            name = "".join(digits[(i // 36**k) % 36] for k in range(4))
+            filler.add(Atom.Atom(name, template.coord, 1.0, 1.0, " ", name, i, "C"))
+        chain_b.add(filler)
+        self.io.set_structure(model)
+        # With TER records the TER after chain A pushes the last atom to 100,000
+        with self.assertRaisesRegex(
+            PDBIOException, "Atom serial number \\('100000'\\) exceeds"
+        ):
+            self.io.save(StringIO())
+        # Without them every atom fits, numbered 1 to 99,999
+        handle = StringIO()
+        self.io.save(handle, write_ter=False)
+        lines = handle.getvalue().splitlines()
+        self.assertFalse(any(line.startswith("TER") for line in lines))
+        self.assertEqual(lines[-2][6:11], "99999")
+        # One more atom and the atom serial number limit still applies
+        filler.add(Atom.Atom("ZZZZ", template.coord, 1.0, 1.0, " ", "ZZZZ", 0, "C"))
+        self.io.set_structure(model)  # it writes a copy of the model
+        handle = StringIO()
+        with self.assertRaisesRegex(
+            PDBIOException, "Atom serial number \\('100000'\\) exceeds PDB format limit"
+        ):
+            self.io.save(handle, write_ter=False)
         self.assertEqual(handle.getvalue(), "")
 
     def test_pdbio_write_formatting(self):

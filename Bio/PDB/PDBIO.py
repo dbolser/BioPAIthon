@@ -399,7 +399,11 @@ class PDBIO(StructureIO):
         :param write_ter: write a TER record after each chain. Set this
             to False to omit the TER records, e.g. for tools that do not
             expect them. The resulting file is not strictly compliant with
-            the PDB format.
+            the PDB format. Without TER records the default numbering runs
+            on from one chain to the next with no gaps, so the atoms after
+            the first chain of a model are numbered lower than with them.
+            With ``preserve_atom_numbering=True`` the stored serials are
+            written unchanged either way.
         :type write_ter: bool
         """
         if isinstance(file, str):
