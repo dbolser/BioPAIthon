@@ -2405,6 +2405,19 @@ class Alignment:
                      - A PairwiseAligner object, in which case its substitution
                          matrix and settings are used for determining positive matches.
 
+         - line_width - Optional keyword-only parameter, used only for the
+                       human-readable representation (fmt is an empty
+                       string); default=80. The width at which lines wrap,
+                       including the 20 columns taken by the sequence name and
+                       coordinate, so it must be at least 21. The default
+                       output does not depend on the terminal width. For a
+                       pairwise alignment, the last line of a block can be
+                       one column wider than line_width when its end
+                       coordinate only just fits. Alignments of non-ASCII or
+                       generalized (list of strings) sequences are never
+                       wrapped, so line_width has no effect on them. Any
+                       other argument raises TypeError for this format.
+
         All other arguments are passed to the format-specific writer functions:
          - mask      - PSL format only. Specify if repeat regions in the target
                        sequence are masked and should be reported in the
@@ -2438,7 +2451,19 @@ class Alignment:
             elif isinstance(scoring, (np.ndarray, substitution_matrices.Array)):
                 substitution_matrix = scoring
         if fmt == "":
-            return self._format_pretty(substitution_matrix)
+            line_width = kwargs.pop("line_width", 80)
+            if args:
+                raise TypeError(
+                    "unexpected positional argument for the human-readable "
+                    f"format: {args[0]!r}"
+                )
+            if kwargs:
+                name = next(iter(kwargs))
+                raise TypeError(
+                    "unexpected keyword argument for the human-readable "
+                    f"format: {name!r}"
+                )
+            return self._format_pretty(substitution_matrix, line_width)
         module = _load(fmt)
         if module.AlignmentIterator.mode == "b":
             raise ValueError(f"{fmt} is a binary file format")
@@ -2451,7 +2476,7 @@ class Alignment:
         writer = writer(None, *args, **kwargs)
         return writer.format_alignment(self)
 
-    def _format_pretty(self, matrix=None):
+    def _format_pretty(self, matrix=None, line_width=80):
         """Return default string representation (PRIVATE).
 
         Helper for self.format().
@@ -2462,7 +2487,22 @@ class Alignment:
                      `Bio.Align.substitution_matrices` submodule)
                      used to mark positive matches (:) in the alignment string
                      when two different residues have a positive score.
+         - line_width - Optional; default=80
+                     The width at which lines wrap, including the sequence
+                     name and coordinate columns.
         """
+        name_width = 10
+        prefix_width = 10
+        position_width = 10
+        if isinstance(line_width, bool) or not isinstance(line_width, numbers.Integral):
+            raise TypeError(
+                f"line_width must be an integer, not {type(line_width).__name__}"
+            )
+        minimum_width = prefix_width + position_width + 1
+        if line_width < minimum_width:
+            raise ValueError(
+                f"line_width must be at least {minimum_width} (got {line_width})"
+            )
         n = len(self.sequences)
         if n == 2:
             write_pattern = True
@@ -2471,7 +2511,6 @@ class Alignment:
         steps = np.diff(self.coordinates, 1)
         aligned = sum(steps != 0, 0) > 1
         # True for steps in which at least two sequences align, False if a gap
-        name_width = 10
         names = []
         seqs = []
         indices = np.zeros(self.coordinates.shape, np.intp)
@@ -2543,9 +2582,6 @@ class Alignment:
                 write_pattern = False
             else:
                 raise ValueError("Inconsistent coordinates")
-        prefix_width = 10
-        position_width = 10
-        line_width = 80
         lines = []
         steps = indices[:, 1:] - indices[:, :-1]
         minstep = steps.min(0)
@@ -2572,22 +2608,33 @@ class Alignment:
                     s = "-" * step
                 else:
                     s = seq[start_index:end_index]
+                segment_start = start
+                segment_start_index = start_index
                 while column + len(s) >= line_width:
                     rest = line_width - column
                     if rest > 0:
                         lines[-1] += s[:rest]
                         s = s[rest:]
                         if start != end:
-                            if (end_index - start_index) == abs(end - start):
+                            if (end_index - segment_start_index) == abs(
+                                end - segment_start
+                            ):
                                 step = rest
+                                if start < end:
+                                    start += step
+                                else:
+                                    start -= step
                             else:
-                                # protein to dna alignment;
-                                # integer division, but round up:
-                                step = -(rest // -3)
-                            if start < end:
-                                start += step
-                            else:
-                                start -= step
+                                # protein to dna alignment; count the
+                                # residues from the start of the segment,
+                                # rounding a partial codon up, so that the
+                                # rounding does not accumulate over lines:
+                                columns = start_index + rest - segment_start_index
+                                step = -(columns // -3)
+                                if segment_start < end:
+                                    start = segment_start + step
+                                else:
+                                    start = segment_start - step
                         start_index += rest
                     line = name
                     position_text = str(start)

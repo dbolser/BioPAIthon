@@ -3661,6 +3661,175 @@ query             3 GCC 0
         self.assertEqual(alignment[3], "ATGATGGCC")
 
 
+class TestAlign_line_width(unittest.TestCase):
+    """Test the line_width keyword of Alignment.format (issue #5035)."""
+
+    s1 = "ATGCGGAGCTTTCGAGCGACGTTTGGCTTTGACGACGGA" * 6
+    s2 = "ATGCGGAGCCGAGCGACGTTTACGGCTTTGACGACGGA" * 6
+    t1 = translate(s1)
+
+    aligner = Align.PairwiseAligner("blastn")
+    alignment = next(aligner.align(s1, s2))
+    del aligner
+
+    def test_default_unchanged(self):
+        text = str(self.alignment)
+        self.assertEqual(self.alignment.format(""), text)
+        self.assertEqual(self.alignment.format("", line_width=80), text)
+        self.assertEqual(max(len(line) for line in text.splitlines()), 80)
+
+    def test_nucleotide_nucleotide(self):
+        self.assertEqual(
+            self.alignment.format("", line_width=140),
+            """\
+target            0 ATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGACGACGGAATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGACGACGGAATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGACGAC
+                  0 |||||||||---||||||||||||--||||||||||||||||||||||||---||||||||||||--||||||||||||||||||||||||---||||||||||||--||||||||||||
+query             0 ATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGAC
+
+target          114 GGAATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGACGACGGAATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGACGACGGAATGCGGAGCTTTCGAGCGACGTTT--GGCTTTGAC
+                120 ||||||||||||---||||||||||||--||||||||||||||||||||||||---||||||||||||--||||||||||||||||||||||||---||||||||||||--|||||||||
+query           111 GGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGAC
+
+target          228 GACGGA 234
+                240 |||||| 246
+query           222 GACGGA 228
+""",
+        )
+        # Wide enough for the whole alignment on one block:
+        text = self.alignment.format("", line_width=1000)
+        lines = text.splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[0].endswith(" 234"))
+        self.assertTrue(lines[1].endswith(" 246"))
+        self.assertTrue(lines[2].endswith(" 228"))
+        # Narrow lines; the scoring keyword still works alongside line_width:
+        text = self.alignment.format(
+            "", scoring=Align.PairwiseAligner("blastn"), line_width=30
+        )
+        self.assertEqual(
+            text.splitlines()[:7],
+            [
+                "target            0 ATGCGGAGCT",
+                "                  0 |||||||||-",
+                "query             0 ATGCGGAGC-",
+                "",
+                "target           10 TTCGAGCGAC",
+                "                 10 --||||||||",
+                "query             9 --CGAGCGAC",
+            ],
+        )
+
+    def test_protein_nucleotide(self):
+        coordinates_s1, coordinates_s2 = self.alignment.coordinates
+        coordinates = np.array([coordinates_s1 // 3, coordinates_s2])
+        alignment = Align.Alignment([self.t1, self.s2], coordinates)
+        self.assertEqual(alignment.format("", line_width=80), str(alignment))
+        # The protein rows end in the two spaces padding their last codon.
+        self.assertEqual(
+            alignment.format("", line_width=140).split("\n"),
+            [
+                "target            0 M  R  S  F  R  A  T  F  --G  F  D  D  G  M  R  S  F  R  A  T  F  --G  F  D  D  G  M  R  S  F  R  A  T  F  --G  F  D  D  ",
+                "query             0 ATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGAC",
+                "",
+                "target           38 G  M  R  S  F  R  A  T  F  --G  F  D  D  G  M  R  S  F  R  A  T  F  --G  F  D  D  G  M  R  S  F  R  A  T  F  --G  F  D  ",
+                "query           111 GGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGACGACGGAATGCGGAGC---CGAGCGACGTTTACGGCTTTGAC",
+                "",
+                "target           76 D  G    78",
+                "query           222 GACGGA 228",
+                "",
+            ],
+        )
+
+    def test_protein_nucleotide_split_codon(self):
+        # A width whose sequence columns are not a multiple of three wraps
+        # inside a codon; the protein coordinates must not drift.
+        alignment = Align.Alignment(
+            ["M" * 100, "ATG" * 100], np.array([[0, 100], [0, 300]])
+        )
+        text = alignment.format("", line_width=120)
+        starts = [
+            int(line.split()[1])
+            for line in text.splitlines()
+            if line.startswith("target")
+        ]
+        self.assertEqual(starts, [0, 34, 67, 100])
+        starts = [
+            int(line[10:20])
+            for line in alignment.format("", line_width=21).splitlines()
+            if line.startswith("target")
+        ]
+        # Column i shows nucleotide i, so the residue count rounds up; the
+        # blocks after those 300 hold only the end coordinates.
+        self.assertEqual(starts[:300], [-(i // -3) for i in range(300)])
+        self.assertEqual(set(starts[300:]), {100})
+        # On the reverse strand as well:
+        alignment = Align.Alignment(
+            ["M" * 100, "CAT" * 100], np.array([[0, 100], [300, 0]])
+        )
+        starts = [
+            int(line.split()[1])
+            for line in alignment.format("", line_width=120).splitlines()
+            if line.startswith("target")
+        ]
+        self.assertEqual(starts, [0, 34, 67, 100])
+
+    def test_multiple(self):
+        sequences = [self.s1[:70], self.s1[:70], self.s1[:70]]
+        coordinates = np.array([[0, 70], [0, 70], [0, 70]])
+        alignment = Align.Alignment(sequences, coordinates)
+        self.assertEqual(
+            alignment.format("", line_width=50),
+            """\
+                  0 ATGCGGAGCTTTCGAGCGACGTTTGGCTTT
+                  0 ATGCGGAGCTTTCGAGCGACGTTTGGCTTT
+                  0 ATGCGGAGCTTTCGAGCGACGTTTGGCTTT
+
+                 30 GACGACGGAATGCGGAGCTTTCGAGCGACG
+                 30 GACGACGGAATGCGGAGCTTTCGAGCGACG
+                 30 GACGACGGAATGCGGAGCTTTCGAGCGACG
+
+                 60 TTTGGCTTTG 70
+                 60 TTTGGCTTTG 70
+                 60 TTTGGCTTTG 70
+""",
+        )
+
+    def test_smallest_width(self):
+        text = self.alignment.format("", line_width=21)
+        lines = text.splitlines()
+        self.assertEqual(
+            lines[:3],
+            ["target            0 A", "                  0 |", "query             0 A"],
+        )
+        self.assertTrue(all(len(line) <= 21 for line in lines))
+
+    def test_invalid_width(self):
+        for width in (-1, 0, 1, 20):
+            with self.assertRaisesRegex(ValueError, "line_width must be at least 21"):
+                self.alignment.format("", line_width=width)
+        for width in (80.0, "80", True, None):
+            with self.assertRaisesRegex(TypeError, "line_width must be an integer"):
+                self.alignment.format("", line_width=width)
+
+    def test_file_format(self):
+        # line_width belongs to the human-readable format only; a file format
+        # writer rejects it rather than ignoring it.
+        with self.assertRaises(TypeError):
+            self.alignment.format("fasta", line_width=60)
+
+    def test_unknown_arguments(self):
+        # A misspelt keyword, or a stray positional argument, raises instead
+        # of silently giving the default 80-column output.
+        with self.assertRaisesRegex(TypeError, "'line_widht'"):
+            self.alignment.format("", line_widht=120)
+        with self.assertRaisesRegex(TypeError, "positional argument"):
+            self.alignment.format("", 120)
+        matrix = Align.substitution_matrices.load("BLOSUM62")
+        self.assertEqual(
+            self.alignment.format("", matrix), self.alignment.format("", scoring=matrix)
+        )
+
+
 class TestAlign_mapall(unittest.TestCase):
     def test_mapall(self):
         assemblies = (
