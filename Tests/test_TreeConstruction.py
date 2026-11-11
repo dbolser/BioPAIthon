@@ -205,6 +205,23 @@ class DistanceCalculatorTest(unittest.TestCase):
         self.assertEqual(dmat["Alpha", "Alpha"], 0.0)
         self.assertAlmostEqual(dmat["Alpha", "Gamma"], 4.0 / 5.0)
 
+    def test_matrix_distance_can_exceed_one(self):
+        # A substitution-matrix distance is 1 - score / max_score, so it is
+        # above 1 whenever the alignment score is negative. This pins the
+        # documented behaviour; capping at 1 (biopython/biopython#5348) was
+        # not adopted (biopython/biopython#5341).
+        for model, seq1, seq2, distance in (
+            ("identity", "AAAA", "CCCC", 1.0),
+            ("blastn", "AAAA", "CCCC", 1 + 16 / 20),
+            ("megablast", "AAAA", "CCCC", 1 + 8 / 4),
+            ("blosum62", "WWWW", "GGGG", 1 + 8 / 44),
+        ):
+            with self.subTest(model=model):
+                fasta = f">one\n{seq1}\n>two\n{seq2}\n"
+                aln = Align.read(StringIO(fasta), "fasta")
+                dm = DistanceCalculator(model).get_distance(aln)
+                self.assertAlmostEqual(dm["one", "two"], distance)
+
     def test_identity_skip_letters(self):
         # Identical sequences containing gap columns; skipped positions
         # must not inflate the distance (biopython/biopython#5332).
