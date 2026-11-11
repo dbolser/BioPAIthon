@@ -383,12 +383,13 @@ class DistanceCalculator:
     (no letter in common). With a substitution matrix, the score sums the
     matrix entries for each pair of letters, and ``max_score`` is the higher
     of the two sequences' scores against themselves. Identical sequences
-    still give 0, but a negative score gives a distance above 1, and there is
+    give 0, unless their score against themselves is 0, in which case the
+    distance is 1. A negative score gives a distance above 1, and there is
     no fixed upper limit: it depends on the matrix (3 for 'megablast' on
-    AAAA against CCCC). Distances are not capped at 1. In the 'blastn' and
-    'megablast' matrices some ambiguity codes, such as S and W, score
-    negatively against themselves, so two sequences made only of such
-    letters can even give a distance below 0.
+    AAAA against CCCC). Distances are not capped at 1. In the 'blastn'
+    (NUC.4.4) and 'megablast' matrices the ambiguity codes (S, W, N and so
+    on) all score negatively against themselves, so two sequences made only
+    of such letters can even give a distance below 0.
 
     Examples
     --------
@@ -529,12 +530,12 @@ class DistanceCalculator:
     def _pairwise(self, seq1, seq2):
         """Calculate pairwise distance from two sequences (PRIVATE).
 
-        Returns ``1 - score / max_score``, which is 0 for identical
-        sequences, and 1 when ``max_score`` is 0 (for example when every
-        column is skipped, or seq1 is an empty string). With the 'identity' model it is at most 1. With a
-        substitution matrix it is above 1 whenever the score is negative,
-        and it can be below 0 when ``max_score`` is negative (see the class
-        docstring).
+        Returns ``1 - score / max_score``. That is 1 when ``max_score`` is 0
+        (for example when every column is skipped, or seq1 is an empty
+        string), and otherwise 0 for identical sequences. With the
+        'identity' model it is at most 1. With a substitution matrix it is
+        above 1 whenever the score is negative, and it can be below 0 when
+        ``max_score`` is negative (see the class docstring).
         """
         score = 0
         max_score = 0
