@@ -65,7 +65,8 @@ refused these rows with a ``ValueError`` (in Biopython 1.88, a bare
 ``Bio.SearchIO``, although ``Bio.Align.parse(..., "psl")`` already read it.
 It now accepts a row whose columns follow either rule and issues a
 ``BiopythonParserWarning`` when only BLAT's rule fits; a row that fits
-neither is still refused. Note what the warning is about: the ``HSP`` keeps
+neither, or whose columns give qStart > qEnd or tStart > tEnd, is still
+refused. Note what the warning is about: the ``HSP`` keeps
 its documented meaning, so ``query_start``, ``query_end``, ``hit_start`` and
 ``hit_end`` give the smallest and largest fragment coordinates and may
 differ from the row's columns (for the reported row, ``query_end`` is 1073
@@ -73,7 +74,10 @@ where qEnd is 1072). Each fragment's coordinates, strand and span are
 exactly those of its block, and agree with what ``Bio.Align`` reads from
 the same row. The ``blat-psl`` writer now writes those four columns by
 BLAT's rule too, so such a row is written back unchanged; for any other
-row the two rules give the same numbers and the output is as before. This
+row the two rules give the same numbers and the output is as before. If
+BLAT's rule would give start > end, as for an ``HSP`` built by hand with its
+fragments in another order, the writer uses the smallest and largest
+coordinates, as it did before. This
 is an upstream defect, also in Biopython 1.88 (biopython/biopython#4196);
 the fix was written by the fork.
 

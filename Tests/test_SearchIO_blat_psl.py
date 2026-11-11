@@ -15,6 +15,9 @@ from Bio import BiopythonParserWarning
 from Bio.SearchIO import parse
 from Bio.SearchIO import read
 from Bio.SearchIO import write
+from Bio.SearchIO._model import HSP
+from Bio.SearchIO._model import Hit
+from Bio.SearchIO._model import QueryResult
 
 # test case files are in the Blast directory
 TEST_DIR = support.DATA / "Blat"
@@ -1345,11 +1348,13 @@ class BlatPslBackwardsBlocks(unittest.TestCase):
         with open(self.path) as handle:
             self.row = handle.read().splitlines()[-1]
 
-    def read(self, text):
-        """Parse one PSL row, checking it warns, and return its HSP."""
+    def read(self, text, column):
+        """Parse one PSL row, checking it warns about column, return its HSP."""
         with self.assertWarns(BiopythonParserWarning) as cm:
             self.qresult = read(StringIO(text), FMT)
-        self.assertIn("blocks that run backwards", str(cm.warning))
+        message = str(cm.warning)
+        self.assertIn("blocks that run backwards", message)
+        self.assertTrue(message.endswith(": " + column), message)
         return self.qresult[0][0]
 
     def write(self):
@@ -1370,7 +1375,7 @@ class BlatPslBackwardsBlocks(unittest.TestCase):
         self.assertEqual(format(alignment, "psl").rstrip("\n"), text)
 
     def test_plus_strand(self):
-        hsp = self.read(self.row)
+        hsp = self.read(self.row, "qEnd 1072 but HSP.query_end 1073")
         self.assertEqual(len(hsp), 18)
         self.assertEqual(hsp.query_range, (188, 1073))
         self.assertEqual(hsp.hit_range, (188, 1509))
@@ -1399,13 +1404,71 @@ class BlatPslBackwardsBlocks(unittest.TestCase):
         cols[8] = "-"
         cols[11:13] = ["80", "964"]
         row = "\t".join(cols)
-        hsp = self.read(row)
+        hsp = self.read(row, "qStart 80 but HSP.query_start 79")
         self.assertEqual(hsp.query_range, (79, 964))
         self.assertEqual(set(hsp.query_strand_all), {-1})
         self.assertEqual(hsp[0].query_range, (931, 964))
         self.assertEqual(hsp[15].query_range, (79, 158))
         self.assertEqual(self.write(), row)
         self.assert_same_blocks(hsp, row)
+
+    def test_reversed_columns_refused(self):
+        # Listing every block in reverse order makes BLAT's rule give
+        # qStart > qEnd and tStart > tEnd. That is not valid PSL, so it
+        # must still raise rather than warn.
+        with open(TEST_DIR / "psl_34_004.psl") as handle:
+            row = handle.read().splitlines()[8]
+        cols = row.split("\t")
+        self.assertEqual(cols[18:21], ["6,38,", "1,11,", "183925984,183925990,"])
+        cols[11:13] = ["11", "7"]
+        cols[15:17] = ["183925990", "183925990"]
+        cols[18:21] = ["38,6,", "11,1,", "183925990,183925984,"]
+        with self.assertRaisesRegex(ValueError, "has qStart 11, but its blocks"):
+            read(StringIO("\t".join(cols)), FMT)
+
+    def test_write_reordered_fragments(self):
+        # An HSP built by hand may list the fragments of a minus-strand
+        # query in another order. BLAT's rule would then give qStart > qEnd,
+        # so the writer uses the smallest and largest coordinates instead.
+        qresult = next(parse(TEST_DIR / "psl_34_004.psl", FMT))
+        hit = qresult["chr4"]
+        hsp = hit[0]
+        self.assertEqual(len(hsp), 2)
+        self.assertEqual(hsp[0].query_strand, -1)
+        reordered = HSP(list(reversed(hsp.fragments)))
+        for attr in (
+            "match_num",
+            "mismatch_num",
+            "match_rep_num",
+            "n_num",
+            "query_gapopen_num",
+            "query_gap_num",
+            "hit_gapopen_num",
+            "hit_gap_num",
+            "_has_hit_strand",
+        ):
+            setattr(reordered, attr, getattr(hsp, attr))
+        new_hit = Hit([reordered])
+        new_hit.seq_len = hit.seq_len
+        new_qresult = QueryResult([new_hit], qresult.id)
+        new_qresult.seq_len = qresult.seq_len
+        handle = StringIO()
+        write(new_qresult, handle, FMT)
+        cols = handle.getvalue().splitlines()[-1].split("\t")
+        self.assertEqual(
+            cols[8:17],
+            [
+                "-",
+                "hg19_dna",
+                "50",
+                "11",
+                "49",
+                "chr4",
+                "191154276",
+                "37558157",
+                "37558191",
+            ],
+        )
 
 
 if __name__ == "__main__":

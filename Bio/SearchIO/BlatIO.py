@@ -84,8 +84,11 @@ and the end of the last block. HSP objects report the smallest and largest
 coordinates of their fragments instead. The two agree unless the blocks run
 backwards, as some BLAT -prot alignments do. BlatIO accepts such a row with a
 BiopythonParserWarning, so its HSP may report, for example, a query_end one
-larger than the row's Q end. When writing, BlatIO follows BLAT's rule, so the
-row is written back unchanged.
+larger than the row's Q end. A row whose columns give Q start > Q end or
+T start > T end is still refused. When writing, BlatIO follows BLAT's rule, so
+the row is written back unchanged; if that rule gives start > end, as it can
+for an HSP built with its fragments in another order, BlatIO writes the
+smallest and largest coordinates instead.
 
 BlatIO provides the following attribute-column mapping:
 
@@ -434,6 +437,8 @@ def _create_hsp(hid, qid, psl):
         psl["tsize"],
         hstrand,
     )
+    # BLAT's rule is only trusted when the columns still form valid intervals
+    valid = psl["qstart"] <= psl["qend"] and psl["tstart"] <= psl["tend"]
     backwards = []
     for column, attr, from_blocks, from_blat in (
         ("qStart", "query_start", hsp.query_start, query_blat[0]),
@@ -444,7 +449,7 @@ def _create_hsp(hid, qid, psl):
         value = psl[column.lower()]
         if from_blocks == value:
             continue
-        if from_blat != value:
+        if from_blat != value or not valid:
             raise ValueError(
                 f"PSL row for query {qid!r} and hit {hid!r} has {column}"
                 f" {value}, but its blocks give {from_blocks}"
@@ -806,12 +811,19 @@ class BlatPslWriter:
 
                 # BLAT's rule: first block start, last block end. This is
                 # hsp.query_start and so on unless the blocks run backwards.
+                # An HSP built by hand may list its fragments in another
+                # order; if BLAT's rule then gives no valid interval, fall
+                # back to the smallest and largest coordinates.
                 query_start, query_end = _first_last_span(
                     qstarts, block_sizes, qresult.seq_len, hsp[0].query_strand
                 )
+                if query_start > query_end:
+                    query_start, query_end = hsp.query_start, hsp.query_end
                 hit_start, hit_end = _first_last_span(
                     hstarts, hsp.hit_span_all, hit.seq_len, hstrand
                 )
+                if hit_start > hit_end:
+                    hit_start, hit_end = hsp.hit_start, hsp.hit_end
 
                 line.append(strand)
                 line.append(qresult.id)
