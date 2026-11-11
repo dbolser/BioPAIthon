@@ -45,6 +45,51 @@ request.
 
 Newest first.
 
+### [#5381](https://github.com/biopython/biopython/pull/5381) — Shubhodeep Chatterjee (shubhodeepcx)
+
+For upstream issue
+[#4661](https://github.com/biopython/biopython/issues/4661). Adds a
+`write_ter` keyword to `PDBIO.save`, named to match `write_end`. With the
+default, `True`, the output is unchanged; with `False`, no `TER` records are
+written. The pull request also documents `write_end` in the `save` docstring.
+The licence box is ticked.
+
+**The single commit taken** (`0fea882b4`, cherry-picked with `-x`), plus one
+fork commit on top. The cherry-pick conflicted in `Bio/PDB/PDBIO.py` and
+`NEWS.rst`, both because of the earlier #5391 adoption (entry below). In the
+docstring it kept the #5391 text for `preserve_atom_numbering` and took the
+pull request's `write_end` and `write_ter` text; in the code it put the
+`write_ter` guard on the block that #5391 extended, so the `TER` serial check
+and the increment after `TER` are both skipped without `TER`. Its `NEWS.rst`
+paragraph and contributor line were for upstream's in-progress 1.89 section,
+which in this tree is preserved upstream history, so they were left out and
+the fork's own section has a new paragraph. Its `CONTRIB.rst` line was already
+there from an earlier adoption.
+
+**What the fork commit changes, and why.** The pull request was written
+before #5391, when `TER` shared the serial of the next atom, so its test
+asserted that leaving `TER` out changes nothing else. Since #5391 each `TER`
+takes a serial of its own, so there were two choices: close the gaps, or keep
+the default numbers with holes where the `TER` lines were. The fork's owner
+chose to close them (2026-11-11): atoms are numbered consecutively in each
+model, which is what other tools do and what the merged code already did.
+Checked over the 12 PDB fixtures Biopython 1.88 can read: `write_ter=False`
+output is byte for byte the 1.88 default output minus its `TER` lines. The
+pull request's test also had the same name as the #5391 test in the same
+class, so it was silently shadowed and never ran, and it opened `PDB/1LCD.pdb`
+relative to the current directory. The fork commit replaces it with tests
+named apart, reading through `support.DATA`: the round trip with and without
+`TER` over 1LCD (three models of three chains), consecutive serials,
+`preserve_atom_numbering=True` with `write_ter=False`, and the serial limit (a
+model of 99,999 atoms is written without `TER`, and one more atom raises). It
+also adds two sentences on numbering to the `write_ter` docstring.
+
+There were no reviews upstream. peterjc asked on 2026-10-18 whether AI was
+used; the author pinged JoaoRodrigues. The earlier attempts,
+[#4663](https://github.com/biopython/biopython/pull/4663) and
+[#4664](https://github.com/biopython/biopython/pull/4664), are closed and
+nothing was taken from them.
+
 ### [#5323](https://github.com/biopython/biopython/pull/5323) — Cornelius Roemer (corneliusroemer)
 
 For upstream issue
@@ -1297,7 +1342,7 @@ TER. I think this is OK, weird, but OK." That happens with
 `TER`, as in the fixtures above; it is what the second correction documents.
 The default numbering no longer does it.
 
-**Related, not taken here:**
+**Related, not taken here** (since adopted, see its entry above):
 [#5381](https://github.com/biopython/biopython/pull/5381) by Shubhodeep
 Chatterjee adds a `write_ter` keyword to `PDBIO.save` (upstream issue
 [#4661](https://github.com/biopython/biopython/issues/4661)). It edits the
