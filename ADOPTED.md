@@ -70,9 +70,9 @@ there from an earlier adoption.
 before #5391, when `TER` shared the serial of the next atom, so its test
 asserted that leaving `TER` out changes nothing else. Since #5391 each `TER`
 takes a serial of its own, so there were two choices: close the gaps, or keep
-the default numbers with holes where the `TER` lines were. The fork's owner
-chose to close them (2026-11-11): atoms are numbered consecutively in each
-model, which is what other tools do and what the merged code already did.
+the default numbers with holes where the `TER` lines were. The fork closes
+them: atoms are numbered consecutively in each model, which is what the merged
+code already did.
 Checked over the 12 PDB fixtures Biopython 1.88 can read: `write_ter=False`
 output is byte for byte the 1.88 default output minus its `TER` lines. The
 pull request's test also had the same name as the #5391 test in the same

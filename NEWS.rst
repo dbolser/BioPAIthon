@@ -59,11 +59,11 @@ and the default branch is now ``main`` rather than ``master``.
 writes exactly what it wrote before. With ``write_ter=False`` no ``TER``
 records are written, for tools that do not expect them, and in the default
 numbering the atom serial numbers run on from 1 in each model with no gap
-where each ``TER`` would have been, as other tools number such files (and as
-Biopython 1.88 numbered its atoms). With ``preserve_atom_numbering=True`` the
-stored serials are written unchanged. A model of up to 99,999 atoms fits
-without ``TER`` records even where its ``TER`` serials would have passed the
-limit; one more atom still raises ``PDBIOException``. For upstream issue
+where each ``TER`` would have been, as Biopython 1.88 numbered its atoms.
+With ``preserve_atom_numbering=True`` the stored serials are written unchanged.
+A model of up to 99,999 atoms fits without ``TER`` records even where its
+``TER`` serials would have passed the limit; one more atom still raises
+``PDBIOException``. For upstream issue
 biopython/biopython#4661, adopted from biopython/biopython#5381 by Shubhodeep
 Chatterjee; see ``ADOPTED.md``.
 
