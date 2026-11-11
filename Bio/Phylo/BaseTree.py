@@ -974,6 +974,33 @@ class Tree(TreeElement, TreeMixin):
             # Outgroup is the current root -- no change
             return
 
+        # If the original root is bifurcating, its two branches will merge
+        # into one for one split. Check their supports now, before the tree
+        # is changed, so that a warning turned into an error (for example
+        # with -W error) leaves the tree as it was.
+        old_root = self.root
+        if len(old_root) == 2:
+            moved = outgroup_path[0]
+            ingroup = (
+                old_root.clades[1]
+                if old_root.clades[0] is moved
+                else old_root.clades[0]
+            )
+            kept, dropped = ingroup._support, moved._support
+            if (
+                kept is not None
+                and dropped is not None
+                and _support_key(kept) != _support_key(dropped)
+            ):
+                warnings.warn(
+                    "The two branches of the original root carry different "
+                    "support values for the same split. Rerooting merges them "
+                    f"into one branch, keeping {_support_text(kept)} "
+                    f"and dropping {_support_text(dropped)}.",
+                    BiopythonWarning,
+                    stacklevel=3,
+                )
+
         prev_blen = outgroup.branch_length or 0.0
         # Support belongs to the branch above a clade, like its length, so it
         # is carried down the reversed path in step with prev_blen.
@@ -1030,7 +1057,6 @@ class Tree(TreeElement, TreeMixin):
             new_parent = parent
 
         # Finally, handle the original root according to number of descendents
-        old_root = self.root
         if outgroup in old_root.clades:
             assert len(outgroup_path) == 1
             old_root.clades.pop(old_root.clades.index(outgroup))
@@ -1046,22 +1072,11 @@ class Tree(TreeElement, TreeMixin):
             # The old root's two branches, now merged, made the same split, so
             # only one support can stay. Keep the ingroup's own, since its
             # clade is not moved and so keeps the label it had; take the other
-            # branch's only if the ingroup has none. If both are set and
-            # differ, the input gave one split two values, and one is lost,
-            # so say so.
+            # branch's only if the ingroup has none. prev_support is the
+            # original support of outgroup_path[0], so a conflict here was
+            # warned about above, before the tree was changed.
             if ingroup._support is None:
                 ingroup._support = prev_support
-            elif prev_support is not None and _support_key(
-                ingroup._support
-            ) != _support_key(prev_support):
-                warnings.warn(
-                    "The two branches of the original root carry different "
-                    "support values for the same split. Rerooting merges them "
-                    f"into one branch, keeping {_support_text(ingroup._support)} "
-                    f"and dropping {_support_text(prev_support)}.",
-                    BiopythonWarning,
-                    stacklevel=3,
-                )
             if new_parent is new_root and new_root is not outgroup:
                 # The outgroup was a child of the old root and the new root
                 # sits on that same merged branch, so the outgroup's half

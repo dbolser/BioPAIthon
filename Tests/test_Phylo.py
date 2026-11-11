@@ -998,6 +998,29 @@ class RerootSupportTests(unittest.TestCase):
             warnings.simplefilter("error")
             tree.root_at_midpoint()
 
+    def test_old_root_conflict_as_error_leaves_tree(self):
+        """A conflict warning turned into an error leaves the tree unchanged."""
+        newick = "((A:1,B:5)90:1,(C:1,D:1)80:1);"
+        for reroot in (
+            lambda tree: tree.root_with_outgroup("A"),
+            lambda tree: tree.root_with_outgroup("A", "B"),
+            lambda tree: tree.root_with_outgroup("C", outgroup_branch_length=0.5),
+            lambda tree: tree.root_at_midpoint(),
+        ):
+            tree = Phylo.read(StringIO(newick), "newick")
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", BiopythonWarning)
+                with self.assertRaises(BiopythonWarning):
+                    reroot(tree)
+            self.assertEqual(
+                [leaf.name for leaf in tree.get_terminals()], ["A", "B", "C", "D"]
+            )
+            self.assertEqual(tree.total_branch_length(), 10)
+            self.assertEqual(tree.distance("A", "D"), 4)
+            self.assertEqual(tree.common_ancestor("A", "B").confidence, 90)
+            self.assertEqual(tree.common_ancestor("C", "D").confidence, 80)
+            self.assertIs(tree.root, tree.common_ancestor("A", "C"))
+
     def test_old_root_conflict_warns_phyloxml(self):
         """PhyloXML supports differ if their values or their types differ."""
         xml = """\
