@@ -45,6 +45,46 @@ request.
 
 Newest first.
 
+### [#5323](https://github.com/biopython/biopython/pull/5323) — Cornelius Roemer (corneliusroemer)
+
+For upstream issue
+[#5319](https://github.com/biopython/biopython/issues/5319). The EMBL
+writer warned "Non-standard molecule type" on eight `mol_type` values that
+INSDC lists (feature table definition v11.3): genomic RNA, tRNA, rRNA,
+other RNA, other DNA, transcribed RNA, viral cRNA and unassigned RNA. The
+pull request adds them, drops DNA, RNA and protein from the quiet list
+because INSDC no longer lists them, and rewords the warning to point at
+the INSDC list.
+
+**One of the two commits taken** (`59ee7335f`, cherry-picked with `-x`;
+it applied cleanly).
+
+**Left behind:** `a5a5467af`, which adds the author to `CONTRIB.rst` and
+a thanks line to upstream's 1.89 `NEWS.rst` section; neither hunk applies
+here. The fork added him to `CONTRIB.rst` itself.
+
+**Changed by the fork:** DNA, RNA and protein stay quiet, by the fork
+owner's decision. They are the values Biopython's own GenBank parser and
+old-style EMBL ID lines produce, so with the pull request as written 24
+fork tests (GenBank and old-EMBL round trips) hit the warning, and users
+converting GenBank to EMBL would see it with nothing they could change.
+The output is the same either way. The warning keeps its old
+"Non-standard molecule type:" prefix, so existing warning filters match,
+with upstream's pointer to the list added; the comment's "Ocober" typo is
+fixed. Regression test and `NEWS.rst` entry by the fork. Expect a
+one-tuple conflict if upstream merges the pull request as it stands.
+
+**Checked:** the new test fails on fork main for exactly the eight values
+(and for the reworded message) and passes here; the `Bio.SeqIO` and
+`Bio.GenBank` test modules pass, also with the warning made an error.
+
+**Upstream status:** as of 2026-11-11 the pull request is open and not
+merged, with changes requested (silence the warnings in `test_GenBank`;
+the typo). No author commits since 2026-09-18. The licence box is ticked
+(`[x]`). Issue #5319 is open; peterjc favours adding the values and
+possibly still warning on the older short forms. #5320, the predecessor,
+was closed.
+
 ### [#5328](https://github.com/biopython/biopython/pull/5328) — Lucio Montero (Lucioric2000)
 
 For upstream issue
